@@ -36,11 +36,11 @@ namespace Vision.EditorTools
             RenderSettings.ambientLight = new Color(0.30f, 0.30f, 0.32f);
             RenderSettings.fog = false;
 
-            // Camera: orthographic, ~80° pitch, black background.
+            // Camera: orthographic, ~70° pitch, black background.
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
-            cam.orthographicSize = 9f;
+            cam.orthographicSize = 7.2f;
             cam.nearClipPlane = 0.3f;
             cam.farClipPlane = 100f;
             cam.clearFlags = CameraClearFlags.SolidColor;
@@ -49,7 +49,7 @@ namespace Vision.EditorTools
             var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
             camData.renderPostProcessing = true;
             var rig = camGo.AddComponent<TopDownCamera>();
-            camGo.transform.rotation = Quaternion.Euler(80f, 0f, 0f);
+            camGo.transform.rotation = Quaternion.Euler(70f, 0f, 0f);
 
             var composite = camGo.AddComponent<VisionComposite>();
             composite.targetCamera = cam;
@@ -102,7 +102,7 @@ namespace Vision.EditorTools
         }
 
         /// <summary>
-        /// The ortho camera sits ~20 m above the ground, so one cascade over a short distance puts all the
+        /// The ortho camera sits ~15 m above the ground, so one cascade over a short distance puts all the
         /// shadow-map resolution on the diorama instead of on empty air near the camera.
         /// </summary>
         static void ConfigureShadows()

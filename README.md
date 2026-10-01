@@ -1,7 +1,7 @@
 # unity-vision
 
 Single-player Unity foundation for a top-down 2.5D horror game. Scope is only the **lighting,
-perspective and world geometry**: an orthographic, ~80° pitch camera over a stylized, flat-shaded
+perspective and world geometry**: an orthographic, ~70° pitch camera over a stylized, flat-shaded
 low-poly diorama built from triangle meshes, lit by a 3D port of the 2D visibility-polygon
 illumination system.
 
