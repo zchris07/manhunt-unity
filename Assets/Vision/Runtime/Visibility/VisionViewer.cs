@@ -1,0 +1,36 @@
+using UnityEngine;
+
+namespace Vision.Visibility
+{
+    /// <summary>
+    /// The player's own vision: flashlight cone, proximity circle, 360° line of sight and the optional
+    /// see-through cone. Everything here is drawn into the mask's B channel except line of sight (G).
+    /// </summary>
+    public sealed class VisionViewer : MonoBehaviour
+    {
+        [Header("Flashlight cone")]
+        [Range(5f, 90f)] public float coneHalfAngleDeg = 50f;
+        public float coneRange = 18f;
+        [Range(0f, 1f)] public float coneFalloffStart = 0.45f;
+
+        [Header("Proximity circle")]
+        public float proximityRadius = 1.8f;
+        [Range(0f, 1f)] public float proximityFalloffStart = 0.55f;
+
+        [Header("360° line of sight (never lights anything itself)")]
+        public float lineOfSightRange = 30f;
+
+        [Header("See-through cone (ignores occluders)")]
+        public bool seeThroughEnabled;
+        [Range(5f, 90f)] public float seeThroughHalfAngleDeg = 22f;
+        public float seeThroughRange = 8f;
+        [Range(0f, 1f)] public float seeThroughStrength = 0.7f;
+
+        /// <summary>Facing on the ground plane, set by the controller.</summary>
+        public Vector2 Facing { get; set; } = Vector2.up;
+
+        public Vector2 PlanePosition => VisionWorld.ToPlane(transform.position);
+
+        public float FacingAngle => Mathf.Atan2(Facing.y, Facing.x);
+    }
+}
