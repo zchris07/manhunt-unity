@@ -25,9 +25,9 @@ namespace Vision.EditorTools
         public static void CreateSandbox()
         {
             ConfigureShadows();
-            Material voxel = MakeMaterial("Voxel", 0f, false);
-            Material entity = MakeMaterial("VoxelEntity", 0f, true);
-            Material glow = MakeMaterial("VoxelGlow", 0.6f, false);
+            Material lowPoly = MakeMaterial("LowPoly", 0f, false);
+            Material entity = MakeMaterial("LowPolyEntity", 0f, true);
+            Material glow = MakeMaterial("LowPolyGlow", 0.6f, false);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -76,7 +76,7 @@ namespace Vision.EditorTools
 
             var worldGo = new GameObject("Sandbox World");
             var world = worldGo.AddComponent<SandboxWorld>();
-            world.voxelMaterial = voxel;
+            world.lowPolyMaterial = lowPoly;
             world.entityMaterial = entity;
             world.glowMaterial = glow;
             world.cameraRig = rig;
@@ -127,10 +127,10 @@ namespace Vision.EditorTools
             if (mat == null)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                mat = new Material(Shader.Find("Vision/Voxel"));
+                mat = new Material(Shader.Find("Vision/LowPoly"));
                 AssetDatabase.CreateAsset(mat, path);
             }
-            mat.shader = Shader.Find("Vision/Voxel");
+            mat.shader = Shader.Find("Vision/LowPoly");
             mat.SetFloat("_Emission", emission);
             mat.SetFloat("_Entity", entity ? 1f : 0f);
             if (entity) mat.EnableKeyword("_VISION_ENTITY");

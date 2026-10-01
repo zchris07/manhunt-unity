@@ -1,8 +1,9 @@
 # unity-vision
 
 Single-player Unity foundation for a top-down 2.5D horror game. Scope is only the **lighting,
-perspective and world geometry**: an orthographic, ~80° pitch camera over a flat-shaded, low-poly
-voxel diorama, lit by a 3D port of the 2D visibility-polygon illumination system.
+perspective and world geometry**: an orthographic, ~80° pitch camera over a stylized, flat-shaded
+low-poly diorama built from triangle meshes, lit by a 3D port of the 2D visibility-polygon
+illumination system.
 
 Unity **6000.6.3f1**, URP 17 (Render Graph), Input System. Open `Assets/Vision/Scenes/VisionSandbox.unity`
 and press Play.
@@ -51,15 +52,18 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
 
    The mask is sampled slightly along each surface's normal, so a wall face picks up the light on its
    side.
-4. **Entity occlusion** (`Shaders/Voxel.shader`, "Entity" toggle). Dynamic objects discard every
+4. **Entity occlusion** (`Shaders/LowPoly.shader`, "Entity" toggle). Dynamic objects discard every
    fragment where channel **B alone** is below a hard threshold. They are invisible outside your own
    light even when standing in a campfire's glow, and they cast no shadows. Static terrain is never
    culled.
 
-The world (`Runtime/World/`) is generated procedurally on Play: flat-shaded voxel meshes with per-face
-normals and sRGB vertex colours converted to linear. It includes dead trees, rocks, plank and stone
-walls, a cabin with a door and shutter, campfires, lanterns, crows, one wandering figure and the
-player.
+The world (`Runtime/World/`) is generated procedurally on Play from flat triangles.
+`LowPolyMeshBuilder` gives every triangle its own vertices, face normal and slightly jittered
+colour, with sRGB vertex colours converted to linear. Its primitives are faceted tubes and cones,
+jittered icospheres, irregular hexahedra and a jittered, triangulated ground grid. `LowPolyModels`
+builds the props from them: gnarled dead trees, boulders, plank and stone walls, doors and shutters,
+crates, campfires, lanterns, crows and the humanoid player and wandering figure. The models use the
+same footprints as the colliders and occluders.
 
 ## Commands
 
@@ -73,7 +77,8 @@ Regenerates the materials, the scene and the URP shadow settings (also in the **
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 13 EditMode tests: visibility polygons, doors, spatial hash and voxel meshing.
+Runs the 20 EditMode tests: visibility polygons, doors, spatial hash, triangle winding and normals,
+model sizes and determinism.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindows

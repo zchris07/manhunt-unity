@@ -1,13 +1,13 @@
-// Flat-shaded voxel / low-poly material. Colour comes from vertex colours; normals are per-face
+// Flat-shaded low-poly material. Colour comes from vertex colours; normals are per-face
 // (meshes duplicate vertices), so lighting is faceted. Main light only, quantised into a few steps.
 // With "Entity" enabled the object is a dynamic entity: fragments outside the viewer's own light
 // (mask channel B below _VisionEntityThreshold) are discarded, so it is invisible in the dark.
-Shader "Vision/Voxel"
+Shader "Vision/LowPoly"
 {
     Properties
     {
         _Tint ("Tint", Color) = (1, 1, 1, 1)
-        _RampSteps ("Light Ramp Steps", Float) = 3
+        _RampSteps ("Light Ramp Steps", Float) = 4
         _Emission ("Emission (vertex colour)", Range(0, 2)) = 0
         [Toggle(_VISION_ENTITY)] _Entity ("Entity (hidden outside the viewer's light)", Float) = 0
     }

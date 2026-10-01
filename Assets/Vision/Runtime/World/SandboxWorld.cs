@@ -19,7 +19,7 @@ namespace Vision.World
         public float halfExtent = 20f;
 
         [Header("Materials")]
-        public Material voxelMaterial;
+        public Material lowPolyMaterial;
         public Material entityMaterial;
         public Material glowMaterial;
 
@@ -63,64 +63,62 @@ namespace Vision.World
 
         void BuildGround()
         {
-            var b = new FlatMeshBuilder();
-            const float tile = 0.25f;
+            var b = new LowPolyMeshBuilder(rng);
             float e = halfExtent + 4f;
             var ash = new Color(0.52f, 0.48f, 0.42f);
             var moss = new Color(0.30f, 0.34f, 0.25f);
             var mud = new Color(0.27f, 0.23f, 0.19f);
             var floor = new Color(0.33f, 0.25f, 0.18f);
-            for (float z = -e; z < e; z += tile)
-            {
-                for (float x = -e; x < e; x += tile)
+            // The cabin floor (and a margin around it) stays flat and regular so its planks line up with the walls.
+            var flatZone = new Rect(Cabin.x - 0.5f, Cabin.y - 0.5f, Cabin.width + 1f, Cabin.height + 1f);
+
+            b.AddFacetedGround(e, 0.7f,
+                (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : -0.05f * Mathf.PerlinNoise(x * 0.35f + 1f, z * 0.35f + 9f),
+                (x, z) =>
                 {
-                    float cx = x + tile * 0.5f, cz = z + tile * 0.5f;
                     Color c;
-                    if (Cabin.Contains(new Vector2(cx, cz)))
+                    if (Cabin.Contains(new Vector2(x, z)))
                     {
                         // Planks run along X, 0.5 m wide.
-                        c = Vary(floor * (Mathf.FloorToInt(cz / 0.5f) % 2 == 0 ? 1f : 0.85f), 0.03f);
+                        c = floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);
+                        return Vary(c, 0.03f);
                     }
-                    else
-                    {
-                        float forest = Mathf.InverseLerp(-2f, -12f, cx);
-                        float n1 = Mathf.PerlinNoise(cx * 0.08f + 3.1f, cz * 0.08f + 7.7f);
-                        float n2 = Mathf.PerlinNoise(cx * 0.3f + 11f, cz * 0.3f + 5f);
-                        c = Color.Lerp(ash, moss, Mathf.Clamp01(forest * 0.8f + (n1 - 0.5f) * 0.9f));
-                        c = Color.Lerp(c, mud, Mathf.SmoothStep(0f, 1f, (n2 - 0.55f) * 2.5f));
-                        c = Vary(c, 0.035f);
-                    }
-                    b.AddQuad(new Vector3(x, 0f, z), new Vector3(x, 0f, z + tile), new Vector3(x + tile, 0f, z + tile),
-                              new Vector3(x + tile, 0f, z), Vector3.up, c);
-                }
-            }
+                    float forest = Mathf.InverseLerp(-2f, -12f, x);
+                    float n1 = Mathf.PerlinNoise(x * 0.08f + 3.1f, z * 0.08f + 7.7f);
+                    float n2 = Mathf.PerlinNoise(x * 0.3f + 11f, z * 0.3f + 5f);
+                    c = Color.Lerp(ash, moss, Mathf.Clamp01(forest * 0.8f + (n1 - 0.5f) * 0.9f));
+                    c = Color.Lerp(c, mud, Mathf.SmoothStep(0f, 1f, (n2 - 0.55f) * 2.5f));
+                    return Vary(c, 0.06f);
+                },
+                (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : 1f, 0.28f, 0.035f);
 
-            // Dead grass tufts, pebbles and bone-pale debris, merged into the ground mesh.
+            // Dead grass blades, pebbles and bone-pale debris, merged into the ground mesh.
             var grass = new Color(0.36f, 0.36f, 0.26f);
-            for (int i = 0; i < 900; i++)
+            for (int i = 0; i < 700; i++)
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
-                if (Cabin.Contains(p)) continue;
+                if (flatZone.Contains(p)) continue;
                 int blades = 2 + rng.Next(4);
                 for (int k = 0; k < blades; k++)
                 {
-                    float h = Range(0.12f, 0.35f);
-                    var min = new Vector3(p.x + Range(-0.15f, 0.15f), 0f, p.y + Range(-0.15f, 0.15f));
-                    b.AddBox(min, new Vector3(0.04f, h, 0.04f), Vary(grass, 0.15f));
+                    float h = Range(0.15f, 0.38f);
+                    var root = new Vector3(p.x + Range(-0.15f, 0.15f), -0.01f, p.y + Range(-0.15f, 0.15f));
+                    var tip = root + new Vector3(Range(-0.08f, 0.08f), h, Range(-0.08f, 0.08f));
+                    b.AddCone(root, tip, 0.03f, 3, Vary(grass, 0.2f), 0.05f, false);
                 }
             }
-            for (int i = 0; i < 300; i++)
+            for (int i = 0; i < 260; i++)
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
-                if (Cabin.Contains(p)) continue;
+                if (flatZone.Contains(p)) continue;
                 float s = Range(0.05f, 0.14f);
                 bool bone = rng.NextDouble() < 0.25;
-                Color c = bone ? new Color(0.72f, 0.69f, 0.62f) : Vary(VoxelModels.Palette.Stone, 0.2f);
-                Vector3 size = bone ? new Vector3(s * 3f, s * 0.4f, s * 0.6f) : new Vector3(s, s * 0.6f, s);
-                b.AddBox(new Vector3(p.x, 0f, p.y), size, c);
+                Vector3 radii = bone ? new Vector3(s * 1.8f, s * 0.4f, s * 0.5f) : new Vector3(s, s * 0.6f, s);
+                Color c = bone ? new Color(0.72f, 0.69f, 0.62f) : LowPolyModels.Palette.Stone;
+                b.AddBlob(new Vector3(p.x, 0f, p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
             }
 
-            var go = MakeStatic("Ground", b.ToMesh("Ground"), Vector3.zero, Quaternion.identity, voxelMaterial);
+            var go = MakeStatic("Ground", b.ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
             go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             var col = go.AddComponent<BoxCollider>();
             col.center = new Vector3(0f, -0.5f, 0f);
@@ -145,23 +143,23 @@ namespace Vision.World
 
         void StoneWall(Vector2 a, Vector2 b)
         {
-            VoxelModels.Model m = VoxelModels.StoneWall(rng, Vector2.Distance(a, b), 1.2f, 0.6f);
+            Mesh m = LowPolyModels.StoneWall(rng, Vector2.Distance(a, b), 1.2f, 0.6f);
             Wall("Stone Wall", a, b, 1.2f, 0.6f, m, true, true);
         }
 
         void PlankWall(Vector2 a, Vector2 b, float height = 2.4f, bool occludes = true)
         {
-            VoxelModels.Model m = VoxelModels.PlankWall(rng, Vector2.Distance(a, b), height, 0.3f);
+            Mesh m = LowPolyModels.PlankWall(rng, Vector2.Distance(a, b), height, 0.3f);
             Wall("Plank Wall", a, b, height, 0.3f, m, occludes, true);
         }
 
-        GameObject Wall(string name, Vector2 a, Vector2 b, float height, float thickness, VoxelModels.Model m, bool occludes, bool collides)
+        GameObject Wall(string name, Vector2 a, Vector2 b, float height, float thickness, Mesh m, bool occludes, bool collides)
         {
             Vector2 d = b - a;
             float length = d.magnitude;
             Vector2 mid = (a + b) * 0.5f;
             Quaternion rot = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
-            GameObject go = MakeStatic(name, BuildMesh(m, name), new Vector3(mid.x, 0f, mid.y), rot, voxelMaterial);
+            GameObject go = MakeStatic(name, m, new Vector3(mid.x, 0f, mid.y), rot, lowPolyMaterial);
             if (collides)
             {
                 var col = go.AddComponent<BoxCollider>();
@@ -219,12 +217,12 @@ namespace Vision.World
 
             var hinge = new GameObject("Hinge").transform;
             hinge.SetParent(root.transform, false);
-            VoxelModels.Model m = VoxelModels.Panel(rng, width, height, 0.12f);
+            Mesh m = LowPolyModels.Panel(rng, width, height, 0.12f);
             var panel = new GameObject("Panel");
             panel.transform.SetParent(hinge, false);
             panel.transform.localPosition = new Vector3(width * 0.5f, shutter ? 0.8f : 0f, 0f);
-            panel.AddComponent<MeshFilter>().sharedMesh = BuildMesh(m, "Panel");
-            panel.AddComponent<MeshRenderer>().sharedMaterial = voxelMaterial;
+            panel.AddComponent<MeshFilter>().sharedMesh = m;
+            panel.AddComponent<MeshRenderer>().sharedMaterial = lowPolyMaterial;
 
             var blocker = root.AddComponent<BoxCollider>();
             blocker.center = new Vector3(width * 0.5f, 1f, 0f);
@@ -263,9 +261,9 @@ namespace Vision.World
 
             foreach (Vector2 p in trees)
             {
-                VoxelModels.Model m = VoxelModels.DeadTree(rng);
-                GameObject go = MakeStatic("Dead Tree", BuildMesh(m, "Dead Tree"), new Vector3(p.x, 0f, p.y),
-                    Quaternion.Euler(0f, Range(0f, 360f), 0f), voxelMaterial);
+                Mesh m = LowPolyModels.DeadTree(rng);
+                GameObject go = MakeStatic("Dead Tree", m, new Vector3(p.x, 0f, p.y),
+                    Quaternion.Euler(0f, Range(0f, 360f), 0f), lowPolyMaterial);
                 var col = go.AddComponent<CapsuleCollider>();
                 col.radius = 0.32f;
                 col.height = 4f;
@@ -284,9 +282,9 @@ namespace Vision.World
                 if (TooClose(blockedSpots, p, 2f) || Cabin.Overlaps(new Rect(p.x - 1.5f, p.y - 1.5f, 3f, 3f))) continue;
                 if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
                 float radius = Range(0.4f, 0.9f);
-                VoxelModels.Model m = VoxelModels.Rock(rng, radius);
-                GameObject go = MakeStatic("Rock", BuildMesh(m, "Rock"), new Vector3(p.x, 0f, p.y),
-                    Quaternion.Euler(0f, Range(0f, 360f), 0f), voxelMaterial);
+                Mesh m = LowPolyModels.Rock(rng, radius);
+                GameObject go = MakeStatic("Rock", m, new Vector3(p.x, 0f, p.y),
+                    Quaternion.Euler(0f, Range(0f, 360f), 0f), lowPolyMaterial);
                 var col = go.AddComponent<CapsuleCollider>();
                 col.radius = radius * 0.85f;
                 col.height = 2f;
@@ -307,8 +305,8 @@ namespace Vision.World
             Vector2[] fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f) };
             foreach (Vector2 p in fires)
             {
-                VoxelModels.Model m = VoxelModels.Campfire(rng);
-                GameObject go = MakeStatic("Campfire", BuildMesh(m, "Campfire"), new Vector3(p.x, 0f, p.y), Quaternion.identity, glowMaterial);
+                Mesh m = LowPolyModels.Campfire(rng);
+                GameObject go = MakeStatic("Campfire", m, new Vector3(p.x, 0f, p.y), Quaternion.identity, glowMaterial);
                 var light = go.AddComponent<VisionLight>();
                 light.range = 6.5f;
                 light.flickerAmount = 0.25f;
@@ -320,8 +318,8 @@ namespace Vision.World
             Vector2[] lanterns = { new Vector2(6.2f, 2.3f), new Vector2(-7f, 13f), new Vector2(15f, -5f), new Vector2(15.5f, 16f), new Vector2(-15f, -15f), new Vector2(11.5f, 9.5f) };
             foreach (Vector2 p in lanterns)
             {
-                VoxelModels.Model m = VoxelModels.LanternPost(rng);
-                GameObject go = MakeStatic("Lantern", BuildMesh(m, "Lantern"), new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f), glowMaterial);
+                Mesh m = LowPolyModels.LanternPost(rng);
+                GameObject go = MakeStatic("Lantern", m, new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f), glowMaterial);
                 var light = go.AddComponent<VisionLight>();
                 light.range = 4.5f;
                 light.intensity = 0.85f;
@@ -341,8 +339,8 @@ namespace Vision.World
             foreach (Vector2 p in crates)
             {
                 float size = Range(0.7f, 0.9f);
-                VoxelModels.Model m = VoxelModels.Crate(rng, size);
-                GameObject go = MakeStatic("Crate", BuildMesh(m, "Crate"), new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f), voxelMaterial);
+                Mesh m = LowPolyModels.Crate(rng, size);
+                GameObject go = MakeStatic("Crate", m, new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f), lowPolyMaterial);
                 var col = go.AddComponent<BoxCollider>();
                 col.center = new Vector3(0f, size * 0.5f, 0f);
                 col.size = Vector3.one * size;
@@ -359,8 +357,8 @@ namespace Vision.World
             Vector2[] spots = { new Vector2(2f, -7f), new Vector2(4.5f, -9.5f), new Vector2(0.5f, -12f), new Vector2(6f, -3.5f), new Vector2(-3f, -6f), new Vector2(9f, -10f) };
             foreach (Vector2 p in spots)
             {
-                VoxelModels.Model m = VoxelModels.Crow(rng);
-                GameObject go = MakeEntity("Crow", BuildMesh(m, "Crow"), new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                Mesh m = LowPolyModels.Crow(rng);
+                GameObject go = MakeEntity("Crow", m, new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 go.SetActive(true);
                 Crows.Add(go.transform);
             }
@@ -372,8 +370,8 @@ namespace Vision.World
             root.SetActive(false);
             root.transform.SetParent(entityRoot, false);
             root.transform.position = new Vector3(3f, 0f, -3f);
-            VoxelModels.Model m = VoxelModels.Humanoid(rng, VoxelModels.Palette.Rags, VoxelModels.Palette.PaleSkin);
-            GameObject body = MakeEntity("Body", BuildMesh(m, "Wanderer"), Vector3.zero, Quaternion.identity);
+            Mesh m = LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Rags, LowPolyModels.Palette.PaleSkin);
+            GameObject body = MakeEntity("Body", m, Vector3.zero, Quaternion.identity);
             body.transform.SetParent(root.transform, false);
             body.SetActive(true);
             Wanderer = root.AddComponent<Wanderer>();
@@ -393,11 +391,11 @@ namespace Vision.World
             cc.center = new Vector3(0f, 0.9f, 0f);
             cc.skinWidth = 0.03f;
 
-            VoxelModels.Model m = VoxelModels.Humanoid(rng, VoxelModels.Palette.Coat, VoxelModels.Palette.Skin);
+            Mesh m = LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin);
             var body = new GameObject("Body");
             body.transform.SetParent(root.transform, false);
-            body.AddComponent<MeshFilter>().sharedMesh = BuildMesh(m, "Player");
-            body.AddComponent<MeshRenderer>().sharedMaterial = voxelMaterial;
+            body.AddComponent<MeshFilter>().sharedMesh = m;
+            body.AddComponent<MeshRenderer>().sharedMaterial = lowPolyMaterial;
 
             var viewer = root.AddComponent<VisionViewer>();
             Player = root.AddComponent<PlayerController>();
@@ -441,12 +439,6 @@ namespace Vision.World
             return go;
         }
 
-        static Mesh BuildMesh(VoxelModels.Model m, string name)
-        {
-            var b = new FlatMeshBuilder();
-            b.AddVoxels(m.Grid, m.VoxelSize, m.Pivot);
-            return b.ToMesh(name);
-        }
 
         float Range(float min, float max) => min + (float)rng.NextDouble() * (max - min);
 
