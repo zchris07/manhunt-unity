@@ -21,6 +21,23 @@ namespace Vision.EditorTools
         const string ScenePath = Root + "/Scenes/VisionSandbox.unity";
         const string BuildPath = "Builds/Windows/VisionSandbox.exe";
 
+        /// <summary>
+        /// Project identity and target platform: a Windows desktop game (64-bit, Mono).
+        /// Batch: unity run . -- -executeMethod Vision.EditorTools.VisionSetup.ConfigureProject
+        /// </summary>
+        [MenuItem("Vision/Configure Project")]
+        public static void ConfigureProject()
+        {
+            PlayerSettings.companyName = "zchris07";
+            PlayerSettings.productName = "Manhunt";
+            PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Standalone, "com.zchris07.manhunt");
+            PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.Standalone, ScriptingImplementation.Mono2x);
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.StandaloneWindows64)
+                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Standalone, BuildTarget.StandaloneWindows64);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Vision] Project configured: {PlayerSettings.companyName} / {PlayerSettings.productName}, target {EditorUserBuildSettings.activeBuildTarget}");
+        }
+
         [MenuItem("Vision/Create Sandbox Scene")]
         public static void CreateSandbox()
         {

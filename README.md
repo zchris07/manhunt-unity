@@ -1,24 +1,57 @@
-# unity-vision
+# Manhunt (Unity)
 
 Single-player Unity foundation for a top-down 2.5D horror game. Scope is only the **lighting,
 perspective and world geometry**: an orthographic, ~70° pitch camera over a stylized, flat-shaded
 low-poly diorama built from triangle meshes, lit by a 3D port of the 2D visibility-polygon
 illumination system.
 
-Unity **6000.6.3f1**, URP 17 (Render Graph), Input System. Open `Assets/Vision/Scenes/VisionSandbox.unity`
-and press Play.
+Unity **6000.6.3f1**, URP 17 (Render Graph), Input System, Windows desktop. Open
+`Assets/Vision/Scenes/VisionSandbox.unity` and press Play.
+
+## First-time setup for a clone
+
+Each new clone needs these once:
+
+```bash
+git lfs install --local
+```
+
+```bash
+git config merge.unityyamlmerge.name "Unity SmartMerge"
+```
+
+```bash
+git config merge.unityyamlmerge.driver '"C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/Tools/UnityYAMLMerge.exe" merge -p %O %B %A %A'
+```
+
+`.gitattributes` stores text as LF, merges scenes, prefabs and assets with Unity's Smart Merge, and
+sends meshes, textures, audio, video and fonts to Git LFS.
+
+CI (`.github/workflows/ci.yml`, GameCI) runs the EditMode tests and a Windows build on every push. It
+needs the `UNITY_LICENSE`, `UNITY_EMAIL` and `UNITY_PASSWORD` repository secrets; the workflow file
+explains where to find each one.
+
+The `com.unity.pipeline` package lets the `unity` CLI drive an open Editor (`unity status`,
+`unity command`).
 
 ## Controls
 
-| Key | Action |
-|---|---|
-| WASD / Shift | Move / run |
-| Mouse | Aim the flashlight cone |
-| E | Open or close the nearest door or window shutter |
-| F | Toggle the see-through cone |
-| F1 | Draw the visibility polygons |
-| F2 | Cycle view: final, mask RGB, lit amount, raw scene |
-| F3 | Hide the stats overlay |
+Input goes through the project-wide actions asset `Assets/InputSystem_Actions.inputactions` (`Player`
+map), so bindings can be changed there or rebound at runtime.
+
+| Keyboard and mouse | Gamepad | Action |
+|---|---|---|
+| WASD or arrows | Left stick | Move |
+| Shift | Left stick press | Run |
+| Mouse | Right stick | Aim the flashlight cone (whichever moved last) |
+| E | X / Square | Open or close the nearest door or window shutter |
+| F | Y / Triangle | Toggle the see-through cone |
+| C | B / Circle | Crouch (bound, not used yet) |
+| F1 | – | Draw the visibility polygons |
+| F2 | – | Cycle view: final, mask RGB, lit amount, raw scene |
+| F3 | – | Hide the stats overlay |
+
+The F1-F3 debug keys read the keyboard directly and are not part of the actions asset.
 
 ## How the lighting works
 
@@ -73,6 +106,11 @@ Run these from this folder:
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.CreateSandbox
 ```
 Regenerates the materials, the scene and the URP shadow settings (also in the **Vision** menu).
+
+```bash
+unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.ConfigureProject
+```
+Sets the company and product names and switches the build target to Windows 64-bit.
 
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
