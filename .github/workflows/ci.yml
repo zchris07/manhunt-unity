@@ -53,6 +53,12 @@ jobs:
           key: Library-test-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: Library-test-
 
+      - name: Free page cache before Unity starts
+        run: |
+          sync
+          echo 3 | sudo tee /proc/sys/vm/drop_caches
+          free -m
+
       - uses: game-ci/unity-test-runner@v4
         id: tests
         with:
@@ -66,7 +72,7 @@ jobs:
         run: |
           echo "== memory"; free -m
           echo "== cgroup"; cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak 2>&1 | head -20; echo "== psi"; cat /proc/pressure/memory 2>&1
-          echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
+          echo "== kernel log tail"; sudo dmesg -T 2>&1 | tail -15; echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
           echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head; docker events --since 15m --until 0s --filter event=oom --filter event=die 2>/dev/null | tail -10
           echo "== disk"; df -h / /mnt | cat
 
@@ -102,6 +108,12 @@ jobs:
           key: Library-StandaloneWindows64-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: Library-StandaloneWindows64-
 
+      - name: Free page cache before Unity starts
+        run: |
+          sync
+          echo 3 | sudo tee /proc/sys/vm/drop_caches
+          free -m
+
       - uses: game-ci/unity-builder@v4
         with:
           targetPlatform: StandaloneWindows64
@@ -113,7 +125,7 @@ jobs:
         run: |
           echo "== memory"; free -m
           echo "== cgroup"; cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak 2>&1 | head -20; echo "== psi"; cat /proc/pressure/memory 2>&1
-          echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
+          echo "== kernel log tail"; sudo dmesg -T 2>&1 | tail -15; echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
           echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head; docker events --since 15m --until 0s --filter event=oom --filter event=die 2>/dev/null | tail -10
           echo "== disk"; df -h / /mnt | cat
 
