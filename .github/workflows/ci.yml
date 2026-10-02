@@ -13,6 +13,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The test runner publishes its results as a check run, which needs checks: write.
+permissions:
+  contents: read
+  checks: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
