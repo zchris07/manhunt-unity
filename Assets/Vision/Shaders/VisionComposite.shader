@@ -42,7 +42,7 @@ Shader "Hidden/Vision/Composite"
             float _VisShadow;      // character shadow darkening
             float4 _VisGrade;      // x = contrast, y = saturation, z = lit brightness, w = unlit brightness
             float4 _VisBeam;       // x = flashlight beam intensity
-            float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px at 1080p
+            float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px
             float4 _VisionViewerPos;
 
             // Disc blur: 12 taps on a golden-angle spiral plus the centre.
@@ -88,7 +88,7 @@ Shader "Hidden/Vision/Composite"
                 float3 ws = WorldFromUV(uv);
 
                 // Distance blur: far from the player the scene softens (off with the camera effects).
-                float blurPx = _VisBlur.z * (_ScreenParams.y / 1080.0) * smoothstep(_VisBlur.x, _VisBlur.y, distance(ws.xz, _VisionViewerPos.xz));
+                float blurPx = _VisBlur.z * smoothstep(_VisBlur.x, _VisBlur.y, distance(ws.xz, _VisionViewerPos.xz));
                 if (blurPx > 0.25) scene = DiscBlur(uv, blurPx);
 
                 // Sample the mask a little in front of each surface, so a wall face lit from its side

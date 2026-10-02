@@ -15,7 +15,10 @@ namespace Vision.Player
         [Tooltip("Distance back along the view direction. Ortho, so it only affects clipping and how much " +
                  "of the shadow distance is wasted on empty air; keep it just above the tallest geometry.")]
         public float distance = 32f;
+        [Tooltip("Half the view height at the reference screen height. Taller screens see more, so assets keep their on-screen size.")]
         public float orthographicSize = 7.2f;
+        [Tooltip("Screen height in pixels at which the view is exactly orthographicSize.")]
+        public float referenceHeight = 900f;
         public float smoothTime = 0.12f;
 
         Camera cam;
@@ -46,9 +49,13 @@ namespace Vision.Player
 
         void Apply()
         {
-            cam.orthographicSize = orthographicSize;
+            cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight);
             transform.rotation = Quaternion.Euler(pitch, 0f, 0f);
         }
+
+        /// <summary>Pixels per world unit stay constant: the view grows with the screen instead of zooming.</summary>
+        public static float SizeFor(float referenceSize, float screenHeight, float referenceHeight) =>
+            referenceSize * Mathf.Max(1f, screenHeight) / Mathf.Max(1f, referenceHeight);
 
         Vector3 Desired()
         {

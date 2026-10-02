@@ -29,8 +29,11 @@ namespace Vision.Rendering
         public Shader blurShader;
 
         [Header("Mask")]
-        [Tooltip("Side of the square of ground covered by the mask, in metres.")]
+        [Tooltip("Minimum side of the square of ground covered by the mask, in metres. It grows to cover a larger view; the cone and line-of-sight caps stay tied to this value.")]
         public float worldSize = 48f;
+
+        /// <summary>Side of the mask square this frame: at least worldSize, and enough to cover the whole view.</summary>
+        public float CoverSize { get; private set; } = 48f;
         [Tooltip("Mask texels per screen pixel along the visible ground (0.5 = half resolution).")]
         [Range(0.25f, 1f)] public float resolutionScale = 0.5f;
         [Range(0, 4)] public int blurIterations = 3;
@@ -120,17 +123,19 @@ namespace Vision.Rendering
         {
             if (viewCamera == null || viewer == null) return;
 
+            CoverSize = CoverSizeFor(viewCamera, worldSize);
             int resolution = ComputeResolution();
             EnsureTextures(resolution);
 
             // Centre on the camera's ground focus, snapped to whole texels so the mask doesn't shimmer.
             Vector2 focus = GroundFocus(viewCamera);
-            float texel = worldSize / resolution;
+            float size = CoverSize;
+            float texel = size / resolution;
             focus.x = Mathf.Round(focus.x / texel) * texel;
             focus.y = Mathf.Round(focus.y / texel) * texel;
-            Vector2 min = focus - Vector2.one * (worldSize * 0.5f);
-            MaskRect = new Rect(min, Vector2.one * worldSize);
-            var rect = new Vector4(min.x, min.y, 1f / worldSize, 1f / worldSize);
+            Vector2 min = focus - Vector2.one * (size * 0.5f);
+            MaskRect = new Rect(min, Vector2.one * size);
+            var rect = new Vector4(min.x, min.y, 1f / size, 1f / size);
             Shader.SetGlobalVector(MaskRectId, rect);
             Shader.SetGlobalFloat(EntityThresholdId, entityThreshold);
 
@@ -164,7 +169,7 @@ namespace Vision.Rendering
             float pitch = Mathf.Max(10f, viewCamera.transform.eulerAngles.x) * Mathf.Deg2Rad;
             float visibleHeight = 2f * viewCamera.orthographicSize / Mathf.Sin(pitch);
             float texelsPerMetre = Screen.height * resolutionScale / Mathf.Max(1f, visibleHeight);
-            int res = Mathf.CeilToInt(worldSize * texelsPerMetre / 64f) * 64;
+            int res = Mathf.CeilToInt(CoverSize * texelsPerMetre / 64f) * 64;
             return Mathf.Clamp(res, 256, 2048);
         }
 
@@ -192,6 +197,15 @@ namespace Vision.Rendering
         }
 
         /// <summary>The point on the ground plane at the centre of the camera's view.</summary>
+        /// <summary>Ground square that covers everything the orthographic camera sees, plus a margin for tall geometry.</summary>
+        public static float CoverSizeFor(Camera cam, float minimum)
+        {
+            float pitch = Mathf.Max(10f, cam.transform.eulerAngles.x) * Mathf.Deg2Rad;
+            float width = 2f * cam.orthographicSize * cam.aspect;
+            float depth = 2f * cam.orthographicSize / Mathf.Sin(pitch);
+            return Mathf.Max(minimum, Mathf.Max(width, depth) + 8f);
+        }
+
         public static Vector2 GroundFocus(Camera cam)
         {
             Transform t = cam.transform;

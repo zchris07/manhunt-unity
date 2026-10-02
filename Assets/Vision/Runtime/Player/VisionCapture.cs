@@ -169,6 +169,17 @@ namespace Vision.Player
             }
             composite.look = VisionComposite.Look.Defaults;
 
+            // The F4 look panel, as the player sees it.
+            if (hud != null)
+            {
+                hud.visible = true;
+                hud.lookPanel = true;
+                yield return Wait(5);
+                yield return Shot("27_look_panel");
+                hud.lookPanel = false;
+                hud.visible = false;
+            }
+
             // 12. Gait sheet (side-on, fully lit).
             yield return GaitSheet(player);
 

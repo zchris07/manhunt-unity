@@ -25,7 +25,8 @@ namespace Vision.Player
         static bool panelOpen;
 
         float smoothedDelta = 1f / 60f;
-        GUIStyle style, valueStyle;
+        GUIStyle style, valueStyle, trackStyle, thumbStyle;
+        Texture2D trackTex, fillTex, thumbTex, thumbHotTex, backdropTex;
         string copiedNote;
         float copiedUntil;
 
@@ -100,12 +101,10 @@ namespace Vision.Player
 
         void DrawLookPanel()
         {
-            valueStyle ??= new GUIStyle(style) { alignment = TextAnchor.MiddleRight };
-            const float width = 400f, row = 26f;
-            panelRect = new Rect(Screen.width - width - 12f, 56f, width, 12 * row + 20f);
-            // Drawn twice for a darker backdrop behind the sliders.
-            GUI.Box(panelRect, GUIContent.none);
-            GUI.Box(panelRect, GUIContent.none);
+            EnsureSliderStyles();
+            const float width = 440f, row = 30f;
+            panelRect = new Rect(Screen.width - width - 12f, 56f, width, 11 * row + 24f);
+            GUI.DrawTexture(panelRect, backdropTex);
             float y = panelRect.y + 8f;
             GUI.Label(new Rect(panelRect.x + 10f, y, width - 20f, row), "Look (F4 to close)", style);
             y += row;
@@ -142,13 +141,50 @@ namespace Vision.Player
             }
         }
 
+        static Texture2D Solid(Color c)
+        {
+            var t = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            t.SetPixel(0, 0, c);
+            t.Apply();
+            return t;
+        }
+
+        void EnsureSliderStyles()
+        {
+            valueStyle ??= new GUIStyle(style) { alignment = TextAnchor.MiddleRight };
+            if (trackStyle != null && trackTex != null) return;
+            backdropTex = Solid(new Color(0.05f, 0.05f, 0.055f, 0.88f));
+            trackTex = Solid(new Color(0.42f, 0.42f, 0.44f));
+            fillTex = Solid(new Color(0.86f, 0.72f, 0.45f));
+            thumbTex = Solid(new Color(0.93f, 0.93f, 0.9f));
+            thumbHotTex = Solid(Color.white);
+            // The track and fill are drawn by hand; the slider itself only contributes the draggable handle.
+            trackStyle = new GUIStyle { fixedHeight = 20f, margin = new RectOffset(), padding = new RectOffset(), overflow = new RectOffset() };
+            thumbStyle = new GUIStyle
+            {
+                fixedWidth = 12f, fixedHeight = 20f,
+                normal = { background = thumbTex }, hover = { background = thumbHotTex }, active = { background = thumbHotTex },
+            };
+        }
+
+        void OnDestroy()
+        {
+            foreach (Texture2D t in new[] { trackTex, fillTex, thumbTex, thumbHotTex, backdropTex })
+                if (t != null) Destroy(t);
+        }
+
         float Slider(string label, float value, float min, float max, ref float y)
         {
-            float x = panelRect.x + 10f;
-            GUI.Label(new Rect(x, y, 140f, 24f), label, style);
-            value = GUI.HorizontalSlider(new Rect(x + 140f, y + 7f, 180f, 16f), value, min, max);
-            GUI.Label(new Rect(x + 320f, y, 60f, 24f), value.ToString("0.00"), valueStyle);
-            y += 26f;
+            float x = panelRect.x + 12f;
+            const float trackX = 140f, trackW = 210f;
+            GUI.Label(new Rect(x, y + 3f, trackX, 24f), label, style);
+            var track = new Rect(x + trackX, y + 12f, trackW, 6f);
+            float t = Mathf.InverseLerp(min, max, value);
+            GUI.DrawTexture(track, trackTex);
+            GUI.DrawTexture(new Rect(track.x, track.y, track.width * t, track.height), fillTex);
+            value = GUI.HorizontalSlider(new Rect(x + trackX, y + 5f, trackW, 20f), value, min, max, trackStyle, thumbStyle);
+            GUI.Label(new Rect(x + trackX + trackW + 6f, y + 3f, 60f, 24f), value.ToString("0.00"), valueStyle);
+            y += 30f;
             return value;
         }
     }

@@ -36,7 +36,7 @@ namespace Vision.Rendering
             [Range(0f, 30f)] public float blurStart;
             [Tooltip("Distance from the player (world units) where the distance blur is full.")]
             [Range(0f, 30f)] public float blurEnd;
-            [Tooltip("Full distance-blur radius in pixels at 1080p (scaled with resolution).")]
+            [Tooltip("Full distance-blur radius in pixels (assets keep their pixel size at any resolution, so this does too).")]
             [Range(0f, 8f)] public float blurMaxPixels;
             [Tooltip("Camera effects: vignette, film grain, light flicker and the distance blur.")]
             public bool cameraEffects;

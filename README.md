@@ -7,7 +7,13 @@ illumination system. The level is authored in design units (a person is 1.8 m) a
 scaled by `WorldScale.S` = 2, so the camera sits twice as close. Characters are plain 198-triangle
 mannequins animated by a procedural walk and sprint.
 
-Unity **6000.6.3f1**, URP 17 (Render Graph), Input System, Windows desktop. Open
+Unity **6000.6.3f1**, URP 17 (Render Graph), Input System, Windows desktop.
+
+The build starts borderless full screen at the display's native resolution (Alt+Enter for a window).
+The view grows with the screen instead of zooming: `TopDownCamera` keeps 62.5 pixels per world unit
+(7.2 half-height at 900 px), so a bigger or higher-resolution screen shows more of the level at the
+same asset size, and the lighting mask grows to cover it. Command-line `-screen-*` options override
+full screen. Open
 `Assets/Vision/Scenes/VisionSandbox.unity` and press Play.
 
 ## First-time setup for a clone
