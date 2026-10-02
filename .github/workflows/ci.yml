@@ -62,10 +62,11 @@ jobs:
 
       - name: Why was Unity killed? (kernel log and memory)
         if: failure()
+        shell: bash {0}
         run: |
           echo "== memory"; free -m
-          echo "== cgroup"; cat /sys/fs/cgroup/memory.events 2>/dev/null; cat /sys/fs/cgroup/memory.max 2>/dev/null
-          echo "== kernel kills"; sudo dmesg -T 2>/dev/null | grep -iE "killed process|out of memory|oom|segfault" | tail -30
+          echo "== cgroup"; cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak 2>&1 | head -20; echo "== psi"; cat /proc/pressure/memory 2>&1
+          echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
           echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head; docker events --since 15m --until 0s --filter event=oom --filter event=die 2>/dev/null | tail -10
           echo "== disk"; df -h / /mnt | cat
 
@@ -108,10 +109,11 @@ jobs:
 
       - name: Why was Unity killed? (kernel log and memory)
         if: failure()
+        shell: bash {0}
         run: |
           echo "== memory"; free -m
-          echo "== cgroup"; cat /sys/fs/cgroup/memory.events 2>/dev/null; cat /sys/fs/cgroup/memory.max 2>/dev/null
-          echo "== kernel kills"; sudo dmesg -T 2>/dev/null | grep -iE "killed process|out of memory|oom|segfault" | tail -30
+          echo "== cgroup"; cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak 2>&1 | head -20; echo "== psi"; cat /proc/pressure/memory 2>&1
+          echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
           echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head; docker events --since 15m --until 0s --filter event=oom --filter event=die 2>/dev/null | tail -10
           echo "== disk"; df -h / /mnt | cat
 
