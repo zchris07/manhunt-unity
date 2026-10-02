@@ -97,6 +97,7 @@ jobs:
         with:
           targetPlatform: StandaloneWindows64
           buildName: Manhunt
+          versioning: None
 
       - uses: game-ci/unity-builder@v4
         id: build_retry
@@ -104,6 +105,7 @@ jobs:
         with:
           targetPlatform: StandaloneWindows64
           buildName: Manhunt
+          versioning: None
 
       - name: Unity kernel and memory diagnostics
         if: failure()
