@@ -32,6 +32,17 @@ jobs:
     name: EditMode tests
     runs-on: ubuntu-latest
     steps:
+      # Unity is sometimes killed for memory on the hosted runner (exit code 137); add swap.
+      - name: Add swap
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - uses: actions/checkout@v4
         with:
           lfs: true
@@ -60,6 +71,17 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
+      # Unity is sometimes killed for memory on the hosted runner (exit code 137); add swap.
+      - name: Add swap
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - uses: actions/checkout@v4
         with:
           lfs: true
