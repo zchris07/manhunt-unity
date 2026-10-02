@@ -150,7 +150,8 @@ namespace Vision.EditorTools
         /// </summary>
         static void ConfigureShadows()
         {
-            foreach (string guid in AssetDatabase.FindAssets("t:UniversalRenderPipelineAsset"))
+            // Only the pipelines the game renders with, not URP assets that ship inside packages.
+            foreach (string guid in AssetDatabase.FindAssets("t:UniversalRenderPipelineAsset", new[] { "Assets" }))
             {
                 var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(guid));
                 var so = new SerializedObject(asset);

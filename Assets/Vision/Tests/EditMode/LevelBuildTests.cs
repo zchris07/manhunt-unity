@@ -170,11 +170,17 @@ namespace Vision.Tests
         [Test]
         public void RenderPipeline_HasRealTimeShadowsOff()
         {
-            foreach (string guid in AssetDatabase.FindAssets("t:UniversalRenderPipelineAsset"))
+            // The pipelines the game renders with (not every URP asset in the packages).
+            var pipelines = new System.Collections.Generic.List<UnityEngine.Rendering.RenderPipelineAsset> { UnityEngine.Rendering.GraphicsSettings.defaultRenderPipeline };
+            for (int i = 0; i < QualitySettings.count; i++) pipelines.Add(QualitySettings.GetRenderPipelineAssetAt(i));
+            int checkedCount = 0;
+            foreach (var pipeline in pipelines)
             {
-                var asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(guid));
-                Assert.IsFalse(asset.supportsMainLightShadows, asset.name);
+                if (!(pipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)) continue;
+                Assert.IsFalse(urp.supportsMainLightShadows, urp.name);
+                checkedCount++;
             }
+            Assert.Greater(checkedCount, 0, "the project renders with URP");
         }
     }
 }
