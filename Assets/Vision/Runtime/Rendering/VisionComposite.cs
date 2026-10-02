@@ -30,7 +30,7 @@ namespace Vision.Rendering
         [Tooltip("smoothstep(min, max, G) gates light sources by line of sight.")]
         public Vector2 sightlineEdge = new Vector2(0.15f, 0.6f);
         [Tooltip("Normal offset (metres) for the mask lookup so walls facing a light pick it up.")]
-        [Range(0f, 0.5f)] public float normalOffset = 0.15f;
+        [Range(0f, 0.5f)] public float normalOffset = 0.3f;
 
         [Header("Film")]
         [Range(0f, 1.5f)] public float vignette = 0.9f;

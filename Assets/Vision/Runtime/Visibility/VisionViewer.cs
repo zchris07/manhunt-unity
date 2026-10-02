@@ -5,6 +5,7 @@ namespace Vision.Visibility
     /// <summary>
     /// The player's own vision: flashlight cone, proximity circle, 360° line of sight and the optional
     /// see-through cone. Everything here is drawn into the mask's B channel except line of sight (G).
+    /// Ranges are in design units and multiplied by the transform scale (see <see cref="Scale"/>).
     /// </summary>
     public sealed class VisionViewer : MonoBehaviour
     {
@@ -30,6 +31,9 @@ namespace Vision.Visibility
         public Vector2 Facing { get; set; } = Vector2.up;
 
         public Vector2 PlanePosition => VisionWorld.ToPlane(transform.position);
+
+        /// <summary>World units per design unit (the level root's scale).</summary>
+        public float Scale => transform.lossyScale.x;
 
         public float FacingAngle => Mathf.Atan2(Facing.y, Facing.x);
     }

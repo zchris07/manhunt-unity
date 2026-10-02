@@ -3,18 +3,18 @@ using UnityEngine;
 namespace Vision.Player
 {
     /// <summary>
-    /// Orthographic 2.5D top-down camera, pitched ~70° so the fronts of walls, trunks and characters
-    /// show. Follows the target with smoothing and keeps it at the centre of the view.
+    /// Orthographic 2.5D top-down camera, pitched ~60° so the fronts of walls, trunks and characters
+    /// show clearly. Follows the target with smoothing and keeps it at the centre of the view.
     /// </summary>
     [DefaultExecutionOrder(100)]
     [RequireComponent(typeof(Camera))]
     public sealed class TopDownCamera : MonoBehaviour
     {
         public Transform target;
-        [Range(45f, 90f)] public float pitch = 70f;
+        [Range(45f, 90f)] public float pitch = 60f;
         [Tooltip("Distance back along the view direction. Ortho, so it only affects clipping and how much " +
                  "of the shadow distance is wasted on empty air; keep it just above the tallest geometry.")]
-        public float distance = 16f;
+        public float distance = 32f;
         public float orthographicSize = 7.2f;
         public float smoothTime = 0.12f;
 

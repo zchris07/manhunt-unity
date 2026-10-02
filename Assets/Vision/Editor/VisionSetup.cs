@@ -69,20 +69,20 @@ namespace Vision.EditorTools
             RenderSettings.ambientLight = new Color(0.30f, 0.30f, 0.32f);
             RenderSettings.fog = false;
 
-            // Camera: orthographic, ~70° pitch, black background.
+            // Camera: orthographic, ~60° pitch, black background.
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 7.2f;
             cam.nearClipPlane = 0.3f;
-            cam.farClipPlane = 100f;
+            cam.farClipPlane = 70f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = Color.black;
             camGo.AddComponent<AudioListener>();
             var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
             camData.renderPostProcessing = true;
             var rig = camGo.AddComponent<TopDownCamera>();
-            camGo.transform.rotation = Quaternion.Euler(70f, 0f, 0f);
+            camGo.transform.rotation = Quaternion.Euler(60f, 0f, 0f);
 
             var composite = camGo.AddComponent<VisionComposite>();
             composite.targetCamera = cam;
@@ -108,6 +108,7 @@ namespace Vision.EditorTools
             hud.composite = composite;
 
             var worldGo = new GameObject("Sandbox World");
+            worldGo.transform.localScale = Vector3.one * WorldScale.S;
             var world = worldGo.AddComponent<SandboxWorld>();
             world.lowPolyMaterial = lowPoly;
             world.entityMaterial = entity;
@@ -143,7 +144,7 @@ namespace Vision.EditorTools
         }
 
         /// <summary>
-        /// The ortho camera sits ~15 m above the ground, so one cascade over a short distance puts all the
+        /// The ortho camera sits ~28 m above the ground, so one cascade over a short distance puts all the
         /// shadow-map resolution on the diorama instead of on empty air near the camera.
         /// </summary>
         static void ConfigureShadows()
@@ -152,7 +153,7 @@ namespace Vision.EditorTools
             {
                 var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(guid));
                 var so = new SerializedObject(asset);
-                so.FindProperty("m_ShadowDistance").floatValue = 42f;
+                so.FindProperty("m_ShadowDistance").floatValue = 44f;
                 so.FindProperty("m_ShadowCascadeCount").intValue = 1;
                 so.FindProperty("m_MainLightShadowmapResolution").intValue = 4096;
                 so.FindProperty("m_SoftShadowsSupported").boolValue = true;

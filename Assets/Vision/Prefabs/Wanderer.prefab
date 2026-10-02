@@ -46,7 +46,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.World.Wanderer
   waypoints: []
-  speed: 1.4
+  speed: 3.2
   bobAmount: 0.04
   body: {fileID: 3953521644216210967}
 --- !u!1 &7900025294146031093

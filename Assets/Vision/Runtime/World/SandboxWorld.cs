@@ -12,6 +12,9 @@ namespace Vision.World
     /// campfires and lanterns (more than the 6-light cap), crows, one wandering figure and the player,
     /// then wires the player into the camera and mask renderer.
     ///
+    /// The layout is in design units (local space). Scale this object to resize the world; see
+    /// <see cref="WorldScale"/>.
+    ///
     /// <see cref="Generate"/> works in the Editor as well as in Play mode. The level baker calls it
     /// to lay the level out in the scene and save its meshes as assets; the saved scene then has
     /// <see cref="generateOnAwake"/> off, and everything is ordinary, editable scene content.
@@ -246,7 +249,7 @@ namespace Vision.World
             var root = new GameObject(shutter ? "Window Shutter" : "Door");
             root.SetActive(false);
             root.transform.SetParent(staticRoot, false);
-            root.transform.SetPositionAndRotation(new Vector3(start.x, 0f, start.y),
+            root.transform.SetLocalPositionAndRotation(new Vector3(start.x, 0f, start.y),
                 Quaternion.Euler(0f, -Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg, 0f));
 
             var hinge = new GameObject("Hinge").transform;
@@ -297,7 +300,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
                     () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
-                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
 
@@ -310,7 +313,7 @@ namespace Vision.World
                 if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
                 GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
                     () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
-                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
         }
@@ -324,7 +327,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.campfire : null, staticRoot,
                     () => PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial));
-                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.identity);
+                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.identity);
                 blockedSpots.Add(p);
             }
 
@@ -333,7 +336,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.lantern : null, staticRoot,
                     () => PropFactory.CreateLantern(LowPolyModels.LanternPost(rng), glowMaterial));
-                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
         }
@@ -347,7 +350,7 @@ namespace Vision.World
                 float size = PropLibrary.CrateSizes[variant];
                 GameObject go = Prop(library != null ? library.crates : null, variant, staticRoot,
                     () => PropFactory.CreateCrate(LowPolyModels.Crate(rng, size), lowPolyMaterial, size));
-                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f));
+                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f));
             }
         }
 
@@ -360,7 +363,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.crows : null, rng.Next(PropLibrary.CrowVariants), entityRoot,
                     () => PropFactory.CreateCrow(LowPolyModels.Crow(rng), entityMaterial));
-                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 Crows.Add(go.transform);
             }
         }
@@ -370,9 +373,11 @@ namespace Vision.World
             GameObject go = Prop(library != null ? library.wanderer : null, entityRoot,
                 () => PropFactory.CreateWanderer(
                     LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Rags, LowPolyModels.Palette.PaleSkin), entityMaterial));
-            go.transform.position = new Vector3(3f, 0f, -3f);
+            go.transform.localPosition = new Vector3(3f, 0f, -3f);
             Wanderer = go.GetComponent<Wanderer>();
             Wanderer.waypoints = new[] { new Vector3(3f, 0f, -3f), new Vector3(3f, 0f, -12f), new Vector3(-4f, 0f, -12f), new Vector3(-4f, 0f, -3f) };
+            // Waypoints are world positions; the layout is in design units under the scaled root.
+            for (int i = 0; i < Wanderer.waypoints.Length; i++) Wanderer.waypoints[i] = transform.TransformPoint(Wanderer.waypoints[i]);
         }
 
         void BuildPlayer()
@@ -380,7 +385,7 @@ namespace Vision.World
             GameObject go = Prop(library != null ? library.player : null, transform,
                 () => PropFactory.CreatePlayer(
                     LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin), lowPolyMaterial));
-            go.transform.position = playerSpawn + Vector3.up * 0.05f;
+            go.transform.localPosition = playerSpawn + Vector3.up * 0.05f;
 
             Player = go.GetComponent<PlayerController>();
             Player.world = this;
@@ -413,7 +418,7 @@ namespace Vision.World
             var go = new GameObject(name);
             go.SetActive(false);
             go.transform.SetParent(staticRoot, false);
-            go.transform.SetPositionAndRotation(pos, rot);
+            go.transform.SetLocalPositionAndRotation(pos, rot);
             go.isStatic = true;
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;

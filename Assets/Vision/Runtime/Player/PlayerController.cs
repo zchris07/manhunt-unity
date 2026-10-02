@@ -19,8 +19,10 @@ namespace Vision.Player
         public VisionViewer viewer;
         public Transform body;
         public SandboxWorld world;
+        [Tooltip("World units per second. At 2x world scale this is half of the original on-screen pace.")]
         public float walkSpeed = 3.2f;
         public float runSpeed = 5.2f;
+        [Tooltip("Design units; multiplied by the transform scale.")]
         public float interactRange = 2f;
         [Range(0.1f, 0.9f)] public float stickAimDeadzone = 0.35f;
 
@@ -98,10 +100,11 @@ namespace Vision.Player
         {
             if (world == null) return false;
             Door best = null;
-            float bestDist = interactRange;
+            float scale = transform.lossyScale.x;
+            float bestDist = interactRange * scale;
             foreach (Door door in world.Doors)
             {
-                float d = Vector3.Distance(door.blocker != null ? door.blocker.bounds.center : door.transform.position, transform.position + Vector3.up);
+                float d = Vector3.Distance(door.blocker != null ? door.blocker.bounds.center : door.transform.position, transform.position + Vector3.up * scale);
                 if (d < bestDist)
                 {
                     bestDist = d;

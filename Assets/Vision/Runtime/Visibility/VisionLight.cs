@@ -11,6 +11,7 @@ namespace Vision.Visibility
     /// </summary>
     public sealed class VisionLight : MonoBehaviour
     {
+        [Tooltip("Radius in design units; multiplied by the transform scale.")]
         public float range = 6f;
         [Range(0f, 1f)] public float intensity = 1f;
         [Tooltip("Cache the polygon; rebuilt only when an occluder changes or the light moves.")]
@@ -25,6 +26,9 @@ namespace Vision.Visibility
         float noiseSeed;
 
         public Vector2 PlanePosition => VisionWorld.ToPlane(transform.position);
+
+        /// <summary>Radius in world units.</summary>
+        public float WorldRange => range * transform.lossyScale.x;
 
         public float CurrentIntensity
         {
@@ -48,13 +52,14 @@ namespace Vision.Visibility
         public List<Vector2> GetPolygon(VisibilityComputer computer, int occluderVersion)
         {
             Vector2 origin = PlanePosition;
-            bool valid = isStatic && cachedVersion == occluderVersion && cachedOrigin == origin && Mathf.Approximately(cachedRange, range);
+            float worldRange = WorldRange;
+            bool valid = isStatic && cachedVersion == occluderVersion && cachedOrigin == origin && Mathf.Approximately(cachedRange, worldRange);
             if (!valid)
             {
-                computer.Compute(ViewQuery.Circle(origin, range), cachedPolygon);
+                computer.Compute(ViewQuery.Circle(origin, worldRange), cachedPolygon);
                 cachedVersion = occluderVersion;
                 cachedOrigin = origin;
-                cachedRange = range;
+                cachedRange = worldRange;
             }
             return cachedPolygon;
         }
@@ -62,7 +67,7 @@ namespace Vision.Visibility
         void OnDrawGizmosSelected()
         {
             Gizmos.color = new Color(1f, 0.6f, 0.2f, 0.5f);
-            Gizmos.DrawWireSphere(transform.position, range);
+            Gizmos.DrawWireSphere(transform.position, WorldRange);
         }
     }
 }

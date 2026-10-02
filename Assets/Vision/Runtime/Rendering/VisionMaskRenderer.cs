@@ -206,24 +206,27 @@ namespace Vision.Rendering
             var blue = new Color(0f, 0f, 1f, 1f);
 
             // B: cone (capped near the screen edge), proximity circle, optional see-through cone.
-            float coneRange = Mathf.Min(viewer.coneRange, halfSize * 0.95f);
+            float k = viewer.Scale;
+            float coneRange = Mathf.Min(viewer.coneRange * k, halfSize * 0.95f);
             vc.Compute(ViewQuery.Cone(origin, dir, viewer.coneHalfAngleDeg * Mathf.Deg2Rad, coneRange), polygon);
             AddPolygon(polygon, false, origin, blue, coneRange, viewer.coneFalloffStart);
             rays += vc.LastRayCount; polygons++;
 
-            vc.Compute(ViewQuery.Circle(origin, viewer.proximityRadius), polygon);
-            AddPolygon(polygon, true, origin, blue, viewer.proximityRadius, viewer.proximityFalloffStart);
+            float proximity = viewer.proximityRadius * k;
+            vc.Compute(ViewQuery.Circle(origin, proximity), polygon);
+            AddPolygon(polygon, true, origin, blue, proximity, viewer.proximityFalloffStart);
             rays += vc.LastRayCount; polygons++;
 
             if (viewer.seeThroughEnabled)
             {
-                vc.Compute(ViewQuery.Cone(origin, dir, viewer.seeThroughHalfAngleDeg * Mathf.Deg2Rad, viewer.seeThroughRange, false), polygon);
-                AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength, viewer.seeThroughRange, 0.6f);
+                float seeThrough = viewer.seeThroughRange * k;
+                vc.Compute(ViewQuery.Cone(origin, dir, viewer.seeThroughHalfAngleDeg * Mathf.Deg2Rad, seeThrough, false), polygon);
+                AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength, seeThrough, 0.6f);
                 rays += vc.LastRayCount; polygons++;
             }
 
             // G: long-range 360° line of sight. No falloff (falloffStart >= 1 disables it).
-            float losRange = Mathf.Min(viewer.lineOfSightRange, halfSize * 1.42f);
+            float losRange = Mathf.Min(viewer.lineOfSightRange * k, halfSize * 1.42f);
             vc.Compute(ViewQuery.Circle(origin, losRange), polygon);
             AddPolygon(polygon, true, origin, new Color(0f, 1f, 0f, 1f), losRange, 2f);
             rays += vc.LastRayCount; polygons++;
@@ -238,7 +241,7 @@ namespace Vision.Rendering
             {
                 VisionLight light = lightOrder[i];
                 List<Vector2> poly = light.GetPolygon(vc, version);
-                AddPolygon(poly, true, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 1f), light.range, 0.25f);
+                AddPolygon(poly, true, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 1f), light.WorldRange, 0.25f);
                 polygons++;
             }
 

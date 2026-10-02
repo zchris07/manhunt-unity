@@ -102,11 +102,12 @@ namespace Vision.Player
             Application.Quit();
         }
 
+        /// <summary>Positions are in the level's design units and converted through the (scaled) level root.</summary>
         IEnumerator Stage(PlayerController player, Vector3 position, Vector2 aim, Wanderer wanderer, Vector3 wandererPos)
         {
-            player.Teleport(position);
+            player.Teleport(world.transform.TransformPoint(position));
             player.AimOverride = aim;
-            wanderer.transform.position = wandererPos;
+            wanderer.transform.position = world.transform.TransformPoint(wandererPos);
             cameraRig.Snap();
             yield return Wait(10);
         }

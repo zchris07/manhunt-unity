@@ -6,7 +6,8 @@ namespace Vision.World
     public sealed class Wanderer : MonoBehaviour
     {
         public Vector3[] waypoints;
-        public float speed = 1.4f;
+        [Tooltip("World units per second (the player's walking pace).")]
+        public float speed = 3.2f;
         public float bobAmount = 0.04f;
         public Transform body;
 
