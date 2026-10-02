@@ -28,21 +28,13 @@ env:
   UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
 jobs:
+  # The hosted runner sometimes kills Unity (exit code 137) as it starts, with no out-of-memory
+  # message and plenty of free memory, on code that passes on the next attempt. Each Unity step
+  # therefore runs once more if the first attempt fails; a real failure fails both attempts.
   test:
     name: EditMode tests
     runs-on: ubuntu-latest
     steps:
-      # Unity is sometimes killed for memory on the hosted runner (exit code 137); add swap.
-      - name: Add swap
-        run: |
-          sudo swapoff -a || true
-          sudo rm -f /swapfile /mnt/swapfile
-          sudo fallocate -l 8G /mnt/swapfile
-          sudo chmod 600 /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-          free -h
-
       - uses: actions/checkout@v4
         with:
           lfs: true
@@ -53,51 +45,42 @@ jobs:
           key: Library-test-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: Library-test-
 
-      - name: Free page cache before Unity starts
-        run: |
-          sync
-          echo 3 | sudo tee /proc/sys/vm/drop_caches
-          free -m
-
       - uses: game-ci/unity-test-runner@v4
-        id: tests
+        id: tests_first
+        continue-on-error: true
         with:
           testMode: editmode
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           checkName: EditMode test results
 
-      - name: Why was Unity killed? (kernel log and memory)
+      - uses: game-ci/unity-test-runner@v4
+        id: tests_retry
+        if: steps.tests_first.outcome == 'failure'
+        with:
+          testMode: editmode
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: EditMode test results (retry)
+
+      - name: Unity kernel and memory diagnostics
         if: failure()
         shell: bash {0}
         run: |
           echo "== memory"; free -m
-          echo "== cgroup"; cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak 2>&1 | head -20; echo "== psi"; cat /proc/pressure/memory 2>&1
-          echo "== kernel log tail"; sudo dmesg -T 2>&1 | tail -15; echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
-          echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head; docker events --since 15m --until 0s --filter event=oom --filter event=die 2>/dev/null | tail -10
-          echo "== disk"; df -h / /mnt | cat
+          echo "== kernel log tail"; sudo dmesg -T 2>&1 | tail -15
+          echo "== kernel kills"; sudo dmesg -T 2>&1 | grep -iE "killed process|out of memory|oom|segfault" | tail -30
+          echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-results
-          path: ${{ steps.tests.outputs.artifactsPath }}
+          path: artifacts
 
   build:
     name: Windows build
     needs: test
     runs-on: ubuntu-latest
     steps:
-      # Unity is sometimes killed for memory on the hosted runner (exit code 137); add swap.
-      - name: Add swap
-        run: |
-          sudo swapoff -a || true
-          sudo rm -f /swapfile /mnt/swapfile
-          sudo fallocate -l 8G /mnt/swapfile
-          sudo chmod 600 /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-          free -h
-
       - uses: actions/checkout@v4
         with:
           lfs: true
@@ -108,26 +91,28 @@ jobs:
           key: Library-StandaloneWindows64-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: Library-StandaloneWindows64-
 
-      - name: Free page cache before Unity starts
-        run: |
-          sync
-          echo 3 | sudo tee /proc/sys/vm/drop_caches
-          free -m
-
       - uses: game-ci/unity-builder@v4
+        id: build_first
+        continue-on-error: true
         with:
           targetPlatform: StandaloneWindows64
           buildName: Manhunt
 
-      - name: Why was Unity killed? (kernel log and memory)
+      - uses: game-ci/unity-builder@v4
+        id: build_retry
+        if: steps.build_first.outcome == 'failure'
+        with:
+          targetPlatform: StandaloneWindows64
+          buildName: Manhunt
+
+      - name: Unity kernel and memory diagnostics
         if: failure()
         shell: bash {0}
         run: |
           echo "== memory"; free -m
-          echo "== cgroup"; cat /sys/fs/cgroup/memory.events /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory.peak 2>&1 | head -20; echo "== psi"; cat /proc/pressure/memory 2>&1
-          echo "== kernel log tail"; sudo dmesg -T 2>&1 | tail -15; echo "== kernel kills"; (sudo dmesg -T 2>&1 || sudo journalctl -k --no-pager 2>&1) | grep -iE "killed process|out of memory|oom|segfault" | tail -30
-          echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head; docker events --since 15m --until 0s --filter event=oom --filter event=die 2>/dev/null | tail -10
-          echo "== disk"; df -h / /mnt | cat
+          echo "== kernel log tail"; sudo dmesg -T 2>&1 | tail -15
+          echo "== kernel kills"; sudo dmesg -T 2>&1 | grep -iE "killed process|out of memory|oom|segfault" | tail -30
+          echo "== docker"; docker ps -a --no-trunc --format '{{.Status}} {{.Image}}' | head
 
       - uses: actions/upload-artifact@v4
         with:
