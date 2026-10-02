@@ -6,8 +6,10 @@ namespace Vision.World
 {
     /// <summary>
     /// Procedural low-poly models for the sandbox diorama, all built from flat triangles. Each returns a
-    /// Mesh with its origin at the bottom centre of the object (+Z is "forward" for characters), in the
-    /// same sizes the colliders and occluders in <see cref="SandboxWorld"/> expect.
+    /// Mesh with its origin at the bottom centre of the object, in the same sizes the colliders and
+    /// occluders in <see cref="SandboxWorld"/> expect. Ring sides, segment counts, subdivisions and
+    /// board widths come from <see cref="PolyBudget"/>, so every model shares the player's facet size
+    /// (relaxed by form class). Characters are <see cref="Vision.Characters.MannequinBuilder"/>.
     /// </summary>
     public static class LowPolyModels
     {
@@ -24,10 +26,6 @@ namespace Vision.World
             public static readonly Color Ash = new Color(0.25f, 0.23f, 0.21f);
             public static readonly Color Glass = new Color(1.0f, 0.85f, 0.45f);
             public static readonly Color Iron = new Color(0.16f, 0.16f, 0.17f);
-            public static readonly Color Coat = new Color(0.30f, 0.28f, 0.22f);
-            public static readonly Color Rags = new Color(0.14f, 0.12f, 0.12f);
-            public static readonly Color Skin = new Color(0.62f, 0.52f, 0.44f);
-            public static readonly Color PaleSkin = new Color(0.55f, 0.56f, 0.52f);
             public static readonly Color Crow = new Color(0.06f, 0.06f, 0.07f);
             public static readonly Color Beak = new Color(0.25f, 0.22f, 0.15f);
         }
@@ -35,12 +33,15 @@ namespace Vision.World
         // ------------------------------------------------------------------ trees and rocks
 
         /// <summary>Gnarled, leafless tree: leaning faceted trunk, root wedges and forking spiky branches.</summary>
+        const PolyBudget.Class TreeClass = PolyBudget.Class.Tree;
+        const PolyBudget.Class PropClass = PolyBudget.Class.Prop;
+
         public static Mesh DeadTree(System.Random rng)
         {
             var b = new LowPolyMeshBuilder(rng);
             float height = b.Range(3.6f, 5.8f);
             float leanX = b.Range(-0.07f, 0.07f), leanZ = b.Range(-0.07f, 0.07f);
-            const int rings = 6;
+            int rings = PolyBudget.Segments(height, TreeClass, 3) + 1;
 
             var centers = new Vector3[rings];
             var radii = new float[rings];
@@ -51,7 +52,7 @@ namespace Vision.World
                 centers[i] = new Vector3(leanX * y + b.Range(-0.04f, 0.04f) * t, y, leanZ * y + b.Range(-0.04f, 0.04f) * t);
                 radii[i] = Mathf.Lerp(0.32f, 0.06f, Mathf.Pow(t, 0.75f));
             }
-            b.AddTube(centers, radii, 7, Palette.Bark, 0.10f, 0.08f, 7f, null, false, true);
+            b.AddTube(centers, radii, PolyBudget.Sides(0.32f, TreeClass, 5), Palette.Bark, 0.10f, 0.08f, 7f, null, false, true);
 
             int roots = 4 + b.Rng.Next(2);
             for (int i = 0; i < roots; i++)
@@ -59,7 +60,7 @@ namespace Vision.World
                 float a = (i + b.Next() * 0.6f) / roots * Mathf.PI * 2f;
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 b.AddTube(new[] { dir * 0.1f + Vector3.up * 0.3f, dir * 0.42f + Vector3.up * 0.1f, dir * 0.8f - Vector3.up * 0.02f },
-                          new[] { 0.15f, 0.09f, 0f }, 5, Palette.BarkDark, 0.1f, 0.1f, 0f, null, false, false);
+                          new[] { 0.15f, 0.09f, 0f }, PolyBudget.Sides(0.15f, TreeClass), Palette.BarkDark, 0.1f, 0.1f, 0f, null, false, false);
             }
 
             int branches = 5 + b.Rng.Next(4);
@@ -79,7 +80,7 @@ namespace Vision.World
 
         static void Branch(LowPolyMeshBuilder b, Vector3 start, Vector3 dir, float length, float radius, int depth)
         {
-            const int points = 4;
+            int points = PolyBudget.Segments(length, TreeClass, 2) + 1;
             var centers = new Vector3[points];
             var radii = new float[points];
             centers[0] = start;
@@ -93,7 +94,7 @@ namespace Vision.World
                 centers[i] = p;
                 radii[i] = i == points - 1 ? 0f : radius * (1f - i / (float)(points - 1)) * 0.9f;
             }
-            b.AddTube(centers, radii, radius > 0.06f ? 5 : 4, Palette.Bark, 0.12f, 0.1f, 0f, null, false, false);
+            b.AddTube(centers, radii, PolyBudget.Sides(radius, TreeClass), Palette.Bark, 0.12f, 0.1f, 0f, null, false, false);
 
             if (depth > 0 && b.Next() < 0.7f)
             {
@@ -107,7 +108,8 @@ namespace Vision.World
         {
             var b = new LowPolyMeshBuilder(rng);
             float h = radius * b.Range(0.75f, 1.1f);
-            b.AddBlob(Vector3.zero, new Vector3(radius, h, radius), 1, 0.16f,
+            var radii = new Vector3(radius, h, radius);
+            b.AddBlob(Vector3.zero, radii, PolyBudget.BlobSubdivisions(radii, PolyBudget.Class.Rock), 0.16f,
                 local => b.Jitter(local.y > 0.35f ? Palette.Stone : Palette.StoneDark, 0.12f), true,
                 Quaternion.Euler(0f, b.Range(0f, 360f), 0f));
             return b.ToMesh("Rock");
@@ -119,7 +121,8 @@ namespace Vision.World
         public static Mesh PlankWall(System.Random rng, float length, float height, float thickness)
         {
             var b = new LowPolyMeshBuilder(rng);
-            int planks = Mathf.Max(1, Mathf.RoundToInt(length / 0.28f));
+            // A board is half a wall facet wide.
+            int planks = Mathf.Max(1, Mathf.RoundToInt(length / (PolyBudget.Edge(PolyBudget.Class.Wall) * 0.5f)));
             float w = length / planks;
             float halfT = thickness * 0.5f;
             for (int i = 0; i < planks; i++)
@@ -143,7 +146,8 @@ namespace Vision.World
         public static Mesh StoneWall(System.Random rng, float length, float height, float thickness)
         {
             var b = new LowPolyMeshBuilder(rng);
-            const int courses = 3;
+            float edge = PolyBudget.Edge(PolyBudget.Class.Wall);
+            int courses = Mathf.Max(2, Mathf.RoundToInt(height / (edge * 0.7f)));
             float courseH = height / courses;
             float halfT = thickness * 0.5f;
             float left = -length * 0.5f, right = length * 0.5f;
@@ -153,7 +157,7 @@ namespace Vision.World
                 int k = 0;
                 while (x < right - 0.02f)
                 {
-                    float w = b.Range(0.38f, 0.72f);
+                    float w = edge * b.Range(0.68f, 1.29f);
                     float x0 = Mathf.Max(x, left), x1 = Mathf.Min(x + w, right);
                     x += w;
                     if (x1 - x0 < 0.1f) continue;
@@ -175,7 +179,7 @@ namespace Vision.World
         public static Mesh Panel(System.Random rng, float width, float height, float thickness)
         {
             var b = new LowPolyMeshBuilder(rng);
-            int boards = Mathf.Max(2, Mathf.RoundToInt(width / 0.16f));
+            int boards = Mathf.Max(2, Mathf.RoundToInt(width / (PolyBudget.Edge(PropClass) * 0.75f)));
             float w = width / boards;
             float halfT = thickness * 0.5f;
             for (int i = 0; i < boards; i++)
@@ -213,7 +217,8 @@ namespace Vision.World
         public static Mesh Campfire(System.Random rng)
         {
             var b = new LowPolyMeshBuilder(rng);
-            const int stones = 9;
+            // Stones spaced one and a half prop facets apart around the ring.
+            int stones = Mathf.Max(5, Mathf.RoundToInt(2f * Mathf.PI * 0.48f / (PolyBudget.Edge(PropClass) * 1.5f)));
             for (int i = 0; i < stones; i++)
             {
                 float a = (i + b.Range(-0.2f, 0.2f)) / stones * Mathf.PI * 2f;
@@ -227,14 +232,14 @@ namespace Vision.World
                 float a = i * Mathf.PI * 0.5f + b.Range(-0.2f, 0.2f);
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 b.AddTube(new[] { dir * 0.5f + Vector3.up * 0.07f, dir * 0.12f + Vector3.up * 0.2f },
-                          new[] { 0.07f, 0.065f }, 6, i % 2 == 0 ? Palette.Bark : Palette.BarkDark, 0.1f, 0.06f);
+                          new[] { 0.07f, 0.065f }, PolyBudget.Sides(0.07f, PropClass, 4), i % 2 == 0 ? Palette.Bark : Palette.BarkDark, 0.1f, 0.06f);
             }
             for (int i = 0; i < 5; i++)
             {
                 float a = b.Next() * Mathf.PI * 2f, r = i == 0 ? 0f : b.Range(0.06f, 0.14f);
                 var baseC = new Vector3(Mathf.Cos(a) * r, 0.18f, Mathf.Sin(a) * r);
                 float h = i == 0 ? 0.5f : b.Range(0.22f, 0.4f);
-                b.AddCone(baseC, baseC + new Vector3(b.Range(-0.04f, 0.04f), h, b.Range(-0.04f, 0.04f)), i == 0 ? 0.11f : 0.08f, 5,
+                b.AddCone(baseC, baseC + new Vector3(b.Range(-0.04f, 0.04f), h, b.Range(-0.04f, 0.04f)), i == 0 ? 0.11f : 0.08f, PolyBudget.Sides(i == 0 ? 0.11f : 0.08f, PropClass, 4),
                           i == 0 ? Palette.Flame : Palette.Ember, 0.1f, false);
             }
             return b.ToMesh("Campfire");
@@ -244,50 +249,25 @@ namespace Vision.World
         public static Mesh LanternPost(System.Random rng)
         {
             var b = new LowPolyMeshBuilder(rng);
-            b.AddFrustum(Vector3.zero, new Vector3(0f, 1.9f, 0f), 0.07f, 0.045f, 6, Palette.Iron, 0.06f);
-            b.AddFrustum(new Vector3(0f, 1.9f, 0f), new Vector3(0.34f, 1.9f, 0f), 0.035f, 0.03f, 5, Palette.Iron, 0.06f);
+            int post = PolyBudget.Sides(0.07f, PropClass, 4), arm = PolyBudget.Sides(0.035f, PropClass, 3), lamp = PolyBudget.Sides(0.13f, PropClass, 5);
+            b.AddFrustum(Vector3.zero, new Vector3(0f, 1.9f, 0f), 0.07f, 0.045f, post, Palette.Iron, 0.06f);
+            b.AddFrustum(new Vector3(0f, 1.9f, 0f), new Vector3(0.34f, 1.9f, 0f), 0.035f, 0.03f, arm, Palette.Iron, 0.06f);
             var lantern = new Vector3(0.34f, 1.55f, 0f);
-            b.AddFrustum(lantern, lantern + new Vector3(0f, 0.3f, 0f), 0.1f, 0.13f, 6, Palette.Glass, 0.05f);
-            b.AddFrustum(lantern + new Vector3(0f, -0.04f, 0f), lantern, 0.08f, 0.1f, 6, Palette.Iron, 0.05f);
-            b.AddCone(lantern + new Vector3(0f, 0.3f, 0f), lantern + new Vector3(0f, 0.46f, 0f), 0.16f, 6, Palette.Iron, 0.05f);
-            b.AddFrustum(new Vector3(0.34f, 1.9f, 0f), new Vector3(0.34f, 1.76f, 0f), 0.012f, 0.012f, 4, Palette.Iron, 0.05f, 0f, false, false);
+            b.AddFrustum(lantern, lantern + new Vector3(0f, 0.3f, 0f), 0.1f, 0.13f, lamp, Palette.Glass, 0.05f);
+            b.AddFrustum(lantern + new Vector3(0f, -0.04f, 0f), lantern, 0.08f, 0.1f, lamp, Palette.Iron, 0.05f);
+            b.AddCone(lantern + new Vector3(0f, 0.3f, 0f), lantern + new Vector3(0f, 0.46f, 0f), 0.16f, lamp, Palette.Iron, 0.05f);
+            b.AddFrustum(new Vector3(0.34f, 1.9f, 0f), new Vector3(0.34f, 1.76f, 0f), 0.012f, 0.012f, 3, Palette.Iron, 0.05f, 0f, false, false);
             return b.ToMesh("Lantern Post");
         }
 
-        // ------------------------------------------------------------------ characters and animals
-
-        /// <summary>A faceted humanoid about 1.8 m tall, facing +Z: boots, legs, flared coat, arms, head and hood.</summary>
-        public static Mesh Humanoid(System.Random rng, Color coat, Color skin)
-        {
-            var b = new LowPolyMeshBuilder(rng);
-            Color trousers = coat * 0.6f;
-            foreach (float side in new[] { -1f, 1f })
-            {
-                float x = side * 0.11f;
-                b.AddFrustum(new Vector3(x, 0f, 0.02f), new Vector3(x, 0.2f, 0f), 0.10f, 0.085f, 6, Palette.Iron, 0.06f, 0.05f);
-                b.AddFrustum(new Vector3(x, 0.2f, 0f), new Vector3(x, 0.9f, 0f), 0.085f, 0.1f, 6, trousers, 0.06f, 0.05f, false, false);
-            }
-            // Coat: flared skirt, waist, chest, neck.
-            b.AddTube(new[] { new Vector3(0f, 0.5f, 0f), new Vector3(0f, 0.9f, 0f), new Vector3(0f, 1.2f, 0f), new Vector3(0f, 1.45f, 0f), new Vector3(0f, 1.52f, 0f) },
-                      new[] { 0.31f, 0.25f, 0.25f, 0.21f, 0.09f }, 8, coat, 0.07f, 0.04f, 0f, new Vector2(1f, 0.68f), true, true);
-            foreach (float side in new[] { -1f, 1f })
-            {
-                Vector3 shoulder = new Vector3(side * 0.27f, 1.42f, 0f), hand = new Vector3(side * 0.3f, 0.82f, 0.12f);
-                b.AddFrustum(shoulder, hand, 0.075f, 0.055f, 6, coat * 0.85f, 0.06f, 0.05f, true, false);
-                b.AddBlob(hand + new Vector3(0f, -0.04f, 0f), Vector3.one * 0.055f, 0, 0.15f, _ => b.Jitter(skin, 0.06f));
-            }
-            Vector3 head = new Vector3(0f, 1.66f, 0.01f);
-            b.AddBlob(head, new Vector3(0.12f, 0.15f, 0.13f), 1, 0.07f, _ => b.Jitter(skin, 0.05f));
-            b.AddCone(head + new Vector3(0f, -0.01f, 0.12f), head + new Vector3(0f, -0.03f, 0.2f), 0.03f, 4, skin * 0.9f, 0.04f);
-            b.AddFrustum(head + new Vector3(0f, 0.07f, -0.01f), head + new Vector3(0f, 0.3f, -0.05f), 0.16f, 0.0f, 6, coat * 0.5f, 0.06f, 0.05f, false, false);
-            return b.ToMesh("Humanoid");
-        }
+        // ------------------------------------------------------------------ animals
 
         public static Mesh Crow(System.Random rng)
         {
             var b = new LowPolyMeshBuilder(rng);
             Color feathers = Palette.Crow;
-            b.AddBlob(new Vector3(0f, 0.11f, 0f), new Vector3(0.075f, 0.07f, 0.16f), 1, 0.08f, _ => b.Jitter(feathers, 0.2f));
+            var body = new Vector3(0.075f, 0.07f, 0.16f);
+            b.AddBlob(new Vector3(0f, 0.11f, 0f), body, PolyBudget.BlobSubdivisions(body, PropClass), 0.08f, _ => b.Jitter(feathers, 0.2f));
             b.AddBlob(new Vector3(0f, 0.17f, 0.15f), new Vector3(0.05f, 0.05f, 0.05f), 0, 0.1f, _ => b.Jitter(feathers, 0.15f));
             b.AddCone(new Vector3(0f, 0.17f, 0.19f), new Vector3(0f, 0.16f, 0.27f), 0.02f, 4, Palette.Beak, 0.05f);
             foreach (float side in new[] { -1f, 1f })

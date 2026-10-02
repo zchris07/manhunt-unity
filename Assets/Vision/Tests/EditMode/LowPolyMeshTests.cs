@@ -126,16 +126,6 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Humanoid_IsPersonSizedAndFacesForward()
-        {
-            Mesh m = LowPolyModels.Humanoid(new System.Random(1), LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin);
-            Assert.That(m.bounds.size.y, Is.InRange(1.6f, 2.1f));
-            Assert.GreaterOrEqual(m.bounds.min.y, -0.01f);
-            Assert.Greater(m.bounds.max.z, 0.15f, "nose and hands reach forward (+Z)");
-            Object.DestroyImmediate(m);
-        }
-
-        [Test]
         public void Ground_CoversRequestedExtent_AndFacesUp()
         {
             var b = new LowPolyMeshBuilder(new System.Random(9));

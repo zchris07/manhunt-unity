@@ -1,36 +1,41 @@
 using UnityEngine;
+using Vision.Characters;
 
 namespace Vision.World
 {
-    /// <summary>Dummy dynamic entity that walks a loop of waypoints, for testing entity occlusion.</summary>
+    /// <summary>A figure that walks a loop of waypoints (for testing entity occlusion), animated by its gait.</summary>
     public sealed class Wanderer : MonoBehaviour
     {
         public Vector3[] waypoints;
         [Tooltip("World units per second (the player's walking pace).")]
         public float speed = 3.2f;
-        public float bobAmount = 0.04f;
-        public Transform body;
+        public HumanoidAnimator animator;
 
         int next;
-        float bob;
+        Vector3 heading = Vector3.forward;
 
         void Update()
         {
-            if (waypoints == null || waypoints.Length == 0) return;
-            Vector3 target = waypoints[next];
-            Vector3 pos = transform.position;
-            Vector3 to = target - pos;
-            to.y = 0f;
-            if (to.magnitude < 0.1f)
+            Vector3 velocity = Vector3.zero;
+            if (waypoints != null && waypoints.Length > 0)
             {
-                next = (next + 1) % waypoints.Length;
-                return;
+                Vector3 to = waypoints[next] - transform.position;
+                to.y = 0f;
+                if (to.magnitude < 0.15f) next = (next + 1) % waypoints.Length;
+                else
+                {
+                    Vector3 step = Vector3.ClampMagnitude(to.normalized * speed * Time.deltaTime, to.magnitude);
+                    transform.position += step;
+                    velocity = to.normalized * speed;
+                    heading = Vector3.Slerp(heading, to.normalized, 1f - Mathf.Exp(-8f * Time.deltaTime));
+                }
             }
-            Vector3 step = to.normalized * speed * Time.deltaTime;
-            transform.position = pos + Vector3.ClampMagnitude(step, to.magnitude);
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to), 6f * Time.deltaTime);
-            bob += Time.deltaTime * speed * 6f;
-            if (body != null) body.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bob)) * bobAmount, 0f);
+            if (animator != null) animator.Drive(velocity, new Vector2(heading.x, heading.z));
+        }
+
+        void OnDisable()
+        {
+            if (animator != null) animator.Drive(Vector3.zero, new Vector2(heading.x, heading.z));
         }
     }
 }

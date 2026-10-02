@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using Vision.Characters;
 using Vision.Rendering;
 using Vision.World;
 
@@ -33,6 +34,7 @@ namespace Vision.Player
         IEnumerator Run()
         {
             if (hud != null) hud.visible = false;
+            composite.look = VisionComposite.Look.Defaults;   // ignore look values saved by a play session
             PlayerController player = world.Player;
             Wanderer wanderer = world.Wanderer;
             wanderer.enabled = false;
@@ -89,6 +91,87 @@ namespace Vision.Player
             yield return Shot("11_debug_scene_only");
             composite.debugView = VisionComposite.DebugView.Final;
 
+            // 8. Moving: walking, sprinting, strafing and backpedalling (input overrides, real gait).
+            Vector3 away = new Vector3(-16f, 0f, 16f);
+            yield return Stage(player, new Vector3(-1f, 0f, -3f), new Vector2(0f, -1f), wanderer, away);
+            player.MoveOverride = new Vector2(0f, -1f);
+            yield return Wait(70);
+            yield return Shot("12_walking");
+            player.SprintOverride = true;
+            yield return Wait(50);
+            yield return Shot("13_sprinting");
+            player.SprintOverride = null;
+            yield return Stage(player, new Vector3(-6f, 0f, -12f), new Vector2(0f, 1f), wanderer, away);
+            player.MoveOverride = new Vector2(1f, 0f);
+            yield return Wait(60);
+            yield return Shot("14_strafing");
+            player.MoveOverride = new Vector2(0f, -1f);
+            yield return Wait(60);
+            yield return Shot("15_backpedal");
+            player.MoveOverride = null;
+
+            // 9. Close-ups from the gameplay angle: by the campfire, among the trees, at the cabin door.
+            float ortho = cameraRig.orthographicSize;
+            cameraRig.orthographicSize = 3.2f;
+            yield return Stage(player, new Vector3(-0.2f, 0f, -7.4f), new Vector2(-0.3f, -1f), wanderer, new Vector3(-2.2f, 0f, -9.6f));
+            yield return Wait(10);
+            yield return Shot("16_closeup_campfire");
+            composite.debugView = VisionComposite.DebugView.Shadows;
+            yield return Wait(3);
+            yield return Shot("16b_campfire_shadow_mask");
+            composite.debugView = VisionComposite.DebugView.Final;
+            yield return Stage(player, new Vector3(-4.5f, 0f, -2f), new Vector2(-1f, 0.2f), wanderer, away);
+            yield return Shot("17_closeup_trees");
+            door.SetOpen(false);
+            yield return Stage(player, new Vector3(3.2f, 0f, 7.2f), new Vector2(1f, 0.1f), wanderer, away);
+            yield return Shot("18_closeup_cabin");
+            cameraRig.orthographicSize = ortho;
+
+            // 10. The player close up with the flashlight on, from the front, back and side; the wanderer in the beam.
+            cameraRig.orthographicSize = 3.2f;
+            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(0f, -1f), wanderer, away);
+            yield return Shot("20_player_facing_camera");
+            WriteCharacterReport(player, wanderer);
+            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(0f, 1f), wanderer, away);
+            yield return Shot("21_player_back");
+            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(1f, 0f), wanderer, away);
+            yield return Shot("22_player_side");
+            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(-0.25f, -1f), wanderer, new Vector3(3.6f, 0f, -7.6f));
+            yield return Shot("23_wanderer_in_beam");
+            composite.debugView = VisionComposite.DebugView.Shadows;
+            yield return Wait(3);
+            yield return Shot("23b_wanderer_flashlight_shadow_mask");
+            composite.debugView = VisionComposite.DebugView.Final;
+            cameraRig.orthographicSize = ortho;
+
+            // 11. Look: camera effects off, then each look slider low and high (spawn view).
+            yield return Stage(player, new Vector3(0f, 0f, -5f), new Vector2(0.3f, -1f), wanderer, away);
+            composite.look.cameraEffects = false;
+            yield return Wait(5);
+            yield return Shot("24_camera_effects_off");
+            composite.look = VisionComposite.Look.Defaults;
+            yield return Wait(5);
+            yield return Shot("25_look_default");
+            string[] names = { "contrast", "saturation", "lit_brightness", "unlit_brightness" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                foreach (float value in new[] { 0.6f, 1.4f })
+                {
+                    VisionComposite.Look l = VisionComposite.Look.Defaults;
+                    if (i == 0) l.contrast = value;
+                    else if (i == 1) l.saturation = value;
+                    else if (i == 2) l.litBrightness = value;
+                    else l.unlitBrightness = value;
+                    composite.look = l;
+                    yield return Wait(5);
+                    yield return Shot($"26_look_{names[i]}_{value:0.0}");
+                }
+            }
+            composite.look = VisionComposite.Look.Defaults;
+
+            // 12. Gait sheet (side-on, fully lit).
+            yield return GaitSheet(player);
+
             // Frame time over a short run with everything live.
             wanderer.enabled = true;
             player.AimOverride = new Vector2(0f, 1f);
@@ -100,6 +183,127 @@ namespace Vision.Player
             File.WriteAllText(Path.Combine(folder, "perf.txt"),
                 $"avg frame {ms:0.00} ms ({1000f / ms:0} fps) over {frames} frames at {Screen.width}x{Screen.height}\n");
             Application.Quit();
+        }
+
+        /// <summary>
+        /// Renders a contact sheet with a lit side camera: row 1 is eight frames across one walking stride,
+        /// row 2 one sprinting stride, row 3 the standing figure from the front, side, back, three-quarter
+        /// view and a close-up of the head.
+        /// </summary>
+        IEnumerator GaitSheet(PlayerController player)
+        {
+            var animator = player.GetComponent<Vision.Characters.HumanoidAnimator>();
+            if (animator == null) yield break;
+            float scale = player.transform.lossyScale.x;
+            const int w = 300, h = 420, cols = 8, rows = 3;
+            var sheet = new Texture2D(w * cols, h * rows, TextureFormat.RGB24, false);
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            var camGo = new GameObject("Sheet Camera");
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.62f, 0.64f, 0.67f);
+            cam.nearClipPlane = 0.1f;
+            cam.farClipPlane = 60f;
+            cam.targetTexture = rt;
+
+            Light moon = FindAnyObjectByType<Light>();
+            float moonIntensity = moon != null ? moon.intensity : 0f;
+            Quaternion moonRot = moon != null ? moon.transform.rotation : Quaternion.identity;
+            Color ambient = RenderSettings.ambientLight;
+            if (moon != null)
+            {
+                moon.intensity = 1.7f;
+                moon.transform.rotation = Quaternion.Euler(35f, -60f, 0f);
+            }
+            RenderSettings.ambientLight = new Color(0.5f, 0.5f, 0.53f);
+            Time.captureFramerate = 240;
+
+            yield return Stage(player, new Vector3(0f, 0f, -16f), new Vector2(0f, 1f), world.Wanderer, new Vector3(-16f, 0f, 16f));
+            for (int row = 0; row < 2; row++)
+            {
+                player.MoveOverride = new Vector2(0f, 1f);
+                player.SprintOverride = row == 1;
+                yield return Wait(240);
+                float cycle = animator.Solver.CycleTime;
+                int step = Mathf.Max(1, Mathf.RoundToInt(cycle / cols * 240f));
+                for (int k = 0; k < cols; k++)
+                {
+                    Vector3 p = player.transform.position;
+                    cam.orthographicSize = 1.05f * scale;
+                    cam.transform.SetPositionAndRotation(p + new Vector3(10f, 0.9f * scale, 0f), Quaternion.LookRotation(Vector3.left));
+                    yield return new WaitForEndOfFrame();
+                    Blit(rt, sheet, k * w, (rows - 1 - row) * h);
+                    yield return Wait(step);
+                }
+            }
+            player.MoveOverride = Vector2.zero;
+            player.SprintOverride = null;
+            yield return Wait(480);
+            player.MoveOverride = null;
+
+            // Standing: front, side, back, three-quarter, head close-up.
+            Vector3 c = player.transform.position;
+            var views = new (Vector3 dir, float size, float height)[]
+            {
+                (Vector3.forward, 1.05f, 0.9f), (Vector3.right, 1.05f, 0.9f), (Vector3.back, 1.05f, 0.9f),
+                (new Vector3(1f, 0.25f, 1f).normalized, 1.05f, 0.9f), (new Vector3(0.6f, 0.1f, 1f).normalized, 0.26f, 1.66f),
+                (new Vector3(-0.8f, 0.6f, 0.8f).normalized, 1.05f, 0.9f),
+            };
+            for (int k = 0; k < views.Length; k++)
+            {
+                var v = views[k];
+                cam.orthographicSize = v.size * scale;
+                Vector3 target = c + Vector3.up * (v.height * scale);
+                cam.transform.SetPositionAndRotation(target + v.dir * 10f, Quaternion.LookRotation(-v.dir));
+                yield return new WaitForEndOfFrame();
+                Blit(rt, sheet, k * w, 0);
+                yield return Wait(2);
+            }
+
+            sheet.Apply();
+            File.WriteAllBytes(Path.Combine(folder, "19_gait_and_anatomy_sheet.png"), sheet.EncodeToPNG());
+            Time.captureFramerate = 0;
+            if (moon != null)
+            {
+                moon.intensity = moonIntensity;
+                moon.transform.rotation = moonRot;
+            }
+            RenderSettings.ambientLight = ambient;
+            cam.targetTexture = null;
+            Destroy(camGo);
+            rt.Release();
+            Destroy(rt);
+            Destroy(sheet);
+        }
+
+        /// <summary>Writes what each character's renderer is doing, to diagnose a figure that does not show up.</summary>
+        void WriteCharacterReport(PlayerController player, Wanderer wanderer)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (Component c in new Component[] { player, wanderer })
+            {
+                foreach (SkinnedMeshRenderer r in c.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                {
+                    Mesh m = r.sharedMesh;
+                    Material mat = r.sharedMaterial;
+                    sb.AppendLine($"{c.name}/{r.name}: enabled {r.enabled}, active {r.gameObject.activeInHierarchy}, visible {r.isVisible}, " +
+                        $"mesh {(m != null ? m.name : "none")} ({(m != null ? m.vertexCount : 0)} verts, {(m != null ? m.triangles.Length / 3 : 0)} tris, " +
+                        $"{(m != null ? m.bindposeCount : 0)} bind poses, weights {(m != null && m.boneWeights.Length == m.vertexCount)}), bones {r.bones.Length}, " +
+                        $"root {(r.rootBone != null ? r.rootBone.name : "none")}, bounds {r.bounds.center} size {r.bounds.size}, " +
+                        $"material {(mat != null ? mat.name + " / " + mat.shader.name + " [" + string.Join(" ", mat.shaderKeywords) + "]" : "none")}, " +
+                        $"shadows {r.shadowCastingMode}");
+                }
+            }
+            File.WriteAllText(Path.Combine(folder, "characters.txt"), sb.ToString());
+        }
+
+        static void Blit(RenderTexture rt, Texture2D sheet, int x, int y)
+        {
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = rt;
+            sheet.ReadPixels(new Rect(0, 0, rt.width, rt.height), x, y);
+            RenderTexture.active = previous;
         }
 
         /// <summary>Positions are in the level's design units and converted through the (scaled) level root.</summary>

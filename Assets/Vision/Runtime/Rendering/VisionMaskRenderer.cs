@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Vision.Characters;
 using Vision.Visibility;
 
 namespace Vision.Rendering
@@ -12,10 +13,12 @@ namespace Vision.Rendering
     /// Channels:  B = viewer's own light (cone, proximity, see-through cone), with distance falloff.
     ///            G = 360° line of sight (no falloff, lights nothing by itself).
     ///            R = light sources, with distance falloff.
+    ///            A = soft character shadows cast away from the flashlight (cosmetic: they only darken
+    ///                already-lit ground). Light sources cast no character shadows.
     ///
     /// The mask lives in world space rather than screen space because the camera is pitched and the
     /// world has height: every shader samples it at a fragment's world X,Z.
-    /// Publishes _VisionMask, _VisionMaskRect and _VisionEntityThreshold as shader globals.
+    /// Publishes _VisionMask, _VisionMaskRect, _VisionEntityThreshold and _VisionViewerPos as shader globals.
     /// </summary>
     [DefaultExecutionOrder(200)]
     public sealed class VisionMaskRenderer : MonoBehaviour
@@ -30,10 +33,11 @@ namespace Vision.Rendering
         public float worldSize = 48f;
         [Tooltip("Mask texels per screen pixel along the visible ground (0.5 = half resolution).")]
         [Range(0.25f, 1f)] public float resolutionScale = 0.5f;
-        [Range(0, 4)] public int blurIterations = 2;
-        [Range(0.5f, 4f)] public float blurRadius = 1.5f;
+        [Range(0, 4)] public int blurIterations = 3;
+        [Range(0.5f, 4f)] public float blurRadius = 2.5f;
         [Tooltip("Only this many nearest light sources get a polygon each frame.")]
         public int maxLights = 6;
+
 
         [Header("Entities")]
         [Tooltip("Hard cut-off on channel B for dynamic objects.")]
@@ -46,6 +50,7 @@ namespace Vision.Rendering
         public static readonly int MaskRectId = Shader.PropertyToID("_VisionMaskRect");
         public static readonly int EntityThresholdId = Shader.PropertyToID("_VisionEntityThreshold");
         static readonly int BlurSourceId = Shader.PropertyToID("_VisionBlurSource");
+        public static readonly int ViewerPosId = Shader.PropertyToID("_VisionViewerPos");
         static readonly int BlurStepId = Shader.PropertyToID("_VisionBlurStep");
 
         VisibilityComputer computer;
@@ -61,8 +66,13 @@ namespace Vision.Rendering
         readonly List<Color> colors = new List<Color>(8192);
         readonly List<Vector2> uv0 = new List<Vector2>(8192);
         readonly List<Vector2> uv1 = new List<Vector2>(8192);
+        readonly List<Vector4> uv2 = new List<Vector4>(8192);
         readonly List<int> indices = new List<int>(16384);
         readonly List<VisionLight> lightOrder = new List<VisionLight>(32);
+        readonly List<Vector2> conePolygon = new List<Vector2>(1024);
+        readonly List<Vector2> proximityPolygon = new List<Vector2>(256);
+        readonly List<Vector2> seeThroughPolygon = new List<Vector2>(256);
+        readonly List<Vector2> shadowPolygon = new List<Vector2>(8);
 
         // Debug: last polygons as line strips for the overlay.
         readonly List<List<Vector2>> debugPolygons = new List<List<Vector2>>();
@@ -74,6 +84,7 @@ namespace Vision.Rendering
         public int LastPolygonCount { get; private set; }
         public int LastLightPolygonCount { get; private set; }
         public int LastRayCount { get; private set; }
+        public int LastShadowCount { get; private set; }
 
         void OnEnable()
         {
@@ -195,6 +206,7 @@ namespace Vision.Rendering
             colors.Clear();
             uv0.Clear();
             uv1.Clear();
+            uv2.Clear();
             indices.Clear();
             debugCount = 0;
             int polygons = 0, rays = 0;
@@ -203,32 +215,46 @@ namespace Vision.Rendering
             Vector2 origin = viewer.PlanePosition;
             float dir = viewer.FacingAngle;
             float halfSize = worldSize * 0.5f;
-            var blue = new Color(0f, 0f, 1f, 1f);
+            var blue = new Color(0f, 0f, 1f, 0f);
 
             // B: cone (capped near the screen edge), proximity circle, optional see-through cone.
             float k = viewer.Scale;
             float coneRange = Mathf.Min(viewer.coneRange * k, halfSize * 0.95f);
-            vc.Compute(ViewQuery.Cone(origin, dir, viewer.coneHalfAngleDeg * Mathf.Deg2Rad, coneRange), polygon);
+            this.origin = origin;
+            coneRangeW = coneRange;
+            float halfAngle = viewer.coneHalfAngleDeg * Mathf.Deg2Rad;
+            vc.Compute(ViewQuery.Cone(origin, dir, halfAngle, coneRange), polygon);
+            // The beam fades toward its sides as well as with distance (soft cone edge).
+            beam = new Vector4(Mathf.Cos(dir), Mathf.Sin(dir), halfAngle, viewer.coneEdgeSoftness);
             AddPolygon(polygon, false, origin, blue, coneRange, viewer.coneFalloffStart);
+            beam = Vector4.zero;
+            conePolygon.Clear();
+            conePolygon.AddRange(polygon);
             rays += vc.LastRayCount; polygons++;
 
             float proximity = viewer.proximityRadius * k;
+            proximityW = proximity;
             vc.Compute(ViewQuery.Circle(origin, proximity), polygon);
             AddPolygon(polygon, true, origin, blue, proximity, viewer.proximityFalloffStart);
+            proximityPolygon.Clear();
+            proximityPolygon.AddRange(polygon);
+            seeThroughPolygon.Clear();
             rays += vc.LastRayCount; polygons++;
 
             if (viewer.seeThroughEnabled)
             {
                 float seeThrough = viewer.seeThroughRange * k;
+                seeThroughW = seeThrough;
                 vc.Compute(ViewQuery.Cone(origin, dir, viewer.seeThroughHalfAngleDeg * Mathf.Deg2Rad, seeThrough, false), polygon);
                 AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength, seeThrough, 0.6f);
+                seeThroughPolygon.AddRange(polygon);
                 rays += vc.LastRayCount; polygons++;
             }
 
             // G: long-range 360° line of sight. No falloff (falloffStart >= 1 disables it).
             float losRange = Mathf.Min(viewer.lineOfSightRange * k, halfSize * 1.42f);
             vc.Compute(ViewQuery.Circle(origin, losRange), polygon);
-            AddPolygon(polygon, true, origin, new Color(0f, 1f, 0f, 1f), losRange, 2f);
+            AddPolygon(polygon, true, origin, new Color(0f, 1f, 0f, 0f), losRange, 2f);
             rays += vc.LastRayCount; polygons++;
 
             // R: the nearest light sources, each with its own (cached when static) polygon.
@@ -241,9 +267,25 @@ namespace Vision.Rendering
             {
                 VisionLight light = lightOrder[i];
                 List<Vector2> poly = light.GetPolygon(vc, version);
-                AddPolygon(poly, true, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 1f), light.WorldRange, 0.25f);
+                AddPolygon(poly, true, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 0f), light.WorldRange, 0.25f);
                 polygons++;
             }
+
+            // A: soft shadows of characters, cast only by the flashlight (light sources cast none).
+            LastShadowCount = 0;
+            foreach (CharacterShadow caster in VisionWorld.Casters)
+            {
+                Vector2 at = caster.PlanePosition;
+                bool inBeam = Contains(conePolygon, at);
+                bool seen = ViewerLightAt(at) >= entityThreshold;
+                if (!CastsFlashlightShadow(caster.isEntity, caster.transform.IsChildOf(viewer.transform), inBeam, seen)) continue;
+                float cs = caster.Scale;
+                AddShadow(at, origin, viewer.lightHeight * k, coneRange, caster.radius * cs, caster.height * cs, caster.strength);
+            }
+
+            // The player's feet, for the composite's distance blur.
+            Vector3 feet = viewer.transform.position;
+            Shader.SetGlobalVector(ViewerPosId, new Vector4(feet.x, feet.y, feet.z, 1f));
 
             LastPolygonCount = polygons;
             LastLightPolygonCount = lightCount;
@@ -254,8 +296,105 @@ namespace Vision.Rendering
             mesh.SetColors(colors);
             mesh.SetUVs(0, uv0);
             mesh.SetUVs(1, uv1);
+            mesh.SetUVs(2, uv2);
             mesh.SetIndices(indices, MeshTopology.Triangles, 0, false);
             mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
+        }
+
+        /// <summary>
+        /// Whether a character casts a flashlight shadow: never the viewer's own body, only inside the beam,
+        /// and an entity only while the viewer can see it (a shadow never reveals what is hidden).
+        /// </summary>
+        public static bool CastsFlashlightShadow(bool isEntity, bool isViewer, bool inBeam, bool viewerSees) =>
+            !isViewer && inBeam && (!isEntity || viewerSees);
+
+        /// <summary>
+        /// The viewer's own light (mask channel B, before the blur) at a ground point, as the mask shader
+        /// computes it: compared with the entity threshold to tell whether an entity there is visible.
+        /// </summary>
+        float ViewerLightAt(Vector2 p)
+        {
+            Vector2 to = p - origin;
+            float d = to.magnitude, b = 0f;
+            if (Contains(conePolygon, p))
+                b = DistanceFalloff(d, coneRangeW, viewer.coneFalloffStart)
+                    * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
+            if (Contains(proximityPolygon, p)) b = Mathf.Max(b, DistanceFalloff(d, proximityW, viewer.proximityFalloffStart));
+            if (seeThroughPolygon.Count > 0 && Contains(seeThroughPolygon, p))
+                b = Mathf.Max(b, viewer.seeThroughStrength * DistanceFalloff(d, seeThroughW, 0.6f));
+            return b;
+        }
+
+        /// <summary>Distance falloff of a polygon (matches Hidden/Vision/Mask).</summary>
+        public static float DistanceFalloff(float distance, float range, float falloffStart) =>
+            falloffStart >= 1f ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(range * falloffStart, range, distance));
+
+        /// <summary>
+        /// Angular falloff of the flashlight beam (matches Hidden/Vision/Mask): full strength on the axis, fading
+        /// over the outer <paramref name="softness"/> fraction of the half angle to zero at the cone's side.
+        /// </summary>
+        public static float BeamFalloff(Vector2 toPoint, Vector2 beamDir, float halfAngle, float softness)
+        {
+            if (halfAngle <= 0f || toPoint.sqrMagnitude < 1e-8f) return 1f;
+            float t = Vector2.Angle(beamDir, toPoint) * Mathf.Deg2Rad / halfAngle;
+            return 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f - Mathf.Max(softness, 1e-3f), 1f, t));
+        }
+
+        /// <summary>Even-odd point-in-polygon test.</summary>
+        public static bool Contains(List<Vector2> poly, Vector2 p)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+            {
+                Vector2 a = poly[i], b = poly[j];
+                if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+            }
+            return inside;
+        }
+
+        /// <summary>
+        /// A soft, tapering shadow from a caster standing at <paramref name="at"/>, pointing away from a light at
+        /// <paramref name="lightAt"/> (plane position) and <paramref name="lightHeight"/> above the ground.
+        /// Length follows the light's height relative to the caster (long when the light is low), capped;
+        /// strength fades toward the light's range and along the shadow.
+        /// </summary>
+        void AddShadow(Vector2 at, Vector2 lightAt, float lightHeight, float lightRange, float radius, float height, float strength)
+        {
+            if (!ShadowPolygon(at, lightAt, lightHeight, lightRange, radius, height, strength, shadowPolygon, out Vector2 start, out float alpha, out float length)) return;
+            AddPolygon(shadowPolygon, true, start, new Color(0f, 0f, 0f, alpha), length, 0.15f);
+            LastShadowCount++;
+        }
+
+        /// <summary>
+        /// Shape of a character shadow on the ground plane: a tapering, slightly widening outline starting just
+        /// past the caster's feet and pointing away from the light. Returns false when there is no shadow
+        /// (caster outside the light's range, or too faint).
+        /// </summary>
+        public static bool ShadowPolygon(Vector2 at, Vector2 lightAt, float lightHeight, float lightRange, float radius, float height,
+            float strength, List<Vector2> points, out Vector2 start, out float alpha, out float length)
+        {
+            points.Clear();
+            start = at;
+            alpha = 0f;
+            length = 0f;
+            Vector2 d = at - lightAt;
+            float dist = d.magnitude;
+            if (dist < 1e-3f || dist > lightRange) return false;
+            d /= dist;
+            var side = new Vector2(-d.y, d.x);
+            float len = Mathf.Min(height * dist / Mathf.Max(lightHeight - height * 0.85f, height * 0.25f), height * 1.2f);
+            alpha = 0.85f * strength * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(lightRange * 0.55f, lightRange, dist)));
+            if (alpha <= 0.01f || len <= radius) return false;
+            start = at + d * (radius * 0.8f);
+            points.Add(start + side * radius);
+            points.Add(start + d * (len * 0.5f) + side * (radius * 1.25f));
+            points.Add(start + d * len + side * (radius * 1.5f));
+            points.Add(start + d * (len * 1.08f));
+            points.Add(start + d * len - side * (radius * 1.5f));
+            points.Add(start + d * (len * 0.5f) - side * (radius * 1.25f));
+            points.Add(start - side * radius);
+            length = len * 1.08f;
+            return true;
         }
 
         /// <summary>
@@ -298,7 +437,14 @@ namespace Vision.Rendering
             colors.Add(c);
             uv0.Add(origin);
             uv1.Add(data);
+            uv2.Add(beam);
         }
+
+        Vector2 origin;
+        float coneRangeW, proximityW, seeThroughW;
+
+        /// <summary>Angular falloff for the polygon being added: (beam dir x, dir y, half angle, edge softness); zero = none.</summary>
+        Vector4 beam;
 
         void CopyDebug(List<Vector2> poly, bool ring, Vector2 origin)
         {

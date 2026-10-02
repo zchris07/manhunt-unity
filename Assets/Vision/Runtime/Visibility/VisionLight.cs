@@ -13,6 +13,8 @@ namespace Vision.Visibility
     {
         [Tooltip("Radius in design units; multiplied by the transform scale.")]
         public float range = 6f;
+        [Tooltip("Height of the flame or bulb above the object's origin, in design units (for surface shading).")]
+        public float height = 1f;
         [Range(0f, 1f)] public float intensity = 1f;
         [Tooltip("Cache the polygon; rebuilt only when an occluder changes or the light moves.")]
         public bool isStatic = true;
@@ -27,14 +29,24 @@ namespace Vision.Visibility
 
         public Vector2 PlanePosition => VisionWorld.ToPlane(transform.position);
 
+        /// <summary>World position of the flame or bulb.</summary>
+        public Vector3 WorldLightPosition => transform.position + Vector3.up * (height * transform.lossyScale.y);
+
         /// <summary>Radius in world units.</summary>
         public float WorldRange => range * transform.lossyScale.x;
+
+        /// <summary>
+        /// Off when the camera-effects toggle is off (VisionComposite.cameraEffects): every light then burns
+        /// steadily at its average flickering brightness.
+        /// </summary>
+        public static bool FlickerEnabled = true;
 
         public float CurrentIntensity
         {
             get
             {
                 if (flickerAmount <= 0f) return intensity;
+                if (!FlickerEnabled) return Mathf.Clamp01(intensity * (1f - flickerAmount * 0.5f));
                 float n = Mathf.PerlinNoise(noiseSeed, Time.time * flickerSpeed);
                 return Mathf.Clamp01(intensity * (1f - flickerAmount + n * flickerAmount));
             }

@@ -88,13 +88,14 @@ namespace Vision.EditorTools
             composite.targetCamera = cam;
             composite.compositeShader = Shader.Find("Hidden/Vision/Composite");
 
-            // Moonlight: dim, cold, casts the branch shadows.
+            // Moonlight: dim and cold. It shades surfaces but casts no shadows: the only shadows in the
+            // game come from the player's flashlight.
             var moonGo = new GameObject("Moonlight");
             var moon = moonGo.AddComponent<Light>();
             moon.type = LightType.Directional;
             moon.color = new Color(0.80f, 0.82f, 0.86f);
             moon.intensity = 0.85f;
-            moon.shadows = LightShadows.Soft;
+            moon.shadows = LightShadows.None;
             moonGo.transform.rotation = Quaternion.Euler(58f, -35f, 0f);
 
             var visionGo = new GameObject("Vision");
@@ -144,8 +145,8 @@ namespace Vision.EditorTools
         }
 
         /// <summary>
-        /// The ortho camera sits ~28 m above the ground, so one cascade over a short distance puts all the
-        /// shadow-map resolution on the diorama instead of on empty air near the camera.
+        /// No real-time shadows anywhere: no asset has a shadow of its own. The only shadows are the
+        /// flashlight's (its visibility polygon and the character shadows in the vision mask).
         /// </summary>
         static void ConfigureShadows()
         {
@@ -153,10 +154,10 @@ namespace Vision.EditorTools
             {
                 var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(guid));
                 var so = new SerializedObject(asset);
-                so.FindProperty("m_ShadowDistance").floatValue = 44f;
-                so.FindProperty("m_ShadowCascadeCount").intValue = 1;
-                so.FindProperty("m_MainLightShadowmapResolution").intValue = 4096;
-                so.FindProperty("m_SoftShadowsSupported").boolValue = true;
+                so.FindProperty("m_MainLightShadowsSupported").boolValue = false;
+                so.FindProperty("m_AdditionalLightShadowsSupported").boolValue = false;
+                so.FindProperty("m_ShadowDistance").floatValue = 0f;
+                so.FindProperty("m_SoftShadowsSupported").boolValue = false;
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(asset);
             }

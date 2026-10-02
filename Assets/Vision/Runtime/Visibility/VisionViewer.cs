@@ -10,9 +10,13 @@ namespace Vision.Visibility
     public sealed class VisionViewer : MonoBehaviour
     {
         [Header("Flashlight cone")]
+        [Tooltip("Height the flashlight is held at, in design units (for surface shading).")]
+        public float lightHeight = 1.3f;
         [Range(5f, 90f)] public float coneHalfAngleDeg = 50f;
         public float coneRange = 18f;
         [Range(0f, 1f)] public float coneFalloffStart = 0.45f;
+        [Tooltip("Outer fraction of the half angle over which the beam fades to dark at its sides.")]
+        [Range(0f, 1f)] public float coneEdgeSoftness = 0.35f;
 
         [Header("Proximity circle")]
         public float proximityRadius = 1.8f;

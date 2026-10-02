@@ -1,6 +1,8 @@
 // Rasterises visibility polygons (world X,Z) into the world-space mask.
-// Vertex colour selects the channel and strength, uv0 = polygon origin, uv1 = (range, falloffStart).
-// falloffStart >= 1 disables the distance falloff (line of sight).
+// Vertex colour selects the channel and strength, uv0 = polygon origin, uv1 = (range, falloffStart),
+// uv2 = (beam direction x, y, half angle, edge softness) for the flashlight cone, zero otherwise.
+// falloffStart >= 1 disables the distance falloff (line of sight); a zero half angle disables the
+// angular falloff, which fades the beam toward the cone's sides.
 Shader "Hidden/Vision/Mask"
 {
     SubShader
@@ -27,6 +29,7 @@ Shader "Hidden/Vision/Mask"
                 float4 color : COLOR;
                 float2 origin : TEXCOORD0;
                 float2 rangeFalloff : TEXCOORD1;
+                float4 beam : TEXCOORD2;
             };
 
             struct Varyings
@@ -36,6 +39,7 @@ Shader "Hidden/Vision/Mask"
                 float2 worldXZ : TEXCOORD0;
                 float2 origin : TEXCOORD1;
                 float2 rangeFalloff : TEXCOORD2;
+                float4 beam : TEXCOORD3;
             };
 
             Varyings vert(Attributes i)
@@ -46,6 +50,7 @@ Shader "Hidden/Vision/Mask"
                 o.color = i.color;
                 o.origin = i.origin;
                 o.rangeFalloff = i.rangeFalloff;
+                o.beam = i.beam;
                 return o;
             }
 
@@ -59,7 +64,15 @@ Shader "Hidden/Vision/Mask"
                     float d = distance(i.worldXZ, i.origin);
                     falloff = 1.0 - smoothstep(range * start, range, d);
                 }
-                return half4(i.color.rgb * falloff, 1.0);
+                if (i.beam.z > 0.0)
+                {
+                    float2 to = i.worldXZ - i.origin;
+                    float len = length(to);
+                    float t = len > 1e-4 ? acos(clamp(dot(to / len, i.beam.xy), -1.0, 1.0)) / i.beam.z : 0.0;
+                    falloff *= 1.0 - smoothstep(1.0 - max(i.beam.w, 1e-3), 1.0, t);
+                }
+                // Alpha carries character shadows; every other polygon writes 0 there.
+                return half4(i.color.rgb * falloff, i.color.a * falloff);
             }
             ENDHLSL
         }

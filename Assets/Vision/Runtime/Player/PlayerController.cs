@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Vision.Characters;
 using Vision.Visibility;
 using Vision.World;
 
@@ -17,7 +18,7 @@ namespace Vision.Player
     {
         public Camera viewCamera;
         public VisionViewer viewer;
-        public Transform body;
+        public HumanoidAnimator animator;
         public SandboxWorld world;
         [Tooltip("World units per second. At 2x world scale this is half of the original on-screen pace.")]
         public float walkSpeed = 3.2f;
@@ -28,6 +29,12 @@ namespace Vision.Player
 
         /// <summary>When set, replaces mouse aim (used by automated captures).</summary>
         public Vector2? AimOverride { get; set; }
+
+        /// <summary>When set, replaces the move input (x = right, y = forward), for automated captures.</summary>
+        public Vector2? MoveOverride { get; set; }
+
+        /// <summary>When set, replaces the sprint input.</summary>
+        public bool? SprintOverride { get; set; }
 
         CharacterController cc;
         float verticalSpeed;
@@ -56,20 +63,26 @@ namespace Vision.Player
         void Update()
         {
             if (move == null) return;
-            Vector2 input = Vector2.ClampMagnitude(move.ReadValue<Vector2>(), 1f);
-            Vector2 velocity = input * (sprint.IsPressed() ? runSpeed : walkSpeed);
+            Vector2 input = Vector2.ClampMagnitude(MoveOverride ?? move.ReadValue<Vector2>(), 1f);
+            bool sprinting = SprintOverride ?? sprint.IsPressed();
+            Vector2 velocity = input * (sprinting ? runSpeed : walkSpeed);
             if (interact.WasPressedThisFrame()) ToggleNearestDoor();
             if (seeThrough.WasPressedThisFrame() && viewer != null) viewer.seeThroughEnabled = !viewer.seeThroughEnabled;
 
             verticalSpeed = cc.isGrounded ? -1f : verticalSpeed - 9.81f * Time.deltaTime;
             cc.Move(new Vector3(velocity.x, verticalSpeed, velocity.y) * Time.deltaTime);
 
-            Vector2 aim = AimOverride ?? ReadAim();
+            // While the pointer is on the look panel (F4) the light keeps its direction.
+            Vector2 aim = AimOverride ?? (VisionDebugHud.PointerOverPanel(aimPoint.ReadValue<Vector2>()) ? Vector2.zero : ReadAim());
             if (aim.sqrMagnitude > 1e-4f)
             {
                 aim.Normalize();
                 if (viewer != null) viewer.Facing = aim;
-                if (body != null) body.rotation = Quaternion.LookRotation(new Vector3(aim.x, 0f, aim.y));
+            }
+            if (animator != null)
+            {
+                Vector3 moved = cc.velocity;
+                animator.Drive(new Vector3(moved.x, 0f, moved.z), viewer != null ? viewer.Facing : aim);
             }
         }
 

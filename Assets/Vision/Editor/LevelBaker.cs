@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using Vision.Characters;
 using Vision.World;
 
 namespace Vision.EditorTools
@@ -69,13 +70,14 @@ namespace Vision.EditorTools
                 library.crows[i] = SavePrefab(PropFactory.CreateCrow(mesh, entity), $"Crow_{i:00}");
             }
 
-            Mesh wanderer = SaveMesh(LowPolyModels.Humanoid(new System.Random(6000), LowPolyModels.Palette.Rags, LowPolyModels.Palette.PaleSkin),
-                $"{PropMeshes}/Wanderer.asset");
-            library.wanderer = SavePrefab(PropFactory.CreateWanderer(wanderer, entity), "Wanderer");
+            // One mannequin mesh for every character; the wanderer only differs by its entity material.
+            Mesh mannequin = SaveMesh(MannequinBuilder.Build(), $"{PropMeshes}/Mannequin.asset");
+            library.wanderer = SavePrefab(PropFactory.CreateWanderer(entity, mannequin), "Wanderer");
+            library.player = SavePrefab(PropFactory.CreatePlayer(lowPoly, mannequin), "Player");
+            foreach (string stale in new[] { "Player", "Wanderer" })
+                if (AssetDatabase.LoadAssetAtPath<Mesh>($"{PropMeshes}/{stale}.asset") != null) AssetDatabase.DeleteAsset($"{PropMeshes}/{stale}.asset");
 
-            Mesh player = SaveMesh(LowPolyModels.Humanoid(new System.Random(6001), LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin),
-                $"{PropMeshes}/Player.asset");
-            library.player = SavePrefab(PropFactory.CreatePlayer(player, lowPoly), "Player");
+            Report(library, mannequin);
 
             EditorUtility.SetDirty(library);
             AssetDatabase.SaveAssets();
@@ -115,7 +117,11 @@ namespace Vision.EditorTools
             return saved;
         }
 
-        /// <summary>Saves a mesh as an asset; if one already exists at the path it is overwritten in place.</summary>
+        /// <summary>
+        /// Saves a mesh as an asset; if one already exists at the path it is overwritten in place (same GUID).
+        /// The data is copied field by field rather than with EditorUtility.CopySerialized, which does not
+        /// reliably carry skinning data (bone weights, bind poses) into an existing mesh.
+        /// </summary>
         static Mesh SaveMesh(Mesh mesh, string path)
         {
             var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
@@ -125,12 +131,55 @@ namespace Vision.EditorTools
                 AssetDatabase.CreateAsset(mesh, path);
                 return mesh;
             }
-            existing.Clear();
-            EditorUtility.CopySerialized(mesh, existing);
+            CopyMesh(mesh, existing);
             existing.name = Path.GetFileNameWithoutExtension(path);
             Object.DestroyImmediate(mesh);
             EditorUtility.SetDirty(existing);
             return existing;
+        }
+
+        static void CopyMesh(Mesh from, Mesh to)
+        {
+            to.Clear();
+            to.indexFormat = from.indexFormat;
+            to.vertices = from.vertices;
+            to.normals = from.normals;
+            to.colors = from.colors;
+            var uv = new List<Vector4>();
+            for (int channel = 0; channel < 4; channel++)
+            {
+                from.GetUVs(channel, uv);
+                if (uv.Count > 0) to.SetUVs(channel, uv);
+            }
+            to.subMeshCount = from.subMeshCount;
+            for (int i = 0; i < from.subMeshCount; i++) to.SetTriangles(from.GetTriangles(i), i);
+            if (from.bindposeCount > 0)
+            {
+                to.boneWeights = from.boneWeights;
+                to.bindposes = from.bindposes;
+            }
+            to.bounds = from.bounds;
+            if (to.vertexCount != from.vertexCount || to.bindposeCount != from.bindposeCount)
+                throw new System.InvalidOperationException($"Mesh copy into {to.name} lost data.");
+        }
+
+        /// <summary>Logs each prop's triangle count against the shared polygon budget.</summary>
+        static void Report(PropLibrary library, Mesh mannequin)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"[Vision] Polygon budget: reference edge {PolyBudget.ReferenceEdge:0.000}; mannequin {mannequin.triangles.Length / 3} tris");
+            void Line(string name, GameObject prefab, PolyBudget.Class c)
+            {
+                Mesh m = prefab.GetComponentInChildren<MeshFilter>().sharedMesh;
+                sb.Append($"; {name} {m.triangles.Length / 3} tris (edge {PolyBudget.MeasuredEdge(m):0.00} vs {PolyBudget.Edge(c):0.00})");
+            }
+            Line("tree", library.trees[0], PolyBudget.Class.Tree);
+            Line("rock", library.rocks[library.rocks.Length - 1], PolyBudget.Class.Rock);
+            Line("crate", library.crates[0], PolyBudget.Class.Prop);
+            Line("campfire", library.campfire, PolyBudget.Class.Prop);
+            Line("lantern", library.lantern, PolyBudget.Class.Prop);
+            Line("crow", library.crows[0], PolyBudget.Class.Prop);
+            Debug.Log(sb.ToString());
         }
 
         /// <summary>Saves a built prop as a prefab (overwriting any previous one) and discards the temporary object.</summary>

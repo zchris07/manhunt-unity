@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 3925754695536768956}
   - component: {fileID: 34081048630891059}
   - component: {fileID: 1408108639360153858}
+  - component: {fileID: 3526852814125099215}
   m_Layer: 0
   m_Name: Crow_00
   m_TagString: Untagged
@@ -50,7 +51,7 @@ MeshRenderer:
   m_GameObject: {fileID: 1351252209292786945}
   m_Enabled: 1
   m_CastShadows: 0
-  m_ReceiveShadows: 1
+  m_ReceiveShadows: 0
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
   m_MotionVectors: 1
@@ -90,3 +91,19 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &3526852814125099215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1351252209292786945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ade7e50e1ac41c842aff68ab5a38a332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Characters.CharacterShadow
+  radius: 0.08
+  height: 0.25
+  isEntity: 1
+  strength: 0.8

@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using Vision.Player;
 using Vision.Visibility;
 using Vision.World;
 
@@ -62,6 +63,49 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void NoAsset_HasAShadowOfItsOwn()
+        {
+            SandboxWorld world = NewWorld(null);
+            world.Generate();
+            Renderer[] renderers = world.GetComponentsInChildren<Renderer>(true);
+            Assert.Greater(renderers.Length, 100);
+            foreach (Renderer r in renderers)
+            {
+                Assert.AreEqual(UnityEngine.Rendering.ShadowCastingMode.Off, r.shadowCastingMode, r.name);
+                Assert.IsFalse(r.receiveShadows, r.name);
+            }
+            Assert.AreEqual(0, world.Player.GetComponentsInChildren<Light>().Length);
+        }
+
+        [Test]
+        public void Characters_AreRenderable_PlayerAlwaysAndWandererAsAnEntity()
+        {
+            SandboxWorld world = NewWorld(null);
+            world.Generate();
+            var player = world.Player.GetComponentInChildren<SkinnedMeshRenderer>();
+            var wanderer = world.Wanderer.GetComponentInChildren<SkinnedMeshRenderer>();
+            foreach (SkinnedMeshRenderer r in new[] { player, wanderer })
+            {
+                Assert.IsTrue(r.enabled && r.gameObject.activeInHierarchy, r.name);
+                Assert.Greater(r.sharedMesh.triangles.Length, 0);
+                Assert.AreEqual(r.sharedMesh.vertexCount, r.sharedMesh.boneWeights.Length, "skinned");
+                Assert.AreEqual(r.bones.Length, r.sharedMesh.bindposeCount);
+            }
+            Assert.AreSame(lowPoly, player.sharedMaterial, "the player is never hidden in the dark");
+            Assert.AreSame(entity, wanderer.sharedMaterial, "the wanderer is hidden outside the viewer's light");
+        }
+
+        [Test]
+        public void OnlyThePlayer_CountsAsTheViewersOwnBody_ForShadows()
+        {
+            SandboxWorld world = NewWorld(null);
+            world.Generate();
+            Transform viewer = world.Player.GetComponent<VisionViewer>().transform;
+            foreach (Vision.Characters.CharacterShadow caster in world.GetComponentsInChildren<Vision.Characters.CharacterShadow>())
+                Assert.AreEqual(caster.GetComponentInParent<PlayerController>() != null, caster.transform.IsChildOf(viewer), caster.name);
+        }
+
+        [Test]
         public void Generate_IsDeterministic()
         {
             SandboxWorld world = NewWorld(null);
@@ -113,6 +157,24 @@ namespace Vision.Tests
             Assert.NotNull(library.campfire.GetComponent<VisionLight>());
             Assert.NotNull(library.lantern.GetComponent<VisionLight>());
             Assert.NotNull(library.player.GetComponent<CharacterController>());
+            foreach (GameObject character in new[] { library.player, library.wanderer })
+            {
+                Mesh m = character.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh;
+                Assert.IsTrue(EditorUtility.IsPersistent(m), "saved mannequin mesh");
+                Assert.LessOrEqual(m.triangles.Length / 3, 200);
+                Assert.AreEqual(m.vertexCount, m.boneWeights.Length, "the saved mesh keeps its bone weights");
+                Assert.AreEqual(Vision.Characters.HumanoidSkeleton.BoneCount, m.bindposeCount, "and its bind poses");
+            }
+        }
+
+        [Test]
+        public void RenderPipeline_HasRealTimeShadowsOff()
+        {
+            foreach (string guid in AssetDatabase.FindAssets("t:UniversalRenderPipelineAsset"))
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.IsFalse(asset.supportsMainLightShadows, asset.name);
+            }
         }
     }
 }

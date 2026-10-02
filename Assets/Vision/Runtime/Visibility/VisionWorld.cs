@@ -12,6 +12,9 @@ namespace Vision.Visibility
 
         public static readonly List<VisionLight> Lights = new List<VisionLight>();
 
+        /// <summary>Characters that cast cosmetic shadows (Vision.Characters.CharacterShadow).</summary>
+        public static readonly List<Vision.Characters.CharacterShadow> Casters = new List<Vision.Characters.CharacterShadow>();
+
         /// <summary>World position to the 2D gameplay plane.</summary>
         public static Vector2 ToPlane(Vector3 world) => new Vector2(world.x, world.z);
 
@@ -23,6 +26,8 @@ namespace Vision.Visibility
         {
             occluders = null;
             Lights.Clear();
+            Casters.Clear();
+            VisionLight.FlickerEnabled = true;
         }
     }
 }

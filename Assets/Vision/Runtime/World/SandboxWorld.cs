@@ -109,7 +109,8 @@ namespace Vision.World
             // The cabin floor (and a margin around it) stays flat and regular so its planks line up with the walls.
             var flatZone = new Rect(Cabin.x - 0.5f, Cabin.y - 0.5f, Cabin.width + 1f, Cabin.height + 1f);
 
-            b.AddFacetedGround(e, 0.7f,
+            // Cell size from the shared polygon budget (the player's facet size, relaxed for flat ground).
+            b.AddFacetedGround(e, PolyBudget.Edge(PolyBudget.Class.Ground),
                 (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : -0.05f * Mathf.PerlinNoise(x * 0.35f + 1f, z * 0.35f + 9f),
                 (x, z) =>
                 {
@@ -156,7 +157,6 @@ namespace Vision.World
             }
 
             var go = MakeStatic("Ground", b.ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
-            go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             var col = go.AddComponent<BoxCollider>();
             col.center = new Vector3(0f, -0.5f, 0f);
             col.size = new Vector3(e * 2f, 1f, e * 2f);
@@ -259,7 +259,7 @@ namespace Vision.World
             panel.transform.SetParent(hinge, false);
             panel.transform.localPosition = new Vector3(width * 0.5f, shutter ? 0.8f : 0f, 0f);
             panel.AddComponent<MeshFilter>().sharedMesh = m;
-            panel.AddComponent<MeshRenderer>().sharedMaterial = lowPolyMaterial;
+            PropFactory.NoShadows(panel.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
 
             var blocker = root.AddComponent<BoxCollider>();
             blocker.center = new Vector3(width * 0.5f, 1f, 0f);
@@ -371,8 +371,7 @@ namespace Vision.World
         void BuildWanderer()
         {
             GameObject go = Prop(library != null ? library.wanderer : null, entityRoot,
-                () => PropFactory.CreateWanderer(
-                    LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Rags, LowPolyModels.Palette.PaleSkin), entityMaterial));
+                () => PropFactory.CreateWanderer(entityMaterial));
             go.transform.localPosition = new Vector3(3f, 0f, -3f);
             Wanderer = go.GetComponent<Wanderer>();
             Wanderer.waypoints = new[] { new Vector3(3f, 0f, -3f), new Vector3(3f, 0f, -12f), new Vector3(-4f, 0f, -12f), new Vector3(-4f, 0f, -3f) };
@@ -383,8 +382,7 @@ namespace Vision.World
         void BuildPlayer()
         {
             GameObject go = Prop(library != null ? library.player : null, transform,
-                () => PropFactory.CreatePlayer(
-                    LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin), lowPolyMaterial));
+                () => PropFactory.CreatePlayer(lowPolyMaterial));
             go.transform.localPosition = playerSpawn + Vector3.up * 0.05f;
 
             Player = go.GetComponent<PlayerController>();
@@ -421,7 +419,7 @@ namespace Vision.World
             go.transform.SetLocalPositionAndRotation(pos, rot);
             go.isStatic = true;
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+            PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = mat;
             return go;
         }
 
