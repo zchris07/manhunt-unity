@@ -90,13 +90,30 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
    light even when standing in a campfire's glow, and they cast no shadows. Static terrain is never
    culled.
 
-The world (`Runtime/World/`) is generated procedurally on Play from flat triangles.
-`LowPolyMeshBuilder` gives every triangle its own vertices, face normal and slightly jittered
-colour, with sRGB vertex colours converted to linear. Its primitives are faceted tubes and cones,
-jittered icospheres, irregular hexahedra and a jittered, triangulated ground grid. `LowPolyModels`
-builds the props from them: gnarled dead trees, boulders, plank and stone walls, doors and shutters,
-crates, campfires, lanterns, crows and the humanoid player and wandering figure. The models use the
-same footprints as the colliders and occluders.
+## Level assets
+
+The level is saved as ordinary Unity content, so you can open `VisionSandbox.unity` and see and edit it
+without pressing Play:
+
+| Folder | Contents |
+|---|---|
+| `Assets/Vision/Prefabs/` | One prefab per prop variant (6 dead trees, 4 rocks, 3 crates, campfire, lantern post, 2 crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
+| `Assets/Vision/Meshes/Props/` | The mesh behind each prop prefab. |
+| `Assets/Vision/Meshes/Level/` | One mesh per ground, wall and door object in the scene. |
+| `Assets/Vision/Materials/` | `LowPoly`, `LowPolyEntity` (hidden outside the viewer's light) and `LowPolyGlow`. |
+
+The scene's `Sandbox World` object has `generateOnAwake` off, because the level is already in the scene.
+Trees, rocks and the rest are prefab instances, so editing a prefab updates every copy; moving an
+instance or deleting one is a normal scene edit. Turn `generateOnAwake` on, or use the component's
+**Generate Level** context menu, to rebuild the level from the seed instead. Rebaking overwrites the
+assets in place, so references to them keep working, but it discards hand edits to the scene.
+
+The art itself is procedural. `LowPolyMeshBuilder` gives every triangle its own vertices, face normal
+and slightly jittered colour, with sRGB vertex colours converted to linear. Its primitives are faceted
+tubes and cones, jittered icospheres, irregular hexahedra and a jittered, triangulated ground grid.
+`LowPolyModels` builds the props from them, and `PropFactory` adds each prop's collider, occluder and
+light. The models use the same footprints as the colliders and occluders. The meshes under
+`Assets/Vision/Meshes/` are generated, so they are stored in Git LFS.
 
 ## Commands
 
@@ -105,7 +122,9 @@ Run these from this folder:
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.CreateSandbox
 ```
-Regenerates the materials, the scene and the URP shadow settings (also in the **Vision** menu).
+Bakes the whole level: materials, the URP shadow settings, every prop mesh and prefab, the prop library, a mesh
+asset for each ground, wall and door object, and the scene with the level laid out in it (also **Vision →
+Bake Level and Scene** in the Editor).
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.ConfigureProject
@@ -115,8 +134,8 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 20 EditMode tests: visibility polygons, doors, spatial hash, triangle winding and normals,
-model sizes and determinism.
+Runs the 25 EditMode tests: visibility polygons, doors, spatial hash, triangle winding and normals,
+model sizes and determinism, edit-mode level generation and the saved prefabs.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindows

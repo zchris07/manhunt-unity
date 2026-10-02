@@ -38,15 +38,31 @@ namespace Vision.EditorTools
             Debug.Log($"[Vision] Project configured: {PlayerSettings.companyName} / {PlayerSettings.productName}, target {EditorUserBuildSettings.activeBuildTarget}");
         }
 
-        [MenuItem("Vision/Create Sandbox Scene")]
+        /// <summary>
+        /// Bakes the whole level: materials, prop meshes and prefabs, the prop library, a mesh asset for
+        /// every generated mesh, and the VisionSandbox scene with the level laid out as ordinary objects.
+        /// Existing assets are overwritten in place.
+        /// </summary>
+        [MenuItem("Vision/Bake Level and Scene")]
         public static void CreateSandbox()
         {
             ConfigureShadows();
             Material lowPoly = MakeMaterial("LowPoly", 0f, false);
             Material entity = MakeMaterial("LowPolyEntity", 0f, true);
             Material glow = MakeMaterial("LowPolyGlow", 0.6f, false);
+            PropLibrary library = LevelBaker.BakeProps(lowPoly, entity, glow);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            // Creating a scene unloads unreferenced assets, which would leave the objects above as destroyed
+            // references. Reload everything the scene needs from disk.
+            AssetDatabase.SaveAssets();
+            lowPoly = AssetDatabase.LoadAssetAtPath<Material>($"{Root}/Materials/LowPoly.mat");
+            entity = AssetDatabase.LoadAssetAtPath<Material>($"{Root}/Materials/LowPolyEntity.mat");
+            glow = AssetDatabase.LoadAssetAtPath<Material>($"{Root}/Materials/LowPolyGlow.mat");
+            library = AssetDatabase.LoadAssetAtPath<PropLibrary>(LevelBaker.LibraryPath);
+            if (library == null || !library.IsComplete)
+                throw new System.InvalidOperationException("The prop library is missing or incomplete after baking.");
 
             RenderSettings.skybox = null;
             RenderSettings.ambientMode = AmbientMode.Flat;
@@ -98,6 +114,14 @@ namespace Vision.EditorTools
             world.glowMaterial = glow;
             world.cameraRig = rig;
             world.maskRenderer = mask;
+            world.library = library;
+
+            // Lay the level out as scene objects now, instead of when Play starts.
+            world.placeHook = (prefab, parent) => (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            world.Generate();
+            world.placeHook = null;
+            world.generateOnAwake = false;
+            int meshes = LevelBaker.SaveLooseMeshes(worldGo.transform);
 
             var capture = new GameObject("Vision Capture").AddComponent<VisionCapture>();
             capture.world = world;
@@ -115,7 +139,7 @@ namespace Vision.EditorTools
             PlayerSettings.defaultScreenHeight = 900;
             PlayerSettings.resizableWindow = true;
             AssetDatabase.SaveAssets();
-            Debug.Log("[Vision] Sandbox scene created at " + ScenePath);
+            Debug.Log($"[Vision] Level baked: {meshes} level meshes saved, scene at {ScenePath}");
         }
 
         /// <summary>

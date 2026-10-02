@@ -7,18 +7,26 @@ using Vision.Visibility;
 namespace Vision.World
 {
     /// <summary>
-    /// Builds the vision sandbox diorama procedurally on Awake (deterministic from <see cref="seed"/>):
-    /// ground, a walled arena, a cabin with a door, a window shutter and an inner partition, a dead
-    /// forest with rocks, campfires and lanterns (more than the 6-light cap), crows, one wandering
-    /// figure and the player. Then wires the player into the camera and mask renderer.
+    /// Builds the vision sandbox diorama (deterministic from <see cref="seed"/>): ground, a walled
+    /// arena, a cabin with a door, a window shutter and an inner partition, a dead forest with rocks,
+    /// campfires and lanterns (more than the 6-light cap), crows, one wandering figure and the player,
+    /// then wires the player into the camera and mask renderer.
+    ///
+    /// <see cref="Generate"/> works in the Editor as well as in Play mode. The level baker calls it
+    /// to lay the level out in the scene and save its meshes as assets; the saved scene then has
+    /// <see cref="generateOnAwake"/> off, and everything is ordinary, editable scene content.
     /// </summary>
     [DefaultExecutionOrder(-100)]
     public sealed class SandboxWorld : MonoBehaviour
     {
         public int seed = 1337;
         public float halfExtent = 20f;
+        [Tooltip("Build the level when Play starts. Off for a baked level that is already in the scene.")]
+        public bool generateOnAwake = true;
 
-        [Header("Materials")]
+        [Header("Props and materials")]
+        [Tooltip("Saved prop prefabs. When empty, props are generated in memory instead.")]
+        public PropLibrary library;
         public Material lowPolyMaterial;
         public Material entityMaterial;
         public Material glowMaterial;
@@ -28,10 +36,17 @@ namespace Vision.World
         public VisionMaskRenderer maskRenderer;
         public Vector3 playerSpawn = new Vector3(0f, 0f, -5f);
 
-        public PlayerController Player { get; private set; }
-        public Wanderer Wanderer { get; private set; }
-        public readonly List<Door> Doors = new List<Door>();
-        public readonly List<Transform> Crows = new List<Transform>();
+        [Header("Generated (serialized so a baked scene keeps them)")]
+        public PlayerController Player;
+        public Wanderer Wanderer;
+        public List<Door> Doors = new List<Door>();
+        public List<Transform> Crows = new List<Transform>();
+
+        /// <summary>
+        /// How a prefab becomes a scene object. Null means Object.Instantiate; the level baker sets it to
+        /// PrefabUtility.InstantiatePrefab so baked objects stay linked to their prefabs.
+        /// </summary>
+        public System.Func<GameObject, Transform, GameObject> placeHook;
 
         System.Random rng;
         Transform staticRoot, entityRoot;
@@ -42,7 +57,26 @@ namespace Vision.World
 
         void Awake()
         {
+            if (generateOnAwake) Generate();
+        }
+
+        /// <summary>Clears and rebuilds the whole level under this object.</summary>
+        [ContextMenu("Generate Level")]
+        public void Generate()
+        {
             rng = new System.Random(seed);
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                GameObject child = transform.GetChild(i).gameObject;
+                if (Application.isPlaying) Destroy(child);
+                else DestroyImmediate(child);
+            }
+            Doors.Clear();
+            Crows.Clear();
+            blockedSpots.Clear();
+            Player = null;
+            Wanderer = null;
+
             staticRoot = new GameObject("Static").transform;
             staticRoot.SetParent(transform, false);
             entityRoot = new GameObject("Entities").transform;
@@ -261,39 +295,22 @@ namespace Vision.World
 
             foreach (Vector2 p in trees)
             {
-                Mesh m = LowPolyModels.DeadTree(rng);
-                GameObject go = MakeStatic("Dead Tree", m, new Vector3(p.x, 0f, p.y),
-                    Quaternion.Euler(0f, Range(0f, 360f), 0f), lowPolyMaterial);
-                var col = go.AddComponent<CapsuleCollider>();
-                col.radius = 0.32f;
-                col.height = 4f;
-                col.center = new Vector3(0f, 2f, 0f);
-                var occ = go.AddComponent<Occluder>();
-                occ.shape = Occluder.Shape.Circle;
-                occ.radius = 0.32f;
-                occ.sides = 8;
-                go.SetActive(true);
+                GameObject go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
+                    () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
 
             for (int i = 0; i < 14; i++)
             {
                 var p = new Vector2(Range(-halfExtent + 2f, halfExtent - 2f), Range(-halfExtent + 2f, halfExtent - 2f));
+                int variant = rng.Next(PropLibrary.RockRadii.Length);
+                float radius = PropLibrary.RockRadii[variant];
                 if (TooClose(blockedSpots, p, 2f) || Cabin.Overlaps(new Rect(p.x - 1.5f, p.y - 1.5f, 3f, 3f))) continue;
                 if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
-                float radius = Range(0.4f, 0.9f);
-                Mesh m = LowPolyModels.Rock(rng, radius);
-                GameObject go = MakeStatic("Rock", m, new Vector3(p.x, 0f, p.y),
-                    Quaternion.Euler(0f, Range(0f, 360f), 0f), lowPolyMaterial);
-                var col = go.AddComponent<CapsuleCollider>();
-                col.radius = radius * 0.85f;
-                col.height = 2f;
-                col.center = new Vector3(0f, 0.5f, 0f);
-                var occ = go.AddComponent<Occluder>();
-                occ.shape = Occluder.Shape.Circle;
-                occ.radius = radius * 0.85f;
-                occ.sides = 9;
-                go.SetActive(true);
+                GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
+                    () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
         }
@@ -305,30 +322,18 @@ namespace Vision.World
             Vector2[] fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f) };
             foreach (Vector2 p in fires)
             {
-                Mesh m = LowPolyModels.Campfire(rng);
-                GameObject go = MakeStatic("Campfire", m, new Vector3(p.x, 0f, p.y), Quaternion.identity, glowMaterial);
-                var light = go.AddComponent<VisionLight>();
-                light.range = 6.5f;
-                light.flickerAmount = 0.25f;
-                light.flickerSpeed = 5f;
-                go.SetActive(true);
+                GameObject go = Prop(library != null ? library.campfire : null, staticRoot,
+                    () => PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.identity);
                 blockedSpots.Add(p);
             }
 
             Vector2[] lanterns = { new Vector2(6.2f, 2.3f), new Vector2(-7f, 13f), new Vector2(15f, -5f), new Vector2(15.5f, 16f), new Vector2(-15f, -15f), new Vector2(11.5f, 9.5f) };
             foreach (Vector2 p in lanterns)
             {
-                Mesh m = LowPolyModels.LanternPost(rng);
-                GameObject go = MakeStatic("Lantern", m, new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f), glowMaterial);
-                var light = go.AddComponent<VisionLight>();
-                light.range = 4.5f;
-                light.intensity = 0.85f;
-                light.flickerAmount = 0.08f;
-                var col = go.AddComponent<CapsuleCollider>();
-                col.radius = 0.15f;
-                col.height = 2f;
-                col.center = new Vector3(0f, 1f, 0f);
-                go.SetActive(true);
+                GameObject go = Prop(library != null ? library.lantern : null, staticRoot,
+                    () => PropFactory.CreateLantern(LowPolyModels.LanternPost(rng), glowMaterial));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
         }
@@ -338,15 +343,11 @@ namespace Vision.World
             Vector2[] crates = { new Vector2(12f, 5f), new Vector2(11.9f, 5.9f), new Vector2(4.2f, 2.8f), new Vector2(14f, 2f) };
             foreach (Vector2 p in crates)
             {
-                float size = Range(0.7f, 0.9f);
-                Mesh m = LowPolyModels.Crate(rng, size);
-                GameObject go = MakeStatic("Crate", m, new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f), lowPolyMaterial);
-                var col = go.AddComponent<BoxCollider>();
-                col.center = new Vector3(0f, size * 0.5f, 0f);
-                col.size = Vector3.one * size;
-                var occ = go.AddComponent<Occluder>();
-                occ.size = new Vector2(size, size);
-                go.SetActive(true);
+                int variant = rng.Next(PropLibrary.CrateSizes.Length);
+                float size = PropLibrary.CrateSizes[variant];
+                GameObject go = Prop(library != null ? library.crates : null, variant, staticRoot,
+                    () => PropFactory.CreateCrate(LowPolyModels.Crate(rng, size), lowPolyMaterial, size));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f));
             }
         }
 
@@ -357,62 +358,56 @@ namespace Vision.World
             Vector2[] spots = { new Vector2(2f, -7f), new Vector2(4.5f, -9.5f), new Vector2(0.5f, -12f), new Vector2(6f, -3.5f), new Vector2(-3f, -6f), new Vector2(9f, -10f) };
             foreach (Vector2 p in spots)
             {
-                Mesh m = LowPolyModels.Crow(rng);
-                GameObject go = MakeEntity("Crow", m, new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
-                go.SetActive(true);
+                GameObject go = Prop(library != null ? library.crows : null, rng.Next(PropLibrary.CrowVariants), entityRoot,
+                    () => PropFactory.CreateCrow(LowPolyModels.Crow(rng), entityMaterial));
+                go.transform.SetPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 Crows.Add(go.transform);
             }
         }
 
         void BuildWanderer()
         {
-            var root = new GameObject("Wanderer");
-            root.SetActive(false);
-            root.transform.SetParent(entityRoot, false);
-            root.transform.position = new Vector3(3f, 0f, -3f);
-            Mesh m = LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Rags, LowPolyModels.Palette.PaleSkin);
-            GameObject body = MakeEntity("Body", m, Vector3.zero, Quaternion.identity);
-            body.transform.SetParent(root.transform, false);
-            body.SetActive(true);
-            Wanderer = root.AddComponent<Wanderer>();
-            Wanderer.body = body.transform;
+            GameObject go = Prop(library != null ? library.wanderer : null, entityRoot,
+                () => PropFactory.CreateWanderer(
+                    LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Rags, LowPolyModels.Palette.PaleSkin), entityMaterial));
+            go.transform.position = new Vector3(3f, 0f, -3f);
+            Wanderer = go.GetComponent<Wanderer>();
             Wanderer.waypoints = new[] { new Vector3(3f, 0f, -3f), new Vector3(3f, 0f, -12f), new Vector3(-4f, 0f, -12f), new Vector3(-4f, 0f, -3f) };
-            root.SetActive(true);
         }
 
         void BuildPlayer()
         {
-            var root = new GameObject("Player");
-            root.SetActive(false);
-            root.transform.position = playerSpawn + Vector3.up * 0.05f;
-            var cc = root.AddComponent<CharacterController>();
-            cc.radius = 0.3f;
-            cc.height = 1.8f;
-            cc.center = new Vector3(0f, 0.9f, 0f);
-            cc.skinWidth = 0.03f;
+            GameObject go = Prop(library != null ? library.player : null, transform,
+                () => PropFactory.CreatePlayer(
+                    LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin), lowPolyMaterial));
+            go.transform.position = playerSpawn + Vector3.up * 0.05f;
 
-            Mesh m = LowPolyModels.Humanoid(rng, LowPolyModels.Palette.Coat, LowPolyModels.Palette.Skin);
-            var body = new GameObject("Body");
-            body.transform.SetParent(root.transform, false);
-            body.AddComponent<MeshFilter>().sharedMesh = m;
-            body.AddComponent<MeshRenderer>().sharedMaterial = lowPolyMaterial;
-
-            var viewer = root.AddComponent<VisionViewer>();
-            Player = root.AddComponent<PlayerController>();
-            Player.viewer = viewer;
-            Player.body = body.transform;
+            Player = go.GetComponent<PlayerController>();
             Player.world = this;
             if (cameraRig != null)
             {
-                cameraRig.target = root.transform;
+                cameraRig.target = go.transform;
                 Player.viewCamera = cameraRig.GetComponent<Camera>();
             }
-            if (maskRenderer != null) maskRenderer.viewer = viewer;
-            root.SetActive(true);
+            if (maskRenderer != null) maskRenderer.viewer = go.GetComponent<VisionViewer>();
         }
 
         // ---------------------------------------------------------------- helpers
 
+        /// <summary>A saved prefab placed under <paramref name="parent"/>, or a generated one if there is none.</summary>
+        GameObject Prop(GameObject prefab, Transform parent, System.Func<GameObject> generate)
+        {
+            if (prefab != null)
+                return placeHook != null ? placeHook(prefab, parent) : Instantiate(prefab, parent);
+            GameObject go = generate();
+            go.transform.SetParent(parent, false);
+            return go;
+        }
+
+        GameObject Prop(GameObject[] variants, int variant, Transform parent, System.Func<GameObject> generate) =>
+            Prop(variants != null && variants.Length > variant ? variants[variant] : null, parent, generate);
+
+        /// <summary>A generated mesh object in the static root: walls and the ground, which are saved as mesh assets.</summary>
         GameObject MakeStatic(string name, Mesh mesh, Vector3 pos, Quaternion rot, Material mat)
         {
             var go = new GameObject(name);
@@ -424,21 +419,6 @@ namespace Vision.World
             go.AddComponent<MeshRenderer>().sharedMaterial = mat;
             return go;
         }
-
-        GameObject MakeEntity(string name, Mesh mesh, Vector3 pos, Quaternion rot)
-        {
-            var go = new GameObject(name);
-            go.SetActive(false);
-            go.transform.SetParent(entityRoot, false);
-            go.transform.SetPositionAndRotation(pos, rot);
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
-            var r = go.AddComponent<MeshRenderer>();
-            r.sharedMaterial = entityMaterial;
-            // A shadow would give away an entity standing in the dark.
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return go;
-        }
-
 
         float Range(float min, float max) => min + (float)rng.NextDouble() * (max - min);
 

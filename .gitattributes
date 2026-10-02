@@ -70,3 +70,6 @@
 *.dll           filter=lfs diff=lfs merge=lfs -text
 *.so            filter=lfs diff=lfs merge=lfs -text
 *.a             filter=lfs diff=lfs merge=lfs -text
+
+# Baked level and prop meshes are large generated assets: keep them in Git LFS (overrides the *.asset rule above).
+Assets/Vision/Meshes/**/*.asset filter=lfs diff=lfs merge=lfs -text

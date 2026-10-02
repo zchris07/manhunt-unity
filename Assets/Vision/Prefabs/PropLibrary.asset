@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3eeed1142d6aaa1439b389445f8688d6, type: 3}
+  m_Name: PropLibrary
+  m_EditorClassIdentifier: Vision.Runtime::Vision.World.PropLibrary
+  trees:
+  - {fileID: 8952529453550750418, guid: e466568a55478044c88f33381df03e49, type: 3}
+  - {fileID: 6534407511466526397, guid: cb86001540f284342832d90f97b8fa34, type: 3}
+  - {fileID: 7519978793974366970, guid: 39752ffc327abae44a62860048768b92, type: 3}
+  - {fileID: 79747302874730935, guid: d6b76504810188948953c68cfe58de85, type: 3}
+  - {fileID: 2695562127913941259, guid: e5256a920e4249549a79e5d15d945b7c, type: 3}
+  - {fileID: 7696500086053679214, guid: d3e5bb651ccf50b4b80ff72d128e03df, type: 3}
+  rocks:
+  - {fileID: 1047395034403918258, guid: 5256413b2e4585446913c4bacc4b3ead, type: 3}
+  - {fileID: 9100688760062629350, guid: 50e37eec57cda6d40a52d5186e3887b2, type: 3}
+  - {fileID: 850254739555244952, guid: e64e8d2294011a74aa1a25b3c22daf0d, type: 3}
+  - {fileID: 291348284502024409, guid: ff2fd82b06859f945b7fb1648fe15cd8, type: 3}
+  crates:
+  - {fileID: 8378932535752219331, guid: 2d9eda011121ef845a79fb36c1fd0c4e, type: 3}
+  - {fileID: 6178406253504472800, guid: cfb089e9226fbc84e911e5c49def4e3c, type: 3}
+  - {fileID: 1820809692022970531, guid: 79360ff6a6c951446b92c73df9cc2ade, type: 3}
+  campfire: {fileID: 3638930386250585023, guid: 71c3a4cd0600f4949be58d87c2f9c028, type: 3}
+  lantern: {fileID: 2109763458785564429, guid: 895cda323f9ca264e91cd18e05dd3968, type: 3}
+  crows:
+  - {fileID: 1351252209292786945, guid: f2efa6aa2c0c6ed42abff6cc5b070ad1, type: 3}
+  - {fileID: 2174651591931086309, guid: bcb9f56534b9f8e41a6b80c143706912, type: 3}
+  player: {fileID: 3290713459606778728, guid: e0da50ee433835a45992da2dd90da6c5, type: 3}
+  wanderer: {fileID: 1202477831642024114, guid: 1d0a50baa2936a44c86e48b2413086bf, type: 3}
