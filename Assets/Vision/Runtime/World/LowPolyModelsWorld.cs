@@ -54,73 +54,67 @@ namespace Vision.World
         const PolyBudget.Class PlantClass = PolyBudget.Class.Plant;
         const PolyBudget.Class VehicleClass = PolyBudget.Class.Vehicle;
 
-        // ------------------------------------------------------------------ trees with leaves
+        // ------------------------------------------------------------------ evergreens
 
-        /// <summary>A broadleaf tree: short trunk, a few limbs and a clumpy canopy (green, or autumn gold and rust).</summary>
-        public static Mesh LeafyTree(System.Random rng, bool autumn)
+        /// <summary>Evergreen forms: 0 fir, 1 tall narrow spruce, 2 pine (bare trunk, high crown), 3 young fir, 4 dead pine (brown, sparse).</summary>
+        public const int ConiferStyles = 5;
+
+        /// <summary>An evergreen of the given style: a trunk under stacked, faceted cones of needles.</summary>
+        public static Mesh Conifer(System.Random rng, int style = 0)
         {
             var b = new LowPolyMeshBuilder(rng);
-            float trunkHeight = b.Range(2.2f, 3.0f);
-            int rings = PolyBudget.Segments(trunkHeight, TreeClass, 2) + 1;
-            var centers = new Vector3[rings];
-            var radii = new float[rings];
-            float lean = b.Range(-0.06f, 0.06f);
-            for (int i = 0; i < rings; i++)
+            style = Mathf.Abs(style) % ConiferStyles;
+            float height, trunkTop, crownBase, baseRadius, topRadius;
+            int tiers;
+            Color needles;
+            switch (style)
             {
-                float t = i / (float)(rings - 1);
-                centers[i] = new Vector3(lean * trunkHeight * t, trunkHeight * t, 0f);
-                radii[i] = Mathf.Lerp(0.26f, 0.14f, t);
+                case 1:   // spruce: tall and narrow, many tiers
+                    height = b.Range(5.6f, 7.0f); trunkTop = 1.0f; crownBase = 0.6f; baseRadius = 1.05f; topRadius = 0.3f; tiers = 6;
+                    needles = new Color(0.13f, 0.21f, 0.15f);
+                    break;
+                case 2:   // pine: a long bare trunk and a lopsided crown near the top
+                    height = b.Range(5.0f, 6.4f); trunkTop = height * 0.72f; crownBase = height * 0.55f; baseRadius = 1.15f; topRadius = 0.5f; tiers = 3;
+                    needles = new Color(0.16f, 0.25f, 0.22f);
+                    break;
+                case 3:   // young fir: short and full
+                    height = b.Range(2.0f, 2.8f); trunkTop = 0.5f; crownBase = 0.25f; baseRadius = 0.85f; topRadius = 0.35f; tiers = 3;
+                    needles = new Color(0.20f, 0.30f, 0.18f);
+                    break;
+                case 4:   // dead pine: sparse brown tiers on a grey trunk
+                    height = b.Range(4.4f, 5.8f); trunkTop = height * 0.9f; crownBase = 1.2f; baseRadius = 0.95f; topRadius = 0.3f; tiers = 4;
+                    needles = new Color(0.33f, 0.25f, 0.16f);
+                    break;
+                default:  // fir
+                    height = b.Range(4.2f, 6.0f); trunkTop = 1.2f; crownBase = 0.7f; baseRadius = 1.45f; topRadius = 0.55f; tiers = 4;
+                    needles = new Color(0.15f, 0.24f, 0.16f);
+                    break;
             }
-            b.AddTube(centers, radii, PolyBudget.Sides(0.26f, TreeClass, 5), Palette.Bark, 0.1f, 0.08f, 6f, null, false, true);
-            for (int i = 0; i < 3; i++)
+            Color bark = style == 4 ? new Color(0.30f, 0.28f, 0.26f) : Palette.Bark;
+            b.AddFrustum(Vector3.zero, new Vector3(0f, trunkTop, 0f), 0.2f, 0.12f, PolyBudget.Sides(0.2f, TreeClass, 5), bark, 0.1f);
+            if (style == 2 || style == 4)
             {
-                float a = (i + b.Next() * 0.5f) / 3f * Mathf.PI * 2f;
-                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                b.AddTube(new[] { dir * 0.08f + Vector3.up * 0.25f, dir * 0.45f + Vector3.up * 0.06f, dir * 0.7f - Vector3.up * 0.03f },
-                          new[] { 0.13f, 0.07f, 0f }, PolyBudget.Sides(0.13f, TreeClass), Palette.BarkDark, 0.1f, 0.1f, 0f, null, false, false);
-            }
-
-            Vector3 top = centers[rings - 1];
-            Color dark = autumn ? Nature.Autumn : Nature.Leaf, light = autumn ? Nature.AutumnLight : Nature.LeafLight;
-            int clumps = 3 + b.Rng.Next(3);
-            for (int i = 0; i < clumps; i++)
-            {
-                float a = b.Next() * Mathf.PI * 2f;
-                float r = i == 0 ? 0f : b.Range(0.5f, 0.9f);
-                var c = top + new Vector3(Mathf.Cos(a) * r, i == 0 ? 0.9f : b.Range(0.3f, 1.1f), Mathf.Sin(a) * r);
-                if (i > 0)
+                // Stubs of lost lower branches along the bare trunk.
+                for (int i = 0; i < 4; i++)
                 {
-                    // A limb out to each side clump.
-                    b.AddTube(new[] { top + Vector3.down * 0.4f, Vector3.Lerp(top, c, 0.7f) }, new[] { 0.09f, 0.04f },
-                              PolyBudget.Sides(0.09f, TreeClass, 3), Palette.Bark, 0.1f, 0f, 0f, null, false, true);
+                    float y = b.Range(1.2f, trunkTop * 0.9f), a = b.Next() * Mathf.PI * 2f;
+                    var dir = new Vector3(Mathf.Cos(a), b.Range(-0.1f, 0.3f), Mathf.Sin(a)).normalized;
+                    b.AddTube(new[] { new Vector3(0f, y, 0f), new Vector3(0f, y, 0f) + dir * b.Range(0.3f, 0.6f) }, new[] { 0.04f, 0f }, 3, bark, 0.1f, 0f, 0f, null, false, false);
                 }
-                float s = i == 0 ? b.Range(1.05f, 1.3f) : b.Range(0.7f, 1.0f);
-                var size = new Vector3(s, s * b.Range(0.7f, 0.85f), s);
-                b.AddBlob(c, size, PolyBudget.BlobSubdivisions(size, TreeClass, 1), 0.2f,
-                    local => b.Jitter(local.y < -0.25f ? dark * 0.75f : (b.Next() < 0.5f ? dark : light), 0.1f));
             }
-            return b.ToMesh(autumn ? "Autumn Tree" : "Leafy Tree");
-        }
-
-        /// <summary>A conifer: a short trunk under stacked, faceted cones of dark needles.</summary>
-        public static Mesh Conifer(System.Random rng)
-        {
-            var b = new LowPolyMeshBuilder(rng);
-            float height = b.Range(4.2f, 6.0f);
-            b.AddFrustum(Vector3.zero, new Vector3(0f, 1.2f, 0f), 0.2f, 0.15f, PolyBudget.Sides(0.2f, TreeClass, 5), Palette.Bark, 0.1f);
-            int tiers = 4;
-            float y = 0.7f;
+            Vector3 lean = new Vector3(b.Range(-0.25f, 0.25f), 0f, b.Range(-0.25f, 0.25f)) * (style == 2 ? 1f : 0.2f);
+            float y0 = crownBase, step = (height - crownBase) / (tiers + 0.4f);
             for (int i = 0; i < tiers; i++)
             {
-                float t = i / (float)(tiers - 1);
-                float radius = Mathf.Lerp(1.45f, 0.55f, t) * b.Range(0.9f, 1.1f);
-                float tierHeight = Mathf.Lerp(1.7f, 1.3f, t);
-                float top = Mathf.Min(height, y + tierHeight);
-                b.AddCone(new Vector3(b.Range(-0.05f, 0.05f), y, b.Range(-0.05f, 0.05f)), new Vector3(0f, top, 0f), radius,
-                          PolyBudget.Sides(radius, TreeClass, 6, 9), b.Jitter(Nature.Pine, 0.08f), 0.12f, true);
-                y += (height - 0.7f) / (tiers + 0.4f);
+                float t = tiers == 1 ? 0f : i / (float)(tiers - 1);
+                float radius = Mathf.Lerp(baseRadius, topRadius, t) * b.Range(0.88f, 1.12f);
+                float top = Mathf.Min(height, y0 + Mathf.Lerp(1.7f, 1.2f, t) * Mathf.Lerp(1f, 0.75f, style == 3 ? 1f : 0f));
+                Vector3 offset = lean * t + new Vector3(b.Range(-0.06f, 0.06f), 0f, b.Range(-0.06f, 0.06f));
+                Color c = style == 4 && b.Next() < 0.35f ? needles * 0.75f : needles;
+                b.AddCone(offset + Vector3.up * y0, offset * 1.1f + Vector3.up * top, radius, PolyBudget.Sides(radius, TreeClass, 6, 9), b.Jitter(c, 0.08f), 0.12f, true);
+                y0 += step;
             }
-            return b.ToMesh("Conifer");
+            return b.ToMesh(style == 4 ? "Dead Pine" : style == 2 ? "Pine" : style == 1 ? "Spruce" : "Fir");
         }
 
         // ------------------------------------------------------------------ wrecks and machines
@@ -391,17 +385,18 @@ namespace Vision.World
         // ------------------------------------------------------------------ small plants (merged into the ground)
         // Written in the plant's own space around the origin; place them with LowPolyMeshBuilder.Transform.
 
+        /// <summary>A low, spiky evergreen shrub (juniper-like cones), or a dry brown one.</summary>
         public static void AddBush(LowPolyMeshBuilder b, float size, bool dry)
         {
-            int clumps = 2 + b.Rng.Next(3);
-            Color baseColor = dry ? Nature.Straw * 0.8f : (b.Next() < 0.5f ? Nature.Leaf : Nature.LeafLight);
-            for (int i = 0; i < clumps; i++)
+            int cones = 4 + b.Rng.Next(4);
+            Color baseColor = dry ? new Color(0.40f, 0.33f, 0.20f) : (b.Next() < 0.5f ? Nature.Pine : new Color(0.20f, 0.29f, 0.18f));
+            for (int i = 0; i < cones; i++)
             {
-                float a = b.Next() * Mathf.PI * 2f, r = i == 0 ? 0f : size * b.Range(0.3f, 0.6f);
-                float s = size * (i == 0 ? 0.75f : b.Range(0.45f, 0.65f));
-                var radii = new Vector3(s, s * 0.8f, s);
-                b.AddBlob(new Vector3(Mathf.Cos(a) * r, s * 0.55f, Mathf.Sin(a) * r), radii, PolyBudget.BlobSubdivisions(radii, PlantClass, 1), 0.22f,
-                    local => b.Jitter(local.y < -0.2f ? baseColor * 0.72f : baseColor, 0.12f));
+                float a = b.Next() * Mathf.PI * 2f, r = i == 0 ? 0f : size * b.Range(0.25f, 0.55f);
+                var root = new Vector3(Mathf.Cos(a) * r, -0.02f, Mathf.Sin(a) * r);
+                float h = size * (i == 0 ? 1.1f : b.Range(0.6f, 0.95f));
+                var tip = root + new Vector3(root.x * 0.4f + b.Range(-0.08f, 0.08f), h, root.z * 0.4f + b.Range(-0.08f, 0.08f));
+                b.AddCone(root, tip, size * b.Range(0.3f, 0.45f), 5, b.Jitter(baseColor, 0.12f), 0.1f, false);
             }
         }
 

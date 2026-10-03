@@ -201,6 +201,39 @@ namespace Vision.Player
             composite.debugView = VisionComposite.DebugView.Final;
             cameraRig.orthographicSize = ortho;
 
+            // A tree in the beam, lit from the south and from the west: its shadow starts at the base and its
+            // back side is a soft darkness rather than a black silhouette.
+            Transform tree = null;
+            float bestTree = float.MaxValue;
+            foreach (Transform t in world.transform.Find("Static"))
+            {
+                if (!(t.name.StartsWith("Fir") || t.name.StartsWith("Spruce") || t.name.StartsWith("Dead"))) continue;
+                Vector3 lp = world.transform.InverseTransformPoint(t.position);
+                float d = new Vector2(lp.x - 2f, lp.z + 16f).sqrMagnitude;
+                if (d < bestTree) { bestTree = d; tree = t; }
+            }
+            if (tree != null)
+            {
+                Vector3 tp = world.transform.InverseTransformPoint(tree.position);
+                // Clear the stage: hide (and stop the shadows of) every other solid object within 7 units.
+                var hidden = new System.Collections.Generic.List<GameObject>();
+                foreach (Transform o in world.transform.Find("Static"))
+                {
+                    if (o == tree || o.name.StartsWith("Ground") || o.GetComponent<Vision.Visibility.Occluder>() == null) continue;
+                    Vector3 op = world.transform.InverseTransformPoint(o.position);
+                    if (new Vector2(op.x - tp.x + 1.7f, op.z - tp.z + 1.7f).magnitude > 7f || o.name.Contains("Wall") || o.GetComponent<Door>() != null) continue;
+                    o.gameObject.SetActive(false);
+                    hidden.Add(o.gameObject);
+                }
+                cameraRig.orthographicSize = 7f;
+                yield return Stage(player, new Vector3(tp.x, 0f, tp.z - 2.4f), Vector2.up, wanderer, away);
+                yield return Shot("38_tree_lit_from_south");
+                yield return Stage(player, new Vector3(tp.x - 2.4f, 0f, tp.z), Vector2.right, wanderer, away);
+                yield return Shot("38b_tree_lit_from_west");
+                foreach (GameObject h in hidden) h.SetActive(true);
+                cameraRig.orthographicSize = ortho;
+            }
+
             // The hills from high above (raw scene, then as played).
             cameraRig.orthographicSize = 20f;
             yield return Stage(player, new Vector3(0f, 0f, -2f), new Vector2(0f, -1f), wanderer, away);

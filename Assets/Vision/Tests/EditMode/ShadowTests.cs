@@ -104,22 +104,11 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void ScreenEdgeFalloff_StaysBrightNearThePlayerAndDropsFasterTowardTheEdge()
+        public void Beam_IsFullStrengthAllTheWayToTheScreenEdge()
         {
-            const float p = -2.5f;
-            float At(float u) => VisionMaskRenderer.DistanceFalloff(u * 10f, 10f, p);
-            Assert.AreEqual(1f, At(0f), 1e-5f);
-            Assert.Greater(At(0.4f), 0.85f, "near the player the beam is close to full");
-            Assert.AreEqual(0f, At(1f), 1e-5f);
-            float atEdge = At(1f / VisionMaskRenderer.EdgeMargin);
-            Assert.That(atEdge, Is.InRange(0.08f, 0.25f), "a little light right at the screen edge");
-            float prevDrop = 0f;
-            for (float u = 0.1f; u <= 1f; u += 0.1f)
-            {
-                float drop = At(u - 0.1f) - At(u);
-                Assert.Greater(drop, prevDrop, "the curve falls faster the farther out");
-                prevDrop = drop;
-            }
+            for (float d = 0f; d <= 30f; d += 1f)
+                Assert.AreEqual(1f, VisionMaskRenderer.DistanceFalloff(d, 30f, 2f), "no falloff with distance");
+            Assert.Greater(VisionMaskRenderer.EdgeMargin, 1f, "the beam ends past the screen edge, out of sight");
         }
 
         [Test]

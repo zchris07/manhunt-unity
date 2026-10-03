@@ -17,9 +17,8 @@ namespace Vision.World
         public static readonly float[] CrateSizes = { 0.7f, 0.8f, 0.9f };
 
         public const int TreeVariants = 6;
-        /// <summary>Leafy trees: the first half green, the rest autumn.</summary>
-        public const int LeafyVariants = 4;
-        public const int ConiferVariants = 3;
+        /// <summary>Evergreens: two of each style in <see cref="LowPolyModels.Conifer"/> (variant / 2 = style).</summary>
+        public const int ConiferVariants = LowPolyModels.ConiferStyles * 2;
         /// <summary>Car wreck kinds: sedan, van, pickup.</summary>
         public const int CarVariants = 3;
         public const int CrowVariants = 2;
@@ -27,7 +26,6 @@ namespace Vision.World
         public GameObject[] trees;
         public GameObject[] rocks;
         public GameObject[] crates;
-        public GameObject[] leafyTrees;
         public GameObject[] conifers;
         public GameObject[] cars;
         public GameObject generator;
@@ -40,7 +38,7 @@ namespace Vision.World
 
         public bool IsComplete =>
             Has(trees, TreeVariants) && Has(rocks, RockRadii.Length) && Has(crates, CrateSizes.Length) && Has(crows, CrowVariants)
-            && Has(leafyTrees, LeafyVariants) && Has(conifers, ConiferVariants) && Has(cars, CarVariants)
+            && Has(conifers, ConiferVariants) && Has(cars, CarVariants)
             && generator != null && burningBarrel != null
             && campfire != null && lantern != null && player != null && wanderer != null;
 

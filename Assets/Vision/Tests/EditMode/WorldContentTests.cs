@@ -15,21 +15,21 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Trees_WithLeaves_AndConifers_AreTreeSizedAndOnBudget()
+        public void Evergreens_ComeInFiveForms_AllTreeSizedAndOnBudget()
         {
-            for (int i = 0; i < 4; i++)
+            var names = new HashSet<string>();
+            for (int style = 0; style < LowPolyModels.ConiferStyles; style++)
             {
-                Mesh leafy = LowPolyModels.LeafyTree(new System.Random(1100 + i), i >= 2);
-                Assert.That(leafy.bounds.max.y, Is.InRange(3.2f, 5.5f), "leafy tree height");
-                Assert.That(leafy.bounds.size.x, Is.InRange(1.6f, 5f), "canopy width");
-                AssertFacets(leafy, PolyBudget.Class.Tree);
-                Object.DestroyImmediate(leafy);
+                Mesh m = LowPolyModels.Conifer(new System.Random(1200 + style), style);
+                names.Add(m.name);
+                float minHeight = style == 3 ? 1.9f : 4f;
+                Assert.That(m.bounds.max.y, Is.InRange(minHeight, 7.2f), $"{m.name} height");
+                Assert.GreaterOrEqual(m.bounds.min.y, -0.01f);
+                Assert.Less(m.bounds.size.x, 3.4f, $"{m.name} crown width");
+                AssertFacets(m, PolyBudget.Class.Tree);
+                Object.DestroyImmediate(m);
             }
-            Mesh conifer = LowPolyModels.Conifer(new System.Random(1200));
-            Assert.That(conifer.bounds.max.y, Is.InRange(4f, 6.2f));
-            Assert.GreaterOrEqual(conifer.bounds.min.y, -0.01f);
-            AssertFacets(conifer, PolyBudget.Class.Tree);
-            Object.DestroyImmediate(conifer);
+            CollectionAssert.AreEquivalent(new[] { "Fir", "Spruce", "Pine", "Dead Pine" }, names, "young firs are firs too");
         }
 
         [Test]
@@ -156,7 +156,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Level_HasEveryBiomeAndKeepsPathsClear()
+        public void Level_HasTwiceTheTrees_OnlyEvergreensAndDeadTrees_SoftGround_AndClearPaths()
         {
             var root = new GameObject("World");
             var shader = Shader.Find("Vision/LowPoly");
@@ -166,24 +166,39 @@ namespace Vision.Tests
                 var world = root.AddComponent<SandboxWorld>();
                 world.lowPolyMaterial = world.entityMaterial = world.glowMaterial = mat;
                 world.Generate();
-                var biomes = new HashSet<SandboxWorld.Biome>();
-                for (float x = -38f; x <= 38f; x += 2f)
-                    for (float z = -38f; z <= 38f; z += 2f) biomes.Add(world.BiomeAt(x, z));
-                Assert.AreEqual(4, biomes.Count, "dead forest, woods, meadow and scrub");
+                Assert.GreaterOrEqual(world.TreeCount, 480, "about twice the 260 trees of before");
 
+                // No borders: the ground colour drifts slowly from point to point.
+                float worst = 0f, sum = 0f;
+                int n = 0;
                 PathNetwork paths = world.Terrain.Paths;
+                for (float x = -36f; x <= 36f; x += 1.7f)
+                    for (float z = -36f; z <= 36f; z += 1.3f)
+                    {
+                        if (paths.Distance(new Vector2(x, z)) < 3f || paths.Distance(new Vector2(x + 0.5f, z)) < 3f) continue;
+                        Color a = world.GroundColor(x, z), b = world.GroundColor(x + 0.5f, z);
+                        float d = Mathf.Max(Mathf.Abs(a.r - b.r), Mathf.Abs(a.g - b.g), Mathf.Abs(a.b - b.b));
+                        worst = Mathf.Max(worst, d);
+                        sum += d;
+                        n++;
+                    }
+                Assert.Less(sum / n, 0.02f, "neighbouring ground half a metre apart is nearly the same colour");
+                Assert.Less(worst, 0.15f, "no hard borders");
+
                 Assert.Greater(paths.Paths.Count, 5);
                 var names = new Dictionary<string, int>();
                 foreach (Transform t in world.transform.Find("Static"))
                 {
                     string kind = t.name.Split(' ')[0];
-                    names[kind] = names.TryGetValue(kind, out int n) ? n + 1 : 1;
+                    names[kind] = names.TryGetValue(kind, out int c) ? c + 1 : 1;
                     if (t.GetComponent<Occluder>() == null || t.GetComponent<Door>() != null || t.name.Contains("Wall")) continue;
                     Vector3 local = world.transform.InverseTransformPoint(t.position);
                     Assert.Greater(paths.Distance(new Vector2(local.x, local.z)), paths.HalfWidth, $"{t.name} stands off the path");
                 }
-                foreach (string kind in new[] { "Dead", "Leafy", "Autumn", "Conifer", "Rock", "Sedan", "Van", "Pickup", "Generator", "Burning", "Campfire", "Lantern" })
+                foreach (string kind in new[] { "Dead", "Fir", "Spruce", "Pine", "Rock", "Sedan", "Van", "Pickup", "Generator", "Burning", "Campfire", "Lantern" })
                     Assert.IsTrue(names.ContainsKey(kind), $"the level has {kind}");
+                foreach (string kind in new[] { "Leafy", "Autumn" })
+                    Assert.IsFalse(names.ContainsKey(kind), $"no {kind} trees");
             }
             finally
             {

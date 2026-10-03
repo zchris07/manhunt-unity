@@ -69,19 +69,14 @@ namespace Vision.EditorTools
                 library.crates[i] = SavePrefab(PropFactory.CreateCrate(mesh, lowPoly, size), $"Crate_{i:00}");
             }
 
-            library.leafyTrees = new GameObject[PropLibrary.LeafyVariants];
-            for (int i = 0; i < library.leafyTrees.Length; i++)
-            {
-                bool autumn = i >= PropLibrary.LeafyVariants / 2;
-                Mesh mesh = SaveMesh(LowPolyModels.LeafyTree(new System.Random(1100 + i), autumn), $"{PropMeshes}/LeafyTree_{i:00}.asset");
-                library.leafyTrees[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly, autumn ? "Autumn Tree" : "Leafy Tree"), $"LeafyTree_{i:00}");
-            }
             library.conifers = new GameObject[PropLibrary.ConiferVariants];
             for (int i = 0; i < library.conifers.Length; i++)
             {
-                Mesh mesh = SaveMesh(LowPolyModels.Conifer(new System.Random(1200 + i)), $"{PropMeshes}/Conifer_{i:00}.asset");
-                library.conifers[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly, "Conifer"), $"Conifer_{i:00}");
+                Mesh mesh = SaveMesh(LowPolyModels.Conifer(new System.Random(1200 + i), i / 2), $"{PropMeshes}/Conifer_{i:00}.asset");
+                library.conifers[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly, mesh.name), $"Conifer_{i:00}");
             }
+            foreach (string stale in AssetDatabase.FindAssets("LeafyTree_", new[] { PrefabFolder, PropMeshes }))
+                AssetDatabase.DeleteAsset(AssetDatabase.GUIDToAssetPath(stale));
             library.cars = new GameObject[PropLibrary.CarVariants];
             for (int i = 0; i < library.cars.Length; i++)
             {
@@ -231,7 +226,6 @@ namespace Vision.EditorTools
             Line("campfire", library.campfire, PolyBudget.Class.Prop);
             Line("lantern", library.lantern, PolyBudget.Class.Prop);
             Line("crow", library.crows[0], PolyBudget.Class.Prop);
-            Line("leafy tree", library.leafyTrees[0], PolyBudget.Class.Tree);
             Line("conifer", library.conifers[0], PolyBudget.Class.Tree);
             Line("van", library.cars[1], PolyBudget.Class.Vehicle);
             Line("generator", library.generator, PolyBudget.Class.Prop);

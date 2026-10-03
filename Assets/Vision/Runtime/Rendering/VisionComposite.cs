@@ -32,8 +32,6 @@ namespace Vision.Rendering
             [Range(0f, 2f)] public float unlitBrightness;
             [Tooltip("Strength of the flashlight beam (only the viewer's own light).")]
             [Range(0.5f, 2f)] public float beamIntensity;
-            [Tooltip("Exponent of the beam's fade toward the screen edge: higher stays bright longer, then drops faster.")]
-            [Range(1f, 6f)] public float beamFalloff;
             [Tooltip("Distance from the player (world units) where the distance blur starts.")]
             [Range(0f, 30f)] public float blurStart;
             [Tooltip("Distance from the player (world units) where the distance blur is full.")]
@@ -45,7 +43,7 @@ namespace Vision.Rendering
 
             public static Look Defaults => new Look
             {
-                contrast = 1f, saturation = 1f, litBrightness = 1f, unlitBrightness = 1f, beamIntensity = 1.15f, beamFalloff = 2.5f,
+                contrast = 1f, saturation = 1f, litBrightness = 1f, unlitBrightness = 1f, beamIntensity = 1.15f,
                 blurStart = 5f, blurEnd = 13f, blurMaxPixels = 3f, cameraEffects = true,
             };
 
@@ -58,7 +56,6 @@ namespace Vision.Rendering
                 l.litBrightness = Mathf.Clamp(l.litBrightness, 0f, 2f);
                 l.unlitBrightness = Mathf.Clamp(l.unlitBrightness, 0f, 2f);
                 l.beamIntensity = Mathf.Clamp(l.beamIntensity, 0.5f, 2f);
-                l.beamFalloff = Mathf.Clamp(l.beamFalloff, 1f, 6f);
                 l.blurStart = Mathf.Clamp(l.blurStart, 0f, 30f);
                 l.blurEnd = Mathf.Clamp(l.blurEnd, l.blurStart + 0.01f, 30.01f);
                 l.blurMaxPixels = Mathf.Clamp(l.blurMaxPixels, 0f, 8f);
@@ -68,7 +65,7 @@ namespace Vision.Rendering
             /// <summary>All values as text, for pasting back.</summary>
             public override string ToString() =>
                 $"contrast {contrast:0.00}, saturation {saturation:0.00}, lit brightness {litBrightness:0.00}, " +
-                $"unlit brightness {unlitBrightness:0.00}, beam intensity {beamIntensity:0.00}, beam falloff {beamFalloff:0.00}, blur start {blurStart:0.00}, " +
+                $"unlit brightness {unlitBrightness:0.00}, beam intensity {beamIntensity:0.00}, blur start {blurStart:0.00}, " +
                 $"blur end {blurEnd:0.00}, blur max px {blurMaxPixels:0.00}, camera effects {(cameraEffects ? "on" : "off")}";
         }
 
@@ -92,6 +89,12 @@ namespace Vision.Rendering
         public Vector2 sightlineEdge = new Vector2(0.15f, 0.6f);
         [Tooltip("Normal offset (metres) for the mask lookup so walls facing a light pick it up.")]
         [Range(0f, 0.5f)] public float normalOffset = 0.3f;
+
+        [Header("Back sides of upright objects")]
+        [Tooltip("Share of the light on an object's lit side that reaches its back (upright faces turned away from the light): a natural darkness instead of a solid black silhouette.")]
+        [Range(0f, 1f)] public float backLight = 0.45f;
+        [Tooltip("How far through the object (world units) the back face looks for the light on its other side; wider than a trunk, narrower than a wall is thick plus the light's edge.")]
+        [Range(0f, 4f)] public float backLightReach = 1.8f;
 
         [Tooltip("How much a character shadow darkens lit ground (soft, partly transparent).")]
         [Range(0f, 1f)] public float shadowStrength = 0.45f;
@@ -138,7 +141,7 @@ namespace Vision.Rendering
             bool fx = l.cameraEffects;
             VisionLight.FlickerEnabled = fx;
             material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness));
-            material.SetVector(BeamId, new Vector4(l.beamIntensity, 0f, 0f, 0f));
+            material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, 0f));
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
             material.SetVector(DarkId, new Vector4(darkLevel, darkFloor, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);

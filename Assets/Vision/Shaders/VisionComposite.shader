@@ -41,7 +41,7 @@ Shader "Hidden/Vision/Composite"
             float _VisDebug;
             float _VisShadow;      // character shadow darkening
             float4 _VisGrade;      // x = contrast, y = saturation, z = lit brightness, w = unlit brightness
-            float4 _VisBeam;       // x = flashlight beam intensity
+            float4 _VisBeam;       // x = flashlight beam intensity, y = back-side light share, z = back-side reach (world)
             float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px
             float4 _VisionViewerPos;
 
@@ -101,6 +101,18 @@ Shader "Hidden/Vision/Composite"
                 half sight = smoothstep(_VisLook.z, _VisLook.w, m.g);
                 half fromSources = m.r * sight;
                 half beam = m.b * _VisBeam.x;
+
+                // Upright faces turned away from a light (a trunk's or rock's back side) get part of the light on the
+                // object's lit side, found a little way through the object: a natural, soft darkness. The ground
+                // (normal up) keeps the full shadow, so the shadow starts dark at the base of the object.
+                half upright = saturate((0.65 - n.y) / 0.35);
+                if (upright > 0.0 && _VisBeam.y > 0.0)
+                {
+                    half4 front = SampleVisionMask(ws.xz - normalize(n.xz + 1e-5) * _VisBeam.z);
+                    half k = _VisBeam.y * upright;
+                    beam = max(beam, front.b * _VisBeam.x * k);
+                    fromSources = max(fromSources, front.r * smoothstep(_VisLook.z, _VisLook.w, front.g) * k);
+                }
                 half lit = max(beam, fromSources);
 
                 if (_VisDebug > 3.5) return half4(m.aaa, 1);

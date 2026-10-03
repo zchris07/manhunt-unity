@@ -258,7 +258,7 @@ namespace Vision.Rendering
             {
                 Vector2 axis = new Vector2(Mathf.Cos(dir), Mathf.Sin(dir));
                 coneRange = Mathf.Min(BeamReach(viewCamera, origin, axis, viewer.transform.position.y) * EdgeMargin, halfSize * 0.98f);
-                coneStart = -viewer.falloffPower;
+                coneStart = 2f;   // no distance falloff: full strength to the screen edge
             }
             else
             {
@@ -393,13 +393,10 @@ namespace Vision.Rendering
         }
 
         /// <summary>Distance falloff of a polygon (matches Hidden/Vision/Mask).</summary>
-        public static float DistanceFalloff(float distance, float range, float falloffStart)
-        {
-            if (falloffStart < 0f) return 1f - Mathf.Pow(Mathf.Clamp01(distance / Mathf.Max(1e-5f, range)), -falloffStart);
-            return falloffStart >= 1f ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(range * falloffStart, range, distance));
-        }
+        public static float DistanceFalloff(float distance, float range, float falloffStart) =>
+            falloffStart >= 1f ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(range * falloffStart, range, distance));
 
-        /// <summary>The beam ends this far past the screen edge, so a little light shows right at the edge.</summary>
+        /// <summary>The beam ends this far past the screen edge, so its end is never seen.</summary>
         public const float EdgeMargin = 1.06f;
 
         /// <summary>

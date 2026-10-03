@@ -154,36 +154,39 @@ namespace Vision.World
 
         static class Ground
         {
-            public static readonly Color Straw = new Color(0.50f, 0.45f, 0.30f);
-            public static readonly Color Green = new Color(0.30f, 0.37f, 0.21f);
-            public static readonly Color Dirt = new Color(0.48f, 0.41f, 0.31f);
-            public static readonly Color Soil = new Color(0.26f, 0.21f, 0.16f);
+            public static readonly Color LightEarth = new Color(0.47f, 0.40f, 0.31f);
+            public static readonly Color DarkEarth = new Color(0.30f, 0.25f, 0.20f);
+            public static readonly Color Clay = new Color(0.45f, 0.34f, 0.26f);
+            public static readonly Color GreyEarth = new Color(0.39f, 0.36f, 0.32f);
+            public static readonly Color Straw = new Color(0.47f, 0.44f, 0.33f);
+            public static readonly Color Moss = new Color(0.33f, 0.35f, 0.26f);
             public static readonly Color Rocky = new Color(0.36f, 0.35f, 0.33f);
-            public static readonly Color Mud = new Color(0.21f, 0.18f, 0.15f);
+            public static readonly Color Mud = new Color(0.22f, 0.19f, 0.16f);
             public static readonly Color Path = new Color(0.46f, 0.38f, 0.28f);
-            public static readonly Color Ash = new Color(0.40f, 0.37f, 0.33f);
             public static readonly Color Floor = new Color(0.33f, 0.25f, 0.18f);
         }
 
         /// <summary>
-        /// Ground colour: dry straw to green grass by moisture, ashen soil in the dead forest, darker under the
-        /// woods, patches of dark soil and light dirt, rock grey on steep slopes, mud in the ditches and packed
-        /// dirt on the paths (with ragged edges).
+        /// Ground colour: shades of earth (light and dark soil, a little clay, greyer where the trees are dead)
+        /// blending slowly into each other, with a hint of moss where it is damp and straw where it is dry,
+        /// rock grey on steep slopes, mud in the ditches and packed dirt on the paths (with ragged edges).
         /// </summary>
         public Color GroundColor(float x, float z)
         {
             if (Cabin.Contains(new Vector2(x, z)))
                 return Ground.Floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);   // planks along X, 0.5 m wide
-            Regions(x, z, out float r1, out float r2);
-            float moist = Mathf.PerlinNoise(x * 0.05f + 7.1f, z * 0.05f + 2.3f);
-            float n2 = Mathf.PerlinNoise(x * 0.18f + 11f, z * 0.18f + 5f);
+            float f1 = Mathf.PerlinNoise(x * 0.045f + 3.3f, z * 0.045f + 9.1f);
+            float f2 = Mathf.PerlinNoise(x * 0.12f + 11f, z * 0.12f + 5f);
+            float f3 = Mathf.PerlinNoise(x * 0.022f + 31f, z * 0.022f + 2f);
             float n3 = Mathf.PerlinNoise(x * 0.7f + 3f, z * 0.7f + 9f);
-            Color c = Color.Lerp(Ground.Straw, Ground.Green, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, moist)));
-            c = Color.Lerp(c, Color.Lerp(Ground.Ash, Ground.Soil, n2), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 0.32f, r1)));
-            c = Color.Lerp(c, Color.Lerp(Ground.Green * 0.8f, Ground.Soil, n2 * 0.6f), 0.7f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.6f, r2)));
-            c = Color.Lerp(c, Ground.Soil, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 0.75f, n2)));
-            c = Color.Lerp(c, Ground.Dirt, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.18f, n2)));
-            c = Color.Lerp(c, Ground.Rocky, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(27f, 35f, Terrain.SlopeDeg(x, z))));
+            float moist = Moisture(x, z), dead = Deadness(x, z);
+            Color c = Color.Lerp(Ground.LightEarth, Ground.DarkEarth, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.75f, f1)));
+            c = Color.Lerp(c, Ground.Clay, 0.55f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 0.8f, f3)));
+            c = Color.Lerp(c, Ground.GreyEarth, 0.45f * dead);
+            c = Color.Lerp(c, Ground.Moss, 0.4f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.8f, moist)) * (1f - dead));
+            c = Color.Lerp(c, Ground.Straw, 0.35f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.25f, moist)));
+            c = Color.Lerp(c, Ground.DarkEarth * 0.9f, 0.3f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f, 0.8f, f2)));
+            c = Color.Lerp(c, Ground.Rocky, 0.8f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(27f, 35f, Terrain.SlopeDeg(x, z))));
             c = Color.Lerp(c, Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.1f, -1.8f, Terrain.Natural(x, z))));
             PathNetwork paths = Terrain.Paths;
             if (paths != null)
@@ -258,13 +261,13 @@ namespace Vision.World
                 b.AddBlob(new Vector3(p.x, Terrain.Height(p.x, p.y), p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
             }
 
-            // Plant life by biome: bushes, ferns, tall grass, reeds in the ditches, dead shrubs, flowers, mushrooms.
+            // Plant life: shrubs, ferns, tall grass, reeds in the ditches, dead shrubs, flowers, mushrooms.
             int plants = Mathf.RoundToInt(260f * (halfExtent * halfExtent) / 400f);
             for (int i = 0; i < plants; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
                 if (flatZone.Contains(p) || OnPath(p) < 0.2f || TooClose(blockedSpots, p, 0.7f)) continue;
-                Biome biome = BiomeAt(p.x, p.y);
+                float dead = Deadness(p.x, p.y), moist = Moisture(p.x, p.y), wood = Woodland(p.x, p.y);
                 bool ditch = Terrain.Natural(p.x, p.y) < -1.3f;
                 float roll = (float)rng.NextDouble();
                 LowPolyMeshBuilder b = ChunkAt(p);
@@ -272,31 +275,14 @@ namespace Vision.World
                 b.Transform = Matrix4x4.TRS(new Vector3(p.x, Terrain.Height(p.x, p.y) - 0.02f, p.y),
                     Quaternion.FromToRotation(Vector3.up, Vector3.Slerp(Vector3.up, n, 0.5f)) * Quaternion.Euler(0f, Range(0f, 360f), 0f),
                     Vector3.one * Range(0.8f, 1.25f));
+                // What grows here shifts gradually with how dead, damp and wooded the land is.
                 if (ditch && roll < 0.6f) LowPolyModels.AddReeds(b, Range(0.9f, 1.4f));
-                else switch (biome)
-                {
-                    case Biome.Woods:
-                        if (roll < 0.4f) LowPolyModels.AddFern(b, Range(0.45f, 0.65f));
-                        else if (roll < 0.75f) LowPolyModels.AddBush(b, Range(0.45f, 0.75f), false);
-                        else if (roll < 0.88f) LowPolyModels.AddMushrooms(b);
-                        else LowPolyModels.AddFlowers(b);
-                        break;
-                    case Biome.Meadow:
-                        if (roll < 0.5f) LowPolyModels.AddTallGrass(b, Range(0.5f, 0.85f), false);
-                        else if (roll < 0.8f) LowPolyModels.AddFlowers(b);
-                        else LowPolyModels.AddBush(b, Range(0.4f, 0.65f), false);
-                        break;
-                    case Biome.Scrub:
-                        if (roll < 0.45f) LowPolyModels.AddTallGrass(b, Range(0.5f, 0.85f), true);
-                        else if (roll < 0.75f) LowPolyModels.AddDeadShrub(b, Range(0.5f, 0.9f));
-                        else LowPolyModels.AddBush(b, Range(0.4f, 0.6f), true);
-                        break;
-                    default:
-                        if (roll < 0.45f) LowPolyModels.AddDeadShrub(b, Range(0.5f, 0.9f));
-                        else if (roll < 0.75f) LowPolyModels.AddTallGrass(b, Range(0.4f, 0.7f), true);
-                        else LowPolyModels.AddMushrooms(b);
-                        break;
-                }
+                else if (roll < 0.35f * dead) LowPolyModels.AddDeadShrub(b, Range(0.5f, 0.9f));
+                else if (roll < 0.5f) LowPolyModels.AddTallGrass(b, Range(0.45f, 0.85f), (float)rng.NextDouble() > moist);
+                else if (roll < 0.62f + 0.12f * wood) LowPolyModels.AddBush(b, Range(0.4f, 0.7f), moist < 0.35f || dead > 0.6f);
+                else if (roll < 0.78f && moist > 0.45f) LowPolyModels.AddFern(b, Range(0.45f, 0.65f));
+                else if (roll < 0.9f && dead < 0.5f) LowPolyModels.AddFlowers(b);
+                else LowPolyModels.AddMushrooms(b);
                 b.Transform = null;
             }
 
@@ -460,28 +446,24 @@ namespace Vision.World
             root.SetActive(true);
         }
 
-        // ---------------------------------------------------------------- biomes
+        // ---------------------------------------------------------------- land character (gradual, no borders)
 
-        /// <summary>The kind of land at a point: picks trees, plants and ground colour.</summary>
-        public enum Biome { DeadForest, Woods, Meadow, Scrub }
+        float Offset => (seed % 1000) * 0.37f;
 
-        /// <summary>Large-scale region noise (seeded). The old arena's west side stays dead forest.</summary>
-        void Regions(float x, float z, out float r1, out float r2)
+        /// <summary>0 = living evergreens, 1 = dead trees. The old arena's west side leans dead.</summary>
+        public float Deadness(float x, float z)
         {
-            float o = (seed % 1000) * 0.37f;
-            r1 = Mathf.PerlinNoise(x * 0.035f + 17.3f + o, z * 0.035f + 4.1f);
-            r2 = Mathf.PerlinNoise(x * 0.04f + 51.7f, z * 0.04f + 23.9f + o);
-            if (Mathf.Abs(z) < 20f && x < 0f) r1 -= 0.3f * Mathf.InverseLerp(-2f, -10f, x);
+            float r = Mathf.PerlinNoise(x * 0.03f + 17.3f + Offset, z * 0.03f + 4.1f);
+            if (Mathf.Abs(z) < 20f && x < 0f) r -= 0.25f * Mathf.InverseLerp(-2f, -10f, x);
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 0.32f, r));
         }
 
-        public Biome BiomeAt(float x, float z)
-        {
-            Regions(x, z, out float r1, out float r2);
-            if (r1 < 0.37f) return Biome.DeadForest;
-            if (r2 > 0.55f) return Biome.Woods;
-            if (r1 > 0.6f) return Biome.Meadow;
-            return Biome.Scrub;
-        }
+        /// <summary>0 = open ground, 1 = thick woods: how densely trees grow.</summary>
+        public float Woodland(float x, float z) =>
+            Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.28f, 0.68f, Mathf.PerlinNoise(x * 0.04f + 51.7f, z * 0.04f + 23.9f + Offset)));
+
+        /// <summary>0 = dry, 1 = damp: grass, ferns and moss versus straw and dry scrub.</summary>
+        public float Moisture(float x, float z) => Mathf.PerlinNoise(x * 0.05f + 7.1f, z * 0.05f + 2.3f);
 
         /// <summary>Somewhere a solid prop may stand: inside the walls, off the paths and pads, away from other props.</summary>
         bool Free(Vector2 p, float radius, float spacing)
@@ -500,39 +482,45 @@ namespace Vision.World
 
         // ---------------------------------------------------------------- trees and rocks
 
+        /// <summary>About 520 trees: denser where the land is wooded, dead or evergreen by <see cref="Deadness"/>.</summary>
         void BuildTrees()
         {
             int placed = 0;
-            for (int attempt = 0; attempt < 14000 && placed < 260; attempt++)
+            for (int attempt = 0; attempt < 90000 && placed < 520; attempt++)
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
-                Biome biome = BiomeAt(p.x, p.y);
-                float accept = biome == Biome.DeadForest ? 0.7f : biome == Biome.Woods ? 0.85f : biome == Biome.Scrub ? 0.16f : 0.05f;
-                if ((float)rng.NextDouble() > accept) continue;
-                float spacing = biome == Biome.Woods ? 2.7f : 2.3f;
-                if (!Free(p, PropFactory.TreeTrunkRadius, spacing)) continue;
+                float wood = Woodland(p.x, p.y);
+                if ((float)rng.NextDouble() > 0.2f + 0.8f * wood) continue;
+                if (!Free(p, PropFactory.TreeTrunkRadius, Mathf.Lerp(2.7f, 1.9f, wood))) continue;
 
                 GameObject go;
-                float pick = (float)rng.NextDouble();
-                if (biome == Biome.DeadForest || (biome == Biome.Scrub && pick < 0.5f))
+                float dead = Deadness(p.x, p.y);
+                if ((float)rng.NextDouble() < Mathf.Lerp(0.06f, 0.9f, dead))
                     go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
                         () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
-                else if (biome == Biome.Scrub || (biome == Biome.Woods && pick < 0.4f))
-                    go = Prop(library != null ? library.conifers : null, rng.Next(PropLibrary.ConiferVariants), staticRoot,
-                        () => PropFactory.CreateTree(LowPolyModels.Conifer(rng), lowPolyMaterial, "Conifer"));
                 else
                 {
-                    // Autumn trees gather in their own patches.
-                    bool autumn = Mathf.PerlinNoise(p.x * 0.09f + 3f, p.y * 0.09f + 8f) > 0.55f;
-                    int variant = (autumn ? PropLibrary.LeafyVariants / 2 : 0) + rng.Next(PropLibrary.LeafyVariants / 2);
-                    go = Prop(library != null ? library.leafyTrees : null, variant, staticRoot,
-                        () => PropFactory.CreateTree(LowPolyModels.LeafyTree(rng, autumn), lowPolyMaterial, autumn ? "Autumn Tree" : "Leafy Tree"));
+                    // Spruce where it is damp, pine where it is dry, young firs at the edges of the woods,
+                    // dead pines where the dead forest begins; firs everywhere else.
+                    float moist = Moisture(p.x, p.y), roll = (float)rng.NextDouble();
+                    int style = roll < 0.25f * dead * 2f ? 4
+                        : roll < 0.45f && moist > 0.55f ? 1
+                        : roll < 0.45f && moist < 0.42f ? 2
+                        : roll < 0.6f && wood < 0.4f ? 3
+                        : 0;
+                    int variant = style * 2 + rng.Next(2);
+                    go = Prop(library != null ? library.conifers : null, variant, staticRoot,
+                        () => { Mesh m = LowPolyModels.Conifer(rng, style); return PropFactory.CreateTree(m, lowPolyMaterial, m.name); });
                 }
                 go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
                 placed++;
             }
+            TreeCount = placed;
         }
+
+        /// <summary>How many trees the last generation placed.</summary>
+        public int TreeCount { get; private set; }
 
         void BuildRocks()
         {
@@ -545,7 +533,7 @@ namespace Vision.World
                 int variant = roll < 0.45f ? rng.Next(3) : roll < 0.85f ? 3 + rng.Next(3) : 6 + rng.Next(2);
                 float radius = PropLibrary.RockRadii[variant];
                 float steep = Mathf.InverseLerp(10f, 30f, Terrain.SlopeDeg(p.x, p.y));
-                if ((float)rng.NextDouble() > 0.45f + 0.55f * steep) continue;
+                if ((float)rng.NextDouble() > 0.3f + 0.45f * steep + 0.25f * Deadness(p.x, p.y)) continue;
                 if (!Free(p, radius, 1.4f)) continue;
                 if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
                 GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,

@@ -43,7 +43,6 @@ namespace Vision.Player
                 if (!string.IsNullOrEmpty(json))
                 {
                     VisionComposite.Look l = JsonUtility.FromJson<VisionComposite.Look>(json);
-                    if (!json.Contains("\"beamFalloff\"")) l.beamFalloff = VisionComposite.Look.Defaults.beamFalloff;   // saved before it existed
                     composite.look = l.Clamped();
                 }
             }
@@ -84,8 +83,6 @@ namespace Vision.Player
                 SaveLook();
             }
             panelOpen = lookPanel && composite != null;
-            if (composite != null && maskRenderer != null && maskRenderer.viewer != null)
-                maskRenderer.viewer.falloffPower = composite.look.beamFalloff;
         }
 
         void OnGUI()
@@ -108,7 +105,7 @@ namespace Vision.Player
         {
             EnsureSliderStyles();
             const float width = 440f, row = 30f;
-            panelRect = new Rect(Screen.width - width - 12f, 56f, width, 12 * row + 24f);
+            panelRect = new Rect(Screen.width - width - 12f, 56f, width, 11 * row + 24f);
             GUI.DrawTexture(panelRect, backdropTex);
             float y = panelRect.y + 8f;
             GUI.Label(new Rect(panelRect.x + 10f, y, width - 20f, row), "Look (F4 to close)", style);
@@ -121,7 +118,6 @@ namespace Vision.Player
             l.litBrightness = Slider("Lit brightness", l.litBrightness, 0f, 2f, ref y);
             l.unlitBrightness = Slider("Unlit brightness", l.unlitBrightness, 0f, 2f, ref y);
             l.beamIntensity = Slider("Beam intensity", l.beamIntensity, 0.5f, 2f, ref y);
-            l.beamFalloff = Slider("Beam edge falloff", l.beamFalloff, 1f, 6f, ref y);
             l.blurStart = Slider("Blur start (m)", l.blurStart, 0f, 30f, ref y);
             l.blurEnd = Slider("Blur end (m)", l.blurEnd, 0f, 30f, ref y);
             l.blurMaxPixels = Slider("Blur max (px)", l.blurMaxPixels, 0f, 8f, ref y);

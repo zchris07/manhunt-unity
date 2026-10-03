@@ -94,9 +94,10 @@ namespace Vision.EditorTools
             var moon = moonGo.AddComponent<Light>();
             moon.type = LightType.Directional;
             moon.color = new Color(0.80f, 0.82f, 0.86f);
-            moon.intensity = 0.85f;
+            moon.intensity = 1.15f;   // lower in the sky than before, so brighter to keep flat ground as lit
             moon.shadows = LightShadows.None;
-            moonGo.transform.rotation = Quaternion.Euler(58f, -35f, 0f);
+            // Low enough that slopes facing away from it fall darker and the hills read.
+            moonGo.transform.rotation = Quaternion.Euler(38f, -35f, 0f);
 
             var visionGo = new GameObject("Vision");
             var mask = visionGo.AddComponent<VisionMaskRenderer>();
@@ -182,6 +183,7 @@ namespace Vision.EditorTools
             }
             mat.shader = Shader.Find("Vision/LowPoly");
             mat.SetFloat("_Emission", emission);
+            mat.SetFloat("_RampSteps", 0f);   // smooth facet shading, so slopes show
             mat.SetFloat("_Entity", entity ? 1f : 0f);
             if (entity) mat.EnableKeyword("_VISION_ENTITY");
             else mat.DisableKeyword("_VISION_ENTITY");
