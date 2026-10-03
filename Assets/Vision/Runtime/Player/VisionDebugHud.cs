@@ -17,7 +17,8 @@ namespace Vision.Player
     {
         public VisionMaskRenderer maskRenderer;
         public VisionComposite composite;
-        public bool visible = true;
+        [Tooltip("The stats overlay (F3). Off by default now that the game has a HUD.")]
+        public bool visible;
         public bool lookPanel;
 
         const string PrefsKey = "Vision.Look";

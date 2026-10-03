@@ -238,6 +238,7 @@ namespace Vision.World
             cc.center = new Vector3(0f, 0.9f, 0f);
             cc.skinWidth = 0.03f;
             var viewer = root.AddComponent<VisionViewer>();
+            root.AddComponent<PlayerStats>();
             var controller = root.AddComponent<PlayerController>();
             controller.viewer = viewer;
             controller.animator = root.GetComponent<HumanoidAnimator>();

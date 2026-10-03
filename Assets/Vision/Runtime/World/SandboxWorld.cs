@@ -44,6 +44,7 @@ namespace Vision.World
         public Wanderer Wanderer;
         public List<Door> Doors = new List<Door>();
         public List<Transform> Crows = new List<Transform>();
+        public List<Pickup> Pickups = new List<Pickup>();
 
         /// <summary>
         /// How a prefab becomes a scene object. Null means Object.Instantiate; the level baker sets it to
@@ -121,6 +122,7 @@ namespace Vision.World
             }
             Doors.Clear();
             Crows.Clear();
+            Pickups.Clear();
             blockedSpots.Clear();
             Player = null;
             Wanderer = null;
@@ -138,6 +140,7 @@ namespace Vision.World
             BuildRocks();
             BuildLights();
             BuildProps();
+            BuildPickups();
             BuildGround();   // last, so plants grow around everything placed
             BuildCrows();
             BuildWanderer();
@@ -654,6 +657,35 @@ namespace Vision.World
                 () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
             Conform(gen.transform, GeneratorSite, 0.7f, Range(-20f, 20f) + 90f, 0.85f, 0.03f);
             blockedSpots.Add(GeneratorSite);
+        }
+
+        /// <summary>Supplies by the camps, the wrecks, the generator and in the cabin.</summary>
+        void BuildPickups()
+        {
+            var spots = new List<Vector2> { new Vector2(10.5f, 9.6f), new Vector2(6.2f, 5.0f), GeneratorSite + new Vector2(0.2f, -1.4f) };
+            foreach (Vector2 f in Fires) spots.Add(f + new Vector2(Range(-1.6f, 1.6f), Range(1.2f, 1.6f) * (rng.NextDouble() < 0.5 ? -1f : 1f)));
+            foreach (Vector2 w in WreckSites)
+            {
+                spots.Add(w + new Vector2(Range(-2.4f, -1.6f), Range(-1.5f, 1.5f)));
+                spots.Add(w + new Vector2(Range(1.6f, 2.4f), Range(-1.5f, 1.5f)));
+            }
+            Transform parent = new GameObject("Supplies").transform;
+            parent.SetParent(staticRoot, false);
+            foreach (Vector2 p in spots)
+            {
+                double roll = rng.NextDouble();
+                var item = roll < 0.4 ? Vision.Player.ItemType.Bandage : roll < 0.75 ? Vision.Player.ItemType.Water : Vision.Player.ItemType.CannedFood;
+                var go = new GameObject($"Pickup {item}");
+                go.transform.SetParent(parent, false);
+                go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, item);
+                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+                var pickup = go.AddComponent<Pickup>();
+                pickup.item = item;
+                pickup.count = item == Vision.Player.ItemType.Bandage ? 1 : 1 + rng.Next(2);
+                Conform(go.transform, p, 0.1f, Range(0f, 360f), 0.8f, 0f);
+                go.transform.localScale = Vector3.one * 1.6f;
+                Pickups.Add(pickup);
+            }
         }
 
         /// <summary>Direction of the path segment nearest to a point (zero when no path is near).</summary>

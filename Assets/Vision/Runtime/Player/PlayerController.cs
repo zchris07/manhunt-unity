@@ -36,6 +36,14 @@ namespace Vision.Player
         /// <summary>When set, replaces the sprint input.</summary>
         public bool? SprintOverride { get; set; }
 
+        /// <summary>What Interact would do right now ("Pick up Bandage", "Open door"), or null.</summary>
+        public string InteractPrompt { get; private set; }
+
+        /// <summary>Short messages for the HUD (pickups, items used, a full inventory).</summary>
+        public event System.Action<string> Notice;
+
+        PlayerStats stats;
+
         CharacterController cc;
         float verticalSpeed;
         InputAction move, sprint, interact, seeThrough, aimPoint, aimStick;
@@ -45,6 +53,7 @@ namespace Vision.Player
         void Awake()
         {
             cc = GetComponent<CharacterController>();
+            stats = GetComponent<PlayerStats>();
             InputActionAsset actions = InputSystem.actions;
             if (actions == null)
             {
@@ -63,11 +72,22 @@ namespace Vision.Player
         void Update()
         {
             if (move == null) return;
+            bool dead = stats != null && stats.vitals.IsDead;
+            if (GameHud.MenuOpen || dead)
+            {
+                InteractPrompt = null;
+                if (animator != null) animator.Drive(Vector3.zero, viewer != null ? viewer.Facing : Vector2.up);
+                if (dead && cc.enabled) cc.Move(Vector3.down * (9.81f * Time.deltaTime));
+                return;
+            }
             Vector2 input = Vector2.ClampMagnitude(MoveOverride ?? move.ReadValue<Vector2>(), 1f);
-            bool sprinting = SprintOverride ?? sprint.IsPressed();
+            bool wantsSprint = (SprintOverride ?? sprint.IsPressed()) && input.sqrMagnitude > 0.01f;
+            bool sprinting = wantsSprint && (stats == null || stats.vitals.CanSprint);
+            if (stats != null) stats.vitals.Tick(Time.deltaTime, sprinting);
             Vector2 velocity = input * (sprinting ? runSpeed : walkSpeed);
-            if (interact.WasPressedThisFrame()) ToggleNearestDoor();
+            UpdateInteraction(interact.WasPressedThisFrame());
             if (seeThrough.WasPressedThisFrame() && viewer != null) viewer.seeThroughEnabled = !viewer.seeThroughEnabled;
+            UseItemKeys();
 
             velocity *= SlopeSpeedFactor(velocity);
             // Pressed into the ground hard enough to follow a 45° descent instead of bouncing off it.
@@ -127,6 +147,57 @@ namespace Vision.Player
             float t = (transform.position.y - ray.origin.y) / ray.direction.y;
             Vector3 hit = ray.origin + ray.direction * t;
             return new Vector2(hit.x - transform.position.x, hit.z - transform.position.z);
+        }
+
+        void UseItemKeys()
+        {
+            Keyboard kb = Keyboard.current;
+            if (kb == null || stats == null) return;
+            Key[] keys = { Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5, Key.Digit6 };
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (!kb[keys[i]].wasPressedThisFrame) continue;
+                ItemType? item = stats.inventory.ItemAt(i);
+                if (item == null) continue;
+                ItemInfo info = Items.Info(item.Value);
+                if (stats.UseSlot(i))
+                    Notice?.Invoke(info.heal > 0f && info.stamina > 0f ? $"Ate {info.name.ToLower()}" : info.heal > 0f ? $"Used a bandage (+{info.heal:0} health)" : $"Drank water (+{info.stamina:0} stamina)");
+                else Notice?.Invoke(info.heal > 0f ? "Already at full health" : "Already rested");
+            }
+        }
+
+        /// <summary>The nearest thing to interact with in reach: a pickup or a door (whichever is closer).</summary>
+        void UpdateInteraction(bool pressed)
+        {
+            float scale = transform.lossyScale.x;
+            Vector3 from = transform.position + Vector3.up * (0.5f * scale);
+            float best = interactRange * scale;
+            Pickup pickup = null;
+            foreach (Pickup p in Pickup.All)
+            {
+                float d = Vector3.Distance(p.transform.position, from);
+                if (d < best) { best = d; pickup = p; }
+            }
+            Door door = null;
+            if (world != null)
+                foreach (Door dr in world.Doors)
+                {
+                    float d = Vector3.Distance(dr.blocker != null ? dr.blocker.bounds.center : dr.transform.position, transform.position + Vector3.up * scale);
+                    if (d < best) { best = d; door = dr; pickup = null; }
+                }
+
+            if (door != null) InteractPrompt = $"{(door.IsOpen ? "Close" : "Open")} {(door.blocksMovementWhenOpen ? "shutter" : "door")}";
+            else if (pickup != null) InteractPrompt = $"Pick up {pickup.Label}";
+            else InteractPrompt = null;
+            if (!pressed) return;
+
+            if (door != null) door.Toggle();
+            else if (pickup != null && stats != null)
+            {
+                string label = pickup.Label;
+                int taken = pickup.TakeInto(stats.inventory);
+                Notice?.Invoke(taken > 0 ? $"Picked up {label}" : "Inventory full");
+            }
         }
 
         public bool ToggleNearestDoor()

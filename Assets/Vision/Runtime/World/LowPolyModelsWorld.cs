@@ -363,6 +363,31 @@ namespace Vision.World
             return b.ToMesh("Ember");
         }
 
+        // ------------------------------------------------------------------ supplies
+
+        /// <summary>A supply the player can pick up: a bandage roll, a water bottle or a tin of food.</summary>
+        public static Mesh Item(System.Random rng, Vision.Player.ItemType item)
+        {
+            var b = new LowPolyMeshBuilder(rng);
+            switch (item)
+            {
+                case Vision.Player.ItemType.Bandage:
+                    b.AddFrustum(new Vector3(-0.08f, 0.07f, 0f), new Vector3(0.08f, 0.07f, 0f), 0.07f, 0.07f, 7, new Color(0.88f, 0.86f, 0.80f), 0.05f);
+                    b.AddFrustum(new Vector3(-0.02f, 0.07f, 0f), new Vector3(0.02f, 0.07f, 0f), 0.073f, 0.073f, 7, new Color(0.62f, 0.12f, 0.10f), 0.05f);
+                    break;
+                case Vision.Player.ItemType.Water:
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.2f, 0f), 0.055f, 0.055f, 7, new Color(0.45f, 0.60f, 0.70f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.2f, 0f), new Vector3(0f, 0.25f, 0f), 0.055f, 0.022f, 7, new Color(0.45f, 0.60f, 0.70f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.25f, 0f), new Vector3(0f, 0.28f, 0f), 0.024f, 0.024f, 6, new Color(0.20f, 0.30f, 0.62f), 0.05f);
+                    break;
+                default:
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.11f, 0f), 0.065f, 0.065f, 8, new Color(0.62f, 0.61f, 0.58f), 0.04f);
+                    b.AddFrustum(new Vector3(0f, 0.02f, 0f), new Vector3(0f, 0.09f, 0f), 0.067f, 0.067f, 8, new Color(0.72f, 0.40f, 0.14f), 0.05f, 0f, false, false);
+                    break;
+            }
+            return b.ToMesh(item.ToString());
+        }
+
         // ------------------------------------------------------------------ small plants (merged into the ground)
         // Written in the plant's own space around the origin; place them with LowPolyMeshBuilder.Transform.
 

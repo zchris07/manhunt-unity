@@ -18,6 +18,7 @@ namespace Vision.Player
         public TopDownCamera cameraRig;
         public VisionComposite composite;
         public VisionDebugHud hud;
+        public GameHud gameHud;
 
         string folder;
 
@@ -34,6 +35,7 @@ namespace Vision.Player
         IEnumerator Run()
         {
             if (hud != null) hud.visible = false;
+            if (gameHud != null) gameHud.visible = false;
             composite.look = VisionComposite.Look.Defaults;   // ignore look values saved by a play session
             PlayerController player = world.Player;
             Wanderer wanderer = world.Wanderer;
@@ -246,6 +248,49 @@ namespace Vision.Player
                 yield return Shot($"37_fire_frame_{f}");
             }
             cameraRig.orthographicSize = ortho;
+
+            // The HUD: prompt at a supply, a filled inventory, hurt, paused, dead.
+            if (gameHud != null && player.GetComponent<PlayerStats>() is PlayerStats ps)
+            {
+                gameHud.visible = true;
+                cameraRig.orthographicSize = ortho;
+                yield return Stage(player, new Vector3(-4.8f, 0f, 30.2f), new Vector2(0.6f, 0.8f), wanderer, away);
+                Pickup near = null;
+                foreach (Pickup pk in world.Pickups)
+                    if (pk != null && (near == null || Vector3.Distance(pk.transform.position, player.transform.position) < Vector3.Distance(near.transform.position, player.transform.position))) near = pk;
+                if (near != null)
+                {
+                    Vector3 at = near.transform.position - player.transform.position;
+                    at.y = 0f;
+                    player.Teleport(near.transform.position - at.normalized * (1.2f * player.transform.lossyScale.x));
+                    player.AimOverride = new Vector2(at.x, at.z).normalized;
+                    cameraRig.Snap();
+                }
+                yield return Wait(10);
+                gameHud.Refresh();
+                yield return Shot("40_hud_prompt");
+                ps.inventory.Add(ItemType.Bandage, 2);
+                ps.inventory.Add(ItemType.Water, 3);
+                ps.inventory.Add(ItemType.CannedFood, 1);
+                ps.vitals.Tick(2f, true);
+                gameHud.Notify("Picked up Water x2");
+                gameHud.Notify("Used a bandage (+35 health)");
+                yield return Wait(5);
+                yield return Shot("41_hud_inventory");
+                ps.vitals.TakeDamage(72f);
+                yield return Wait(20);
+                yield return Shot("42_hud_low_health");
+                gameHud.SetMenu(true);
+                yield return Wait(5);
+                yield return Shot("43_hud_pause_menu");
+                gameHud.SetMenu(false);
+                ps.vitals.TakeDamage(100f);
+                yield return Wait(5);
+                yield return Shot("44_hud_death");
+                ps.vitals.Reset();
+                yield return Wait(5);
+                gameHud.visible = false;
+            }
 
             // 12. Gait sheet (side-on, fully lit).
             yield return GaitSheet(player);

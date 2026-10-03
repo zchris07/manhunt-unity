@@ -246,6 +246,9 @@ MonoBehaviour:
   waypoints: []
   speed: 3.2
   animator: {fileID: 1896661226833108241}
+  touchDamage: 10
+  touchReach: 0.6
+  touchCooldown: 1
 --- !u!114 &188741314072927807
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -125,11 +125,16 @@ namespace Vision.EditorTools
             world.generateOnAwake = false;
             int meshes = LevelBaker.SaveLooseMeshes(worldGo.transform);
 
+            var gameHud = new GameObject("Game HUD").AddComponent<GameHud>();
+            gameHud.world = world;
+            gameHud.debugHud = hud;
+
             var capture = new GameObject("Vision Capture").AddComponent<VisionCapture>();
             capture.world = world;
             capture.cameraRig = rig;
             capture.composite = composite;
             capture.hud = hud;
+            capture.gameHud = gameHud;
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.SaveScene(scene, ScenePath);
