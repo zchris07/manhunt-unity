@@ -38,7 +38,7 @@ namespace Vision.Tests
         public void CopyValues_ListsEverySlider()
         {
             string text = VisionComposite.Look.Defaults.ToString();
-            foreach (string name in new[] { "contrast", "saturation", "lit brightness", "unlit brightness", "beam intensity", "blur start", "blur end", "blur max px", "camera effects" })
+            foreach (string name in new[] { "contrast", "saturation", "lit brightness", "unlit brightness", "beam intensity", "beam falloff", "blur start", "blur end", "blur max px", "camera effects" })
                 StringAssert.Contains(name, text);
         }
 

@@ -80,6 +80,36 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void ScreenEdgeFalloff_StaysBrightNearThePlayerAndDropsFasterTowardTheEdge()
+        {
+            const float p = -2.5f;
+            float At(float u) => VisionMaskRenderer.DistanceFalloff(u * 10f, 10f, p);
+            Assert.AreEqual(1f, At(0f), 1e-5f);
+            Assert.Greater(At(0.4f), 0.85f, "near the player the beam is close to full");
+            Assert.AreEqual(0f, At(1f), 1e-5f);
+            float atEdge = At(1f / VisionMaskRenderer.EdgeMargin);
+            Assert.That(atEdge, Is.InRange(0.08f, 0.25f), "a little light right at the screen edge");
+            float prevDrop = 0f;
+            for (float u = 0.1f; u <= 1f; u += 0.1f)
+            {
+                float drop = At(u - 0.1f) - At(u);
+                Assert.Greater(drop, prevDrop, "the curve falls faster the farther out");
+                prevDrop = drop;
+            }
+        }
+
+        [Test]
+        public void BeamReach_EndsAtTheViewEdge()
+        {
+            var half = new Vector2(12.8f, 8.3f);
+            Assert.AreEqual(12.8f, VisionMaskRenderer.RectExit(Vector2.zero, Vector2.right, half), 1e-4f);
+            Assert.AreEqual(8.3f, VisionMaskRenderer.RectExit(Vector2.zero, Vector2.up, half), 1e-4f);
+            Assert.AreEqual(10.3f, VisionMaskRenderer.RectExit(new Vector2(0f, -2f), Vector2.up, half), 1e-4f, "from below the centre");
+            Vector2 diag = new Vector2(1f, 1f).normalized;
+            Assert.AreEqual(8.3f * Mathf.Sqrt(2f), VisionMaskRenderer.RectExit(Vector2.zero, diag, half), 1e-3f, "leaves through the nearer edge");
+        }
+
+        [Test]
         public void PointInPolygon_DecidesWhetherAnEntityIsSeen()
         {
             var cone = new List<Vector2> { Vector2.zero, new Vector2(5f, -2f), new Vector2(5f, 2f) };

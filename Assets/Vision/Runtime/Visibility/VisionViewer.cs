@@ -15,6 +15,10 @@ namespace Vision.Visibility
         [Range(5f, 90f)] public float coneHalfAngleDeg = 50f;
         public float coneRange = 18f;
         [Range(0f, 1f)] public float coneFalloffStart = 0.45f;
+        [Tooltip("Extend the beam to the edge of the screen, fading with a power curve, instead of stopping at coneRange.")]
+        public bool reachScreenEdge = true;
+        [Tooltip("Exponent of the screen-edge falloff, 1 - (d / reach)^p: higher keeps the beam bright for longer, then drops it faster near the edge.")]
+        [Range(1f, 6f)] public float falloffPower = 2.5f;
         [Tooltip("Outer fraction of the half angle over which the beam fades to dark at its sides.")]
         [Range(0f, 1f)] public float coneEdgeSoftness = 0.35f;
 

@@ -228,19 +228,31 @@ namespace Vision.Rendering
             VisibilityComputer vc = Computer;
             Vector2 origin = viewer.PlanePosition;
             float dir = viewer.FacingAngle;
-            float halfSize = worldSize * 0.5f;
+            float halfSize = CoverSize * 0.5f;
             var blue = new Color(0f, 0f, 1f, 0f);
 
             // B: cone (capped near the screen edge), proximity circle, optional see-through cone.
             float k = viewer.Scale;
-            float coneRange = Mathf.Min(viewer.coneRange * k, halfSize * 0.95f);
+            float coneRange, coneStart;
+            if (viewer.reachScreenEdge)
+            {
+                Vector2 axis = new Vector2(Mathf.Cos(dir), Mathf.Sin(dir));
+                coneRange = Mathf.Min(BeamReach(viewCamera, origin, axis) * EdgeMargin, halfSize * 0.98f);
+                coneStart = -viewer.falloffPower;
+            }
+            else
+            {
+                coneRange = Mathf.Min(viewer.coneRange * k, halfSize * 0.95f);
+                coneStart = viewer.coneFalloffStart;
+            }
             this.origin = origin;
             coneRangeW = coneRange;
+            coneStartW = coneStart;
             float halfAngle = viewer.coneHalfAngleDeg * Mathf.Deg2Rad;
             vc.Compute(ViewQuery.Cone(origin, dir, halfAngle, coneRange), polygon);
             // The beam fades toward its sides as well as with distance (soft cone edge).
             beam = new Vector4(Mathf.Cos(dir), Mathf.Sin(dir), halfAngle, viewer.coneEdgeSoftness);
-            AddPolygon(polygon, false, origin, blue, coneRange, viewer.coneFalloffStart);
+            AddPolygon(polygon, false, origin, blue, coneRange, coneStart);
             beam = Vector4.zero;
             conePolygon.Clear();
             conePolygon.AddRange(polygon);
@@ -331,7 +343,7 @@ namespace Vision.Rendering
             Vector2 to = p - origin;
             float d = to.magnitude, b = 0f;
             if (Contains(conePolygon, p))
-                b = DistanceFalloff(d, coneRangeW, viewer.coneFalloffStart)
+                b = DistanceFalloff(d, coneRangeW, coneStartW)
                     * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
             if (Contains(proximityPolygon, p)) b = Mathf.Max(b, DistanceFalloff(d, proximityW, viewer.proximityFalloffStart));
             if (seeThroughPolygon.Count > 0 && Contains(seeThroughPolygon, p))
@@ -340,8 +352,35 @@ namespace Vision.Rendering
         }
 
         /// <summary>Distance falloff of a polygon (matches Hidden/Vision/Mask).</summary>
-        public static float DistanceFalloff(float distance, float range, float falloffStart) =>
-            falloffStart >= 1f ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(range * falloffStart, range, distance));
+        public static float DistanceFalloff(float distance, float range, float falloffStart)
+        {
+            if (falloffStart < 0f) return 1f - Mathf.Pow(Mathf.Clamp01(distance / Mathf.Max(1e-5f, range)), -falloffStart);
+            return falloffStart >= 1f ? 1f : 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(range * falloffStart, range, distance));
+        }
+
+        /// <summary>The beam ends this far past the screen edge, so a little light shows right at the edge.</summary>
+        public const float EdgeMargin = 1.06f;
+
+        /// <summary>
+        /// Distance from <paramref name="origin"/> along <paramref name="axis"/> (ground plane) to the edge of the
+        /// ground the camera sees: the view rectangle centred on the ground focus, its depth stretched by the pitch.
+        /// </summary>
+        public static float BeamReach(Camera cam, Vector2 origin, Vector2 axis)
+        {
+            float pitch = Mathf.Max(10f, cam.transform.eulerAngles.x) * Mathf.Deg2Rad;
+            Vector2 c = GroundFocus(cam);
+            var half = new Vector2(cam.orthographicSize * cam.aspect, cam.orthographicSize / Mathf.Sin(pitch));
+            return RectExit(origin - c, axis.normalized, half);
+        }
+
+        /// <summary>Distance from p (inside or near a centred rectangle of half-size h) along unit d to its boundary.</summary>
+        public static float RectExit(Vector2 p, Vector2 d, Vector2 h)
+        {
+            float t = float.MaxValue;
+            if (Mathf.Abs(d.x) > 1e-5f) t = Mathf.Min(t, ((d.x > 0f ? h.x : -h.x) - p.x) / d.x);
+            if (Mathf.Abs(d.y) > 1e-5f) t = Mathf.Min(t, ((d.y > 0f ? h.y : -h.y) - p.y) / d.y);
+            return Mathf.Max(1f, t);
+        }
 
         /// <summary>
         /// Angular falloff of the flashlight beam (matches Hidden/Vision/Mask): full strength on the axis, fading
@@ -455,7 +494,7 @@ namespace Vision.Rendering
         }
 
         Vector2 origin;
-        float coneRangeW, proximityW, seeThroughW;
+        float coneRangeW, coneStartW, proximityW, seeThroughW;
 
         /// <summary>Angular falloff for the polygon being added: (beam dir x, dir y, half angle, edge softness); zero = none.</summary>
         Vector4 beam;

@@ -14,7 +14,7 @@ namespace Vision.Characters
     /// </summary>
     public static class MannequinBuilder
     {
-        public const int MaxTriangles = 200;
+        public const int MaxTriangles = 250;
 
         /// <summary>sRGB dark grey.</summary>
         public static readonly Color Grey = new Color(0.30f, 0.30f, 0.31f);
@@ -112,7 +112,7 @@ namespace Vision.Characters
             int[] hips = m.Ring(new Vector3(0f, 0.88f, 0f), up, 8, 0.165f, 0.10f, 0.11f, 0f, W(Bone.Pelvis));
             int[] waist = m.Ring(new Vector3(0f, 1.07f, 0f), up, 8, 0.140f, 0.095f, 0.085f, 0f, W(Bone.Pelvis, Bone.Spine));
             int[] chest = m.Ring(new Vector3(0f, 1.30f, -0.005f), up, 8, 0.170f, 0.12f, 0.10f, 0f, W(Bone.Spine, Bone.Chest, 0.7f));
-            int[] shoulders = m.Ring(new Vector3(0f, 1.45f, -0.012f), up, 8, 0.205f, 0.075f, 0.085f, 0f, W(Bone.Chest));
+            int[] shoulders = m.Ring(new Vector3(0f, 1.45f, -0.012f), up, 8, 0.225f, 0.075f, 0.085f, 0f, W(Bone.Chest));
             int neckBase = m.Add(new Vector3(0f, 1.505f, -0.015f), W(Bone.Chest));
             m.Join(hips, waist, new Vector3(0f, 0.97f, 0f));
             m.Join(waist, chest, new Vector3(0f, 1.18f, 0f));
@@ -144,7 +144,13 @@ namespace Vision.Characters
                 Vector3 sh = J(upper), el = J(fore), wr = J(hand);
                 var knuckle = wr + new Vector3(side * 0.004f, -0.095f, 0.004f);
                 var tip = wr + new Vector3(side * 0.006f, -0.185f, 0.012f);
-                int[] a0 = m.Ring(sh, el - sh, 4, 0.055f, 0.052f, 0.052f, 45f, W(upper));
+                // Shoulder cap: a closed deltoid over the top of the arm, half on the chest so it stays joined
+                // to the torso when the arm swings.
+                int[] cap = m.Ring(new Vector3(side * 0.195f, 1.487f, -0.008f), up, 4, 0.058f, 0.058f, 0.058f, 45f, W(Bone.Chest, upper));
+                int capTop = m.Add(new Vector3(side * 0.172f, 1.508f, -0.01f), W(Bone.Chest, upper, 0.3f));
+                int[] a0 = m.Ring(sh, el - sh, 4, 0.055f, 0.052f, 0.052f, 45f, W(upper, Bone.Chest, 0.3f));
+                m.Join(cap, a0, new Vector3(side * 0.19f, 1.45f, -0.005f));
+                m.Fan(cap, capTop, new Vector3(side * 0.19f, 1.45f, -0.005f));
                 int[] a1 = m.Ring(el, wr - sh, 4, 0.042f, 0.042f, 0.042f, 45f, W(upper, fore));
                 int[] a2 = m.Ring(wr, wr - el, 4, 0.030f, 0.032f, 0.032f, 45f, W(fore, hand));
                 int[] a3 = m.Ring(knuckle, knuckle - wr, 4, 0.016f, 0.045f, 0.042f, 45f, W(hand));
@@ -180,6 +186,35 @@ namespace Vision.Characters
                 m.Tri(heelR, toeR, topR, footInside);
             }
             return m;
+        }
+
+        /// <summary>Edges used by only one triangle (holes), after welding coincident vertices.</summary>
+        public static List<(Vector3 a, Vector3 b)> OpenEdges(Mesh mesh)
+        {
+            Vector3[] v = mesh.vertices;
+            int[] t = mesh.triangles;
+            var key = new Dictionary<Vector3Int, int>();
+            int Weld(Vector3 p)
+            {
+                var k = Vector3Int.RoundToInt(p * 10000f);
+                if (!key.TryGetValue(k, out int id)) key[k] = id = key.Count;
+                return id;
+            }
+            var ids = new int[v.Length];
+            var pos = new Dictionary<int, Vector3>();
+            for (int i = 0; i < v.Length; i++) { ids[i] = Weld(v[i]); pos[ids[i]] = v[i]; }
+            var count = new Dictionary<(int, int), int>();
+            for (int i = 0; i < t.Length; i += 3)
+                for (int e = 0; e < 3; e++)
+                {
+                    int a = ids[t[i + e]], b = ids[t[i + (e + 1) % 3]];
+                    var edge = a < b ? (a, b) : (b, a);
+                    count[edge] = count.TryGetValue(edge, out int c) ? c + 1 : 1;
+                }
+            var open = new List<(Vector3, Vector3)>();
+            foreach (var kv in count)
+                if (kv.Value == 1) open.Add((pos[kv.Key.Item1], pos[kv.Key.Item2]));
+            return open;
         }
 
         /// <summary>Triangle count and total surface area (design units²) of the mannequin.</summary>

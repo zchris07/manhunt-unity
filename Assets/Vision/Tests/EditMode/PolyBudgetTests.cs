@@ -11,7 +11,7 @@ namespace Vision.Tests
         public void ReferenceEdge_ComesFromTheMannequin()
         {
             MannequinBuilder.Measure(out int tris, out float area);
-            Assert.LessOrEqual(tris, 200);
+            Assert.LessOrEqual(tris, MannequinBuilder.MaxTriangles);
             Assert.AreEqual(Mathf.Sqrt(area / (tris * 0.4330127f)), PolyBudget.ReferenceEdge, 1e-5f);
             Assert.That(PolyBudget.ReferenceEdge, Is.InRange(0.05f, 0.3f));
         }

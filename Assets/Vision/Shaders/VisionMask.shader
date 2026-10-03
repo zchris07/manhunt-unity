@@ -1,7 +1,8 @@
 // Rasterises visibility polygons (world X,Z) into the world-space mask.
 // Vertex colour selects the channel and strength, uv0 = polygon origin, uv1 = (range, falloffStart),
 // uv2 = (beam direction x, y, half angle, edge softness) for the flashlight cone, zero otherwise.
-// falloffStart >= 1 disables the distance falloff (line of sight); a zero half angle disables the
+// falloffStart >= 1 disables the distance falloff (line of sight), a negative one selects the power curve
+// 1 - (d / range)^-falloffStart (the flashlight reaching the screen edge); a zero half angle disables the
 // angular falloff, which fades the beam toward the cone's sides.
 Shader "Hidden/Vision/Mask"
 {
@@ -59,11 +60,11 @@ Shader "Hidden/Vision/Mask"
                 float range = i.rangeFalloff.x;
                 float start = i.rangeFalloff.y;
                 float falloff = 1.0;
-                if (start < 1.0)
-                {
-                    float d = distance(i.worldXZ, i.origin);
+                float d = distance(i.worldXZ, i.origin);
+                if (start < 0.0)
+                    falloff = 1.0 - pow(saturate(d / range), -start);   // power curve: -start is the exponent
+                else if (start < 1.0)
                     falloff = 1.0 - smoothstep(range * start, range, d);
-                }
                 if (i.beam.z > 0.0)
                 {
                     float2 to = i.worldXZ - i.origin;

@@ -750,6 +750,8 @@ MonoBehaviour:
   coneHalfAngleDeg: 50
   coneRange: 18
   coneFalloffStart: 0.45
+  reachScreenEdge: 1
+  falloffPower: 2.5
   coneEdgeSoftness: 0.35
   proximityRadius: 1.8
   proximityFalloffStart: 0.55

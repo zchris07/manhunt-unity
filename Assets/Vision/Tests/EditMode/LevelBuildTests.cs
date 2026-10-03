@@ -161,7 +161,7 @@ namespace Vision.Tests
             {
                 Mesh m = character.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh;
                 Assert.IsTrue(EditorUtility.IsPersistent(m), "saved mannequin mesh");
-                Assert.LessOrEqual(m.triangles.Length / 3, 200);
+                Assert.LessOrEqual(m.triangles.Length / 3, Vision.Characters.MannequinBuilder.MaxTriangles);
                 Assert.AreEqual(m.vertexCount, m.boneWeights.Length, "the saved mesh keeps its bone weights");
                 Assert.AreEqual(Vision.Characters.HumanoidSkeleton.BoneCount, m.bindposeCount, "and its bind poses");
             }

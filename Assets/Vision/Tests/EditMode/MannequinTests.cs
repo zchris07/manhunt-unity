@@ -39,7 +39,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Mannequin_IsLowPolyAndAtMost200Triangles()
+        public void Mannequin_IsLowPolyAndWithinItsTriangleCap()
         {
             Mesh m = MannequinBuilder.Build();
             int tris = m.triangles.Length / 3;
@@ -91,6 +91,20 @@ namespace Vision.Tests
             }
             Assert.AreEqual(0, far, "every vertex is bound to a nearby bone");
             Assert.Less(inward, t.Length / 3 / 10, "faces point away from the bones they wrap");
+            Object.DestroyImmediate(m);
+        }
+
+        [Test]
+        public void Shoulders_AreClosedAndJoinedToTheTorso()
+        {
+            Mesh m = MannequinBuilder.Build();
+            int holes = 0;
+            foreach (var (a, b) in MannequinBuilder.OpenEdges(m))
+            {
+                Vector3 mid = (a + b) * 0.5f;
+                if (mid.y > 1.3f && Mathf.Abs(mid.x) > 0.1f) holes++;
+            }
+            Assert.AreEqual(0, holes, "no open edges around the shoulders");
             Object.DestroyImmediate(m);
         }
 
