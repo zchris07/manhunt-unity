@@ -12,6 +12,17 @@ namespace Vision.Characters
     /// </summary>
     public sealed class HumanoidAnimator : MonoBehaviour
     {
+        /// <summary>World-space ground height and normal under a world point; false where there is no ground data.</summary>
+        public delegate bool GroundSampler(Vector3 world, out float height, out Vector3 normal);
+
+        /// <summary>
+        /// The ground the feet adapt to (set by the level). Null means flat ground at the character's root,
+        /// which reproduces the flat gait exactly.
+        /// </summary>
+        public static GroundSampler Ground;
+
+        [Tooltip("Largest forward lean into a climb (and back lean downhill), degrees.")]
+        public float maxSlopeLean = 12f;
         [Tooltip("Yaw pivot for the whole body (legs face this way).")]
         public Transform body;
         [Tooltip("Bone transforms indexed by Vision.Characters.Bone.")]
@@ -26,7 +37,12 @@ namespace Vision.Characters
         float legsYaw;
         bool initialized;
 
+        float pelvisDrop, slopeLean;
+
         public GaitSolver Solver => solver;
+        /// <summary>World-space ankle targets of the last frame (after terrain adaptation), left then right.</summary>
+        public Vector3 LeftAnkleTarget { get; private set; }
+        public Vector3 RightAnkleTarget { get; private set; }
         public float LegsYaw => legsYaw;
 
         /// <summary>Called by the controller each frame: world velocity and aim direction on the ground plane (x, z).</summary>
@@ -66,24 +82,60 @@ namespace Vision.Characters
             var forward = new Vector2(Mathf.Sin(legsYaw * Mathf.Deg2Rad), Mathf.Cos(legsYaw * Mathf.Deg2Rad));
             solver.Advance(dt, Vector2.Dot(v, forward));
             body.localRotation = Quaternion.Euler(0f, legsYaw, 0f);
+
+            // Lean into the slope along the legs' heading (half the slope angle, while moving).
+            float grade = 0f;
+            Vector3 fwd3 = new Vector3(forward.x, 0f, forward.y) * (0.35f * scale);
+            if (Sample(transform.position + fwd3, out float hAhead, out _) && Sample(transform.position - fwd3, out float hBehind, out _))
+                grade = (hAhead - hBehind) / (0.7f * scale);
+            float targetLean = Mathf.Clamp(Mathf.Atan(grade) * Mathf.Rad2Deg * 0.5f, -maxSlopeLean, maxSlopeLean) * solver.Moving;
+            slopeLean = Mathf.Lerp(slopeLean, targetLean, 1f - Mathf.Exp(-6f * dt));
+
             Apply(solver.Evaluate(), Mathf.Clamp(Mathf.DeltaAngle(legsYaw, aimYaw), -maxTwist, maxTwist), scale);
         }
 
         Transform B(Bone b) => bones[(int)b];
 
+        bool Sample(Vector3 world, out float height, out Vector3 normal)
+        {
+            if (Ground != null && Ground(world, out height, out normal)) return true;
+            height = transform.position.y;
+            normal = Vector3.up;
+            return Ground == null;
+        }
+
+        /// <summary>
+        /// How far (world units) the ground under a body-space ankle target is above the character's root, and the
+        /// ground normal there. Zero and up on flat ground at the root, so the flat gait is unchanged.
+        /// </summary>
+        float GroundOffset(Vector3 bodyAnkle, out Vector3 normal)
+        {
+            Vector3 world = body.TransformPoint(bodyAnkle);
+            if (!Sample(world, out float h, out normal)) return 0f;
+            return h - transform.position.y;
+        }
+
         void Apply(GaitPose pose, float twist, float scale)
         {
+            // Feet follow the ground under them; the pelvis drops by the lowest foot so that leg can still reach.
+            float offL = GroundOffset(pose.Left.Ankle, out Vector3 nL);
+            float offR = GroundOffset(pose.Right.Ankle, out Vector3 nR);
+            float maxDrop = 0.35f * HumanoidSkeleton.HipHeight * scale;
+            float drop = Mathf.Clamp(-Mathf.Min(offL, offR), 0f, maxDrop);
+            pelvisDrop = Ground == null ? 0f : drop;   // continuous already: the ankle targets move smoothly
+
             Transform pelvis = B(Bone.Pelvis);
-            pelvis.localPosition = HumanoidSkeleton.BindPosition(Bone.Pelvis) + pose.PelvisOffset;
+            pelvis.localPosition = HumanoidSkeleton.BindPosition(Bone.Pelvis) + pose.PelvisOffset - Vector3.up * (pelvisDrop / scale);
             pelvis.localRotation = Quaternion.Euler(pose.PelvisPitch, pose.PelvisYaw, pose.PelvisRoll);
 
-            B(Bone.Spine).localRotation = Quaternion.Euler(pose.SpinePitch - pose.PelvisPitch * 0.7f, -pose.PelvisYaw + twist * 0.35f, -pose.PelvisRoll * 0.8f);
+            // The torso leans into a climb; the neck and head take most of it back so the gaze stays level.
+            B(Bone.Spine).localRotation = Quaternion.Euler(pose.SpinePitch - pose.PelvisPitch * 0.7f + slopeLean, -pose.PelvisYaw + twist * 0.35f, -pose.PelvisRoll * 0.8f);
             B(Bone.Chest).localRotation = Quaternion.Euler(pose.ChestPitch, pose.ChestYaw + twist * 0.35f, 0f);
-            B(Bone.Neck).localRotation = Quaternion.Euler(pose.HeadPitch * 0.4f, twist * 0.15f, 0f);
-            B(Bone.Head).localRotation = Quaternion.Euler(pose.HeadPitch * 0.6f, pose.HeadYaw + twist * 0.15f, 0f);
+            B(Bone.Neck).localRotation = Quaternion.Euler(pose.HeadPitch * 0.4f - slopeLean * 0.4f, twist * 0.15f, 0f);
+            B(Bone.Head).localRotation = Quaternion.Euler(pose.HeadPitch * 0.6f - slopeLean * 0.4f, pose.HeadYaw + twist * 0.15f, 0f);
 
-            SolveLeg(pose.Left, Bone.ThighL, -1, scale);
-            SolveLeg(pose.Right, Bone.ThighR, 1, scale);
+            LeftAnkleTarget = SolveLeg(pose.Left, Bone.ThighL, -1, scale, offL, nL);
+            RightAnkleTarget = SolveLeg(pose.Right, Bone.ThighR, 1, scale, offR, nR);
 
             PoseArm(Bone.ClavicleL, -1, pose.LeftShoulder, pose.LeftElbow, pose.ArmAbduction);
             PoseArm(Bone.ClavicleR, 1, pose.RightShoulder, pose.RightElbow, pose.ArmAbduction);
@@ -91,12 +143,12 @@ namespace Vision.Characters
             PoseFingers(Bone.Thumb1R, 1, pose.FingerCurl);
         }
 
-        void SolveLeg(LegPose leg, Bone thighBone, int side, float scale)
+        Vector3 SolveLeg(LegPose leg, Bone thighBone, int side, float scale, float groundOffset, Vector3 groundNormal)
         {
             Transform thigh = B(thighBone), shin = B(thighBone + 1), foot = B(thighBone + 2), toe = B(thighBone + 3);
             float l1 = HumanoidSkeleton.ThighLength * scale, l2 = HumanoidSkeleton.ShinLength * scale;
             Vector3 hip = thigh.position;
-            Vector3 target = body.TransformPoint(leg.Ankle);
+            Vector3 target = body.TransformPoint(leg.Ankle) + Vector3.up * groundOffset;
             Vector3 toTarget = target - hip;
             float d = Mathf.Clamp(toTarget.magnitude, Mathf.Abs(l1 - l2) + 0.01f * scale, l1 + l2 - 1e-4f * scale);
             Vector3 dir = toTarget.sqrMagnitude > 1e-10f ? toTarget.normalized : -body.up;
@@ -112,8 +164,11 @@ namespace Vision.Characters
             Quaternion toeOut = Quaternion.Euler(0f, side * 6f, 0f);
             thigh.rotation = AlongDown(thighDir, p) * toeOut;
             shin.rotation = AlongDown(shinDir, p) * toeOut;
-            foot.rotation = body.rotation * toeOut * Quaternion.Euler(-leg.FootPitch, 0f, 0f);
-            toe.rotation = body.rotation * toeOut * Quaternion.Euler(-leg.ToePitch, 0f, 0f);
+            // A planted foot lies on the slope; a swinging one only partly follows it.
+            Quaternion slope = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(Vector3.up, groundNormal), leg.Grounded ? 1f : 0.35f);
+            foot.rotation = slope * body.rotation * toeOut * Quaternion.Euler(-leg.FootPitch, 0f, 0f);
+            toe.rotation = slope * body.rotation * toeOut * Quaternion.Euler(-leg.ToePitch, 0f, 0f);
+            return target;
         }
 
         /// <summary>A rotation whose -Y axis points along <paramref name="down"/> and whose +Z leans toward <paramref name="front"/>.</summary>

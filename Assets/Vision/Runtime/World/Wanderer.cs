@@ -25,7 +25,9 @@ namespace Vision.World
                 else
                 {
                     Vector3 step = Vector3.ClampMagnitude(to.normalized * speed * Time.deltaTime, to.magnitude);
-                    transform.position += step;
+                    Vector3 next3 = transform.position + step;
+                    next3.y = TerrainField.WorldHeight(next3, next3.y);
+                    transform.position = next3;
                     velocity = to.normalized * speed;
                     heading = Vector3.Slerp(heading, to.normalized, 1f - Mathf.Exp(-8f * Time.deltaTime));
                 }

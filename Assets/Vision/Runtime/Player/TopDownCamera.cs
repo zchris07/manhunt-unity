@@ -60,7 +60,7 @@ namespace Vision.Player
         Vector3 Desired()
         {
             Vector3 focus = target.position;
-            focus.y = 0f;
+            focus.y = target.position.y;   // follow the ground the player stands on
             return focus - transform.forward * distance;
         }
     }

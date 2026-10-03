@@ -180,6 +180,17 @@ namespace Vision.Player
                 hud.visible = false;
             }
 
+            // The hills from high above (raw scene, then as played).
+            cameraRig.orthographicSize = 20f;
+            yield return Stage(player, new Vector3(0f, 0f, -2f), new Vector2(0f, -1f), wanderer, away);
+            composite.debugView = VisionComposite.DebugView.SceneOnly;
+            yield return Wait(5);
+            yield return Shot("28_hills_survey_scene");
+            composite.debugView = VisionComposite.DebugView.Final;
+            yield return Wait(5);
+            yield return Shot("28b_hills_survey");
+            cameraRig.orthographicSize = ortho;
+
             // 12. Gait sheet (side-on, fully lit).
             yield return GaitSheet(player);
 
@@ -206,7 +217,7 @@ namespace Vision.Player
             var animator = player.GetComponent<Vision.Characters.HumanoidAnimator>();
             if (animator == null) yield break;
             float scale = player.transform.lossyScale.x;
-            const int w = 300, h = 420, cols = 8, rows = 3;
+            const int w = 300, h = 420, cols = 8, rows = 5;
             var sheet = new Texture2D(w * cols, h * rows, TextureFormat.RGB24, false);
             var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
             var camGo = new GameObject("Sheet Camera");
@@ -242,14 +253,54 @@ namespace Vision.Player
                 {
                     Vector3 p = player.transform.position;
                     cam.orthographicSize = 1.05f * scale;
-                    cam.transform.SetPositionAndRotation(p + new Vector3(10f, 0.9f * scale, 0f), Quaternion.LookRotation(Vector3.left));
+                    cam.transform.SetPositionAndRotation(p + new Vector3(2.2f * scale, 0.9f * scale, 0f), Quaternion.LookRotation(Vector3.left));
                     yield return new WaitForEndOfFrame();
                     Blit(rt, sheet, k * w, (rows - 1 - row) * h);
                     yield return Wait(step);
                 }
             }
-            player.MoveOverride = Vector2.zero;
             player.SprintOverride = null;
+
+            // Rows 3 and 4: walking up, then down, the steepest clear stretch of hillside, side-on.
+            var gaps = new System.Text.StringBuilder();
+            if (FindSlope(out Vector2 low, out Vector2 high, out float grade))
+            {
+                gaps.AppendLine($"slope rows: {Vector3.Angle(Vector3.up, new Vector3(0f, 1f, -grade)):0.0} degrees average, from {low} to {high} (design units)");
+                for (int row = 2; row < 4; row++)
+                {
+                    Vector2 from = row == 2 ? low : high, to = row == 2 ? high : low;
+                    Vector2 dir = (to - from).normalized;
+                    yield return Stage(player, new Vector3(from.x, 0f, from.y), dir, world.Wanderer, new Vector3(-16f, 0f, 16f));
+                    player.MoveOverride = dir;
+                    float minGap = float.MaxValue, maxGap = float.MinValue;
+                    string worstNote = "";
+                    for (int f = 0; f < 120; f++)
+                    {
+                        yield return null;
+                        TrackFootGap(animator, scale, ref minGap, ref maxGap, ref worstNote);
+                    }
+                    float cycle = animator.Solver.CycleTime;
+                    int step = Mathf.Max(1, Mathf.RoundToInt(cycle / cols * 240f));
+                    for (int k = 0; k < cols; k++)
+                    {
+                        Vector3 p = player.transform.position;
+                        cam.orthographicSize = 1.15f * scale;
+                        cam.transform.SetPositionAndRotation(p + new Vector3(2.2f * scale, 0.9f * scale, 0f), Quaternion.LookRotation(Vector3.left));
+                        yield return new WaitForEndOfFrame();
+                        Blit(rt, sheet, k * w, (rows - 1 - row) * h);
+                        for (int f = 0; f < step; f++)
+                        {
+                            yield return null;
+                            TrackFootGap(animator, scale, ref minGap, ref maxGap, ref worstNote);
+                        }
+                    }
+                    gaps.AppendLine($"{(row == 2 ? "uphill" : "downhill")}: lowest point of either foot above the ground {minGap:0.000}, planted foot ankle above the ground {maxGap:0.000} at most (design units; ankle height {Vision.Characters.HumanoidSkeleton.AnkleHeight:0.000}){worstNote}");
+                }
+            }
+            else gaps.AppendLine("no clear slope found");
+            File.AppendAllText(Path.Combine(folder, "characters.txt"), gaps.ToString());
+
+            player.MoveOverride = Vector2.zero;
             yield return Wait(480);
             player.MoveOverride = null;
 
@@ -309,6 +360,84 @@ namespace Vision.Player
             File.WriteAllText(Path.Combine(folder, "characters.txt"), sb.ToString());
         }
 
+        /// <summary>Lowest point of either foot (ankle joint) and highest planted ankle above the ground under it.</summary>
+        static void TrackFootGap(Vision.Characters.HumanoidAnimator animator, float scale, ref float min, ref float max, ref string note)
+        {
+            Vision.Characters.GaitPose pose = animator.Solver.Evaluate();
+            foreach (var (bone, leg) in new[] { (Vision.Characters.Bone.FootL, pose.Left), (Vision.Characters.Bone.FootR, pose.Right) })
+            {
+                Vector3 ankle = animator.bones[(int)bone].position;
+                float gap = (ankle.y - TerrainField.WorldHeight(ankle, ankle.y)) / scale;
+                min = Mathf.Min(min, gap);
+                if (leg.Grounded && gap > max)
+                {
+                    max = gap;
+                    Vector3 root = animator.transform.position;
+                    float rootGap = (root.y - TerrainField.WorldHeight(root, root.y)) / scale;
+                    note = $"; worst at root {root / scale} (root {rootGap:0.000} above the ground)";
+                }
+            }
+        }
+
+        /// <summary>
+        /// A straight 4-unit stretch climbing at 19-40° throughout (along X or Z), clear of trees, rocks and walls,
+        /// inside the arena. Returns its low and high ends in design units.
+        /// </summary>
+        bool FindSlope(out Vector2 low, out Vector2 high, out float grade)
+        {
+            TerrainField f = world.Terrain;
+            low = high = Vector2.zero;
+            grade = 0f;
+            if (f == null) return false;
+            float best = float.MaxValue;
+            const float len = 4f;
+            Vector2[] dirs = { Vector2.up, Vector2.down, Vector2.right, Vector2.left };
+            for (float x = -13f; x <= 13f; x += 0.5f)
+            {
+                for (float z = -13f; z <= 13f; z += 0.5f)
+                {
+                    foreach (Vector2 d in dirs)
+                    {
+                        if (Mathf.Abs(d.y) < 0.5f) continue;   // side-on camera looks along X, so climb along Z
+                        var a = new Vector2(x, z);
+                        Vector2 b = a + d * len;
+                        if (Mathf.Abs(b.y) > 13f) continue;
+                        bool ok = true;
+                        for (float t = 0f; t < len && ok; t += 0.5f)
+                        {
+                            Vector2 p = a + d * t, q = a + d * (t + 0.5f);
+                            float g = (f.Height(q.x, q.y) - f.Height(p.x, p.y)) / 0.5f;
+                            ok = g > 0.35f && g < 0.85f;
+                        }
+                        if (!ok) continue;
+                        float avg = (f.Height(b.x, b.y) - f.Height(a.x, a.y)) / len;
+                        float score = Mathf.Abs(avg - 0.58f);
+                        if (score >= best || !Clear(a, b)) continue;
+                        best = score;
+                        low = a;
+                        high = b;
+                        grade = avg;
+                    }
+                }
+            }
+            return best < float.MaxValue;
+        }
+
+        /// <summary>No collider other than the ground along the stretch (a body-wide capsule).</summary>
+        bool Clear(Vector2 a, Vector2 b)
+        {
+            Transform root = world.transform;
+            float s = root.lossyScale.x;
+            for (float t = 0f; t <= 1f; t += 0.1f)
+            {
+                Vector2 p = Vector2.Lerp(a, b, t);
+                Vector3 w = root.TransformPoint(new Vector3(p.x, world.Terrain.Height(p.x, p.y), p.y));
+                foreach (Collider c in Physics.OverlapCapsule(w + Vector3.up * (0.5f * s), w + Vector3.up * (1.6f * s), 0.6f * s))
+                    if (!(c is MeshCollider) && !c.GetComponent<CharacterController>()) return false;
+            }
+            return true;
+        }
+
         static void Blit(RenderTexture rt, Texture2D sheet, int x, int y)
         {
             RenderTexture previous = RenderTexture.active;
@@ -322,7 +451,9 @@ namespace Vision.Player
         {
             player.Teleport(world.transform.TransformPoint(position));
             player.AimOverride = aim;
-            wanderer.transform.position = world.transform.TransformPoint(wandererPos);
+            Vector3 wp = world.transform.TransformPoint(wandererPos);
+            wp.y = TerrainField.WorldHeight(wp, wp.y);
+            wanderer.transform.position = wp;
             cameraRig.Snap();
             yield return Wait(10);
         }

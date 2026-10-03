@@ -108,6 +108,19 @@ namespace Vision.EditorTools
                 saved++;
             }
 
+            foreach (MeshCollider collider in root.GetComponentsInChildren<MeshCollider>(true))
+            {
+                Mesh mesh = collider.sharedMesh;
+                if (mesh == null || EditorUtility.IsPersistent(mesh)) continue;
+                string baseName = Sanitize(collider.gameObject.name) + "_Collider";
+                counters.TryGetValue(baseName, out int n);
+                counters[baseName] = n + 1;
+                string path = $"{LevelMeshes}/{baseName}_{n:000}.asset";
+                collider.sharedMesh = SaveMesh(mesh, path);
+                used.Add(path);
+                saved++;
+            }
+
             foreach (string guid in AssetDatabase.FindAssets("t:Mesh", new[] { LevelMeshes }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);

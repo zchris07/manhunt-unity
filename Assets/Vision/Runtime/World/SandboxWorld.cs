@@ -57,10 +57,37 @@ namespace Vision.World
 
         // Cabin footprint (world X,Z).
         static readonly Rect Cabin = new Rect(5f, 4f, 8f, 7f);
+        static readonly Vector2[] Fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f) };
+
+        /// <summary>The ground height of this level (design units, local space). Rebuilt from the seed when needed.</summary>
+        public TerrainField Terrain { get; private set; }
 
         void Awake()
         {
             if (generateOnAwake) Generate();
+        }
+
+        void OnEnable()
+        {
+            Terrain ??= CreateTerrain();
+            TerrainField.SetActive(Terrain, transform);
+            Characters.HumanoidAnimator.Ground = TerrainField.TrySample;
+        }
+
+        void OnDisable()
+        {
+            TerrainField.ClearActive(transform);
+            if (TerrainField.Active == null) Characters.HumanoidAnimator.Ground = null;
+        }
+
+        /// <summary>Hills and ditches with flat pads under the cabin, the spawn point and the campfires.</summary>
+        public TerrainField CreateTerrain()
+        {
+            var f = new TerrainField(seed, halfExtent);
+            f.AddPad(new Rect(Cabin.x - 1.5f, Cabin.y - 1.5f, Cabin.width + 3f, Cabin.height + 3f), 6f);
+            f.AddPad(new Vector2(playerSpawn.x, playerSpawn.z), 1.5f, 4f);
+            foreach (Vector2 fire in Fires) f.AddPad(fire, 1.6f, 3.5f);
+            return f;
         }
 
         /// <summary>Clears and rebuilds the whole level under this object.</summary>
@@ -80,6 +107,8 @@ namespace Vision.World
             Player = null;
             Wanderer = null;
 
+            Terrain = CreateTerrain();
+            TerrainField.SetActive(Terrain, transform);
             staticRoot = new GameObject("Static").transform;
             staticRoot.SetParent(transform, false);
             entityRoot = new GameObject("Entities").transform;
@@ -98,49 +127,70 @@ namespace Vision.World
 
         // ---------------------------------------------------------------- ground
 
+        /// <summary>Side of a ground chunk in design units (one mesh and collider each, for culling and fast cooking).</summary>
+        public const float ChunkSize = 16f;
+
         void BuildGround()
         {
-            var b = new LowPolyMeshBuilder(rng);
             float e = halfExtent + 4f;
             var ash = new Color(0.52f, 0.48f, 0.42f);
             var moss = new Color(0.30f, 0.34f, 0.25f);
             var mud = new Color(0.27f, 0.23f, 0.19f);
             var floor = new Color(0.33f, 0.25f, 0.18f);
-            // The cabin floor (and a margin around it) stays flat and regular so its planks line up with the walls.
+            // The cabin floor (and a margin around it) stays regular so its planks line up with the walls.
             var flatZone = new Rect(Cabin.x - 0.5f, Cabin.y - 0.5f, Cabin.width + 1f, Cabin.height + 1f);
 
             // Cell size from the shared polygon budget (the player's facet size, relaxed for flat ground).
-            b.AddFacetedGround(e, PolyBudget.Edge(PolyBudget.Class.Ground),
-                (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : -0.05f * Mathf.PerlinNoise(x * 0.35f + 1f, z * 0.35f + 9f),
-                (x, z) =>
+            var grid = new LowPolyMeshBuilder.TerrainGrid(e, PolyBudget.Edge(PolyBudget.Class.Ground),
+                (x, z) => Terrain.Height(x, z), (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : 1f, 0.28f, seed);
+            Color GroundColor(float x, float z)
+            {
+                if (Cabin.Contains(new Vector2(x, z)))
                 {
-                    Color c;
-                    if (Cabin.Contains(new Vector2(x, z)))
-                    {
-                        // Planks run along X, 0.5 m wide.
-                        c = floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);
-                        return Vary(c, 0.03f);
-                    }
-                    float forest = Mathf.InverseLerp(-2f, -12f, x);
-                    float n1 = Mathf.PerlinNoise(x * 0.08f + 3.1f, z * 0.08f + 7.7f);
-                    float n2 = Mathf.PerlinNoise(x * 0.3f + 11f, z * 0.3f + 5f);
-                    c = Color.Lerp(ash, moss, Mathf.Clamp01(forest * 0.8f + (n1 - 0.5f) * 0.9f));
-                    c = Color.Lerp(c, mud, Mathf.SmoothStep(0f, 1f, (n2 - 0.55f) * 2.5f));
-                    return Vary(c, 0.06f);
-                },
-                (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : 1f, 0.28f, 0.035f);
+                    // Planks run along X, 0.5 m wide.
+                    Color plank = floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);
+                    return Vary(plank, 0.03f);
+                }
+                float forest = Mathf.InverseLerp(-2f, -12f, x);
+                float n1 = Mathf.PerlinNoise(x * 0.08f + 3.1f, z * 0.08f + 7.7f);
+                float n2 = Mathf.PerlinNoise(x * 0.3f + 11f, z * 0.3f + 5f);
+                Color c = Color.Lerp(ash, moss, Mathf.Clamp01(forest * 0.8f + (n1 - 0.5f) * 0.9f));
+                c = Color.Lerp(c, mud, Mathf.SmoothStep(0f, 1f, (n2 - 0.55f) * 2.5f));
+                return Vary(c, 0.06f);
+            }
 
-            // Dead grass blades, pebbles and bone-pale debris, merged into the ground mesh.
+            int perChunk = Mathf.Max(1, Mathf.RoundToInt(ChunkSize / grid.Step));
+            int chunks = Mathf.CeilToInt(grid.Cells / (float)perChunk);
+            var builders = new LowPolyMeshBuilder[chunks, chunks];
+            for (int cj = 0; cj < chunks; cj++)
+            {
+                for (int ci = 0; ci < chunks; ci++)
+                {
+                    builders[ci, cj] = new LowPolyMeshBuilder(rng);
+                    builders[ci, cj].AddTerrainPatch(grid, ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
+                        cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), GroundColor);
+                }
+            }
+            LowPolyMeshBuilder ChunkAt(Vector2 p)
+            {
+                int ci = Mathf.Clamp(Mathf.FloorToInt((p.x + e) / grid.Step / perChunk), 0, chunks - 1);
+                int cj = Mathf.Clamp(Mathf.FloorToInt((p.y + e) / grid.Step / perChunk), 0, chunks - 1);
+                return builders[ci, cj];
+            }
+
+            // Dead grass blades, pebbles and bone-pale debris, merged into the ground chunks.
             var grass = new Color(0.36f, 0.36f, 0.26f);
             for (int i = 0; i < 700; i++)
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
                 if (flatZone.Contains(p)) continue;
+                LowPolyMeshBuilder b = ChunkAt(p);
                 int blades = 2 + rng.Next(4);
                 for (int k = 0; k < blades; k++)
                 {
                     float h = Range(0.15f, 0.38f);
-                    var root = new Vector3(p.x + Range(-0.15f, 0.15f), -0.01f, p.y + Range(-0.15f, 0.15f));
+                    float rx = p.x + Range(-0.15f, 0.15f), rz = p.y + Range(-0.15f, 0.15f);
+                    var root = new Vector3(rx, Terrain.Height(rx, rz) - 0.01f, rz);
                     var tip = root + new Vector3(Range(-0.08f, 0.08f), h, Range(-0.08f, 0.08f));
                     b.AddCone(root, tip, 0.03f, 3, Vary(grass, 0.2f), 0.05f, false);
                 }
@@ -149,18 +199,55 @@ namespace Vision.World
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
                 if (flatZone.Contains(p)) continue;
+                LowPolyMeshBuilder b = ChunkAt(p);
                 float s = Range(0.05f, 0.14f);
                 bool bone = rng.NextDouble() < 0.25;
                 Vector3 radii = bone ? new Vector3(s * 1.8f, s * 0.4f, s * 0.5f) : new Vector3(s, s * 0.6f, s);
                 Color c = bone ? new Color(0.72f, 0.69f, 0.62f) : LowPolyModels.Palette.Stone;
-                b.AddBlob(new Vector3(p.x, 0f, p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
+                b.AddBlob(new Vector3(p.x, Terrain.Height(p.x, p.y), p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
             }
 
-            var go = MakeStatic("Ground", b.ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
-            var col = go.AddComponent<BoxCollider>();
-            col.center = new Vector3(0f, -0.5f, 0f);
-            col.size = new Vector3(e * 2f, 1f, e * 2f);
-            go.SetActive(true);
+            for (int cj = 0; cj < chunks; cj++)
+            {
+                for (int ci = 0; ci < chunks; ci++)
+                {
+                    var go = MakeStatic("Ground", builders[ci, cj].ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
+                    go.AddComponent<MeshCollider>().sharedMesh = grid.CollisionMesh(ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
+                        cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), "Ground Collider");
+                    go.SetActive(true);
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------- placement on the terrain
+
+        float H(Vector2 p) => Terrain.Height(p.x, p.y);
+
+        /// <summary>Upright on the ground (trees, posts, walls): never tilted, sunk to the lowest point under the footprint.</summary>
+        Vector3 Upright(Vector2 p, float radius)
+        {
+            float y = H(p);
+            if (radius > 0f)
+                for (int k = 0; k < 6; k++)
+                {
+                    float a = k * Mathf.PI / 3f;
+                    y = Mathf.Min(y, H(p + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius));
+                }
+            return new Vector3(p.x, y - 0.03f, p.y);
+        }
+
+        /// <summary>Resting on the slope (rocks, crates, wrecks): tilted most of the way to the ground's average normal and sunk a little.</summary>
+        void Conform(Transform t, Vector2 p, float radius, float yaw, float follow = 0.75f, float sink = 0.06f)
+        {
+            Vector3 n = Terrain.Normal(p.x, p.y);
+            for (int k = 0; k < 4; k++)
+            {
+                float a = k * Mathf.PI * 0.5f + 0.4f;
+                Vector2 q = p + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius * 0.7f;
+                n += Terrain.Normal(q.x, q.y);
+            }
+            Quaternion tilt = Quaternion.FromToRotation(Vector3.up, Vector3.Slerp(Vector3.up, n.normalized, follow));
+            t.SetLocalPositionAndRotation(new Vector3(p.x, H(p) - sink * Mathf.Max(radius, 0.3f), p.y), tilt * Quaternion.Euler(0f, yaw, 0f));
         }
 
         // ---------------------------------------------------------------- walls
@@ -196,7 +283,8 @@ namespace Vision.World
             float length = d.magnitude;
             Vector2 mid = (a + b) * 0.5f;
             Quaternion rot = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
-            GameObject go = MakeStatic(name, m, new Vector3(mid.x, 0f, mid.y), rot, lowPolyMaterial);
+            float baseY = Mathf.Min(H(a), Mathf.Min(H(mid), H(b))) - 0.03f;
+            GameObject go = MakeStatic(name, m, new Vector3(mid.x, baseY, mid.y), rot, lowPolyMaterial);
             if (collides)
             {
                 var col = go.AddComponent<BoxCollider>();
@@ -249,7 +337,7 @@ namespace Vision.World
             var root = new GameObject(shutter ? "Window Shutter" : "Door");
             root.SetActive(false);
             root.transform.SetParent(staticRoot, false);
-            root.transform.SetLocalPositionAndRotation(new Vector3(start.x, 0f, start.y),
+            root.transform.SetLocalPositionAndRotation(new Vector3(start.x, H(start), start.y),
                 Quaternion.Euler(0f, -Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg, 0f));
 
             var hinge = new GameObject("Hinge").transform;
@@ -300,7 +388,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
                     () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
-                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
 
@@ -313,7 +401,7 @@ namespace Vision.World
                 if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
                 GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
                     () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
-                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
                 blockedSpots.Add(p);
             }
         }
@@ -322,12 +410,11 @@ namespace Vision.World
 
         void BuildLights()
         {
-            Vector2[] fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f) };
-            foreach (Vector2 p in fires)
+            foreach (Vector2 p in Fires)
             {
                 GameObject go = Prop(library != null ? library.campfire : null, staticRoot,
                     () => PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial));
-                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.identity);
+                go.transform.SetLocalPositionAndRotation(Upright(p, 0.6f), Quaternion.identity);
                 blockedSpots.Add(p);
             }
 
@@ -336,7 +423,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.lantern : null, staticRoot,
                     () => PropFactory.CreateLantern(LowPolyModels.LanternPost(rng), glowMaterial));
-                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                go.transform.SetLocalPositionAndRotation(Upright(p, 0.15f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
         }
@@ -350,7 +437,7 @@ namespace Vision.World
                 float size = PropLibrary.CrateSizes[variant];
                 GameObject go = Prop(library != null ? library.crates : null, variant, staticRoot,
                     () => PropFactory.CreateCrate(LowPolyModels.Crate(rng, size), lowPolyMaterial, size));
-                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(-15f, 15f), 0f));
+                Conform(go.transform, p, size * 0.5f, Range(-15f, 15f), 0.75f, 0.04f);
             }
         }
 
@@ -363,7 +450,7 @@ namespace Vision.World
             {
                 GameObject go = Prop(library != null ? library.crows : null, rng.Next(PropLibrary.CrowVariants), entityRoot,
                     () => PropFactory.CreateCrow(LowPolyModels.Crow(rng), entityMaterial));
-                go.transform.SetLocalPositionAndRotation(new Vector3(p.x, 0f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                Conform(go.transform, p, 0.15f, Range(0f, 360f), 0.6f, 0f);
                 Crows.Add(go.transform);
             }
         }
@@ -372,7 +459,7 @@ namespace Vision.World
         {
             GameObject go = Prop(library != null ? library.wanderer : null, entityRoot,
                 () => PropFactory.CreateWanderer(entityMaterial));
-            go.transform.localPosition = new Vector3(3f, 0f, -3f);
+            go.transform.localPosition = new Vector3(3f, H(new Vector2(3f, -3f)), -3f);
             Wanderer = go.GetComponent<Wanderer>();
             Wanderer.waypoints = new[] { new Vector3(3f, 0f, -3f), new Vector3(3f, 0f, -12f), new Vector3(-4f, 0f, -12f), new Vector3(-4f, 0f, -3f) };
             // Waypoints are world positions; the layout is in design units under the scaled root.
@@ -383,7 +470,7 @@ namespace Vision.World
         {
             GameObject go = Prop(library != null ? library.player : null, transform,
                 () => PropFactory.CreatePlayer(lowPolyMaterial));
-            go.transform.localPosition = playerSpawn + Vector3.up * 0.05f;
+            go.transform.localPosition = new Vector3(playerSpawn.x, H(new Vector2(playerSpawn.x, playerSpawn.z)) + 0.05f, playerSpawn.z);
 
             Player = go.GetComponent<PlayerController>();
             Player.world = this;

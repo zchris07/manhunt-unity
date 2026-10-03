@@ -28,6 +28,8 @@ namespace Vision.Visibility
             Lights.Clear();
             Casters.Clear();
             VisionLight.FlickerEnabled = true;
+            Vision.World.TerrainField.SetActive(null, null);
+            Vision.Characters.HumanoidAnimator.Ground = null;
         }
     }
 }

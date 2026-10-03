@@ -69,7 +69,9 @@ namespace Vision.Player
             if (interact.WasPressedThisFrame()) ToggleNearestDoor();
             if (seeThrough.WasPressedThisFrame() && viewer != null) viewer.seeThroughEnabled = !viewer.seeThroughEnabled;
 
-            verticalSpeed = cc.isGrounded ? -1f : verticalSpeed - 9.81f * Time.deltaTime;
+            velocity *= SlopeSpeedFactor(velocity);
+            // Pressed into the ground hard enough to follow a 45° descent instead of bouncing off it.
+            verticalSpeed = cc.isGrounded ? -(velocity.magnitude + 1f) : verticalSpeed - 9.81f * Time.deltaTime;
             cc.Move(new Vector3(velocity.x, verticalSpeed, velocity.y) * Time.deltaTime);
 
             // While the pointer is on the look panel (F4) the light keeps its direction.
@@ -99,12 +101,30 @@ namespace Vision.Player
             return PointerAim(pointer);
         }
 
+        /// <summary>Slower uphill (by 35% of the sine of the climb), slightly faster downhill (at most 8%).</summary>
+        public static float SlopeFactor(float grade)
+        {
+            float sin = Mathf.Sin(Mathf.Atan(grade));
+            return sin > 0f ? 1f - 0.35f * sin : 1f + Mathf.Min(-sin, 0.5f) * 0.16f;
+        }
+
+        float SlopeSpeedFactor(Vector2 velocity)
+        {
+            if (velocity.sqrMagnitude < 1e-4f) return 1f;
+            float scale = transform.lossyScale.x;
+            Vector3 dir = new Vector3(velocity.x, 0f, velocity.y).normalized * (0.4f * scale);
+            Vector3 p = transform.position;
+            if (!TerrainField.TrySample(p + dir, out float ahead, out _) || !TerrainField.TrySample(p - dir, out float behind, out _)) return 1f;
+            return SlopeFactor((ahead - behind) / (0.8f * scale));
+        }
+
         Vector2 PointerAim(Vector2 screen)
         {
             if (viewCamera == null || Pointer.current == null) return Vector2.zero;
             Ray ray = viewCamera.ScreenPointToRay(screen);
             if (Mathf.Abs(ray.direction.y) < 1e-4f) return Vector2.zero;
-            float t = -ray.origin.y / ray.direction.y;
+            // Aim on the horizontal plane through the player's feet, so hills do not skew the direction.
+            float t = (transform.position.y - ray.origin.y) / ray.direction.y;
             Vector3 hit = ray.origin + ray.direction * t;
             return new Vector2(hit.x - transform.position.x, hit.z - transform.position.z);
         }
@@ -129,10 +149,11 @@ namespace Vision.Player
             return true;
         }
 
-        /// <summary>Moves the player instantly (CharacterController-safe).</summary>
+        /// <summary>Moves the player instantly (CharacterController-safe), standing on the terrain when there is one.</summary>
         public void Teleport(Vector3 position)
         {
             cc.enabled = false;
+            if (TerrainField.TrySample(position, out float ground, out _)) position.y = ground + 0.05f * transform.lossyScale.x;   // on the ground under the point
             transform.position = position;
             cc.enabled = true;
         }

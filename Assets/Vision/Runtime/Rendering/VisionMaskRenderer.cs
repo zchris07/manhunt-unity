@@ -128,7 +128,7 @@ namespace Vision.Rendering
             EnsureTextures(resolution);
 
             // Centre on the camera's ground focus, snapped to whole texels so the mask doesn't shimmer.
-            Vector2 focus = GroundFocus(viewCamera);
+            Vector2 focus = GroundFocus(viewCamera, viewer.transform.position.y);
             float size = CoverSize;
             float texel = size / resolution;
             focus.x = Mathf.Round(focus.x / texel) * texel;
@@ -203,14 +203,15 @@ namespace Vision.Rendering
             float pitch = Mathf.Max(10f, cam.transform.eulerAngles.x) * Mathf.Deg2Rad;
             float width = 2f * cam.orthographicSize * cam.aspect;
             float depth = 2f * cam.orthographicSize / Mathf.Sin(pitch);
-            return Mathf.Max(minimum, Mathf.Max(width, depth) + 8f);
+            // The margin also covers hills and hollows: ground 4 m above or below the player shifts by 4 / tan(pitch).
+            return Mathf.Max(minimum, Mathf.Max(width, depth) + 8f + 2f * 4f * Vision.World.WorldScale.S / Mathf.Tan(pitch));
         }
 
-        public static Vector2 GroundFocus(Camera cam)
+        public static Vector2 GroundFocus(Camera cam, float groundY = 0f)
         {
             Transform t = cam.transform;
             Vector3 fwd = t.forward;
-            float dist = Mathf.Abs(fwd.y) > 1e-4f ? -t.position.y / fwd.y : 0f;
+            float dist = Mathf.Abs(fwd.y) > 1e-4f ? (groundY - t.position.y) / fwd.y : 0f;
             return VisionWorld.ToPlane(t.position + fwd * dist);
         }
 
@@ -237,7 +238,7 @@ namespace Vision.Rendering
             if (viewer.reachScreenEdge)
             {
                 Vector2 axis = new Vector2(Mathf.Cos(dir), Mathf.Sin(dir));
-                coneRange = Mathf.Min(BeamReach(viewCamera, origin, axis) * EdgeMargin, halfSize * 0.98f);
+                coneRange = Mathf.Min(BeamReach(viewCamera, origin, axis, viewer.transform.position.y) * EdgeMargin, halfSize * 0.98f);
                 coneStart = -viewer.falloffPower;
             }
             else
@@ -365,10 +366,10 @@ namespace Vision.Rendering
         /// Distance from <paramref name="origin"/> along <paramref name="axis"/> (ground plane) to the edge of the
         /// ground the camera sees: the view rectangle centred on the ground focus, its depth stretched by the pitch.
         /// </summary>
-        public static float BeamReach(Camera cam, Vector2 origin, Vector2 axis)
+        public static float BeamReach(Camera cam, Vector2 origin, Vector2 axis, float groundY = 0f)
         {
             float pitch = Mathf.Max(10f, cam.transform.eulerAngles.x) * Mathf.Deg2Rad;
-            Vector2 c = GroundFocus(cam);
+            Vector2 c = GroundFocus(cam, groundY);
             var half = new Vector2(cam.orthographicSize * cam.aspect, cam.orthographicSize / Mathf.Sin(pitch));
             return RectExit(origin - c, axis.normalized, half);
         }

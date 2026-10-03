@@ -272,7 +272,7 @@ namespace Vision.World
                     bool edge = i == 0 || j == 0 || i == n || j == n;
                     float jx = edge ? 0f : (Next() * 2f - 1f) * jitterXZ * step * k;
                     float jz = edge ? 0f : (Next() * 2f - 1f) * jitterXZ * step * k;
-                    float y = height(x, z) + (Next() * 2f - 1f) * jitterY * k;
+                    float y = height(x + jx, z + jz) + (Next() * 2f - 1f) * jitterY * k;
                     grid[j * (n + 1) + i] = new Vector3(x + jx, y, z + jz);
                 }
             }
@@ -293,6 +293,99 @@ namespace Vision.World
                         AddGroundTriangle(p00, p01, p10, color);
                         AddGroundTriangle(p10, p01, p11, color);
                     }
+                }
+            }
+        }
+
+        /// <summary>
+        /// A terrain grid covering [-halfExtent, halfExtent] in <paramref name="cells"/> cells per side. Vertex (i, j) is
+        /// nudged in XZ by a hash of its index (so separately built patches share their border vertices exactly) and
+        /// sits at <c>height</c> of its nudged position, so the mesh matches the height function at every vertex.
+        /// </summary>
+        public readonly struct TerrainGrid
+        {
+            public readonly int Cells;
+            public readonly float HalfExtent, Step, JitterXZ;
+            readonly Func<float, float, float> height, jitterScale;
+            readonly int salt;
+
+            public TerrainGrid(float halfExtent, float cell, Func<float, float, float> height, Func<float, float, float> jitterScale, float jitterXZ, int salt)
+            {
+                Cells = Mathf.CeilToInt(2f * halfExtent / cell);
+                HalfExtent = halfExtent;
+                Step = 2f * halfExtent / Cells;
+                JitterXZ = jitterXZ;
+                this.height = height;
+                this.jitterScale = jitterScale;
+                this.salt = salt;
+            }
+
+            public Vector3 Vertex(int i, int j)
+            {
+                float x = -HalfExtent + i * Step, z = -HalfExtent + j * Step;
+                if (i > 0 && j > 0 && i < Cells && j < Cells)
+                {
+                    float k = jitterScale(x, z) * JitterXZ * Step;
+                    x += (Hash01(i, j, salt) * 2f - 1f) * k;
+                    z += (Hash01(i, j, salt + 7919) * 2f - 1f) * k;
+                }
+                return new Vector3(x, height(x, z), z);
+            }
+
+            /// <summary>The cell's two triangles, diagonals alternating in a checkerboard.</summary>
+            public void Cell(int i, int j, out Vector3 a0, out Vector3 b0, out Vector3 c0, out Vector3 a1, out Vector3 b1, out Vector3 c1)
+            {
+                Vector3 p00 = Vertex(i, j), p10 = Vertex(i + 1, j), p01 = Vertex(i, j + 1), p11 = Vertex(i + 1, j + 1);
+                if (((i + j) & 1) == 0) { a0 = p00; b0 = p01; c0 = p11; a1 = p00; b1 = p11; c1 = p10; }
+                else { a0 = p00; b0 = p01; c0 = p10; a1 = p10; b1 = p01; c1 = p11; }
+            }
+
+            static float Hash01(int i, int j, int s)
+            {
+                unchecked
+                {
+                    uint h = (uint)(i * 73856093) ^ (uint)(j * 19349663) ^ (uint)(s * 83492791);
+                    h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
+                    return (h & 0xFFFFFF) / (float)0x1000000;
+                }
+            }
+
+            /// <summary>A shared-vertex mesh of cells [i0, i1) x [j0, j1), for a MeshCollider (no flat shading needed).</summary>
+            public Mesh CollisionMesh(int i0, int i1, int j0, int j1, string name)
+            {
+                int w = i1 - i0 + 1;
+                var verts = new Vector3[w * (j1 - j0 + 1)];
+                for (int j = j0; j <= j1; j++)
+                    for (int i = i0; i <= i1; i++) verts[(j - j0) * w + (i - i0)] = Vertex(i, j);
+                var tris = new List<int>((i1 - i0) * (j1 - j0) * 6);
+                for (int j = j0; j < j1; j++)
+                {
+                    for (int i = i0; i < i1; i++)
+                    {
+                        int v00 = (j - j0) * w + (i - i0), v10 = v00 + 1, v01 = v00 + w, v11 = v01 + 1;
+                        if (((i + j) & 1) == 0) tris.AddRange(new[] { v00, v01, v11, v00, v11, v10 });
+                        else tris.AddRange(new[] { v00, v01, v10, v10, v01, v11 });
+                    }
+                }
+                var mesh = new Mesh { name = name, indexFormat = verts.Length > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16 };
+                mesh.vertices = verts;
+                mesh.triangles = tris.ToArray();
+                mesh.RecalculateNormals();
+                mesh.RecalculateBounds();
+                return mesh;
+            }
+        }
+
+        /// <summary>Flat-shaded triangles for cells [i0, i1) x [j0, j1) of <paramref name="grid"/>.</summary>
+        public void AddTerrainPatch(in TerrainGrid grid, int i0, int i1, int j0, int j1, Func<float, float, Color> color)
+        {
+            for (int j = j0; j < j1; j++)
+            {
+                for (int i = i0; i < i1; i++)
+                {
+                    grid.Cell(i, j, out Vector3 a0, out Vector3 b0, out Vector3 c0, out Vector3 a1, out Vector3 b1, out Vector3 c1);
+                    AddGroundTriangle(a0, b0, c0, color);
+                    AddGroundTriangle(a1, b1, c1, color);
                 }
             }
         }
