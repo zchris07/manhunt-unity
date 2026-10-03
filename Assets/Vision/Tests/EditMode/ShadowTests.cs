@@ -51,6 +51,30 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void CampfiresAndLanterns_CastCharacterShadows_ButNeverRevealHiddenEntities()
+        {
+            Assert.IsTrue(VisionMaskRenderer.CastsLightShadow(false, true, false), "the player by a campfire");
+            Assert.IsFalse(VisionMaskRenderer.CastsLightShadow(false, false, true), "out of that light's reach: none");
+            Assert.IsFalse(VisionMaskRenderer.CastsLightShadow(true, true, false), "an unseen entity casts none");
+            Assert.IsTrue(VisionMaskRenderer.CastsLightShadow(true, true, true));
+        }
+
+        [Test]
+        public void ShadowEdges_SoftenWithDistanceFromTheLight_UpToACap()
+        {
+            float prev = -1f;
+            for (float d = 0f; d <= 40f; d += 2f)
+            {
+                float p = VisionMaskRenderer.PenumbraAt(d, 0.055f, 1.1f);
+                Assert.GreaterOrEqual(p, prev, "never sharper farther away");
+                prev = p;
+            }
+            Assert.AreEqual(0f, VisionMaskRenderer.PenumbraAt(0f, 0.055f, 1.1f), 1e-6f, "sharp at the light");
+            Assert.Less(VisionMaskRenderer.PenumbraAt(4f, 0.055f, 1.1f), VisionMaskRenderer.PenumbraAt(16f, 0.055f, 1.1f));
+            Assert.AreEqual(1.1f, VisionMaskRenderer.PenumbraAt(100f, 0.055f, 1.1f), 1e-6f, "capped so light cannot seep through walls");
+        }
+
+        [Test]
         public void Beam_FadesSoftlyTowardItsSides()
         {
             const float half = 50f * Mathf.Deg2Rad;

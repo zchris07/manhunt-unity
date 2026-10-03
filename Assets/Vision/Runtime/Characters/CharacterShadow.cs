@@ -5,7 +5,7 @@ namespace Vision.Characters
 {
     /// <summary>
     /// Marks a character (or animal) that casts a soft shadow away from each light shining on it: the
-    /// viewer's flashlight and nearby light sources. Shadows are purely cosmetic: they are drawn into
+    /// viewer's flashlight (not on the viewer's own body) and the nearest campfires and lanterns. Shadows are purely cosmetic: they are drawn into
     /// the vision mask's alpha channel and darken already-lit ground. They never block light or sight,
     /// and never hide anything. An entity's shadow is only drawn while the entity itself is inside the
     /// viewer's own light, so a shadow can never give away something the viewer cannot see.

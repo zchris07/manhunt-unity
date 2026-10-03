@@ -180,6 +180,25 @@ namespace Vision.Player
                 hud.visible = false;
             }
 
+            // Soft shadows: trees and the player around a campfire, with the flashlight pointed away; then the mask.
+            cameraRig.orthographicSize = 4.5f;
+            yield return Stage(player, new Vector3(-8.2f, 0f, 4.4f), new Vector2(1f, 0f), wanderer, new Vector3(-11.5f, 0f, 2.8f));
+            wanderer.transform.position = world.transform.TransformPoint(new Vector3(-11.5f, TerrainField.Active != null ? world.Terrain.Height(-11.5f, 2.8f) : 0f, 2.8f));
+            yield return Wait(10);
+            yield return Shot("29_campfire_soft_shadows");
+            composite.debugView = VisionComposite.DebugView.MaskRgb;
+            yield return Wait(5);
+            yield return Shot("29b_campfire_soft_shadows_mask");
+            composite.debugView = VisionComposite.DebugView.Final;
+            yield return Stage(player, new Vector3(-1f, 0f, -2f), new Vector2(-1f, 0.05f), wanderer, away);
+            yield return Wait(5);
+            yield return Shot("30_beam_tree_shadows");
+            composite.debugView = VisionComposite.DebugView.MaskRgb;
+            yield return Wait(5);
+            yield return Shot("30b_beam_tree_shadows_mask");
+            composite.debugView = VisionComposite.DebugView.Final;
+            cameraRig.orthographicSize = ortho;
+
             // The hills from high above (raw scene, then as played).
             cameraRig.orthographicSize = 20f;
             yield return Stage(player, new Vector3(0f, 0f, -2f), new Vector2(0f, -1f), wanderer, away);

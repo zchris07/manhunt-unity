@@ -38,6 +38,13 @@ namespace Vision.Rendering
         [Range(0.25f, 1f)] public float resolutionScale = 0.5f;
         [Range(0, 4)] public int blurIterations = 3;
         [Range(0.5f, 4f)] public float blurRadius = 2.5f;
+        [Header("Penumbra (shadow edges soften away from the light)")]
+        [Tooltip("Width of the shadow edge's blur per world unit of distance from the light casting it.")]
+        [Range(0f, 0.2f)] public float penumbraGrowth = 0.055f;
+        [Tooltip("Widest shadow-edge blur in world units (keeps light from seeping through walls).")]
+        [Range(0f, 3f)] public float maxPenumbra = 1.1f;
+        [Tooltip("Light sources that also cast soft character shadows (nearest first).")]
+        [Range(0, 6)] public int shadowLights = 4;
         [Tooltip("Only this many nearest light sources get a polygon each frame.")]
         public int maxLights = 6;
 
@@ -55,6 +62,10 @@ namespace Vision.Rendering
         static readonly int BlurSourceId = Shader.PropertyToID("_VisionBlurSource");
         public static readonly int ViewerPosId = Shader.PropertyToID("_VisionViewerPos");
         static readonly int BlurStepId = Shader.PropertyToID("_VisionBlurStep");
+        static readonly int BlurPenumbraId = Shader.PropertyToID("_VisionBlurPenumbra");
+        static readonly int BlurOriginsId = Shader.PropertyToID("_VisionBlurOrigins");
+        const int MaxBlurLights = 8;
+        readonly Vector4[] blurOrigins = new Vector4[MaxBlurLights + 1];
 
         VisibilityComputer computer;
         Material maskMaterial;
@@ -147,15 +158,23 @@ namespace Vision.Rendering
             cmd.ClearRenderTarget(false, true, Color.clear);
             cmd.DrawMesh(mesh, Matrix4x4.identity, maskMaterial, 0, 0);
 
+            // Penumbra: the blur widens with distance from the viewer (B, G, A) and from the nearest light source (R).
+            int blurLights = Mathf.Min(MaxBlurLights, lightOrder.Count, maxLights);
+            blurOrigins[0] = origin;
+            for (int i = 0; i < blurLights; i++) blurOrigins[i + 1] = lightOrder[i].PlanePosition;
+            cmd.SetGlobalVectorArray(BlurOriginsId, blurOrigins);
+            float texelWorld = size / resolution;
+            float tapsPerRadius = 1f / (4f * Mathf.Sqrt(Mathf.Max(1, blurIterations)));
+            cmd.SetGlobalVector(BlurPenumbraId, new Vector4(penumbraGrowth, maxPenumbra, tapsPerRadius, blurLights));
             for (int i = 0; i < blurIterations; i++)
             {
-                float step = blurRadius / resolution;
+                float step = 1f / resolution;
                 cmd.SetGlobalTexture(BlurSourceId, maskTexture);
-                cmd.SetGlobalVector(BlurStepId, new Vector4(step, 0f, 0f, 0f));
+                cmd.SetGlobalVector(BlurStepId, new Vector4(step, 0f, blurRadius, texelWorld));
                 cmd.SetRenderTarget(blurTexture);
                 cmd.DrawProcedural(Matrix4x4.identity, blurMaterial, 0, MeshTopology.Triangles, 3);
                 cmd.SetGlobalTexture(BlurSourceId, blurTexture);
-                cmd.SetGlobalVector(BlurStepId, new Vector4(0f, step, 0f, 0f));
+                cmd.SetGlobalVector(BlurStepId, new Vector4(0f, step, blurRadius, texelWorld));
                 cmd.SetRenderTarget(maskTexture);
                 cmd.DrawProcedural(Matrix4x4.identity, blurMaterial, 0, MeshTopology.Triangles, 3);
             }
@@ -298,16 +317,27 @@ namespace Vision.Rendering
                 polygons++;
             }
 
-            // A: soft shadows of characters, cast only by the flashlight (light sources cast none).
+            // A: soft character shadows, cast away from the flashlight and from the nearest light sources.
             LastShadowCount = 0;
+            int castingLights = Mathf.Min(shadowLights, lightCount);
             foreach (CharacterShadow caster in VisionWorld.Casters)
             {
                 Vector2 at = caster.PlanePosition;
-                bool inBeam = Contains(conePolygon, at);
                 bool seen = ViewerLightAt(at) >= entityThreshold;
-                if (!CastsFlashlightShadow(caster.isEntity, caster.transform.IsChildOf(viewer.transform), inBeam, seen)) continue;
+                bool isViewer = caster.transform.IsChildOf(viewer.transform);
                 float cs = caster.Scale;
-                AddShadow(at, origin, viewer.lightHeight * k, coneRange, caster.radius * cs, caster.height * cs, caster.strength);
+                if (CastsFlashlightShadow(caster.isEntity, isViewer, Contains(conePolygon, at), seen))
+                    AddShadow(at, origin, viewer.lightHeight * k, coneRange, caster.radius * cs, caster.height * cs, caster.strength);
+                for (int i = 0; i < castingLights; i++)
+                {
+                    VisionLight light = lightOrder[i];
+                    float range = light.WorldRange;
+                    Vector2 lp = light.PlanePosition;
+                    if ((at - lp).sqrMagnitude > range * range) continue;
+                    if (!CastsLightShadow(caster.isEntity, Contains(light.GetPolygon(vc, version), at), seen)) continue;
+                    float height = (light.WorldLightPosition.y - light.transform.position.y);
+                    AddShadow(at, lp, height, range, caster.radius * cs, caster.height * cs, caster.strength * light.CurrentIntensity);
+                }
             }
 
             // The player's feet, for the composite's distance blur.
@@ -334,6 +364,16 @@ namespace Vision.Rendering
         /// </summary>
         public static bool CastsFlashlightShadow(bool isEntity, bool isViewer, bool inBeam, bool viewerSees) =>
             !isViewer && inBeam && (!isEntity || viewerSees);
+
+        /// <summary>
+        /// Whether a character casts a shadow away from a campfire or lantern: when that light reaches it, and an
+        /// entity only while the viewer can see it. The player's own body does cast these.
+        /// </summary>
+        public static bool CastsLightShadow(bool isEntity, bool inLight, bool viewerSees) =>
+            inLight && (!isEntity || viewerSees);
+
+        /// <summary>Width (world units) of a shadow edge's blur at a distance from the light casting it (matches Hidden/Vision/Blur).</summary>
+        public static float PenumbraAt(float distance, float growth, float max) => Mathf.Min(growth * Mathf.Max(0f, distance), max);
 
         /// <summary>
         /// The viewer's own light (mask channel B, before the blur) at a ground point, as the mask shader
