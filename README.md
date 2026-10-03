@@ -1,11 +1,13 @@
 # Manhunt (Unity)
 
-Single-player Unity foundation for a top-down 2.5D horror game. Scope is only the **lighting,
-perspective and world geometry**: an orthographic, 60° pitch camera over a stylized, flat-shaded
-low-poly diorama built from triangle meshes, lit by a 3D port of the 2D visibility-polygon
-illumination system. The level is authored in design units (a person is 1.8 m) and its root is
-scaled by `WorldScale.S` = 2, so the camera sits twice as close. Characters are plain 198-triangle
-mannequins animated by a procedural walk and sprint.
+Single-player Unity foundation for a top-down 2.5D horror game, currently an **atmospheric
+exploration sandbox**: an orthographic, 60° pitch camera over a stylized, flat-shaded low-poly world
+built from triangle meshes, lit by a 3D port of the 2D visibility-polygon illumination system. The
+80 x 80 m level has hills and ditches, four biomes, procedural footpaths, car wrecks, campfires and
+supplies to find. The level is authored in design units (a person is 1.8 m) and its root is scaled by
+`WorldScale.S` = 2, so the camera sits twice as close. Characters are plain 222-triangle mannequins
+animated by a procedural walk and sprint that adapts to slopes. A HUD shows health, stamina, the
+inventory, the objective and a compass.
 
 Unity **6000.6.3f1**, URP 17 (Render Graph), Input System, Windows desktop.
 
@@ -52,16 +54,32 @@ map), so bindings can be changed there or rebound at runtime.
 | WASD or arrows | Left stick | Move |
 | Shift | Left stick press | Run |
 | Mouse | Right stick | Aim the flashlight cone (whichever moved last) |
-| E | X / Square | Open or close the nearest door or window shutter |
+| E | X / Square | Pick up the nearest supply, or open or close the nearest door or shutter |
 | F | Y / Triangle | Toggle the see-through cone |
 | C | B / Circle | Crouch (bound, not used yet) |
+| 1-6 | – | Use the item in that inventory slot |
+| Esc | Start | Pause menu (Resume, Look settings, Full screen, Quit) |
+| R | – | Restart after dying |
 | F1 | – | Draw the visibility polygons |
 | F2 | – | Cycle view: final, mask RGB, lit amount, raw scene, character shadows |
-| F3 | – | Hide the stats overlay |
+| F3 | – | Show the stats overlay (off by default) |
 | F4 | – | Open or close the look panel (sliders, below) |
 | F5 | – | Toggle all camera effects |
 
-The F1-F5 debug keys read the keyboard directly and are not part of the actions asset.
+The number keys, Esc, R and F1-F5 read the keyboard directly and are not part of the actions asset.
+
+### HUD and game systems
+
+- **Health and stamina** (`Vitals`, `PlayerStats`), bottom left. Sprinting drains 18 stamina a second; it
+  refills at 12 a second after a 0.8 s pause. Running dry locks sprint until a quarter is back.
+- **Inventory** (`Inventory`), bottom centre: six slots, stacks of five. Bandages heal 35, water restores
+  60 stamina, canned food heals 15 and restores 25. Using one at full health keeps it.
+- **Supplies** (`Pickup`): 22 lie by the campfires, the wrecks, the generator and in the cabin. The
+  objective (top left) counts them; the compass (top centre) shows where the flashlight points.
+- The **wanderer** hurts the player when it walks into them (10, at most once a second). At low health
+  the screen edge turns red; at zero a death screen offers a restart.
+- `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference, so it keeps its proportions
+  at any resolution.
 
 ### Look panel (F4)
 
@@ -76,8 +94,9 @@ persist between runs. The defaults are the tuned look.
 | Lit brightness | 0-2 | 1.00 | Multiplier on everything lit (flashlight, campfires, lanterns) |
 | Unlit brightness | 0-2 | 1.00 | Multiplier on the unlit ground and objects |
 | Beam intensity | 0.5-2 | 1.15 | Strength of the flashlight beam only |
+| Beam edge falloff | 1-6 | 2.50 | Exponent of the beam's fade toward the screen edge |
 | Blur start / end (m) | 0-30 | 5 / 13 | Distance from the player where the distance blur begins and is full |
-| Blur max (px) | 0-8 | 3.00 | Full distance-blur radius at 1080p |
+| Blur max (px) | 0-8 | 3.00 | Full distance-blur radius in screen pixels |
 | Camera effects | on/off | on | Vignette, film grain, light flicker and the distance blur (also F5) |
 
 ## How the lighting works
@@ -89,16 +108,18 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
    `OccluderSet` holds the segments in a spatial hash. Its `Version` bumps whenever a door opens or
    closes, which throws away the cached light polygons. Occluders are box or N-gon footprints
    (`Occluder.cs`) for walls, trunks, rocks, crates, closed doors and shutters.
-   - Cone: fixed half-angle, capped near the screen edge.
+   - Cone: fixed half-angle; it reaches the edge of the screen (the distance along the beam to the edge
+     of the visible ground, plus 6%) at any resolution.
    - Proximity circle: small 360° polygon around the viewer.
    - 360° line of sight: long range. It lights nothing itself.
    - Light sources (`VisionLight.cs`): the 6 nearest each frame; static ones cache their polygon.
    - See-through cone: ignores occluders and is drawn at 70%.
 2. **Mask** (`Runtime/Rendering/VisionMaskRenderer.cs`). The polygons are rasterised into a
    **world-space** square texture centred on the camera's ground focus. It runs at about half screen
-   resolution and is blurred.
-   - B = viewer light (cone, proximity, see-through) with distance falloff. The cone also fades over
-     the outer 35% of its half angle (`VisionViewer.coneEdgeSoftness`), so the beam has a soft edge.
+   resolution and is blurred, more the farther from the light (below).
+   - B = viewer light (cone, proximity, see-through) with distance falloff. The beam fades as
+     1 - (d / reach)^p (p = 2.5): bright near the player, dropping faster toward the screen edge. It also
+     fades over the outer 35% of its half angle (`VisionViewer.coneEdgeSoftness`).
    - G = line of sight.
    - R = light sources with distance falloff.
    - A = character shadows (below).
@@ -120,39 +141,64 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
 4. **Entity occlusion** (`Shaders/LowPoly.shader`, "Entity" toggle). Dynamic objects discard every
    fragment where channel **B alone** is below a hard threshold. They are invisible outside your own
    light even when standing in a campfire's glow. Static terrain is never culled.
-5. **Shadows: the flashlight's only.** No asset has a shadow of its own: the moon casts none, URP
-   real-time shadows are off and every renderer has shadow casting and receiving off. The only shadows
-   are the flashlight's: its visibility polygon, and soft character shadows (`CharacterShadow`) drawn
-   into mask channel A pointing away from the flashlight. They only darken already-lit ground (about
-   45%), never block light or sight, are never drawn for the player's own body, and an entity's shadow
-   only appears while the entity itself is visible. Campfires and lanterns cast no character shadows.
+5. **Shadows from every light, with a penumbra.** The moon casts none and URP real-time shadows are
+   off. Trees, rocks, walls, crates and wrecks shadow the flashlight, campfires and lanterns through
+   those lights' visibility polygons. The mask blur grows with distance from the light that casts each
+   shadow (`Hidden/Vision/Blur`): from the player for the beam, from the nearest light source for
+   theirs, at 0.055 per unit and capped at 1.1 world units so light cannot seep through walls. Edges are
+   sharp near the light and soften farther away. Characters also cast soft shadows (`CharacterShadow`,
+   mask channel A) away from the flashlight and the nearest 4 campfires and lanterns. These only darken
+   already-lit ground and never block light or sight. The flashlight never shadows the player's own
+   body, and an entity's shadow only appears while the entity itself is visible.
+
+## Terrain
+
+`TerrainField` is the single source of ground height. Four sine waves at seeded headings make rolling
+hills and a ridged term cuts ditches: about 5 m of relief and slopes up to about 35° (sines, so the
+steepest slope is bounded). The ground flattens to pads under the cabin, the spawn point, the campfires,
+the wrecks and the generator, across every footpath, and toward the walls. The ground is built in
+16 m chunks, each with a `MeshCollider`, whose vertices sit exactly on the field.
+
+Trees, walls, doors and lantern posts stand upright, sunk to the lowest point under them; rocks,
+crates, wrecks and crows tilt to the slope. Hills are visual: sight and light stay 2D.
+
+`PathNetwork` joins the points of interest with a minimum spanning tree and routes each link with A*
+over a grid whose cost rises steeply with slope, then smooths it. Region noise gives four biomes (dead
+forest, woods, meadow, scrub) that choose the trees and plants; the ground is coloured straw to green
+grass by moisture, with dark soil, light dirt, rock grey on steep slopes, mud in the ditches and packed
+dirt on the paths.
 
 ## Characters
 
-`MannequinBuilder` builds one plain, dark grey mannequin of 198 triangles (the cap is 200): an
-8-sided torso, a 6-sided head with a ridge down the face, 4-sided boxy limbs, mitten hands and wedge
-feet, with no clothing, hair, face or equipment. It is skinned to the 51-bone `HumanoidSkeleton`
+`MannequinBuilder` builds one plain, dark grey mannequin of 222 triangles (the cap is 250): an
+8-sided torso, closed shoulder caps weighted half to the chest so the arms stay joined when they
+swing, a 6-sided head with a ridge down the face, 4-sided boxy limbs, mitten hands and wedge feet, with
+no clothing, hair, face or equipment. It is skinned to the 51-bone `HumanoidSkeleton`
 (Drillis-Contini proportions, 1.8 m), with joint rings weighted half to each bone. The player and the
 wanderer share the mesh; the wanderer uses the entity material.
 
 `GaitSolver` and `HumanoidAnimator` animate it procedurally: heel strike, flat foot and toe-off so the
 feet never slide, a flight phase when sprinting, arms swinging opposite the legs, two-bone leg IK with
 forward-only knees, and a torso that twists toward the aim (the legs walk backwards when you aim
-behind you). Walk 3.2 and sprint 5.2 world units per second.
+behind you). Walk 3.2 and sprint 5.2 world units per second. On slopes each foot plants on the ground
+under it and tilts to it, the pelvis drops so the downhill leg can reach, the torso leans into climbs
+while the head stays level, and the player is slower uphill and a little faster downhill.
 
 ## Polygon budget
 
 `PolyBudget` derives one resolution rule for everything from the player. The mannequin's surface area
-divided by its triangle count gives a reference facet edge (0.158 design units). Under the orthographic
+divided by its triangle count gives a reference facet edge (0.152 design units). Under the orthographic
 camera an edge of a given length covers the same pixels anywhere, so every model uses that facet size,
 relaxed by form class because large or flat forms read well with bigger facets:
 
 | Class | Facet edge × | Used for |
 |---|---|---|
 | Character | 1 | The mannequin |
-| Prop | 1.5 | Crates, campfire, lantern, door boards, crows |
+| Prop | 1.5 | Crates, campfire, lantern, barrel, generator, door boards, crows |
+| Plant | 1.75 | Bushes, ferns, grass, reeds, shrubs, flowers, mushrooms |
 | Rock | 2 | Rock subdivision level |
-| Tree | 2.5 | Trunk and branch sides and segments |
+| Vehicle | 2.25 | Car wrecks |
+| Tree | 2.5 | Trunk and branch sides and segments, canopies, conifer tiers |
 | Wall | 4 | Stone courses and block widths, plank widths |
 | Ground | 5 | Terrain cell size |
 
@@ -168,9 +214,9 @@ without pressing Play:
 
 | Folder | Contents |
 |---|---|
-| `Assets/Vision/Prefabs/` | One prefab per prop variant (6 dead trees, 4 rocks, 3 crates, campfire, lantern post, 2 crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
+| `Assets/Vision/Prefabs/` | One prefab per prop variant (6 dead trees, 4 leafy and autumn trees, 3 conifers, 8 rocks from pebbles to boulders, 3 crates, 3 car wrecks, a generator, a burning barrel and a campfire with animated flames, a lantern post, 2 crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
 | `Assets/Vision/Meshes/Props/` | The mesh behind each prop prefab, and `Mannequin.asset` shared by the player and the wanderer. |
-| `Assets/Vision/Meshes/Level/` | One mesh per ground, wall and door object in the scene. |
+| `Assets/Vision/Meshes/Level/` | One mesh per ground chunk (with its plants merged in) and its collider, and per wall, door and supply in the scene. |
 | `Assets/Vision/Materials/` | `LowPoly`, `LowPolyEntity` (hidden outside the viewer's light) and `LowPolyGlow`. |
 
 The scene's `Sandbox World` object has `generateOnAwake` off, because the level is already in the scene.
@@ -205,11 +251,13 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 63 EditMode tests: visibility polygons, doors, spatial hash, triangle winding and normals,
-model sizes and determinism, the polygon budget, the mannequin (triangle cap, size, skinning,
-colour), the gait (no foot sliding, flight phase, joint limits), the flashlight-only shadow rule and
-beam falloff, the look settings, edit-mode level generation (no renderer casts shadows; characters are
-renderable) and the saved prefabs.
+Runs the 92 EditMode tests: visibility polygons, doors, spatial hash, triangle winding and normals,
+model sizes and determinism, the polygon budget, the mannequin (triangle cap, closed shoulders,
+size, skinning, colour), the gait on flat ground and on 30° ramps up and down, the terrain (slope
+limit, pads, mesh matches the field), paths (connected, gentle, flattened), the new models, the
+shadow rules, penumbra and beam falloff, health, stamina, inventory and pickups, the HUD, the look
+settings, level generation (biomes, nothing on the paths, no renderer casts shadows) and the saved
+prefabs.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindows
@@ -221,14 +269,21 @@ Builds `Builds/Windows/VisionSandbox.exe`.
 ```
 Stages the test situations (cone, doors, entity hiding, shutter, see-through cone, walking, sprinting,
 strafing, backpedalling, close-ups, the player from three sides, the wanderer in the beam and its
-shadow, camera effects off, each look slider low and high) and a gait sheet, saves a screenshot of each
-plus `perf.txt` and `characters.txt` (renderer state of each character) to `Captures/`, then quits.
+shadow, camera effects off, each look slider low and high, soft shadows by a campfire and in the beam,
+the hills and the whole map from above, wrecks, the generator, each biome, fire frames and the HUD) and
+a gait sheet with uphill and downhill rows, saves a screenshot of each plus `perf.txt` and
+`characters.txt` (renderer state of each character and the feet's gaps to the ground on a slope) to
+`Captures/`, then quits.
 
 ## Known gaps
 
-- The polygon pass runs on the main thread. That is fine for this arena (about 2 ms per frame in
-  total), but a large map will want Burst/Jobs.
+- The polygon pass runs on the main thread. That is fine for this map (about 2.3 ms per frame in
+  total at 1600x900), but a much larger one will want Burst/Jobs.
+- Hills are visual only: a crest does not hide what is behind it.
+- The wanderer only walks its loop; it does not hunt the player.
+- The baked meshes are about 44 MB (Git LFS), mostly the ground chunks with their plants.
 - Wall tops sit inside their own footprint, so they always read dark. That matches Darkwood, but
   there is no option to light them.
-- There is no Darkwood-style canopy overlay or fog cards yet, and no flicker on the viewer's own light.
+- There is no Darkwood-style canopy overlay, fog cards or foliage sway yet, and no flicker on the
+  viewer's own light. Tree canopies can hide the player when they walk behind one.
 - The distance blur also softens the edges of near objects that overlap far ground.
