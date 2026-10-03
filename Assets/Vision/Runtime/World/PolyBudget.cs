@@ -21,7 +21,7 @@ namespace Vision.World
     /// </summary>
     public static class PolyBudget
     {
-        public enum Class { Character, Prop, Rock, Tree, Wall, Ground }
+        public enum Class { Character, Prop, Plant, Rock, Vehicle, Tree, Wall, Ground }
 
         /// <summary>Facet edge multiplier per class (Character = the player itself).</summary>
         public static float Factor(Class c)
@@ -30,7 +30,9 @@ namespace Vision.World
             {
                 case Class.Character: return 1f;
                 case Class.Prop: return 1.5f;
+                case Class.Plant: return 1.75f;
                 case Class.Rock: return 2f;
+                case Class.Vehicle: return 2.25f;
                 case Class.Tree: return 2.5f;
                 case Class.Wall: return 4f;
                 default: return 5f;    // Ground

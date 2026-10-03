@@ -33,9 +33,9 @@ namespace Vision.World
             return renderer;
         }
 
-        public static GameObject CreateTree(Mesh mesh, Material material)
+        public static GameObject CreateTree(Mesh mesh, Material material, string name = "Dead Tree")
         {
-            GameObject go = Make("Dead Tree", mesh, material, true);
+            GameObject go = Make(name, mesh, material, true);
             var col = go.AddComponent<CapsuleCollider>();
             col.radius = TreeTrunkRadius;
             col.height = 4f;
@@ -72,7 +72,8 @@ namespace Vision.World
             return go;
         }
 
-        public static GameObject CreateCampfire(Mesh mesh, Material glowMaterial)
+        /// <summary>A fire's base mesh plus animated flame tongues and rising embers (all glow material).</summary>
+        public static GameObject CreateCampfire(Mesh mesh, Material glowMaterial, Mesh[] flames = null, Vector3[] flamePositions = null, Mesh ember = null)
         {
             GameObject go = Make("Campfire", mesh, glowMaterial, true);
             var light = go.AddComponent<VisionLight>();
@@ -80,6 +81,81 @@ namespace Vision.World
             light.flickerAmount = 0.25f;
             light.flickerSpeed = 5f;
             light.height = 0.45f;
+            AddFire(go, glowMaterial, flames, flamePositions, ember, 0.16f, 5);
+            return go;
+        }
+
+        /// <summary>An oil drum with a fire in it: a smaller light, and a collider.</summary>
+        public static GameObject CreateBurningBarrel(Mesh mesh, Material glowMaterial, Mesh[] flames = null, Vector3[] flamePositions = null, Mesh ember = null)
+        {
+            GameObject go = Make("Burning Barrel", mesh, glowMaterial, true);
+            var light = go.AddComponent<VisionLight>();
+            light.range = 5f;
+            light.intensity = 0.9f;
+            light.flickerAmount = 0.22f;
+            light.flickerSpeed = 6f;
+            light.height = 1.05f;
+            var col = go.AddComponent<CapsuleCollider>();
+            col.radius = 0.32f;
+            col.height = 1f;
+            col.center = new Vector3(0f, 0.5f, 0f);
+            var occ = go.AddComponent<Occluder>();
+            occ.shape = Occluder.Shape.Circle;
+            occ.radius = 0.3f;
+            occ.sides = 8;
+            AddFire(go, glowMaterial, flames, flamePositions, ember, 0.82f, 4);
+            return go;
+        }
+
+        static void AddFire(GameObject go, Material glow, Mesh[] flames, Vector3[] positions, Mesh ember, float baseY, int embers)
+        {
+            if (flames == null || flames.Length == 0) return;
+            var anim = go.AddComponent<FlameAnimator>();
+            anim.flames = new Transform[flames.Length];
+            for (int i = 0; i < flames.Length; i++)
+            {
+                var f = new GameObject($"Flame {i}");
+                f.transform.SetParent(go.transform, false);
+                f.transform.localPosition = (positions != null && i < positions.Length ? positions[i] : Vector3.zero) + Vector3.up * baseY;
+                f.AddComponent<MeshFilter>().sharedMesh = flames[i];
+                NoShadows(f.AddComponent<MeshRenderer>()).sharedMaterial = glow;
+                anim.flames[i] = f.transform;
+            }
+            anim.embers = new Transform[ember != null ? embers : 0];
+            for (int i = 0; i < anim.embers.Length; i++)
+            {
+                var e = new GameObject($"Ember {i}");
+                e.transform.SetParent(go.transform, false);
+                float a = i * 2.4f;
+                e.transform.localPosition = new Vector3(Mathf.Cos(a) * 0.08f, baseY + 0.25f, Mathf.Sin(a) * 0.08f);
+                e.AddComponent<MeshFilter>().sharedMesh = ember;
+                NoShadows(e.AddComponent<MeshRenderer>()).sharedMaterial = glow;
+                anim.embers[i] = e.transform;
+            }
+        }
+
+        /// <summary>A rusted car wreck of the given kind: box collider and footprint occluder from its size.</summary>
+        public static GameObject CreateCar(Mesh mesh, Material material, int kind)
+        {
+            Vector3 size = LowPolyModels.CarSize(kind);
+            GameObject go = Make(mesh.name, mesh, material, true);
+            var col = go.AddComponent<BoxCollider>();
+            col.center = new Vector3(0f, size.y * 0.5f, 0f);
+            col.size = size;
+            var occ = go.AddComponent<Occluder>();
+            occ.size = new Vector2(size.x, size.z);
+            return go;
+        }
+
+        public static GameObject CreateGenerator(Mesh mesh, Material material)
+        {
+            Vector3 size = LowPolyModels.GeneratorSize;
+            GameObject go = Make("Generator", mesh, material, true);
+            var col = go.AddComponent<BoxCollider>();
+            col.center = new Vector3(0.05f, size.y * 0.5f, 0f);
+            col.size = new Vector3(size.x + 0.1f, size.y, size.z);
+            var occ = go.AddComponent<Occluder>();
+            occ.size = new Vector2(size.x, size.z);
             return go;
         }
 

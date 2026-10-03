@@ -24,10 +24,29 @@ MonoBehaviour:
   - {fileID: 9100688760062629350, guid: 50e37eec57cda6d40a52d5186e3887b2, type: 3}
   - {fileID: 850254739555244952, guid: e64e8d2294011a74aa1a25b3c22daf0d, type: 3}
   - {fileID: 291348284502024409, guid: ff2fd82b06859f945b7fb1648fe15cd8, type: 3}
+  - {fileID: 121460390425128797, guid: 0b33c84f6cbb185448a4558d692af939, type: 3}
+  - {fileID: 7281028463847846654, guid: 3228636d4c2f6c546a618e8bd71b3c8b, type: 3}
+  - {fileID: 7928871352688320818, guid: 8c828a6b98b22c246ac849b4d38cf29e, type: 3}
+  - {fileID: 2852988847386684741, guid: 3532ccc117c8d06419613ce4ef73081d, type: 3}
   crates:
   - {fileID: 8378932535752219331, guid: 2d9eda011121ef845a79fb36c1fd0c4e, type: 3}
   - {fileID: 6178406253504472800, guid: cfb089e9226fbc84e911e5c49def4e3c, type: 3}
   - {fileID: 1820809692022970531, guid: 79360ff6a6c951446b92c73df9cc2ade, type: 3}
+  leafyTrees:
+  - {fileID: 5698468014353580607, guid: efd8456322fe87c429b5641f7115837f, type: 3}
+  - {fileID: 6882412059980307884, guid: 2abba93955c2061499adc757818a1c3f, type: 3}
+  - {fileID: 4682871258030119045, guid: 8691516a8fdc2e84ea38989207191293, type: 3}
+  - {fileID: 3129278851079949437, guid: da677f4ca0a5ba042beb57b1b91612c2, type: 3}
+  conifers:
+  - {fileID: 7625938377241341346, guid: 97acb0f5e6cb26b4fb69236e51ba7760, type: 3}
+  - {fileID: 3564546194900271620, guid: 1e2ade7a75c3a924db6f6bc7b0a066ae, type: 3}
+  - {fileID: 1582513796461372986, guid: 217c9212326507440978eca491aa279f, type: 3}
+  cars:
+  - {fileID: 8275650963694285459, guid: 9a3dabfefb32278408435a083e6cbaad, type: 3}
+  - {fileID: 2148911329456624893, guid: daf5f9cc778bc7b4a90b495b03abc74e, type: 3}
+  - {fileID: 267703626437866852, guid: 22dfb7e0fec63f74abd67d965088e024, type: 3}
+  generator: {fileID: 6663557138519697142, guid: be1e0ffbbf9765744a311310ef1a80cc, type: 3}
+  burningBarrel: {fileID: 2046981460729887684, guid: bdeb30102522bcd4ab42b94d6cd9a615, type: 3}
   campfire: {fileID: 3638930386250585023, guid: 71c3a4cd0600f4949be58d87c2f9c028, type: 3}
   lantern: {fileID: 2109763458785564429, guid: 895cda323f9ca264e91cd18e05dd3968, type: 3}
   crows:

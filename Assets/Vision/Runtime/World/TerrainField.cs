@@ -31,6 +31,23 @@ namespace Vision.World
         readonly float halfExtent, edgeBand;
 
         public IReadOnlyList<Pad> Pads => pads;
+        PathNetwork paths;
+        float pathFlat, pathBlend;
+
+        /// <summary>Footpaths the ground is flattened across (null for none).</summary>
+        public PathNetwork Paths => paths;
+
+        /// <summary>
+        /// Flattens the ground across each path to the path's own (smoothed) height: flat within
+        /// <paramref name="flat"/> of the centre line, blending back to the hillside over <paramref name="blend"/>.
+        /// The paths must have been routed over this field's heights without paths.
+        /// </summary>
+        public void SetPaths(PathNetwork network, float flat = 1.0f, float blend = 1.8f)
+        {
+            paths = network;
+            pathFlat = flat;
+            pathBlend = Mathf.Max(0.01f, blend);
+        }
         public float HalfExtent => halfExtent;
 
         /// <param name="halfExtent">Half the arena size; the ground is flat from the walls inward over <paramref name="edgeBand"/>.</param>
@@ -89,6 +106,12 @@ namespace Vision.World
                 float dz = Mathf.Max(p.Area.yMin - z, 0f, z - p.Area.yMax);
                 float w = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Sqrt(dx * dx + dz * dz) / p.Blend);
                 if (w > 0f) h = Mathf.Lerp(h, p.Height, w);
+            }
+            if (paths != null)
+            {
+                float d = paths.Distance(x, z, out float ph);
+                if (d < pathFlat + pathBlend)
+                    h = Mathf.Lerp(h, ph, 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((d - pathFlat) / pathBlend)));
             }
             float edge = Mathf.Max(Mathf.Abs(x), Mathf.Abs(z));
             float inner = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(halfExtent - 1f, halfExtent - 1f - edgeBand, edge));

@@ -11,7 +11,7 @@ namespace Vision.World
     /// board widths come from <see cref="PolyBudget"/>, so every model shares the player's facet size
     /// (relaxed by form class). Characters are <see cref="Vision.Characters.MannequinBuilder"/>.
     /// </summary>
-    public static class LowPolyModels
+    public static partial class LowPolyModels
     {
         public static class Palette
         {
@@ -107,12 +107,18 @@ namespace Vision.World
         public static Mesh Rock(System.Random rng, float radius)
         {
             var b = new LowPolyMeshBuilder(rng);
-            float h = radius * b.Range(0.75f, 1.1f);
-            var radii = new Vector3(radius, h, radius);
-            b.AddBlob(Vector3.zero, radii, PolyBudget.BlobSubdivisions(radii, PolyBudget.Class.Rock), 0.16f,
-                local => b.Jitter(local.y > 0.35f ? Palette.Stone : Palette.StoneDark, 0.12f), true,
+            // Big boulders are flatter and longer; colours vary between cool grey, warm sandstone and mossy.
+            bool boulder = radius > 1.2f;
+            float h = radius * (boulder ? b.Range(0.5f, 0.7f) : b.Range(0.75f, 1.1f));
+            var radii = new Vector3(radius * (boulder ? b.Range(1.1f, 1.3f) : 1f), h, radius);
+            int tint = b.Rng.Next(3);
+            Color light = tint == 1 ? new Color(0.48f, 0.43f, 0.36f) : Palette.Stone;
+            Color dark = tint == 1 ? new Color(0.34f, 0.30f, 0.25f) : Palette.StoneDark;
+            Color moss = new Color(0.29f, 0.34f, 0.22f);
+            b.AddBlob(Vector3.zero, radii, PolyBudget.BlobSubdivisions(radii, PolyBudget.Class.Rock, 3), 0.16f,
+                local => b.Jitter(tint == 2 && local.y > 0.6f ? moss : (local.y > 0.35f ? light : dark), 0.12f), true,
                 Quaternion.Euler(0f, b.Range(0f, 360f), 0f));
-            return b.ToMesh("Rock");
+            return b.ToMesh(boulder ? "Boulder" : "Rock");
         }
 
         // ------------------------------------------------------------------ walls, doors, crates
@@ -213,7 +219,7 @@ namespace Vision.World
 
         // ------------------------------------------------------------------ light sources
 
-        /// <summary>Stone ring, crossed logs and flame cones. Drawn with the glow material.</summary>
+        /// <summary>Stone ring, crossed logs and an ember bed (flames are separate, animated meshes). Drawn with the glow material.</summary>
         public static Mesh Campfire(System.Random rng)
         {
             var b = new LowPolyMeshBuilder(rng);
@@ -234,14 +240,9 @@ namespace Vision.World
                 b.AddTube(new[] { dir * 0.5f + Vector3.up * 0.07f, dir * 0.12f + Vector3.up * 0.2f },
                           new[] { 0.07f, 0.065f }, PolyBudget.Sides(0.07f, PropClass, 4), i % 2 == 0 ? Palette.Bark : Palette.BarkDark, 0.1f, 0.06f);
             }
-            for (int i = 0; i < 5; i++)
-            {
-                float a = b.Next() * Mathf.PI * 2f, r = i == 0 ? 0f : b.Range(0.06f, 0.14f);
-                var baseC = new Vector3(Mathf.Cos(a) * r, 0.18f, Mathf.Sin(a) * r);
-                float h = i == 0 ? 0.5f : b.Range(0.22f, 0.4f);
-                b.AddCone(baseC, baseC + new Vector3(b.Range(-0.04f, 0.04f), h, b.Range(-0.04f, 0.04f)), i == 0 ? 0.11f : 0.08f, PolyBudget.Sides(i == 0 ? 0.11f : 0.08f, PropClass, 4),
-                          i == 0 ? Palette.Flame : Palette.Ember, 0.1f, false);
-            }
+            // A glowing ember bed; the flames are separate meshes (LowPolyModels.Flames) so they can move.
+            var bed = new Vector3(0.2f, 0.06f, 0.2f);
+            b.AddBlob(new Vector3(0f, 0.12f, 0f), bed, 0, 0.25f, _ => b.Jitter(Palette.Ember, 0.2f), true);
             return b.ToMesh("Campfire");
         }
 

@@ -24,6 +24,12 @@ namespace Vision.World
 
         public LowPolyMeshBuilder(System.Random rng = null) => Rng = rng ?? new System.Random(0);
 
+        /// <summary>
+        /// Optional placement applied to every triangle added (rotation, uniform scale, translation), so a model
+        /// written in its own local space can be merged into a bigger mesh (plants into the ground chunks).
+        /// </summary>
+        public Matrix4x4? Transform;
+
         public int VertexCount => vertices.Count;
         public int TriangleCount => triangles.Count / 3;
 
@@ -42,6 +48,13 @@ namespace Vision.World
         /// <summary>Adds one triangle; vertices must be clockwise seen from the front.</summary>
         public void AddTriangle(Vector3 a, Vector3 b, Vector3 c, Color color)
         {
+            if (Transform.HasValue)
+            {
+                Matrix4x4 m = Transform.Value;
+                a = m.MultiplyPoint3x4(a);
+                b = m.MultiplyPoint3x4(b);
+                c = m.MultiplyPoint3x4(c);
+            }
             Vector3 n = Vector3.Cross(b - a, c - a);
             if (n.sqrMagnitude < 1e-12f) return;
             n.Normalize();
@@ -62,6 +75,13 @@ namespace Vision.World
             Vector3 n = Vector3.Cross(b - a, c - a);
             if (Vector3.Dot(n, (a + b + c) / 3f - inside) < 0f) AddTriangle(a, c, b, color);
             else AddTriangle(a, b, c, color);
+        }
+
+        /// <summary>A thin surface seen from both sides (leaves, fronds, blades): the same triangle both ways, the back a shade darker.</summary>
+        public void AddDoubleSided(Vector3 a, Vector3 b, Vector3 c, Color color)
+        {
+            AddTriangle(a, b, c, color);
+            AddTriangle(a, c, b, color * 0.85f);
         }
 
         /// <summary>Two triangles facing away from <paramref name="inside"/>; each gets its own colour jitter.</summary>

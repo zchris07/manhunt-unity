@@ -23,7 +23,7 @@ namespace Vision.World
     public sealed class SandboxWorld : MonoBehaviour
     {
         public int seed = 1337;
-        public float halfExtent = 20f;
+        public float halfExtent = 40f;
         [Tooltip("Build the level when Play starts. Off for a baked level that is already in the scene.")]
         public bool generateOnAwake = true;
 
@@ -57,7 +57,13 @@ namespace Vision.World
 
         // Cabin footprint (world X,Z).
         static readonly Rect Cabin = new Rect(5f, 4f, 8f, 7f);
-        static readonly Vector2[] Fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f) };
+        static readonly Vector2[] Fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f), new Vector2(-27f, 21f), new Vector2(25f, 27f) };
+        /// <summary>Where the car wrecks lie (sedan, van, pickup, sedan); paths lead to each.</summary>
+        static readonly Vector2[] WreckSites = { new Vector2(-21f, -25f), new Vector2(29f, -7f), new Vector2(-7f, 31f), new Vector2(22f, 14f) };
+        static readonly Vector2 GeneratorSite = new Vector2(15.5f, 8.5f);
+        static readonly Vector2 CabinDoor = new Vector2(3.6f, 7.2f);
+        /// <summary>Open ground around the spawn point and the wanderer's loop: no trees or rocks.</summary>
+        static readonly Rect SpawnClearing = new Rect(-5.5f, -13.5f, 10f, 12f);
 
         /// <summary>The ground height of this level (design units, local space). Rebuilt from the seed when needed.</summary>
         public TerrainField Terrain { get; private set; }
@@ -80,13 +86,25 @@ namespace Vision.World
             if (TerrainField.Active == null) Characters.HumanoidAnimator.Ground = null;
         }
 
-        /// <summary>Hills and ditches with flat pads under the cabin, the spawn point and the campfires.</summary>
+        /// <summary>
+        /// Hills and ditches with flat pads under the cabin, the spawn point, the campfires, the wrecks and the
+        /// generator, and footpaths routed between them (the ground is flattened across each path).
+        /// </summary>
         public TerrainField CreateTerrain()
         {
             var f = new TerrainField(seed, halfExtent);
             f.AddPad(new Rect(Cabin.x - 1.5f, Cabin.y - 1.5f, Cabin.width + 3f, Cabin.height + 3f), 6f);
-            f.AddPad(new Vector2(playerSpawn.x, playerSpawn.z), 1.5f, 4f);
+            var spawn = new Vector2(playerSpawn.x, playerSpawn.z);
+            f.AddPad(spawn, 1.5f, 4f);
             foreach (Vector2 fire in Fires) f.AddPad(fire, 1.6f, 3.5f);
+            foreach (Vector2 wreck in WreckSites) f.AddPad(wreck, 2.6f, 5f);
+            f.AddPad(GeneratorSite, 1.2f, 3f);
+
+            var points = new List<Vector2> { spawn, CabinDoor + Vector2.left * 1.2f, GeneratorSite + Vector2.left * 1.5f };
+            points.AddRange(Fires);
+            foreach (Vector2 wreck in WreckSites) points.Add(wreck + Vector2.right * 3.2f);
+            var cabinBlock = new Rect(Cabin.x - 0.6f, Cabin.y - 0.6f, Cabin.width + 1.2f, Cabin.height + 1.2f);
+            f.SetPaths(PathNetwork.Build(points, f.Height, halfExtent - 3f, p => cabinBlock.Contains(p)));
             return f;
         }
 
@@ -114,12 +132,13 @@ namespace Vision.World
             entityRoot = new GameObject("Entities").transform;
             entityRoot.SetParent(transform, false);
 
-            BuildGround();
             BuildPerimeter();
             BuildCabin();
-            BuildForest();
+            BuildTrees();
+            BuildRocks();
             BuildLights();
             BuildProps();
+            BuildGround();   // last, so plants grow around everything placed
             BuildCrows();
             BuildWanderer();
             BuildPlayer();
@@ -130,34 +149,59 @@ namespace Vision.World
         /// <summary>Side of a ground chunk in design units (one mesh and collider each, for culling and fast cooking).</summary>
         public const float ChunkSize = 16f;
 
+        static class Ground
+        {
+            public static readonly Color Straw = new Color(0.50f, 0.45f, 0.30f);
+            public static readonly Color Green = new Color(0.30f, 0.37f, 0.21f);
+            public static readonly Color Dirt = new Color(0.48f, 0.41f, 0.31f);
+            public static readonly Color Soil = new Color(0.26f, 0.21f, 0.16f);
+            public static readonly Color Rocky = new Color(0.36f, 0.35f, 0.33f);
+            public static readonly Color Mud = new Color(0.21f, 0.18f, 0.15f);
+            public static readonly Color Path = new Color(0.46f, 0.38f, 0.28f);
+            public static readonly Color Ash = new Color(0.40f, 0.37f, 0.33f);
+            public static readonly Color Floor = new Color(0.33f, 0.25f, 0.18f);
+        }
+
+        /// <summary>
+        /// Ground colour: dry straw to green grass by moisture, ashen soil in the dead forest, darker under the
+        /// woods, patches of dark soil and light dirt, rock grey on steep slopes, mud in the ditches and packed
+        /// dirt on the paths (with ragged edges).
+        /// </summary>
+        public Color GroundColor(float x, float z)
+        {
+            if (Cabin.Contains(new Vector2(x, z)))
+                return Ground.Floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);   // planks along X, 0.5 m wide
+            Regions(x, z, out float r1, out float r2);
+            float moist = Mathf.PerlinNoise(x * 0.05f + 7.1f, z * 0.05f + 2.3f);
+            float n2 = Mathf.PerlinNoise(x * 0.18f + 11f, z * 0.18f + 5f);
+            float n3 = Mathf.PerlinNoise(x * 0.7f + 3f, z * 0.7f + 9f);
+            Color c = Color.Lerp(Ground.Straw, Ground.Green, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, moist)));
+            c = Color.Lerp(c, Color.Lerp(Ground.Ash, Ground.Soil, n2), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 0.32f, r1)));
+            c = Color.Lerp(c, Color.Lerp(Ground.Green * 0.8f, Ground.Soil, n2 * 0.6f), 0.7f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.6f, r2)));
+            c = Color.Lerp(c, Ground.Soil, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 0.75f, n2)));
+            c = Color.Lerp(c, Ground.Dirt, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.18f, n2)));
+            c = Color.Lerp(c, Ground.Rocky, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(27f, 35f, Terrain.SlopeDeg(x, z))));
+            c = Color.Lerp(c, Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.1f, -1.8f, Terrain.Natural(x, z))));
+            PathNetwork paths = Terrain.Paths;
+            if (paths != null)
+            {
+                float d = paths.Distance(x, z, out _);
+                float edge = paths.HalfWidth + 0.15f + (n3 - 0.5f) * 0.5f;
+                c = Color.Lerp(c, Ground.Path * (0.92f + 0.16f * n3), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge + 0.25f, edge - 0.25f, d)));
+            }
+            return c;
+        }
+
         void BuildGround()
         {
             float e = halfExtent + 4f;
-            var ash = new Color(0.52f, 0.48f, 0.42f);
-            var moss = new Color(0.30f, 0.34f, 0.25f);
-            var mud = new Color(0.27f, 0.23f, 0.19f);
-            var floor = new Color(0.33f, 0.25f, 0.18f);
             // The cabin floor (and a margin around it) stays regular so its planks line up with the walls.
             var flatZone = new Rect(Cabin.x - 0.5f, Cabin.y - 0.5f, Cabin.width + 1f, Cabin.height + 1f);
 
             // Cell size from the shared polygon budget (the player's facet size, relaxed for flat ground).
             var grid = new LowPolyMeshBuilder.TerrainGrid(e, PolyBudget.Edge(PolyBudget.Class.Ground),
                 (x, z) => Terrain.Height(x, z), (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : 1f, 0.28f, seed);
-            Color GroundColor(float x, float z)
-            {
-                if (Cabin.Contains(new Vector2(x, z)))
-                {
-                    // Planks run along X, 0.5 m wide.
-                    Color plank = floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);
-                    return Vary(plank, 0.03f);
-                }
-                float forest = Mathf.InverseLerp(-2f, -12f, x);
-                float n1 = Mathf.PerlinNoise(x * 0.08f + 3.1f, z * 0.08f + 7.7f);
-                float n2 = Mathf.PerlinNoise(x * 0.3f + 11f, z * 0.3f + 5f);
-                Color c = Color.Lerp(ash, moss, Mathf.Clamp01(forest * 0.8f + (n1 - 0.5f) * 0.9f));
-                c = Color.Lerp(c, mud, Mathf.SmoothStep(0f, 1f, (n2 - 0.55f) * 2.5f));
-                return Vary(c, 0.06f);
-            }
+            Color GroundColorVaried(float x, float z) => Vary(GroundColor(x, z), Cabin.Contains(new Vector2(x, z)) ? 0.03f : 0.05f);
 
             int perChunk = Mathf.Max(1, Mathf.RoundToInt(ChunkSize / grid.Step));
             int chunks = Mathf.CeilToInt(grid.Cells / (float)perChunk);
@@ -168,7 +212,7 @@ namespace Vision.World
                 {
                     builders[ci, cj] = new LowPolyMeshBuilder(rng);
                     builders[ci, cj].AddTerrainPatch(grid, ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
-                        cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), GroundColor);
+                        cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), GroundColorVaried);
                 }
             }
             LowPolyMeshBuilder ChunkAt(Vector2 p)
@@ -177,14 +221,18 @@ namespace Vision.World
                 int cj = Mathf.Clamp(Mathf.FloorToInt((p.y + e) / grid.Step / perChunk), 0, chunks - 1);
                 return builders[ci, cj];
             }
+            PathNetwork paths = Terrain.Paths;
+            float OnPath(Vector2 p) => paths != null ? paths.Distance(p) - paths.HalfWidth : float.MaxValue;
+            float lim = halfExtent - 0.8f;
 
-            // Dead grass blades, pebbles and bone-pale debris, merged into the ground chunks.
-            var grass = new Color(0.36f, 0.36f, 0.26f);
-            for (int i = 0; i < 700; i++)
+            // Short grass blades (dead or green with the ground), pebbles and bone-pale debris.
+            int total = Mathf.RoundToInt(700f * (halfExtent * halfExtent) / 400f);
+            for (int i = 0; i < total; i++)
             {
-                var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
-                if (flatZone.Contains(p)) continue;
+                var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
+                if (flatZone.Contains(p) || OnPath(p) < -0.2f) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
+                Color grass = Color.Lerp(GroundColor(p.x, p.y), new Color(0.36f, 0.36f, 0.26f), 0.5f) * 1.1f;
                 int blades = 2 + rng.Next(4);
                 for (int k = 0; k < blades; k++)
                 {
@@ -195,16 +243,58 @@ namespace Vision.World
                     b.AddCone(root, tip, 0.03f, 3, Vary(grass, 0.2f), 0.05f, false);
                 }
             }
-            for (int i = 0; i < 260; i++)
+            for (int i = 0; i < total * 0.37f; i++)
             {
-                var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
+                var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
                 if (flatZone.Contains(p)) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
                 float s = Range(0.05f, 0.14f);
-                bool bone = rng.NextDouble() < 0.25;
+                bool bone = rng.NextDouble() < 0.2;
                 Vector3 radii = bone ? new Vector3(s * 1.8f, s * 0.4f, s * 0.5f) : new Vector3(s, s * 0.6f, s);
                 Color c = bone ? new Color(0.72f, 0.69f, 0.62f) : LowPolyModels.Palette.Stone;
                 b.AddBlob(new Vector3(p.x, Terrain.Height(p.x, p.y), p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
+            }
+
+            // Plant life by biome: bushes, ferns, tall grass, reeds in the ditches, dead shrubs, flowers, mushrooms.
+            int plants = Mathf.RoundToInt(260f * (halfExtent * halfExtent) / 400f);
+            for (int i = 0; i < plants; i++)
+            {
+                var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
+                if (flatZone.Contains(p) || OnPath(p) < 0.2f || TooClose(blockedSpots, p, 0.7f)) continue;
+                Biome biome = BiomeAt(p.x, p.y);
+                bool ditch = Terrain.Natural(p.x, p.y) < -1.3f;
+                float roll = (float)rng.NextDouble();
+                LowPolyMeshBuilder b = ChunkAt(p);
+                Vector3 n = Terrain.Normal(p.x, p.y);
+                b.Transform = Matrix4x4.TRS(new Vector3(p.x, Terrain.Height(p.x, p.y) - 0.02f, p.y),
+                    Quaternion.FromToRotation(Vector3.up, Vector3.Slerp(Vector3.up, n, 0.5f)) * Quaternion.Euler(0f, Range(0f, 360f), 0f),
+                    Vector3.one * Range(0.8f, 1.25f));
+                if (ditch && roll < 0.6f) LowPolyModels.AddReeds(b, Range(0.9f, 1.4f));
+                else switch (biome)
+                {
+                    case Biome.Woods:
+                        if (roll < 0.4f) LowPolyModels.AddFern(b, Range(0.45f, 0.65f));
+                        else if (roll < 0.75f) LowPolyModels.AddBush(b, Range(0.45f, 0.75f), false);
+                        else if (roll < 0.88f) LowPolyModels.AddMushrooms(b);
+                        else LowPolyModels.AddFlowers(b);
+                        break;
+                    case Biome.Meadow:
+                        if (roll < 0.5f) LowPolyModels.AddTallGrass(b, Range(0.5f, 0.85f), false);
+                        else if (roll < 0.8f) LowPolyModels.AddFlowers(b);
+                        else LowPolyModels.AddBush(b, Range(0.4f, 0.65f), false);
+                        break;
+                    case Biome.Scrub:
+                        if (roll < 0.45f) LowPolyModels.AddTallGrass(b, Range(0.5f, 0.85f), true);
+                        else if (roll < 0.75f) LowPolyModels.AddDeadShrub(b, Range(0.5f, 0.9f));
+                        else LowPolyModels.AddBush(b, Range(0.4f, 0.6f), true);
+                        break;
+                    default:
+                        if (roll < 0.45f) LowPolyModels.AddDeadShrub(b, Range(0.5f, 0.9f));
+                        else if (roll < 0.75f) LowPolyModels.AddTallGrass(b, Range(0.4f, 0.7f), true);
+                        else LowPolyModels.AddMushrooms(b);
+                        break;
+                }
+                b.Transform = null;
             }
 
             for (int cj = 0; cj < chunks; cj++)
@@ -367,42 +457,99 @@ namespace Vision.World
             root.SetActive(true);
         }
 
-        // ---------------------------------------------------------------- forest
+        // ---------------------------------------------------------------- biomes
 
-        void BuildForest()
+        /// <summary>The kind of land at a point: picks trees, plants and ground colour.</summary>
+        public enum Biome { DeadForest, Woods, Meadow, Scrub }
+
+        /// <summary>Large-scale region noise (seeded). The old arena's west side stays dead forest.</summary>
+        void Regions(float x, float z, out float r1, out float r2)
         {
-            var trees = new List<Vector2>();
-            int attempts = 0;
-            while (trees.Count < 42 && attempts++ < 4000)
-            {
-                var p = new Vector2(Range(-halfExtent + 1.5f, -2.5f), Range(-halfExtent + 1.5f, halfExtent - 1.5f));
-                if (Mathf.Abs(p.y + 2f) < 1.2f && p.x > -14f) continue;   // a path into the woods
-                if (TooClose(trees, p, 2.3f)) continue;
-                trees.Add(p);
-            }
-            // A few straggler trees around the clearing.
-            Vector2[] stragglers = { new Vector2(6f, -6f), new Vector2(16f, -2f), new Vector2(16.5f, 15f), new Vector2(1f, 14f), new Vector2(-1f, 6f) };
-            trees.AddRange(stragglers);
+            float o = (seed % 1000) * 0.37f;
+            r1 = Mathf.PerlinNoise(x * 0.035f + 17.3f + o, z * 0.035f + 4.1f);
+            r2 = Mathf.PerlinNoise(x * 0.04f + 51.7f, z * 0.04f + 23.9f + o);
+            if (Mathf.Abs(z) < 20f && x < 0f) r1 -= 0.3f * Mathf.InverseLerp(-2f, -10f, x);
+        }
 
-            foreach (Vector2 p in trees)
+        public Biome BiomeAt(float x, float z)
+        {
+            Regions(x, z, out float r1, out float r2);
+            if (r1 < 0.37f) return Biome.DeadForest;
+            if (r2 > 0.55f) return Biome.Woods;
+            if (r1 > 0.6f) return Biome.Meadow;
+            return Biome.Scrub;
+        }
+
+        /// <summary>Somewhere a solid prop may stand: inside the walls, off the paths and pads, away from other props.</summary>
+        bool Free(Vector2 p, float radius, float spacing)
+        {
+            float lim = halfExtent - 1.5f - radius;
+            if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
+            var cabinZone = new Rect(Cabin.x - 2f - radius, Cabin.y - 2f - radius, Cabin.width + 4f + 2f * radius, Cabin.height + 4f + 2f * radius);
+            if (cabinZone.Contains(p) || SpawnClearing.Contains(p)) return false;
+            PathNetwork paths = Terrain.Paths;
+            if (paths != null && paths.Distance(p) < paths.HalfWidth + radius + 0.4f) return false;
+            foreach (Vector2 f in Fires) if ((f - p).sqrMagnitude < (2.8f + radius) * (2.8f + radius)) return false;
+            foreach (Vector2 w in WreckSites) if ((w - p).sqrMagnitude < (4.2f + radius) * (4.2f + radius)) return false;
+            if ((GeneratorSite - p).sqrMagnitude < (2f + radius) * (2f + radius)) return false;
+            return !TooClose(blockedSpots, p, spacing + radius);
+        }
+
+        // ---------------------------------------------------------------- trees and rocks
+
+        void BuildTrees()
+        {
+            int placed = 0;
+            for (int attempt = 0; attempt < 14000 && placed < 260; attempt++)
             {
-                GameObject go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
-                    () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
+                var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
+                Biome biome = BiomeAt(p.x, p.y);
+                float accept = biome == Biome.DeadForest ? 0.7f : biome == Biome.Woods ? 0.85f : biome == Biome.Scrub ? 0.16f : 0.05f;
+                if ((float)rng.NextDouble() > accept) continue;
+                float spacing = biome == Biome.Woods ? 2.7f : 2.3f;
+                if (!Free(p, PropFactory.TreeTrunkRadius, spacing)) continue;
+
+                GameObject go;
+                float pick = (float)rng.NextDouble();
+                if (biome == Biome.DeadForest || (biome == Biome.Scrub && pick < 0.5f))
+                    go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
+                        () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
+                else if (biome == Biome.Scrub || (biome == Biome.Woods && pick < 0.4f))
+                    go = Prop(library != null ? library.conifers : null, rng.Next(PropLibrary.ConiferVariants), staticRoot,
+                        () => PropFactory.CreateTree(LowPolyModels.Conifer(rng), lowPolyMaterial, "Conifer"));
+                else
+                {
+                    // Autumn trees gather in their own patches.
+                    bool autumn = Mathf.PerlinNoise(p.x * 0.09f + 3f, p.y * 0.09f + 8f) > 0.55f;
+                    int variant = (autumn ? PropLibrary.LeafyVariants / 2 : 0) + rng.Next(PropLibrary.LeafyVariants / 2);
+                    go = Prop(library != null ? library.leafyTrees : null, variant, staticRoot,
+                        () => PropFactory.CreateTree(LowPolyModels.LeafyTree(rng, autumn), lowPolyMaterial, autumn ? "Autumn Tree" : "Leafy Tree"));
+                }
                 go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
+                placed++;
             }
+        }
 
-            for (int i = 0; i < 14; i++)
+        void BuildRocks()
+        {
+            int placed = 0;
+            for (int attempt = 0; attempt < 3000 && placed < 70; attempt++)
             {
-                var p = new Vector2(Range(-halfExtent + 2f, halfExtent - 2f), Range(-halfExtent + 2f, halfExtent - 2f));
-                int variant = rng.Next(PropLibrary.RockRadii.Length);
+                var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
+                // Small stones are common, boulders rare; steep ground gets more of them.
+                float roll = (float)rng.NextDouble();
+                int variant = roll < 0.45f ? rng.Next(3) : roll < 0.85f ? 3 + rng.Next(3) : 6 + rng.Next(2);
                 float radius = PropLibrary.RockRadii[variant];
-                if (TooClose(blockedSpots, p, 2f) || Cabin.Overlaps(new Rect(p.x - 1.5f, p.y - 1.5f, 3f, 3f))) continue;
+                float steep = Mathf.InverseLerp(10f, 30f, Terrain.SlopeDeg(p.x, p.y));
+                if ((float)rng.NextDouble() > 0.45f + 0.55f * steep) continue;
+                if (!Free(p, radius, 1.4f)) continue;
                 if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
                 GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
                     () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
                 Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
                 blockedSpots.Add(p);
+                placed++;
             }
         }
 
@@ -412,13 +559,35 @@ namespace Vision.World
         {
             foreach (Vector2 p in Fires)
             {
-                GameObject go = Prop(library != null ? library.campfire : null, staticRoot,
-                    () => PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial));
+                GameObject go = Prop(library != null ? library.campfire : null, staticRoot, CampfireFromScratch);
                 go.transform.SetLocalPositionAndRotation(Upright(p, 0.6f), Quaternion.identity);
                 blockedSpots.Add(p);
             }
 
-            Vector2[] lanterns = { new Vector2(6.2f, 2.3f), new Vector2(-7f, 13f), new Vector2(15f, -5f), new Vector2(15.5f, 16f), new Vector2(-15f, -15f), new Vector2(11.5f, 9.5f) };
+            // A lantern by the cabin, then lanterns along the paths every ~15 units, alternating sides.
+            var lanterns = new List<Vector2> { new Vector2(6.2f, 2.3f) };
+            PathNetwork paths = Terrain.Paths;
+            if (paths != null)
+            {
+                int side = 1;
+                foreach (List<Vector2> path in paths.Paths)
+                {
+                    float walked = 7f;
+                    for (int i = 0; i < path.Count - 1 && lanterns.Count < 14; i++)
+                    {
+                        Vector2 a = path[i], b = path[i + 1];
+                        float seg = Vector2.Distance(a, b);
+                        walked += seg;
+                        if (walked < 15f || seg < 1e-3f) continue;
+                        Vector2 dir = (b - a) / seg;
+                        Vector2 p = a + new Vector2(-dir.y, dir.x) * (side * (paths.HalfWidth + 0.7f));
+                        side = -side;
+                        if (!Free(p, 0.15f, 1.5f) || TooClose(lanterns, p, 8f)) continue;
+                        lanterns.Add(p);
+                        walked = 0f;
+                    }
+                }
+            }
             foreach (Vector2 p in lanterns)
             {
                 GameObject go = Prop(library != null ? library.lantern : null, staticRoot,
@@ -426,11 +595,33 @@ namespace Vision.World
                 go.transform.SetLocalPositionAndRotation(Upright(p, 0.15f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
             }
+
+            // A burning barrel by the second wreck.
+            Vector2 barrel = WreckSites[1] + new Vector2(2.6f, 2.2f);
+            GameObject drum = Prop(library != null ? library.burningBarrel : null, staticRoot, BarrelFromScratch);
+            drum.transform.SetLocalPositionAndRotation(Upright(barrel, 0.3f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+            blockedSpots.Add(barrel);
+        }
+
+        GameObject CampfireFromScratch()
+        {
+            var flames = LowPolyModels.Flames(rng, 0.14f, 0.55f, 5);
+            return PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial, flames.ConvertAll(f => f.mesh).ToArray(),
+                flames.ConvertAll(f => f.position).ToArray(), LowPolyModels.Ember(rng));
+        }
+
+        GameObject BarrelFromScratch()
+        {
+            var flames = LowPolyModels.Flames(rng, 0.12f, 0.45f, 4);
+            return PropFactory.CreateBurningBarrel(LowPolyModels.BurningBarrel(rng), glowMaterial, flames.ConvertAll(f => f.mesh).ToArray(),
+                flames.ConvertAll(f => f.position).ToArray(), LowPolyModels.Ember(rng));
         }
 
         void BuildProps()
         {
-            Vector2[] crates = { new Vector2(12f, 5f), new Vector2(11.9f, 5.9f), new Vector2(4.2f, 2.8f), new Vector2(14f, 2f) };
+            var crates = new List<Vector2> { new Vector2(12f, 5f), new Vector2(11.9f, 5.9f), new Vector2(4.2f, 2.8f), new Vector2(14f, 2f) };
+            crates.Add(WreckSites[0] + new Vector2(-2.6f, 1.2f));
+            crates.Add(WreckSites[2] + new Vector2(2.4f, -1.4f));
             foreach (Vector2 p in crates)
             {
                 int variant = rng.Next(PropLibrary.CrateSizes.Length);
@@ -438,14 +629,58 @@ namespace Vision.World
                 GameObject go = Prop(library != null ? library.crates : null, variant, staticRoot,
                     () => PropFactory.CreateCrate(LowPolyModels.Crate(rng, size), lowPolyMaterial, size));
                 Conform(go.transform, p, size * 0.5f, Range(-15f, 15f), 0.75f, 0.04f);
+                blockedSpots.Add(p);
             }
+
+            // Car wrecks, roughly along the nearest path, abandoned at an angle.
+            for (int i = 0; i < WreckSites.Length; i++)
+            {
+                Vector2 p = WreckSites[i];
+                int kind = i % PropLibrary.CarVariants;
+                float yaw = Range(0f, 360f);
+                PathNetwork paths = Terrain.Paths;
+                if (paths != null)
+                {
+                    Vector2 along = PathDirection(paths, p);
+                    if (along != Vector2.zero) yaw = Mathf.Atan2(along.x, along.y) * Mathf.Rad2Deg + Range(-30f, 30f);
+                }
+                GameObject go = Prop(library != null ? library.cars : null, kind, staticRoot,
+                    () => PropFactory.CreateCar(LowPolyModels.Car(rng, kind), lowPolyMaterial, kind));
+                Conform(go.transform, p, LowPolyModels.CarSize(kind).z * 0.4f, yaw, 0.9f, 0.05f);
+                blockedSpots.Add(p);
+            }
+
+            GameObject gen = Prop(library != null ? library.generator : null, staticRoot,
+                () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
+            Conform(gen.transform, GeneratorSite, 0.7f, Range(-20f, 20f) + 90f, 0.85f, 0.03f);
+            blockedSpots.Add(GeneratorSite);
+        }
+
+        /// <summary>Direction of the path segment nearest to a point (zero when no path is near).</summary>
+        static Vector2 PathDirection(PathNetwork paths, Vector2 p)
+        {
+            float best = float.MaxValue;
+            Vector2 dir = Vector2.zero;
+            foreach (List<Vector2> path in paths.Paths)
+                for (int i = 0; i < path.Count - 1; i++)
+                {
+                    Vector2 mid = (path[i] + path[i + 1]) * 0.5f;
+                    float d = (mid - p).sqrMagnitude;
+                    if (d < best && (path[i + 1] - path[i]).sqrMagnitude > 1e-6f)
+                    {
+                        best = d;
+                        dir = (path[i + 1] - path[i]).normalized;
+                    }
+                }
+            return best < 100f ? dir : Vector2.zero;
         }
 
         // ---------------------------------------------------------------- entities
 
         void BuildCrows()
         {
-            Vector2[] spots = { new Vector2(2f, -7f), new Vector2(4.5f, -9.5f), new Vector2(0.5f, -12f), new Vector2(6f, -3.5f), new Vector2(-3f, -6f), new Vector2(9f, -10f) };
+            var spots = new List<Vector2> { new Vector2(2f, -7f), new Vector2(4.5f, -9.5f), new Vector2(0.5f, -12f), new Vector2(6f, -3.5f), new Vector2(-3f, -6f), new Vector2(9f, -10f) };
+            for (int i = 0; i < 4; i++) spots.Add(WreckSites[i % WreckSites.Length] + new Vector2(Range(-3f, 3f), Range(2.6f, 3.4f) * (i % 2 == 0 ? 1f : -1f)));
             foreach (Vector2 p in spots)
             {
                 GameObject go = Prop(library != null ? library.crows : null, rng.Next(PropLibrary.CrowVariants), entityRoot,

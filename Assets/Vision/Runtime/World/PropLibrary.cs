@@ -11,17 +11,27 @@ namespace Vision.World
     public sealed class PropLibrary : ScriptableObject
     {
         /// <summary>Rock variant radii in metres; index matches <see cref="rocks"/>.</summary>
-        public static readonly float[] RockRadii = { 0.45f, 0.6f, 0.75f, 0.9f };
+        public static readonly float[] RockRadii = { 0.25f, 0.35f, 0.45f, 0.6f, 0.75f, 0.9f, 1.4f, 2.1f };
 
         /// <summary>Crate edge lengths in metres; index matches <see cref="crates"/>.</summary>
         public static readonly float[] CrateSizes = { 0.7f, 0.8f, 0.9f };
 
         public const int TreeVariants = 6;
+        /// <summary>Leafy trees: the first half green, the rest autumn.</summary>
+        public const int LeafyVariants = 4;
+        public const int ConiferVariants = 3;
+        /// <summary>Car wreck kinds: sedan, van, pickup.</summary>
+        public const int CarVariants = 3;
         public const int CrowVariants = 2;
 
         public GameObject[] trees;
         public GameObject[] rocks;
         public GameObject[] crates;
+        public GameObject[] leafyTrees;
+        public GameObject[] conifers;
+        public GameObject[] cars;
+        public GameObject generator;
+        public GameObject burningBarrel;
         public GameObject campfire;
         public GameObject lantern;
         public GameObject[] crows;
@@ -30,6 +40,8 @@ namespace Vision.World
 
         public bool IsComplete =>
             Has(trees, TreeVariants) && Has(rocks, RockRadii.Length) && Has(crates, CrateSizes.Length) && Has(crows, CrowVariants)
+            && Has(leafyTrees, LeafyVariants) && Has(conifers, ConiferVariants) && Has(cars, CarVariants)
+            && generator != null && burningBarrel != null
             && campfire != null && lantern != null && player != null && wanderer != null;
 
         static bool Has(GameObject[] a, int count)

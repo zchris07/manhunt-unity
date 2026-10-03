@@ -46,11 +46,12 @@ namespace Vision.Tests
         static void AssertLevelShape(SandboxWorld world)
         {
             Assert.AreEqual(2, world.Doors.Count, "door and shutter");
-            Assert.AreEqual(6, world.Crows.Count);
+            Assert.AreEqual(10, world.Crows.Count);
             Assert.NotNull(world.Player);
             Assert.NotNull(world.Wanderer);
             Assert.AreEqual(4, world.Wanderer.waypoints.Length);
-            Assert.AreEqual(9, world.GetComponentsInChildren<VisionLight>().Length, "3 campfires + 6 lanterns");
+            int lights = world.GetComponentsInChildren<VisionLight>().Length;
+            Assert.That(lights, Is.InRange(10, 21), "5 campfires, a burning barrel and lanterns along the paths");
             Assert.Greater(world.GetComponentsInChildren<Occluder>().Length, 60, "walls, trunks, rocks, crates, doors");
         }
 

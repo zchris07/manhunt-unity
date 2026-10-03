@@ -208,6 +208,43 @@ namespace Vision.Player
             composite.debugView = VisionComposite.DebugView.Final;
             yield return Wait(5);
             yield return Shot("28b_hills_survey");
+            cameraRig.orthographicSize = 44f;
+            composite.debugView = VisionComposite.DebugView.SceneOnly;
+            yield return Stage(player, new Vector3(0f, 0f, 0f), new Vector2(0f, -1f), wanderer, away);
+            yield return Wait(5);
+            yield return Shot("28c_whole_map_scene");
+            composite.debugView = VisionComposite.DebugView.Final;
+
+            // New content up close, lit by the flashlight: a wreck by its burning barrel, the generator, woods, a fire.
+            cameraRig.orthographicSize = 4.5f;
+            var closeups = new (string name, Vector3 at, Vector2 aim)[]
+            {
+                ("31_wreck_and_barrel", new Vector3(25.5f, 0f, -9.5f), new Vector2(0.7f, 0.5f)),
+                ("32_generator_by_cabin", new Vector3(15.3f, 0f, 6.7f), new Vector2(0f, 1f)),
+                ("33_wreck_north", new Vector3(-3.5f, 0f, 28f), new Vector2(-0.8f, 0.6f)),
+            };
+            foreach (var c in closeups)
+            {
+                yield return Stage(player, c.at, c.aim, wanderer, away);
+                yield return Wait(5);
+                yield return Shot(c.name);
+            }
+            composite.debugView = VisionComposite.DebugView.SceneOnly;
+            foreach (var c in new (string name, Vector3 at)[] { ("34_woods_scene", new Vector3(20f, 0f, 30f)), ("35_meadow_scene", new Vector3(-26f, 0f, 0f)), ("36_dead_forest_scene", new Vector3(-12f, 0f, -18f)) })
+            {
+                cameraRig.orthographicSize = 9f;
+                yield return Stage(player, c.at, Vector2.up, wanderer, away);
+                yield return Wait(5);
+                yield return Shot(c.name);
+            }
+            composite.debugView = VisionComposite.DebugView.Final;
+            cameraRig.orthographicSize = 2.2f;
+            yield return Stage(player, new Vector3(-2.3f, 0f, -9.6f), new Vector2(1f, 0.2f), wanderer, away);
+            for (int f = 0; f < 3; f++)
+            {
+                yield return Wait(9);
+                yield return Shot($"37_fire_frame_{f}");
+            }
             cameraRig.orthographicSize = ortho;
 
             // 12. Gait sheet (side-on, fully lit).

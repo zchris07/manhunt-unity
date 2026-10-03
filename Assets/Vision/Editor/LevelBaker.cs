@@ -21,6 +21,18 @@ namespace Vision.EditorTools
         const string PrefabFolder = Root + "/Prefabs";
         public const string LibraryPath = PrefabFolder + "/PropLibrary.asset";
 
+        static (Mesh[], Vector3[]) SaveFlames(List<(Mesh mesh, Vector3 position)> flames, string prefix)
+        {
+            var meshes = new Mesh[flames.Count];
+            var at = new Vector3[flames.Count];
+            for (int i = 0; i < flames.Count; i++)
+            {
+                meshes[i] = SaveMesh(flames[i].mesh, $"{PropMeshes}/{prefix}_Flame_{i:00}.asset");
+                at[i] = flames[i].position;
+            }
+            return (meshes, at);
+        }
+
         /// <summary>Builds every prop variant, saves its mesh and prefab, and returns the library that lists them.</summary>
         public static PropLibrary BakeProps(Material lowPoly, Material entity, Material glow)
         {
@@ -57,8 +69,35 @@ namespace Vision.EditorTools
                 library.crates[i] = SavePrefab(PropFactory.CreateCrate(mesh, lowPoly, size), $"Crate_{i:00}");
             }
 
+            library.leafyTrees = new GameObject[PropLibrary.LeafyVariants];
+            for (int i = 0; i < library.leafyTrees.Length; i++)
+            {
+                bool autumn = i >= PropLibrary.LeafyVariants / 2;
+                Mesh mesh = SaveMesh(LowPolyModels.LeafyTree(new System.Random(1100 + i), autumn), $"{PropMeshes}/LeafyTree_{i:00}.asset");
+                library.leafyTrees[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly, autumn ? "Autumn Tree" : "Leafy Tree"), $"LeafyTree_{i:00}");
+            }
+            library.conifers = new GameObject[PropLibrary.ConiferVariants];
+            for (int i = 0; i < library.conifers.Length; i++)
+            {
+                Mesh mesh = SaveMesh(LowPolyModels.Conifer(new System.Random(1200 + i)), $"{PropMeshes}/Conifer_{i:00}.asset");
+                library.conifers[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly, "Conifer"), $"Conifer_{i:00}");
+            }
+            library.cars = new GameObject[PropLibrary.CarVariants];
+            for (int i = 0; i < library.cars.Length; i++)
+            {
+                Mesh mesh = SaveMesh(LowPolyModels.Car(new System.Random(6000 + i), i), $"{PropMeshes}/Car_{i:00}.asset");
+                library.cars[i] = SavePrefab(PropFactory.CreateCar(mesh, lowPoly, i), $"Car_{i:00}");
+            }
+            Mesh generator = SaveMesh(LowPolyModels.Generator(new System.Random(6100)), $"{PropMeshes}/Generator.asset");
+            library.generator = SavePrefab(PropFactory.CreateGenerator(generator, lowPoly), "Generator");
+
+            Mesh ember = SaveMesh(LowPolyModels.Ember(new System.Random(4010)), $"{PropMeshes}/Ember.asset");
+            (Mesh[] campFlames, Vector3[] campAt) = SaveFlames(LowPolyModels.Flames(new System.Random(4002), 0.14f, 0.55f, 5), "Campfire");
             Mesh fire = SaveMesh(LowPolyModels.Campfire(new System.Random(4000)), $"{PropMeshes}/Campfire.asset");
-            library.campfire = SavePrefab(PropFactory.CreateCampfire(fire, glow), "Campfire");
+            library.campfire = SavePrefab(PropFactory.CreateCampfire(fire, glow, campFlames, campAt, ember), "Campfire");
+            (Mesh[] barrelFlames, Vector3[] barrelAt) = SaveFlames(LowPolyModels.Flames(new System.Random(4003), 0.12f, 0.45f, 4), "BurningBarrel");
+            Mesh barrel = SaveMesh(LowPolyModels.BurningBarrel(new System.Random(4004)), $"{PropMeshes}/BurningBarrel.asset");
+            library.burningBarrel = SavePrefab(PropFactory.CreateBurningBarrel(barrel, glow, barrelFlames, barrelAt, ember), "BurningBarrel");
 
             Mesh lantern = SaveMesh(LowPolyModels.LanternPost(new System.Random(4001)), $"{PropMeshes}/LanternPost.asset");
             library.lantern = SavePrefab(PropFactory.CreateLantern(lantern, glow), "LanternPost");
@@ -192,6 +231,10 @@ namespace Vision.EditorTools
             Line("campfire", library.campfire, PolyBudget.Class.Prop);
             Line("lantern", library.lantern, PolyBudget.Class.Prop);
             Line("crow", library.crows[0], PolyBudget.Class.Prop);
+            Line("leafy tree", library.leafyTrees[0], PolyBudget.Class.Tree);
+            Line("conifer", library.conifers[0], PolyBudget.Class.Tree);
+            Line("van", library.cars[1], PolyBudget.Class.Vehicle);
+            Line("generator", library.generator, PolyBudget.Class.Prop);
             Debug.Log(sb.ToString());
         }
 
