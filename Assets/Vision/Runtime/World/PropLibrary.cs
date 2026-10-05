@@ -16,9 +16,10 @@ namespace Vision.World
         /// <summary>Crate edge lengths in metres; index matches <see cref="crates"/>.</summary>
         public static readonly float[] CrateSizes = { 0.7f, 0.8f, 0.9f };
 
-        public const int TreeVariants = 6;
-        /// <summary>Evergreens: two of each style in <see cref="LowPolyModels.Conifer"/> (variant / 2 = style).</summary>
-        public const int ConiferVariants = LowPolyModels.ConiferStyles * 2;
+        /// <summary>Dead trees: every design in every size; variant = design * sizes + size.</summary>
+        public const int TreeVariants = LowPolyModels.DeadTreeKinds * 3;
+        /// <summary>Evergreens: three of each style in <see cref="LowPolyModels.Conifer"/> (variant / 3 = style).</summary>
+        public const int ConiferVariants = LowPolyModels.ConiferStyles * 3;
         /// <summary>Car wreck kinds: sedan, van, pickup.</summary>
         public const int CarVariants = 3;
         public const int CrowVariants = 2;

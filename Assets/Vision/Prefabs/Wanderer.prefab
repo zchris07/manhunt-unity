@@ -175,7 +175,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fdb0e7ad9cf0ff4bb4111bf7fa7fe88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.Characters.HumanoidAnimator
-  maxSlopeLean: 12
+  maxSlopeLean: 20
   body: {fileID: 3953521644216210967}
   bones:
   - {fileID: 3661061162923549872}

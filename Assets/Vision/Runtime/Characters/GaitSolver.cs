@@ -53,6 +53,11 @@ namespace Vision.Characters
         public float Phase { get; private set; }
         public float Speed { get; private set; }
         public float Acceleration = 6f;
+        /// <summary>
+        /// Shortens the stride (0.45-1) at the same speed by quickening the steps, as people do on steep ground, so
+        /// both feet can still reach the slope.
+        /// </summary>
+        public float StrideScale = 1f;
         float time;
 
         /// <summary>0 = walking, 1 = running, from speed.</summary>
@@ -67,7 +72,7 @@ namespace Vision.Characters
                 float v = Mathf.Abs(Speed);
                 float walk = Mathf.Clamp(1.22f - 0.14f * v, 0.9f, 1.3f);
                 float run = Mathf.Clamp(0.86f - 0.04f * v, 0.6f, 0.8f);
-                return Mathf.Lerp(walk, run, RunBlend);
+                return Mathf.Lerp(walk, run, RunBlend) * Mathf.Clamp(StrideScale, 0.45f, 1f);
             }
         }
 

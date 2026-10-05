@@ -49,8 +49,9 @@ namespace Vision.EditorTools
             library.trees = new GameObject[PropLibrary.TreeVariants];
             for (int i = 0; i < PropLibrary.TreeVariants; i++)
             {
-                Mesh mesh = SaveMesh(LowPolyModels.DeadTree(new System.Random(1000 + i)), $"{PropMeshes}/DeadTree_{i:00}.asset");
-                library.trees[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly), $"DeadTree_{i:00}");
+                var kind = (LowPolyModels.DeadTreeKind)(i / 3);
+                Mesh mesh = SaveMesh(LowPolyModels.DeadTree(kind, i % 3), $"{PropMeshes}/DeadTree_{i:00}.asset");
+                library.trees[i] = SavePrefab(PropFactory.CreateDeadTree(mesh, lowPoly, kind), $"DeadTree_{i:00}");
             }
 
             library.rocks = new GameObject[PropLibrary.RockRadii.Length];
@@ -72,7 +73,7 @@ namespace Vision.EditorTools
             library.conifers = new GameObject[PropLibrary.ConiferVariants];
             for (int i = 0; i < library.conifers.Length; i++)
             {
-                Mesh mesh = SaveMesh(LowPolyModels.Conifer(new System.Random(1200 + i), i / 2), $"{PropMeshes}/Conifer_{i:00}.asset");
+                Mesh mesh = SaveMesh(LowPolyModels.Conifer(new System.Random(1200 + i), i / 3), $"{PropMeshes}/Conifer_{i:00}.asset");
                 library.conifers[i] = SavePrefab(PropFactory.CreateTree(mesh, lowPoly, mesh.name), $"Conifer_{i:00}");
             }
             foreach (string stale in AssetDatabase.FindAssets("LeafyTree_", new[] { PrefabFolder, PropMeshes }))

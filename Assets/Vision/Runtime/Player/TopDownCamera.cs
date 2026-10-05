@@ -20,9 +20,12 @@ namespace Vision.Player
         [Tooltip("Screen height in pixels at which the view is exactly orthographicSize.")]
         public float referenceHeight = 900f;
         public float smoothTime = 0.12f;
+        [Tooltip("Extra smoothing of the camera's height, so climbing or dropping over steep ground never jolts the view.")]
+        public float heightSmoothTime = 0.35f;
 
         Camera cam;
         Vector3 velocity;
+        float groundY, groundVelocity;
 
         void Awake()
         {
@@ -36,6 +39,8 @@ namespace Vision.Player
         {
             if (target == null) return;
             Apply();
+            groundY = target.position.y;
+            groundVelocity = 0f;
             transform.position = Desired();
             velocity = Vector3.zero;
         }
@@ -44,6 +49,7 @@ namespace Vision.Player
         {
             if (target == null) return;
             Apply();
+            groundY = Mathf.SmoothDamp(groundY, target.position.y, ref groundVelocity, heightSmoothTime);
             transform.position = Vector3.SmoothDamp(transform.position, Desired(), ref velocity, smoothTime);
         }
 
@@ -60,7 +66,7 @@ namespace Vision.Player
         Vector3 Desired()
         {
             Vector3 focus = target.position;
-            focus.y = target.position.y;   // follow the ground the player stands on
+            focus.y = groundY;   // follow the ground the player stands on, eased
             return focus - transform.forward * distance;
         }
     }

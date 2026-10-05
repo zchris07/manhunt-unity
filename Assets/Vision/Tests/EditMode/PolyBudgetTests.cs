@@ -47,7 +47,8 @@ namespace Vision.Tests
         [Test]
         public void Models_FollowTheirClassBudget()
         {
-            for (int i = 0; i < 4; i++) AssertFacets(LowPolyModels.DeadTree(new System.Random(1000 + i)), PolyBudget.Class.Tree);
+            foreach (var k in new[] { LowPolyModels.DeadTreeKind.Oak, LowPolyModels.DeadTreeKind.Spruce, LowPolyModels.DeadTreeKind.Elm })
+                AssertFacets(LowPolyModels.DeadTree(k, 1), PolyBudget.Class.Tree, true, 0.75f);
             foreach (float r in PropLibrary.RockRadii) AssertFacets(LowPolyModels.Rock(new System.Random(2000), r), PolyBudget.Class.Rock);
             AssertFacets(LowPolyModels.StoneWall(new System.Random(1), 8f, 1.2f, 0.6f), PolyBudget.Class.Wall);
             AssertFacets(LowPolyModels.PlankWall(new System.Random(1), 8f, 2.4f, 0.3f), PolyBudget.Class.Wall);
@@ -57,7 +58,7 @@ namespace Vision.Tests
         [Test]
         public void Models_AreDeterministic()
         {
-            Mesh a = LowPolyModels.DeadTree(new System.Random(7)), b = LowPolyModels.DeadTree(new System.Random(7));
+            Mesh a = LowPolyModels.Conifer(new System.Random(7), 5), b = LowPolyModels.Conifer(new System.Random(7), 5);
             Assert.AreEqual(a.vertices, b.vertices);
             Object.DestroyImmediate(a);
             Object.DestroyImmediate(b);

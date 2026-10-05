@@ -495,28 +495,71 @@ namespace Vision.World
 
                 GameObject go;
                 float dead = Deadness(p.x, p.y);
-                if ((float)rng.NextDouble() < Mathf.Lerp(0.06f, 0.9f, dead))
-                    go = Prop(library != null ? library.trees : null, rng.Next(PropLibrary.TreeVariants), staticRoot,
-                        () => PropFactory.CreateTree(LowPolyModels.DeadTree(rng), lowPolyMaterial));
+                bool isDead = (float)rng.NextDouble() < Mathf.Lerp(0.06f, 0.9f, dead);
+                if (isDead)
+                {
+                    var kind = PickDeadTree();
+                    // A fallen tree is 5-9 units long: keep it well clear of the paths.
+                    if (kind == LowPolyModels.DeadTreeKind.Fallen && Terrain.Paths != null && Terrain.Paths.Distance(p) < 6f)
+                        kind = LowPolyModels.DeadTreeKind.PineSnag;
+                    int size = rng.Next(3);
+                    go = Prop(library != null ? library.trees : null, (int)kind * 3 + size, staticRoot,
+                        () => PropFactory.CreateDeadTree(LowPolyModels.DeadTree(kind, size), lowPolyMaterial, kind));
+                }
                 else
                 {
-                    // Spruce where it is damp, pine where it is dry, young firs at the edges of the woods,
-                    // dead pines where the dead forest begins; firs everywhere else.
+                    // Spruce where it is damp, pine where it is dry, young firs at the edges of the woods, dying pines
+                    // where the dead forest begins, ragged spiky spruces scattered through, black spruce in the wet.
                     float moist = Moisture(p.x, p.y), roll = (float)rng.NextDouble();
                     int style = roll < 0.25f * dead * 2f ? 4
-                        : roll < 0.45f && moist > 0.55f ? 1
+                        : roll < 0.62f && moist > 0.6f ? (roll < 0.4f ? 6 : 1)
                         : roll < 0.45f && moist < 0.42f ? 2
                         : roll < 0.6f && wood < 0.4f ? 3
+                        : roll > 0.78f ? 5
                         : 0;
-                    int variant = style * 2 + rng.Next(2);
+                    int variant = style * 3 + rng.Next(3);
                     go = Prop(library != null ? library.conifers : null, variant, staticRoot,
                         () => { Mesh m = LowPolyModels.Conifer(rng, style); return PropFactory.CreateTree(m, lowPolyMaterial, m.name); });
                 }
-                go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                // Each tree gets its own height and girth: some shorter, some taller, some skinnier, some thicker.
+                Vector2 hg = TreeScale(rng, isDead);
+                go.transform.localScale = new Vector3(hg.y, hg.x, hg.y);
+                if (go.name.StartsWith("Fallen"))
+                    Conform(go.transform, p, 1.5f, Range(0f, 360f), 0.9f, 0.05f);
+                else
+                    go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius * hg.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blockedSpots.Add(p);
                 placed++;
             }
             TreeCount = placed;
+        }
+
+        /// <summary>
+        /// A tree's own height (x) and girth (y) multipliers, chosen independently. Evergreens spread over 0.62-1.45 (50%
+        /// more than the shapes alone), dead trees a little less as their designs already vary; girth is kept within
+        /// 0.55-1.1 of the height so no tree turns into a squat umbrella or a pole.
+        /// </summary>
+        public static Vector2 TreeScale(System.Random rng, bool dead)
+        {
+            float lo = dead ? 0.78f : 0.62f, hi = dead ? 1.25f : 1.45f;
+            float h = Mathf.Lerp(lo, hi, (float)rng.NextDouble());
+            float g = Mathf.Lerp(lo, hi, (float)rng.NextDouble());
+            return new Vector2(h, Mathf.Clamp(g, h * 0.55f, h * 1.1f));
+        }
+
+        /// <summary>A dead tree design, weighted: snags, oaks and spruces common; the fallen tree and hollow trunk rarer.</summary>
+        LowPolyModels.DeadTreeKind PickDeadTree()
+        {
+            float[] weight = { 1.2f, 1.4f, 0.9f, 1.2f, 0.6f, 0.7f, 0.9f, 0.8f, 0.9f, 0.6f, 0.45f, 0.45f };
+            float total = 0f;
+            foreach (float w in weight) total += w;
+            float roll = (float)rng.NextDouble() * total;
+            for (int i = 0; i < weight.Length; i++)
+            {
+                roll -= weight[i];
+                if (roll <= 0f) return (LowPolyModels.DeadTreeKind)i;
+            }
+            return LowPolyModels.DeadTreeKind.PineSnag;
         }
 
         /// <summary>How many trees the last generation placed.</summary>

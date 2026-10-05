@@ -90,8 +90,8 @@ namespace Vision.Tests
         [Test]
         public void Models_AreDeterministic()
         {
-            Mesh a = LowPolyModels.DeadTree(new System.Random(5));
-            Mesh b = LowPolyModels.DeadTree(new System.Random(5));
+            Mesh a = LowPolyModels.DeadTree(LowPolyModels.DeadTreeKind.Elm, 1);
+            Mesh b = LowPolyModels.DeadTree(LowPolyModels.DeadTreeKind.Elm, 1);
             Assert.AreEqual(a.vertexCount, b.vertexCount);
             Assert.AreEqual(a.bounds, b.bounds);
             Object.DestroyImmediate(a);
@@ -99,15 +99,39 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void DeadTree_IsTallWithMatchingTrunkFootprint()
+        public void DeadTrees_TwelveDistinctDesigns_EachInThreeSizes()
         {
-            for (int seed = 0; seed < 8; seed++)
+            var shapes = new System.Collections.Generic.HashSet<string>();
+            for (int k = 0; k < LowPolyModels.DeadTreeKinds; k++)
             {
-                Mesh m = LowPolyModels.DeadTree(new System.Random(seed));
-                Assert.That(m.bounds.max.y, Is.InRange(3.4f, 6.6f));
-                AssertFacesOutward(m, false);
-                Object.DestroyImmediate(m);
+                var kind = (LowPolyModels.DeadTreeKind)k;
+                float previous = 0f;
+                for (int size = 0; size < 3; size++)
+                {
+                    Mesh m = LowPolyModels.DeadTree(kind, size);
+                    AssertFacesOutward(m, false);
+                    Assert.GreaterOrEqual(m.bounds.min.y, -0.12f, $"{m.name} sits on the ground");
+                    float extent = Mathf.Max(m.bounds.size.x, m.bounds.size.y, m.bounds.size.z);
+                    Assert.Greater(extent, previous, $"{m.name}: each size step is bigger");
+                    previous = extent;
+                    if (size == 1)
+                    {
+                        Assert.That(m.triangles.Length / 3, Is.InRange(40, 2600), $"{m.name} triangle count");
+                        // Designs differ in proportions, not only in size.
+                        shapes.Add($"{m.bounds.size.x / m.bounds.size.y:0.0}x{m.bounds.size.z / m.bounds.size.y:0.0}x{m.triangles.Length / 100}");
+                    }
+                    Object.DestroyImmediate(m);
+                }
             }
+            Assert.GreaterOrEqual(shapes.Count, 11, "twelve designs with their own shape");
+            Mesh fallen = LowPolyModels.DeadTree(LowPolyModels.DeadTreeKind.Fallen, 1);
+            Assert.Greater(fallen.bounds.size.x, 2.5f * fallen.bounds.size.y, "the fallen tree lies along the ground (its root plate stands on edge)");
+            Object.DestroyImmediate(fallen);
+            Mesh snag = LowPolyModels.DeadTree(LowPolyModels.DeadTreeKind.PineSnag, 1);
+            Mesh stump = LowPolyModels.DeadTree(LowPolyModels.DeadTreeKind.Stump, 1);
+            Assert.Greater(snag.bounds.size.y, 2.5f * stump.bounds.size.y, "tall snags and short stumps");
+            Object.DestroyImmediate(snag);
+            Object.DestroyImmediate(stump);
         }
 
         [Test]

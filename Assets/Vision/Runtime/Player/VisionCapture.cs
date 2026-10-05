@@ -326,6 +326,7 @@ namespace Vision.Player
             }
 
             // 12. Gait sheet (side-on, fully lit).
+            yield return TreeSheets();
             yield return GaitSheet(player);
 
             // Frame time over a short run with everything live.
@@ -492,6 +493,109 @@ namespace Vision.Player
                 }
             }
             File.WriteAllText(Path.Combine(folder, "characters.txt"), sb.ToString());
+        }
+
+        /// <summary>
+        /// Two lit catalogue images: every dead tree design (three sizes each, small to large), and every evergreen form at
+        /// a spread of per-tree heights and girths. Built far from the level and photographed side-on.
+        /// </summary>
+        IEnumerator TreeSheets()
+        {
+            var root = new GameObject("Tree Sheet").transform;
+            root.position = new Vector3(5000f, 0f, 5000f);
+            Material mat = world.lowPolyMaterial;
+            var camGo = new GameObject("Tree Sheet Camera");
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.62f, 0.64f, 0.67f);
+            cam.nearClipPlane = 0.1f;
+            cam.farClipPlane = 200f;
+            var rt = new RenderTexture(2400, 1200, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            cam.targetTexture = rt;
+            Light moon = FindAnyObjectByType<Light>();
+            float moonIntensity = moon != null ? moon.intensity : 0f;
+            Quaternion moonRot = moon != null ? moon.transform.rotation : Quaternion.identity;
+            Color ambient = RenderSettings.ambientLight;
+            if (moon != null)
+            {
+                moon.intensity = 1.6f;
+                moon.transform.rotation = Quaternion.Euler(35f, -50f, 0f);
+            }
+            RenderSettings.ambientLight = new Color(0.5f, 0.5f, 0.53f);
+
+            GameObject Place(Mesh m, Vector3 at, Vector3 scale)
+            {
+                var go = new GameObject(m.name);
+                go.transform.SetParent(root, false);
+                go.transform.localPosition = at;
+                go.transform.localScale = scale;
+                go.AddComponent<MeshFilter>().sharedMesh = m;
+                go.AddComponent<MeshRenderer>().sharedMaterial = mat;
+                return go;
+            }
+
+            // Dead trees: three sheets of four designs, each design with its three sizes side by side; then the
+            // evergreens on two sheets, each form at short-thick, medium and tall-thin. Every sheet has its own spot.
+            var sheets = new System.Collections.Generic.List<(string name, Vector3 centre)>();
+            for (int sheet = 0; sheet < 3; sheet++)
+            {
+                float x0 = sheet * 200f;
+                for (int d = 0; d < 4; d++)
+                {
+                    int k = sheet * 4 + d;
+                    for (int size = 0; size < 3; size++)
+                        Place(LowPolyModels.DeadTree((LowPolyModels.DeadTreeKind)k, size), new Vector3(x0 + d * 11.5f + size * 3.4f, 0f, 0f), Vector3.one)
+                            .transform.localRotation = Quaternion.Euler(0f, 20f, 0f);
+                }
+                sheets.Add(($"45_dead_trees_{sheet + 1}", new Vector3(x0 + 21.5f, 4.2f, 0f)));
+            }
+            var spread = new[] { new Vector2(0.65f, 0.7f), new Vector2(1f, 1f), new Vector2(1.45f, 0.85f) };
+            for (int sheet = 0; sheet < 2; sheet++)
+            {
+                float x0 = 600f + sheet * 200f;
+                for (int f = 0; f < 4 && sheet * 4 + f < LowPolyModels.ConiferStyles; f++)
+                {
+                    int style = sheet * 4 + f;
+                    for (int v = 0; v < 3; v++)
+                    {
+                        Vector2 hg = spread[v];
+                        Place(LowPolyModels.Conifer(new System.Random(1200 + style * 3 + v), style), new Vector3(x0 + f * 11.5f + v * 3.6f, 0f, 0f), new Vector3(hg.y, hg.x, hg.y));
+                    }
+                }
+                sheets.Add(($"46_evergreens_{sheet + 1}", new Vector3(x0 + 21.5f, 4.8f, 0f)));
+            }
+
+            float s = world.transform.lossyScale.x;
+            root.localScale = Vector3.one * s;
+            foreach (var shot in sheets)
+            {
+                Vector3 c = root.TransformPoint(shot.centre);
+                cam.orthographicSize = 12f * s;
+                cam.transform.SetPositionAndRotation(c + new Vector3(0f, 0f, -60f), Quaternion.LookRotation(Vector3.forward));
+                yield return new WaitForEndOfFrame();
+                var tex = new Texture2D(rt.width, rt.height, TextureFormat.RGB24, false);
+                RenderTexture prev = RenderTexture.active;
+                RenderTexture.active = rt;
+                cam.Render();
+                tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+                RenderTexture.active = prev;
+                tex.Apply();
+                File.WriteAllBytes(Path.Combine(folder, shot.name + ".png"), tex.EncodeToPNG());
+                Destroy(tex);
+            }
+
+            if (moon != null)
+            {
+                moon.intensity = moonIntensity;
+                moon.transform.rotation = moonRot;
+            }
+            RenderSettings.ambientLight = ambient;
+            cam.targetTexture = null;
+            Destroy(camGo);
+            rt.Release();
+            Destroy(rt);
+            Destroy(root.gameObject);
         }
 
         /// <summary>Lowest point of either foot (ankle joint) and highest planted ankle above the ground under it.</summary>

@@ -655,7 +655,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5fdb0e7ad9cf0ff4bb4111bf7fa7fe88, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.Characters.HumanoidAnimator
-  maxSlopeLean: 12
+  maxSlopeLean: 20
   body: {fileID: 2157934958390706291}
   bones:
   - {fileID: 7131597232896233001}
@@ -731,8 +731,8 @@ CharacterController:
   serializedVersion: 3
   m_Height: 1.8
   m_Radius: 0.3
-  m_SlopeLimit: 45
-  m_StepOffset: 0.3
+  m_SlopeLimit: 89
+  m_StepOffset: 0.45
   m_SkinWidth: 0.03
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.9, z: 0}

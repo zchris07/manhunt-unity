@@ -56,65 +56,109 @@ namespace Vision.World
 
         // ------------------------------------------------------------------ evergreens
 
-        /// <summary>Evergreen forms: 0 fir, 1 tall narrow spruce, 2 pine (bare trunk, high crown), 3 young fir, 4 dead pine (brown, sparse).</summary>
-        public const int ConiferStyles = 5;
+        /// <summary>
+        /// Evergreen forms: 0 fir, 1 spruce, 2 pine, 3 young fir, 4 dying pine (brown), 5 spiky spruce, 6 black spruce
+        /// (5 and 6 are the ragged, spiky family). Every crown starts in the lower third of the trunk and tapers to a
+        /// point, and is at most <see cref="CrownWidthRatio"/> of the tree's height wide, so none looks like an umbrella.
+        /// </summary>
+        public const int ConiferStyles = 7;
 
-        /// <summary>An evergreen of the given style: a trunk under stacked, faceted cones of needles.</summary>
+        /// <summary>Widest crown (diameter) relative to the tree's height, before per-tree girth scaling.</summary>
+        public const float CrownWidthRatio = 0.4f;
+
         public static Mesh Conifer(System.Random rng, int style = 0)
         {
             var b = new LowPolyMeshBuilder(rng);
             style = Mathf.Abs(style) % ConiferStyles;
-            float height, trunkTop, crownBase, baseRadius, topRadius;
-            int tiers;
-            Color needles;
-            switch (style)
+            float height = style switch
             {
-                case 1:   // spruce: tall and narrow, many tiers
-                    height = b.Range(5.6f, 7.0f); trunkTop = 1.0f; crownBase = 0.6f; baseRadius = 1.05f; topRadius = 0.3f; tiers = 6;
-                    needles = new Color(0.13f, 0.21f, 0.15f);
-                    break;
-                case 2:   // pine: a long bare trunk and a lopsided crown near the top
-                    height = b.Range(5.0f, 6.4f); trunkTop = height * 0.72f; crownBase = height * 0.55f; baseRadius = 1.15f; topRadius = 0.5f; tiers = 3;
-                    needles = new Color(0.16f, 0.25f, 0.22f);
-                    break;
-                case 3:   // young fir: short and full
-                    height = b.Range(2.0f, 2.8f); trunkTop = 0.5f; crownBase = 0.25f; baseRadius = 0.85f; topRadius = 0.35f; tiers = 3;
-                    needles = new Color(0.20f, 0.30f, 0.18f);
-                    break;
-                case 4:   // dead pine: sparse brown tiers on a grey trunk
-                    height = b.Range(4.4f, 5.8f); trunkTop = height * 0.9f; crownBase = 1.2f; baseRadius = 0.95f; topRadius = 0.3f; tiers = 4;
-                    needles = new Color(0.33f, 0.25f, 0.16f);
-                    break;
-                default:  // fir
-                    height = b.Range(4.2f, 6.0f); trunkTop = 1.2f; crownBase = 0.7f; baseRadius = 1.45f; topRadius = 0.55f; tiers = 4;
-                    needles = new Color(0.15f, 0.24f, 0.16f);
-                    break;
-            }
+                1 => b.Range(5.6f, 7.0f),
+                2 => b.Range(5.2f, 6.6f),
+                3 => b.Range(2.2f, 3.0f),
+                4 => b.Range(4.4f, 5.8f),
+                5 => b.Range(4.6f, 6.4f),
+                6 => b.Range(4.8f, 6.6f),
+                _ => b.Range(4.2f, 6.0f),
+            };
+            if (style >= 5) Spiky(b, height, style == 6);
+            else Tiered(b, height, style);
+            string name = style switch { 1 => "Spruce", 2 => "Pine", 4 => "Dying Pine", 5 => "Spiky Spruce", 6 => "Black Spruce", _ => "Fir" };
+            return b.ToMesh(name);
+        }
+
+        /// <summary>Stacked, faceted cones of needles over a trunk (fir, spruce, pine, young fir, dying pine).</summary>
+        static void Tiered(LowPolyMeshBuilder b, float height, int style)
+        {
+            // Crown base (fraction of height), base crown radius (fraction of height) and tier count per style.
+            float crownBase = style switch { 2 => 0.3f, 4 => 0.22f, 1 => 0.1f, 3 => 0.08f, _ => 0.14f };
+            float radius = style switch { 1 => 0.15f, 2 => 0.16f, 3 => 0.185f, 4 => 0.16f, _ => 0.18f } * height;
+            int tiers = style switch { 1 => 6, 2 => 4, 3 => 3, 4 => 4, _ => 5 };
+            Color needles = style switch
+            {
+                1 => new Color(0.13f, 0.21f, 0.15f),
+                2 => new Color(0.16f, 0.25f, 0.22f),
+                3 => new Color(0.20f, 0.30f, 0.18f),
+                4 => new Color(0.33f, 0.25f, 0.16f),
+                _ => new Color(0.15f, 0.24f, 0.16f),
+            };
             Color bark = style == 4 ? new Color(0.30f, 0.28f, 0.26f) : Palette.Bark;
-            b.AddFrustum(Vector3.zero, new Vector3(0f, trunkTop, 0f), 0.2f, 0.12f, PolyBudget.Sides(0.2f, TreeClass, 5), bark, 0.1f);
+            float trunkTop = height * (style == 2 ? 0.75f : 0.6f);
+            b.AddFrustum(Vector3.zero, new Vector3(0f, trunkTop, 0f), 0.04f * height, 0.02f * height, PolyBudget.Sides(0.2f, TreeClass, 5), bark, 0.1f);
             if (style == 2 || style == 4)
             {
-                // Stubs of lost lower branches along the bare trunk.
+                // Stubs of lost lower branches below the crown.
                 for (int i = 0; i < 4; i++)
                 {
-                    float y = b.Range(1.2f, trunkTop * 0.9f), a = b.Next() * Mathf.PI * 2f;
+                    float y = b.Range(0.4f, crownBase * height), a = b.Next() * Mathf.PI * 2f;
                     var dir = new Vector3(Mathf.Cos(a), b.Range(-0.1f, 0.3f), Mathf.Sin(a)).normalized;
-                    b.AddTube(new[] { new Vector3(0f, y, 0f), new Vector3(0f, y, 0f) + dir * b.Range(0.3f, 0.6f) }, new[] { 0.04f, 0f }, 3, bark, 0.1f, 0f, 0f, null, false, false);
+                    b.AddTube(new[] { new Vector3(0f, y, 0f), new Vector3(0f, y, 0f) + dir * b.Range(0.25f, 0.5f) }, new[] { 0.035f, 0f }, 3, bark, 0.1f, 0f, 0f, null, false, false);
                 }
             }
-            Vector3 lean = new Vector3(b.Range(-0.25f, 0.25f), 0f, b.Range(-0.25f, 0.25f)) * (style == 2 ? 1f : 0.2f);
-            float y0 = crownBase, step = (height - crownBase) / (tiers + 0.4f);
+            float y0 = crownBase * height, span = height - y0;
             for (int i = 0; i < tiers; i++)
             {
                 float t = tiers == 1 ? 0f : i / (float)(tiers - 1);
-                float radius = Mathf.Lerp(baseRadius, topRadius, t) * b.Range(0.88f, 1.12f);
-                float top = Mathf.Min(height, y0 + Mathf.Lerp(1.7f, 1.2f, t) * Mathf.Lerp(1f, 0.75f, style == 3 ? 1f : 0f));
-                Vector3 offset = lean * t + new Vector3(b.Range(-0.06f, 0.06f), 0f, b.Range(-0.06f, 0.06f));
+                // Tiers shrink steadily toward the tip, so the outline is a narrow spire.
+                float r = radius * Mathf.Lerp(1f, 0.28f, t) * b.Range(0.9f, 1.05f);
+                float bottom = y0 + span * (i / (float)(tiers + 0.6f));
+                float top = i == tiers - 1 ? height : Mathf.Min(height, bottom + span * 0.42f);
+                var offset = new Vector3(b.Range(-0.04f, 0.04f), 0f, b.Range(-0.04f, 0.04f));
                 Color c = style == 4 && b.Next() < 0.35f ? needles * 0.75f : needles;
-                b.AddCone(offset + Vector3.up * y0, offset * 1.1f + Vector3.up * top, radius, PolyBudget.Sides(radius, TreeClass, 6, 9), b.Jitter(c, 0.08f), 0.12f, true);
-                y0 += step;
+                b.AddCone(offset + Vector3.up * bottom, Vector3.up * top, r, PolyBudget.Sides(r, TreeClass, 6, 9), b.Jitter(c, 0.08f), 0.12f, true);
             }
-            return b.ToMesh(style == 4 ? "Dead Pine" : style == 2 ? "Pine" : style == 1 ? "Spruce" : "Fir");
+        }
+
+        /// <summary>
+        /// Ragged, spiky evergreen: a thin trunk bristling with sharp needle-spikes jutting out at angles, sparse and uneven,
+        /// longest low down and shortest at the tip. The black spruce form is narrower with a dense clump near the top.
+        /// </summary>
+        static void Spiky(LowPolyMeshBuilder b, float height, bool black)
+        {
+            Color bark = new Color(0.22f, 0.19f, 0.16f);
+            Color needles = black ? new Color(0.11f, 0.17f, 0.13f) : new Color(0.14f, 0.22f, 0.15f);
+            b.AddFrustum(Vector3.zero, new Vector3(0f, height * 0.97f, 0f), 0.035f * height, 0.008f * height, 5, bark, 0.1f);
+            float crownBase = (black ? 0.2f : 0.12f) * height;
+            float maxReach = (black ? 0.13f : 0.18f) * height;
+            int levels = black ? 16 : 14;
+            for (int l = 0; l < levels; l++)
+            {
+                float t = l / (float)(levels - 1);
+                float y = Mathf.Lerp(crownBase, height * 0.93f, t);
+                float reach = maxReach * Mathf.Lerp(1f, 0.2f, t);
+                if (black && t > 0.72f) reach = maxReach * 0.55f;   // the club-shaped top
+                int spikes = black ? 6 : 7 + b.Rng.Next(3);
+                for (int k = 0; k < spikes; k++)
+                {
+                    if (b.Next() < (black ? 0.22f : 0.15f)) continue;   // gaps: ragged, not regular
+                    float a = (l * 61f + k * 360f / spikes + b.Range(-25f, 25f)) * Mathf.Deg2Rad;
+                    var outward = new Vector3(Mathf.Cos(a), b.Range(-0.35f, 0.25f), Mathf.Sin(a)).normalized;
+                    float len = reach * b.Range(0.6f, 1.25f);
+                    var root = new Vector3(0f, y, 0f);
+                    // A spike is a thin, sharp cone, a few needles thick at its root.
+                    b.AddCone(root, root + outward * len, Mathf.Max(0.07f, len * 0.24f), 4, b.Jitter(needles, 0.1f), 0.12f, true);
+                }
+            }
+            b.AddCone(new Vector3(0f, height * 0.85f, 0f), new Vector3(0f, height, 0f), maxReach * 0.22f, 4, needles, 0.1f, true);
         }
 
         // ------------------------------------------------------------------ wrecks and machines

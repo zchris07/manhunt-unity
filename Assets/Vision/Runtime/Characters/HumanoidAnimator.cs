@@ -22,7 +22,7 @@ namespace Vision.Characters
         public static GroundSampler Ground;
 
         [Tooltip("Largest forward lean into a climb (and back lean downhill), degrees.")]
-        public float maxSlopeLean = 12f;
+        public float maxSlopeLean = 20f;
         [Tooltip("Yaw pivot for the whole body (legs face this way).")]
         public Transform body;
         [Tooltip("Bone transforms indexed by Vision.Characters.Bone.")]
@@ -88,6 +88,9 @@ namespace Vision.Characters
             Vector3 fwd3 = new Vector3(forward.x, 0f, forward.y) * (0.35f * scale);
             if (Sample(transform.position + fwd3, out float hAhead, out _) && Sample(transform.position - fwd3, out float hBehind, out _))
                 grade = (hAhead - hBehind) / (0.7f * scale);
+            // Steeper ground, shorter quicker steps: full stride up to 15 degrees, about half by 60.
+            float slopeDeg = Mathf.Atan(Mathf.Abs(grade)) * Mathf.Rad2Deg;
+            solver.StrideScale = Mathf.Lerp(1f, 0.45f, Mathf.InverseLerp(15f, 60f, slopeDeg));
             float targetLean = Mathf.Clamp(Mathf.Atan(grade) * Mathf.Rad2Deg * 0.5f, -maxSlopeLean, maxSlopeLean) * solver.Moving;
             slopeLean = Mathf.Lerp(slopeLean, targetLean, 1f - Mathf.Exp(-6f * dt));
 
@@ -120,7 +123,7 @@ namespace Vision.Characters
             // Feet follow the ground under them; the pelvis drops by the lowest foot so that leg can still reach.
             float offL = GroundOffset(pose.Left.Ankle, out Vector3 nL);
             float offR = GroundOffset(pose.Right.Ankle, out Vector3 nR);
-            float maxDrop = 0.35f * HumanoidSkeleton.HipHeight * scale;
+            float maxDrop = 0.5f * HumanoidSkeleton.HipHeight * scale;
             float drop = Mathf.Clamp(-Mathf.Min(offL, offR), 0f, maxDrop);
             pelvisDrop = Ground == null ? 0f : drop;   // continuous already: the ankle targets move smoothly
 

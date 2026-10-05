@@ -32,76 +32,8 @@ namespace Vision.World
 
         // ------------------------------------------------------------------ trees and rocks
 
-        /// <summary>Gnarled, leafless tree: leaning faceted trunk, root wedges and forking spiky branches.</summary>
         const PolyBudget.Class TreeClass = PolyBudget.Class.Tree;
         const PolyBudget.Class PropClass = PolyBudget.Class.Prop;
-
-        public static Mesh DeadTree(System.Random rng)
-        {
-            var b = new LowPolyMeshBuilder(rng);
-            float height = b.Range(3.6f, 5.8f);
-            float leanX = b.Range(-0.07f, 0.07f), leanZ = b.Range(-0.07f, 0.07f);
-            int rings = PolyBudget.Segments(height, TreeClass, 3) + 1;
-
-            var centers = new Vector3[rings];
-            var radii = new float[rings];
-            for (int i = 0; i < rings; i++)
-            {
-                float t = i / (float)(rings - 1);
-                float y = height * t;
-                centers[i] = new Vector3(leanX * y + b.Range(-0.04f, 0.04f) * t, y, leanZ * y + b.Range(-0.04f, 0.04f) * t);
-                radii[i] = Mathf.Lerp(0.32f, 0.06f, Mathf.Pow(t, 0.75f));
-            }
-            b.AddTube(centers, radii, PolyBudget.Sides(0.32f, TreeClass, 5), Palette.Bark, 0.10f, 0.08f, 7f, null, false, true);
-
-            int roots = 4 + b.Rng.Next(2);
-            for (int i = 0; i < roots; i++)
-            {
-                float a = (i + b.Next() * 0.6f) / roots * Mathf.PI * 2f;
-                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                b.AddTube(new[] { dir * 0.1f + Vector3.up * 0.3f, dir * 0.42f + Vector3.up * 0.1f, dir * 0.8f - Vector3.up * 0.02f },
-                          new[] { 0.15f, 0.09f, 0f }, PolyBudget.Sides(0.15f, TreeClass), Palette.BarkDark, 0.1f, 0.1f, 0f, null, false, false);
-            }
-
-            int branches = 5 + b.Rng.Next(4);
-            for (int i = 0; i < branches; i++)
-            {
-                float t = b.Range(0.3f, 0.95f);
-                float f = t * (rings - 1);
-                int i0 = Mathf.Min(Mathf.FloorToInt(f), rings - 2);
-                Vector3 start = Vector3.Lerp(centers[i0], centers[i0 + 1], f - i0);
-                float trunkRadius = Mathf.Lerp(radii[i0], radii[i0 + 1], f - i0);
-                float a = b.Next() * Mathf.PI * 2f;
-                var dir = new Vector3(Mathf.Cos(a), b.Range(0.35f, 0.9f), Mathf.Sin(a)).normalized;
-                Branch(b, start, dir, b.Range(1.0f, 2.2f), Mathf.Max(0.045f, trunkRadius * 0.5f), 2);
-            }
-            return b.ToMesh("Dead Tree");
-        }
-
-        static void Branch(LowPolyMeshBuilder b, Vector3 start, Vector3 dir, float length, float radius, int depth)
-        {
-            int points = PolyBudget.Segments(length, TreeClass, 2) + 1;
-            var centers = new Vector3[points];
-            var radii = new float[points];
-            centers[0] = start;
-            radii[0] = radius;
-            Vector3 p = start;
-            float step = length / (points - 1);
-            for (int i = 1; i < points; i++)
-            {
-                dir = (dir + new Vector3(b.Range(-0.5f, 0.5f), b.Range(-0.25f, 0.3f), b.Range(-0.5f, 0.5f)) * 0.7f).normalized;
-                p += dir * step;
-                centers[i] = p;
-                radii[i] = i == points - 1 ? 0f : radius * (1f - i / (float)(points - 1)) * 0.9f;
-            }
-            b.AddTube(centers, radii, PolyBudget.Sides(radius, TreeClass), Palette.Bark, 0.12f, 0.1f, 0f, null, false, false);
-
-            if (depth > 0 && b.Next() < 0.7f)
-            {
-                Vector3 side = new Vector3(b.Range(-1f, 1f), b.Range(0.1f, 0.8f), b.Range(-1f, 1f)).normalized;
-                Branch(b, centers[1], (dir + side).normalized, length * 0.6f, radius * 0.5f, depth - 1);
-            }
-        }
 
         /// <summary>Lumpy boulder with a flat bottom and height-banded colour.</summary>
         public static Mesh Rock(System.Random rng, float radius)

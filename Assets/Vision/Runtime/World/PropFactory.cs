@@ -33,17 +33,34 @@ namespace Vision.World
             return renderer;
         }
 
-        public static GameObject CreateTree(Mesh mesh, Material material, string name = "Dead Tree")
+        public static GameObject CreateTree(Mesh mesh, Material material, string name = "Dead Tree", float trunkRadius = TreeTrunkRadius)
         {
             GameObject go = Make(name, mesh, material, true);
             var col = go.AddComponent<CapsuleCollider>();
-            col.radius = TreeTrunkRadius;
+            col.radius = trunkRadius;
             col.height = 4f;
             col.center = new Vector3(0f, 2f, 0f);
             var occ = go.AddComponent<Occluder>();
             occ.shape = Occluder.Shape.Circle;
-            occ.radius = TreeTrunkRadius;
+            occ.radius = trunkRadius;
             occ.sides = 8;
+            return go;
+        }
+
+        /// <summary>One of the dead tree designs: its own trunk footprint, or a box along the trunk for the fallen tree.</summary>
+        public static GameObject CreateDeadTree(Mesh mesh, Material material, LowPolyModels.DeadTreeKind kind)
+        {
+            LowPolyModels.DeadTreeInfo info = LowPolyModels.DeadTreeInfoFor(kind);
+            if (!info.Lying) return CreateTree(mesh, material, info.Name, info.TrunkRadius);
+            GameObject go = Make(info.Name, mesh, material, true);
+            Bounds bounds = mesh.bounds;
+            var col = go.AddComponent<BoxCollider>();
+            col.center = new Vector3(bounds.center.x, 0.4f, 0f);
+            col.size = new Vector3(bounds.size.x, 0.8f, info.TrunkRadius * 2f);
+            var occ = go.AddComponent<Occluder>();
+            occ.shape = Occluder.Shape.Box;
+            occ.size = new Vector2(bounds.size.x * 0.9f, info.TrunkRadius * 2f);
+            occ.offset = new Vector2(bounds.center.x, 0f);
             return go;
         }
 
@@ -237,6 +254,9 @@ namespace Vision.World
             cc.height = 1.8f;
             cc.center = new Vector3(0f, 0.9f, 0f);
             cc.skinWidth = 0.03f;
+            // Every grade of the terrain is walkable: the controller never refuses a slope.
+            cc.slopeLimit = 89f;
+            cc.stepOffset = 0.45f;
             var viewer = root.AddComponent<VisionViewer>();
             root.AddComponent<PlayerStats>();
             var controller = root.AddComponent<PlayerController>();

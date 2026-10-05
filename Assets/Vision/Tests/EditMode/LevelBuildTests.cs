@@ -146,8 +146,10 @@ namespace Vision.Tests
             Assume.That(library, Is.Not.Null, "run Vision/Bake Level and Scene first");
             foreach (GameObject tree in library.trees)
             {
-                Assert.NotNull(tree.GetComponent<CapsuleCollider>());
-                Assert.AreEqual(PropFactory.TreeTrunkRadius, tree.GetComponent<Occluder>().radius, 1e-4f);
+                Assert.NotNull(tree.GetComponent<Collider>());
+                Occluder occ = tree.GetComponent<Occluder>();
+                if (occ.shape == Occluder.Shape.Circle) Assert.That(occ.radius, Is.InRange(0.14f, 0.56f), $"{tree.name} trunk footprint");
+                else Assert.Greater(occ.size.x, 3f, $"{tree.name} lies along its length");
                 Assert.NotNull(tree.GetComponent<MeshFilter>().sharedMesh);
                 Assert.IsTrue(EditorUtility.IsPersistent(tree.GetComponent<MeshFilter>().sharedMesh), "mesh is a saved asset");
             }

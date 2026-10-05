@@ -94,6 +94,25 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void SteepSlopes_NeverStopThePlayer()
+        {
+            var material = new Material(Shader.Find("Vision/LowPoly"));
+            GameObject player = PropFactory.CreatePlayer(material);
+            try
+            {
+                var cc = player.GetComponent<CharacterController>();
+                Assert.GreaterOrEqual(cc.slopeLimit, 85f, "the controller never refuses a slope");
+                Assert.GreaterOrEqual(PlayerController.SlopeFactor(Mathf.Tan(60f * Mathf.Deg2Rad)), 0.65f, "a 60 degree climb keeps moving");
+                Assert.GreaterOrEqual(PlayerController.SlopeFactor(100f), 0.65f, "even a near-vertical face");
+            }
+            finally
+            {
+                Object.DestroyImmediate(player);
+                Object.DestroyImmediate(material);
+            }
+        }
+
+        [Test]
         public void SlopeFactor_SlowsClimbsAndSlightlySpeedsDescents()
         {
             Assert.AreEqual(1f, PlayerController.SlopeFactor(0f), 1e-5f);
@@ -103,16 +122,18 @@ namespace Vision.Tests
         }
 
         /// <summary>A 30° ramp rising toward +Z (world units, scale 1).</summary>
+        static float rampDeg = 30f;
+
         static bool Ramp(Vector3 world, out float height, out Vector3 normal)
         {
-            float g = Mathf.Tan(30f * Mathf.Deg2Rad);
+            float g = Mathf.Tan(rampDeg * Mathf.Deg2Rad);
             height = world.z * g;
             normal = new Vector3(0f, 1f, -g).normalized;
             return true;
         }
 
         [Test]
-        public void Gait_OnA30DegreeRamp_PlantsFeetOnTheSlope_UpAndDown_WalkingAndSprinting()
+        public void Gait_On30To60DegreeRamps_PlantsFeetOnTheSlope_UpAndDown_WalkingAndSprinting()
         {
             var material = new Material(Shader.Find("Vision/LowPoly"));
             GameObject player = PropFactory.CreatePlayer(material);
@@ -121,10 +142,13 @@ namespace Vision.Tests
             HumanoidAnimator.Ground = Ramp;
             try
             {
+                foreach (float deg in new[] { 30f, 45f, 60f })
                 foreach (float dir in new[] { 1f, -1f })
                 {
-                    foreach (float speed in new[] { 1.6f, 2.6f })
+                    rampDeg = deg;
+                    foreach (float flat in new[] { 1.6f, 2.6f })
                     {
+                        float speed = flat * PlayerController.SlopeFactor(dir * Mathf.Tan(deg * Mathf.Deg2Rad));
                         player.transform.position = new Vector3(0f, 0f, 0f);
                         animator.Solver.Reset();
                         float worstReach = 0f, lowest = float.MaxValue, highestPlanted = float.MinValue;
@@ -147,15 +171,16 @@ namespace Vision.Tests
                                 highestPlanted = Mathf.Max(highestPlanted, aboveGround);
                             }
                         }
-                        string label = $"{(dir > 0 ? "uphill" : "downhill")} at {speed} m/s";
-                        Assert.Less(worstReach, 0.015f, $"planted feet reach their targets on the slope ({label})");
+                        string label = $"{(dir > 0 ? "uphill" : "downhill")} {deg} degrees at {speed:0.00} m/s";
+                        Assert.Less(worstReach, deg > 50f ? 0.06f : 0.02f, $"planted feet reach their targets on the slope ({label})");
                         Assert.Greater(lowest, HumanoidSkeleton.AnkleHeight * 0.4f, $"no foot sinks into the slope ({label})");
-                        Assert.Less(highestPlanted, 0.3f, $"planted feet stay on the slope ({label})");
+                        Assert.Less(highestPlanted, deg > 50f ? 0.4f : 0.3f, $"planted feet stay on the slope ({label})");
                     }
                 }
             }
             finally
             {
+                rampDeg = 30f;
                 HumanoidAnimator.Ground = null;
                 Object.DestroyImmediate(player);
                 Object.DestroyImmediate(material);

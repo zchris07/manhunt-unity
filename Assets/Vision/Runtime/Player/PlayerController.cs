@@ -89,10 +89,16 @@ namespace Vision.Player
             if (seeThrough.WasPressedThisFrame() && viewer != null) viewer.seeThroughEnabled = !viewer.seeThroughEnabled;
             UseItemKeys();
 
-            velocity *= SlopeSpeedFactor(velocity);
-            // Pressed into the ground hard enough to follow a 45° descent instead of bouncing off it.
-            verticalSpeed = cc.isGrounded ? -(velocity.magnitude + 1f) : verticalSpeed - 9.81f * Time.deltaTime;
+            float grade = Grade(velocity);
+            velocity *= SlopeFactor(grade);
+            // Movement follows the ground: the climb or drop along the way is added to the step, so any grade can be
+            // walked up or down without the controller blocking or the player leaving the ground.
+            if (cc.isGrounded || grade != 0f)
+                verticalSpeed = grade * velocity.magnitude - 1.5f * transform.lossyScale.x;
+            else
+                verticalSpeed -= 9.81f * Time.deltaTime;
             cc.Move(new Vector3(velocity.x, verticalSpeed, velocity.y) * Time.deltaTime);
+            KeepOnGround();
 
             // While the pointer is on the look panel (F4) the light keeps its direction.
             Vector2 aim = AimOverride ?? (VisionDebugHud.PointerOverPanel(aimPoint.ReadValue<Vector2>()) ? Vector2.zero : ReadAim());
@@ -121,21 +127,35 @@ namespace Vision.Player
             return PointerAim(pointer);
         }
 
-        /// <summary>Slower uphill (by 35% of the sine of the climb), slightly faster downhill (at most 8%).</summary>
+        /// <summary>
+        /// Slower uphill (by 35% of the sine of the climb, never below 65% of the pace, so even a very steep climb keeps
+        /// moving), slightly faster downhill (at most 8%).
+        /// </summary>
         public static float SlopeFactor(float grade)
         {
             float sin = Mathf.Sin(Mathf.Atan(grade));
-            return sin > 0f ? 1f - 0.35f * sin : 1f + Mathf.Min(-sin, 0.5f) * 0.16f;
+            return sin > 0f ? Mathf.Max(0.65f, 1f - 0.35f * sin) : 1f + Mathf.Min(-sin, 0.5f) * 0.16f;
         }
 
-        float SlopeSpeedFactor(Vector2 velocity)
+        /// <summary>Rise over run of the ground along the direction of travel (0 on flat ground or without terrain).</summary>
+        float Grade(Vector2 velocity)
         {
-            if (velocity.sqrMagnitude < 1e-4f) return 1f;
+            if (velocity.sqrMagnitude < 1e-4f) return 0f;
             float scale = transform.lossyScale.x;
             Vector3 dir = new Vector3(velocity.x, 0f, velocity.y).normalized * (0.4f * scale);
             Vector3 p = transform.position;
-            if (!TerrainField.TrySample(p + dir, out float ahead, out _) || !TerrainField.TrySample(p - dir, out float behind, out _)) return 1f;
-            return SlopeFactor((ahead - behind) / (0.8f * scale));
+            if (!TerrainField.TrySample(p + dir, out float ahead, out _) || !TerrainField.TrySample(p - dir, out float behind, out _)) return 0f;
+            return (ahead - behind) / (0.8f * scale);
+        }
+
+        /// <summary>Never below the terrain (a steep facet can push the capsule a little under it).</summary>
+        void KeepOnGround()
+        {
+            if (!TerrainField.TrySample(transform.position, out float ground, out _)) return;
+            if (transform.position.y >= ground - 0.02f * transform.lossyScale.x) return;
+            cc.enabled = false;
+            transform.position = new Vector3(transform.position.x, ground, transform.position.z);
+            cc.enabled = true;
         }
 
         Vector2 PointerAim(Vector2 screen)

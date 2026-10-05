@@ -15,21 +15,64 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Evergreens_ComeInFiveForms_AllTreeSizedAndOnBudget()
+        public void Evergreens_SevenForms_NarrowSpires_NoUmbrellas()
         {
             var names = new HashSet<string>();
             for (int style = 0; style < LowPolyModels.ConiferStyles; style++)
             {
-                Mesh m = LowPolyModels.Conifer(new System.Random(1200 + style), style);
-                names.Add(m.name);
-                float minHeight = style == 3 ? 1.9f : 4f;
-                Assert.That(m.bounds.max.y, Is.InRange(minHeight, 7.2f), $"{m.name} height");
-                Assert.GreaterOrEqual(m.bounds.min.y, -0.01f);
-                Assert.Less(m.bounds.size.x, 3.4f, $"{m.name} crown width");
-                AssertFacets(m, PolyBudget.Class.Tree);
-                Object.DestroyImmediate(m);
+                for (int seed = 0; seed < 3; seed++)
+                {
+                    Mesh m = LowPolyModels.Conifer(new System.Random(1200 + style * 3 + seed), style);
+                    names.Add(m.name);
+                    float h = m.bounds.max.y;
+                    Assert.That(h, Is.InRange(style == 3 ? 2f : 4f, 7.2f), $"{m.name} height");
+                    Assert.GreaterOrEqual(m.bounds.min.y, -0.01f);
+                    float width = Mathf.Max(m.bounds.size.x, m.bounds.size.z);
+                    Assert.LessOrEqual(width, LowPolyModels.CrownWidthRatio * h + 0.15f, $"{m.name}: crown no wider than {LowPolyModels.CrownWidthRatio} of its height");
+                    AssertCrownTapers(m);
+                    AssertFacets(m, PolyBudget.Class.Tree, 0.75f);
+                    Object.DestroyImmediate(m);
+                }
             }
-            CollectionAssert.AreEquivalent(new[] { "Fir", "Spruce", "Pine", "Dead Pine" }, names, "young firs are firs too");
+            CollectionAssert.AreEquivalent(new[] { "Fir", "Spruce", "Pine", "Dying Pine", "Spiky Spruce", "Black Spruce" }, names, "young firs are firs too");
+        }
+
+        /// <summary>No umbrella: the crown starts in the lower third and is never wider higher up than lower down.</summary>
+        static void AssertCrownTapers(Mesh m)
+        {
+            Vector3[] v = m.vertices;
+            float h = m.bounds.max.y;
+            var widest = new float[6];
+            foreach (Vector3 p in v)
+            {
+                int band = Mathf.Clamp((int)(p.y / h * 6f), 0, 5);
+                widest[band] = Mathf.Max(widest[band], new Vector2(p.x, p.z).magnitude);
+            }
+            float crownStart = widest[0] > 0.3f || widest[1] > 0.3f ? 0f : 1f;
+            Assert.AreEqual(0f, crownStart, $"{m.name}: needles start in the lower third");
+            for (int i = 2; i < 6; i++)
+                Assert.LessOrEqual(widest[i], Mathf.Max(widest[0], widest[1], widest[i - 1]) * 1.12f + 0.05f, $"{m.name}: band {i} is no wider than below it");
+        }
+
+        [Test]
+        public void TreeSizes_VaryHeightAndGirthIndependently()
+        {
+            var rng = new System.Random(4);
+            float hMin = 9f, hMax = 0f, gMin = 9f, gMax = 0f;
+            int thinTall = 0, thickShort = 0;
+            for (int i = 0; i < 400; i++)
+            {
+                Vector2 hg = SandboxWorld.TreeScale(rng, false);
+                hMin = Mathf.Min(hMin, hg.x); hMax = Mathf.Max(hMax, hg.x);
+                gMin = Mathf.Min(gMin, hg.y); gMax = Mathf.Max(gMax, hg.y);
+                Assert.That(hg.y / hg.x, Is.InRange(0.549f, 1.101f), "never an umbrella nor a pole");
+                if (hg.x > 1.2f && hg.y < hg.x * 0.7f) thinTall++;
+                if (hg.x < 0.85f && hg.y > hg.x * 0.95f) thickShort++;
+            }
+            Assert.Greater(hMax / hMin, 2f, "heights vary over 2x");
+            Assert.Greater(gMax / gMin, 1.8f, "girths vary too");
+            Assert.Greater(thinTall, 10, "some tall and skinny");
+            Assert.Greater(thickShort, 10, "some short and thick");
         }
 
         [Test]
@@ -195,7 +238,7 @@ namespace Vision.Tests
                     Vector3 local = world.transform.InverseTransformPoint(t.position);
                     Assert.Greater(paths.Distance(new Vector2(local.x, local.z)), paths.HalfWidth, $"{t.name} stands off the path");
                 }
-                foreach (string kind in new[] { "Dead", "Fir", "Spruce", "Pine", "Rock", "Sedan", "Van", "Pickup", "Generator", "Burning", "Campfire", "Lantern" })
+                foreach (string kind in new[] { "Dead", "Pine", "Snapped", "Fallen", "Fir", "Spruce", "Spiky", "Black", "Rock", "Sedan", "Van", "Pickup", "Generator", "Burning", "Campfire", "Lantern" })
                     Assert.IsTrue(names.ContainsKey(kind), $"the level has {kind}");
                 foreach (string kind in new[] { "Leafy", "Autumn" })
                     Assert.IsFalse(names.ContainsKey(kind), $"no {kind} trees");
