@@ -19,7 +19,7 @@ namespace Vision.World
     /// The level is built when Play starts (and again by <see cref="Regenerate"/>); nothing of it is saved in the scene.
     /// </summary>
     [DefaultExecutionOrder(-100)]
-    public sealed class SandboxWorld : MonoBehaviour
+    public sealed partial class SandboxWorld : MonoBehaviour
     {
         public int seed = 1337;
         [Tooltip("Half the map's width in design units: the original's 6000 units at 3 cm each.")]
@@ -182,6 +182,7 @@ namespace Vision.World
             entityRoot.SetParent(transform, false);
 
             Step("walls", BuildPerimeter);
+            Step("building", BuildBuilding);
             Step("cabins", BuildCabins);
             Step("kits", BuildKits);
             Step("fences", () => { BuildFences(); BuildLogs(); });

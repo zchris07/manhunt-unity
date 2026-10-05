@@ -52,6 +52,8 @@ namespace Vision.World
         public Rect Building;
         public Rect Yard;
         public float GateX;
+        /// <summary>The central building's floor plan (rooms, doors, the gate, generators).</summary>
+        public BuildingPlan Plan;
         public Vector2 Spawn;
         public readonly List<Clearing> Clearings = new List<Clearing>();
         public int HunterClearing = -1;
@@ -95,7 +97,9 @@ namespace Vision.World
             Building = new Rect(-wh * 0.5f, -wh * 0.5f, wh, wh);
             // The gate sits in one of the building's north wall cells 3-6 (10 cells across), its yard outside.
             float cell = wh / 10f;
-            GateX = Building.xMin + (rng.Next(3, 7) + 0.5f) * cell;
+            rng.Next(3, 7);   // (kept so the woods stay as they were when the gate came from this generator)
+            Plan = new BuildingPlan(seed, Building);
+            GateX = Plan.GateX;
             Yard = new Rect(GateX - U(150f), Building.yMax, U(300f), U(250f));
             KeepRects.Add(Expand(Building, U(150f)));
             KeepRects.Add(Expand(Yard, U(110f)));
@@ -119,10 +123,7 @@ namespace Vision.World
         {
             float m = U(70f);
             BuildingEntrances.Add(new Vector2(GateX, Yard.yMax + m));
-            BuildingEntrances.Add(new Vector2(Building.xMin + Building.width * 0.3f, Building.yMin - m));
-            BuildingEntrances.Add(new Vector2(Building.xMin + Building.width * 0.7f, Building.yMin - m));
-            BuildingEntrances.Add(new Vector2(Building.xMin - m, Building.center.y));
-            BuildingEntrances.Add(new Vector2(Building.xMax + m, Building.center.y));
+            foreach ((Vector2 p, char side) in Plan.Entrances) BuildingEntrances.Add(p);
         }
 
         // ------------------------------------------------------------------ the lake

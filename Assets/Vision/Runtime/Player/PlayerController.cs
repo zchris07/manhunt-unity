@@ -234,13 +234,29 @@ namespace Vision.Player
                 }
             }
 
+            // A pallet beside a doorway can be dropped across it when nothing else is in reach.
+            Barricade pallet = null;
+            if (door == null && pickup == null && hide == null)
+            {
+                float bestPallet = 1.6f * scale;
+                foreach (Barricade b in Barricade.All)
+                {
+                    if (b.IsDown) continue;
+                    Vector3 d3 = b.Centre - transform.position;
+                    d3.y = 0f;
+                    if (d3.magnitude < bestPallet) { bestPallet = d3.magnitude; pallet = b; }
+                }
+            }
+
             if (door != null) InteractPrompt = $"{(door.IsOpen ? "Close" : "Open")} {(door.blocksMovementWhenOpen ? "shutter" : "door")}";
             else if (pickup != null) InteractPrompt = $"Pick up {pickup.Label}";
             else if (hide != null) InteractPrompt = hide.kind == HidingSpot.Kind.Bed ? "Hide under the bed" : $"Hide in the {hide.Label}";
+            else if (pallet != null) InteractPrompt = "Drop the pallet";
             else InteractPrompt = null;
             if (!pressed) return;
 
             if (hide != null) EnterHiding(hide);
+            else if (pallet != null) pallet.Drop();
             else if (door != null) door.Toggle();
             else if (pickup != null && stats != null)
             {

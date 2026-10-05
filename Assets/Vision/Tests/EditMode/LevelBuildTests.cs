@@ -51,8 +51,19 @@ namespace Vision.Tests
             Assert.NotNull(world.Wanderer);
             Assert.AreEqual(4, world.Wanderer.waypoints.Length);
             int lights = world.GetComponentsInChildren<VisionLight>().Length;
-            Assert.That(lights, Is.InRange(15, 60), "campfires, cabin lamps, the dock lantern and lanterns along the paths");
-            Assert.AreEqual(3, world.Generators.Count, "three generators in the woods");
+            Assert.That(lights, Is.InRange(20, 76), "campfires, cabin lamps, the dock lantern, lanterns along the paths and the building's lamps");
+            Assert.AreEqual(5, world.Generators.Count, "three generators in the woods and two in the building");
+            Assert.NotNull(world.Gate, "the building's exit gate");
+            Assert.Greater(world.Doors.Count, 20, "the building's doors");
+            Assert.Greater(System.Linq.Enumerable.Count(world.GetComponentsInChildren<HidingSpot>(), h => h.kind == HidingSpot.Kind.Locker), 0, "lockers to hide in");
+            Assert.Greater(world.GetComponentsInChildren<Barricade>().Length, 0, "pallets by the doorways");
+            var buildingSize = world.Layout.Plan.Bounds;
+            int wallsInside = System.Linq.Enumerable.Count(world.GetComponentsInChildren<Occluder>(), o =>
+            {
+                Vector3 lp = world.transform.InverseTransformPoint(o.transform.position);
+                return buildingSize.Contains(new Vector2(lp.x, lp.z));
+            });
+            Assert.Greater(wallsInside, 40, "the building's walls and tall furniture block sight");
             Assert.AreEqual(world.Layout.GrassPatches.Count, System.Linq.Enumerable.Count(world.GetComponentsInChildren<HidingSpot>(), h => h.kind == HidingSpot.Kind.Grass));
             Assert.Greater(world.GetComponentsInChildren<Occluder>().Length, 60, "walls, trunks, rocks, crates, doors");
         }

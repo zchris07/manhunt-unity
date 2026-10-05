@@ -211,6 +211,30 @@ namespace Vision.Player
                 if (k.Kind == MapLayout.KitKind.Shack) { places.Add(("41_shack", k.Centre + new Vector2(0f, -5f), Vector2.up)); break; }
             foreach (MapLayout.Kit k in L.Kits)
                 if (k.Kind == MapLayout.KitKind.Wreck) { places.Add(("42_wreck_kit", k.Centre + new Vector2(-1f, -5f), Vector2.up)); break; }
+            // The building: its longest hallway, the loading bay at the gate, the yard, and one room of each kind seen from its door.
+            BuildingPlan plan = L.Plan;
+            if (plan != null)
+            {
+                BuildingPlan.Room hall = null;
+                foreach (BuildingPlan.Room r in plan.Rooms)
+                    if (r.IsHallway && (hall == null || Mathf.Max(r.Area.width, r.Area.height) > Mathf.Max(hall.Area.width, hall.Area.height))) hall = r;
+                if (hall != null)
+                {
+                    bool alongX = hall.Area.width > hall.Area.height;
+                    places.Add(("60_building_hallway", alongX ? new Vector2(hall.Area.xMin + 3f, hall.Area.center.y) : new Vector2(hall.Area.center.x, hall.Area.yMin + 3f), alongX ? Vector2.right : Vector2.up));
+                }
+                places.Add(("61_building_loading_bay_gate", new Vector2(plan.GateX - 1f, plan.Bounds.yMax - 2.2f), Vector2.up));
+                places.Add(("62_exit_yard", new Vector2(plan.GateX, L.Yard.yMax - 1.5f), Vector2.down));
+                var seen = new System.Collections.Generic.HashSet<BuildingPlan.RoomType>();
+                foreach (BuildingPlan.Room r in plan.Rooms)
+                {
+                    if (r.IsHallway || r.Id == plan.GateRoom) continue;
+                    string key = r.HasGenerator ? "generator_" + r.Name : r.Name;
+                    if (!r.HasGenerator && !seen.Add(r.Type)) continue;
+                    if (Entry(plan, r, out Vector2 at, out Vector2 aim))
+                        places.Add(($"63_room_{key.ToLowerInvariant().Replace(' ', '_')}_{r.Id}", at, aim));
+                }
+            }
             cameraRig.orthographicSize = 14f;
             foreach (var (name, at, aim) in places)
             {
@@ -240,6 +264,7 @@ namespace Vision.Player
             // 9. The whole map from above (raw scene), and a closer survey around the building's site.
             yield return Overview("28c_whole_map_scene", Vector2.zero, 100f);
             yield return Overview("28_survey_building_site", Vector2.zero, 32f);
+            yield return Overview("28d_building_plan", L.Building.center + new Vector2(0f, 2f), 21f);
             yield return Overview("28b_survey_spawn", L.Spawn + new Vector2(0f, 14f), 22f);
 
             // 10. The HUD: prompt at a supply, a filled inventory, hurt, paused, dead.
@@ -298,6 +323,22 @@ namespace Vision.Player
         }
 
         /// <summary>The raw scene from high above, centred on a design-unit point, with the clip planes opened up.</summary>
+        /// <summary>Just inside a room's door, looking in.</summary>
+        static bool Entry(BuildingPlan plan, BuildingPlan.Room room, out Vector2 at, out Vector2 aim)
+        {
+            at = aim = default;
+            foreach (BuildingPlan.Opening o in plan.Openings)
+            {
+                if (!o.IsPassage) continue;
+                BuildingPlan.Interface f = plan.Interfaces[o.Interface];
+                if (f.A != room.Id && f.B != room.Id) continue;
+                aim = f.A == room.Id ? -f.Normal : f.Normal;
+                at = o.Centre + aim * 0.8f;
+                return true;
+            }
+            return false;
+        }
+
         IEnumerator Overview(string name, Vector2 centre, float size)
         {
             Camera cam = cameraRig.GetComponent<Camera>();
