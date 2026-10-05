@@ -85,6 +85,10 @@ namespace Vision.Rendering
         readonly List<VisionLight> lightOrder = new List<VisionLight>(32);
         readonly List<Vector2> conePolygon = new List<Vector2>(1024);
         readonly List<Vector2> proximityPolygon = new List<Vector2>(256);
+
+        /// <summary>The viewer's beam and proximity polygons from the last frame (plane coordinates): what they see.</summary>
+        public IReadOnlyList<Vector2> ConePolygon => conePolygon;
+        public IReadOnlyList<Vector2> ProximityPolygon => proximityPolygon;
         readonly List<Vector2> seeThroughPolygon = new List<Vector2>(256);
         readonly List<Vector2> shadowPolygon = new List<Vector2>(8);
 

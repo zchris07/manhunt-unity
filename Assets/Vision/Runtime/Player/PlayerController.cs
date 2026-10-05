@@ -122,13 +122,16 @@ namespace Vision.Player
             // Working on a generator or the lever keeps you in place, as in the original.
             if (busy) input = Vector2.zero;
             bool wantsSprint = (SprintOverride ?? sprint.IsPressed()) && input.sqrMagnitude > 0.01f;
-            bool sprinting = !downed && wantsSprint && (stats == null || stats.vitals.CanSprint);
+            // Speed mode (testing): the sprint meter never drains, and everything is twice as fast.
+            bool speedMode = GameSession.SpeedMode;
+            bool sprinting = !downed && wantsSprint && (speedMode || stats == null || stats.vitals.CanSprint);
             if (stats != null)
             {
-                stats.vitals.Tick(Time.deltaTime, sprinting);
+                stats.vitals.Tick(Time.deltaTime, sprinting && !speedMode);
+                if (speedMode) stats.vitals.RestoreStamina(stats.vitals.maxStamina);
                 if (stats.Tick(Time.deltaTime, input.sqrMagnitude > 0.01f)) Notice?.Invoke("Mini shield: +25% shield");
             }
-            Vector2 velocity = input * (downed ? walkSpeed * CrawlFraction : sprinting ? runSpeed : walkSpeed);
+            Vector2 velocity = input * (downed ? walkSpeed * CrawlFraction : sprinting ? runSpeed : walkSpeed) * (speedMode ? GameSession.SpeedMultiplier : 1f);
 
             float grade = Grade(velocity);
             velocity *= SlopeFactor(grade);

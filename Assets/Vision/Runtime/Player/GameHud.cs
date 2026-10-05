@@ -13,8 +13,10 @@ namespace Vision.Player
     /// The game's HUD, built in code with uGUI and scaled from a 1080p reference so it grows with the screen:
     /// health, shield and stamina bars (bottom left), the eight inventory slots with their number keys (bottom
     /// centre), the interaction prompt with a progress bar for held work, the objective (generators, then the gate)
-    /// and a compass (top), short notices (top right), a red edge when hurt, the downed screen and the pause menu
-    /// (Esc): Resume, Look settings, Full screen, Quit.
+    /// and a compass (top), the minimap and full map (M), short notices, a red edge when hurt and the downed screen.
+    /// The main menu (MANHUNT: Testing mode, Quit) opens first. Esc opens the game menu, which does not pause, as in
+    /// the original: Resume, Speed mode (V), New map (a new random seed, shown), Look settings, Full screen and Quit to
+    /// main menu.
     /// </summary>
     public sealed class GameHud : MonoBehaviour
     {
@@ -23,8 +25,15 @@ namespace Vision.Player
         [Tooltip("Shown at all; captures hide it for the look comparisons.")]
         public bool visible = true;
 
-        /// <summary>True while the pause menu is open: the game is paused and ignores aim and movement.</summary>
-        public static bool MenuOpen { get; private set; }
+        /// <summary>True while a menu is open (the main menu or the Esc menu): the player ignores aim and movement.</summary>
+        public static bool MenuOpen => escOpen || MainMenuOpen;
+        /// <summary>The title screen is showing.</summary>
+        public static bool MainMenuOpen { get; private set; }
+        static bool escOpen;
+
+        /// <summary>The original's kicker line and blurb.</summary>
+        public const string Kicker = "Crystal Lake · Night shoot";
+        public const string Tagline = "Zach Branch plays the masked killer on the new Crystal Lake series. Tonight he stopped acting. Start every generator, power the gate and get out of the woods.";
 
         static readonly Color Panel = new Color(0.04f, 0.04f, 0.045f, 0.72f);
         static readonly Color Text = new Color(0.86f, 0.85f, 0.80f);
@@ -39,8 +48,12 @@ namespace Vision.Player
         RectTransform healthFill, shieldFill, staminaFill, holdFill;
         Image staminaImage;
         Text healthValue, shieldValue, staminaValue, prompt, objective, compass, notices;
-        GameObject promptBox, holdBar, downedScreen, menu;
-        Text fullScreenLabel;
+        GameObject promptBox, holdBar, downedScreen, menu, mainMenu, generating;
+        Text fullScreenLabel, speedLabel, seedLabel, menuTitle, modeLine;
+        MapHud map;
+        bool needsMapBind;
+        /// <summary>The minimap and full map.</summary>
+        public MapHud Map => map;
         readonly Image[] slotIcons = new Image[Inventory.Slots];
         readonly Text[] slotCounts = new Text[Inventory.Slots], slotNames = new Text[Inventory.Slots];
         RawImage vignette;
@@ -51,8 +64,26 @@ namespace Vision.Player
 
         void Awake()
         {
-            MenuOpen = false;
+            escOpen = false;
+            MainMenuOpen = false;
             EnsureBuilt();
+        }
+
+        void OnEnable() => SandboxWorld.Built += OnBuilt;
+        void OnDisable() => SandboxWorld.Built -= OnBuilt;
+
+        void Start()
+        {
+            // Automated captures go straight in; players start at the title screen.
+            if (VisionCapture.Requested) needsMapBind = true;
+            else ShowMainMenu();
+        }
+
+        void OnBuilt(SandboxWorld w)
+        {
+            if (w != world) return;
+            needsMapBind = true;
+            if (GameSession.TestingMode && w.Player != null) GameSession.ApplyTestKit(w.Player.GetComponent<PlayerStats>());
         }
 
         void EnsureBuilt()
@@ -64,7 +95,8 @@ namespace Vision.Player
 
         void OnDestroy()
         {
-            MenuOpen = false;
+            escOpen = false;
+            MainMenuOpen = false;
             Time.timeScale = 1f;
         }
 
@@ -178,8 +210,9 @@ namespace Vision.Player
             Box(comp, Panel);
             compass = Label(Stretch(Node("Text", comp, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)), "", 22, TextAnchor.MiddleCenter, Text);
 
-            // Notices, top right.
-            notices = Label(Node("Notices", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -24f), new Vector2(520f, 200f)), "", 19, TextAnchor.UpperRight, Text);
+            // Testing mode and speed mode under the objective; notices on the right, under the minimap.
+            modeLine = Label(Node("Mode", root, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -78f), new Vector2(560f, 24f)), "", 16, TextAnchor.UpperLeft, new Color(0.95f, 0.78f, 0.36f));
+            notices = Label(Node("Notices", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -310f), new Vector2(520f, 200f)), "", 19, TextAnchor.UpperRight, Text);
 
             // Downed: a dark wash (you can still crawl), the state and the way back up.
             RectTransform down = Stretch(Node("Downed", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
@@ -188,7 +221,86 @@ namespace Vision.Player
             Label(Node("Hint", down, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 250f), new Vector2(700f, 40f)), "Crawl to safety   ·   R to get back up (testing)", 24, TextAnchor.MiddleCenter, Text);
             downedScreen = down.gameObject;
 
+            map = new MapHud(root, font);
             BuildMenu(root);
+            BuildMainMenu(root);
+
+            RectTransform gen = Stretch(Node("Generating", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            Box(gen, new Color(0f, 0f, 0f, 0.85f));
+            Label(Node("Text", gen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(800f, 60f)), "Building a new map...", 34, TextAnchor.MiddleCenter, Text);
+            generating = gen.gameObject;
+            generating.SetActive(false);
+        }
+
+        void BuildMainMenu(Transform root)
+        {
+            RectTransform screen = Stretch(Node("Main Menu", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            var img = Box(screen, new Color(0.02f, 0.02f, 0.025f, 0.94f));
+            img.raycastTarget = true;
+            Label(Node("Kicker", screen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 250f), new Vector2(900f, 40f)), Kicker.ToUpperInvariant(), 24, TextAnchor.MiddleCenter, new Color(0.75f, 0.30f, 0.24f));
+            Label(Node("Title", screen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 160f), new Vector2(1200f, 150f)), "MANHUNT", 140, TextAnchor.MiddleCenter, new Color(0.88f, 0.86f, 0.80f));
+            Text blurb = Label(Node("Tagline", screen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 50f), new Vector2(760f, 80f)), Tagline, 21, TextAnchor.MiddleCenter, Muted);
+            blurb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            float y = -60f;
+            RectTransform buttons = Node("Buttons", screen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(360f, 200f));
+            y = 0f;
+            MenuButton(buttons, "Testing mode", ref y, () => StartTesting(true));
+            MenuButton(buttons, "Quit", ref y, Application.Quit);
+            mainMenu = screen.gameObject;
+            mainMenu.SetActive(false);
+        }
+
+        /// <summary>Shows the title screen (the level keeps running behind it).</summary>
+        public void ShowMainMenu()
+        {
+            EnsureBuilt();
+            SetMenu(false);
+            map?.SetOpen(false);
+            MainMenuOpen = true;
+            mainMenu.SetActive(true);
+            GameSession.Reset();
+        }
+
+        bool played;
+
+        /// <summary>Testing mode: the original's kit, never used up, no win condition. From the title screen after a game, a fresh map.</summary>
+        public void StartTesting(bool fromMenu)
+        {
+            EnsureBuilt();
+            MainMenuOpen = false;
+            mainMenu.SetActive(false);
+            GameSession.TestingMode = true;
+            if (fromMenu && played) { NewMap(); return; }
+            played = true;
+            if (world != null && world.Player != null) GameSession.ApplyTestKit(world.Player.GetComponent<PlayerStats>());
+            Notify("Testing mode: every item, never used up");
+        }
+
+        /// <summary>Regenerates the whole map with a new random seed.</summary>
+        public void NewMap()
+        {
+            if (world == null) return;
+            played = true;
+            SetMenu(false);
+            StartCoroutine(NewMapRoutine());
+        }
+
+        System.Collections.IEnumerator NewMapRoutine()
+        {
+            generating.SetActive(true);
+            yield return null;
+            yield return null;
+            world.Regenerate();
+            yield return null;
+            generating.SetActive(false);
+            Notify($"New map · seed {world.seed}");
+        }
+
+        public void ToggleSpeedMode()
+        {
+            if (!GameSession.TestingMode) return;
+            GameSession.SpeedMode = !GameSession.SpeedMode;
+            Notify(GameSession.SpeedMode ? "Speed mode on: full sprint, +100% speed" : "Speed mode off");
         }
 
         RectTransform Bar(RectTransform parent, string name, Vector2 pos, Color color, out Text value, out Image fillImage)
@@ -207,23 +319,27 @@ namespace Vision.Player
 
         void BuildMenu(Transform root)
         {
-            RectTransform shade = Stretch(Node("Pause", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
-            var img = Box(shade, new Color(0f, 0f, 0f, 0.6f));
+            // The game menu doesn't pause (the world goes on, as in the original); it only takes the player's input.
+            RectTransform shade = Stretch(Node("Menu", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            var img = Box(shade, new Color(0f, 0f, 0f, 0.45f));
             img.raycastTarget = true;
-            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(460f, 560f));
+            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(480f, 640f));
             Box(panel, new Color(0.06f, 0.06f, 0.065f, 0.95f));
-            Label(Node("Title", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -24f), new Vector2(400f, 50f)), "Paused", 40, TextAnchor.MiddleCenter, Text);
-            float y = -100f;
+            menuTitle = Label(Node("Title", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(420f, 50f)), "Testing mode", 38, TextAnchor.MiddleCenter, Text);
+            seedLabel = Label(Node("Seed", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(420f, 24f)), "", 18, TextAnchor.MiddleCenter, Muted);
+            float y = -110f;
             MenuButton(panel, "Resume", ref y, () => SetMenu(false));
+            speedLabel = MenuButton(panel, "", ref y, ToggleSpeedMode);
+            MenuButton(panel, "New map", ref y, NewMap);
             MenuButton(panel, "Look settings (F4)", ref y, () =>
             {
                 if (debugHud != null) debugHud.lookPanel = !debugHud.lookPanel;
             });
             fullScreenLabel = MenuButton(panel, "", ref y, ToggleFullScreen);
-            MenuButton(panel, "Quit", ref y, Application.Quit);
-            Label(Node("Controls", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(400f, 150f)),
-                "WASD move   Shift sprint   Mouse aim\nE interact (hold on generators and the lever)   F see-through cone\n1-8 use item   Esc pause   F3 stats   F4 look   F5 camera effects",
-                16, TextAnchor.LowerCenter, Muted);
+            MenuButton(panel, "Quit to main menu", ref y, ShowMainMenu);
+            Label(Node("Controls", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(440f, 150f)),
+                "WASD move   Shift sprint   Mouse aim   E interact (hold on generators and the lever)\nF see-through cone   1-8 use item   M map   V speed mode   R get up\nEsc menu   F3 stats   F4 look   F5 camera effects",
+                15, TextAnchor.LowerCenter, Muted);
             menu = shade.gameObject;
             menu.SetActive(false);
         }
@@ -263,9 +379,9 @@ namespace Vision.Player
         public void SetMenu(bool open)
         {
             EnsureBuilt();
-            MenuOpen = open;
+            if (MainMenuOpen) open = false;
+            escOpen = open;
             menu.SetActive(open);
-            Time.timeScale = open ? 0f : 1f;
             if (!open && debugHud != null) debugHud.lookPanel = false;
         }
 
@@ -285,7 +401,8 @@ namespace Vision.Player
 
         void Bind()
         {
-            if (player != null || world == null || world.Player == null) return;
+            if (world == null || world.Player == null || player == world.Player) return;
+            if (player != null) player.Notice -= Notify;
             player = world.Player;
             stats = player.GetComponent<PlayerStats>();
             player.Notice += Notify;
@@ -297,8 +414,20 @@ namespace Vision.Player
             Bind();
             canvas.enabled = visible;
             Keyboard kb = Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame) SetMenu(!MenuOpen);
-            if (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame) SetMenu(!MenuOpen);
+            if (needsMapBind && world != null && world.Layout != null)
+            {
+                needsMapBind = false;
+                map.Bind(world);
+            }
+            if (!MainMenuOpen)
+            {
+                bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame);
+                if (esc && map.FullOpen) map.SetOpen(false);
+                else if (esc) SetMenu(!escOpen);
+                if (kb != null && !escOpen && kb.mKey.wasPressedThisFrame) map.Toggle();
+                if (kb != null && !escOpen && kb.vKey.wasPressedThisFrame) ToggleSpeedMode();
+            }
+            map.Update(visible);
             if (stats == null) return;
             Refresh();
         }
@@ -328,7 +457,7 @@ namespace Vision.Player
             }
 
             string p = player.InteractPrompt;
-            promptBox.SetActive(!string.IsNullOrEmpty(p) && !v.IsDowned && !MenuOpen);
+            promptBox.SetActive(!string.IsNullOrEmpty(p) && !v.IsDowned && !MenuOpen && !map.FullOpen);
             prompt.text = string.IsNullOrEmpty(p) ? "" : $"[E]  {p}";
             holdBar.SetActive(player.HoldProgress >= 0f);
             holdFill.anchorMax = new Vector2(Mathf.Clamp01(player.HoldProgress), 1f);
@@ -342,6 +471,10 @@ namespace Vision.Player
 
             objective.supportRichText = true;
             objective.text = ObjectiveText(world);
+            modeLine.text = !GameSession.TestingMode ? "" : GameSession.SpeedMode ? "TESTING MODE   ·   speed mode on (V)" : "TESTING MODE";
+            if (world != null) seedLabel.text = $"Seed {world.seed}";
+            speedLabel.text = GameSession.SpeedMode ? "Speed mode: on (V)" : "Speed mode: off (V)";
+            menuTitle.text = GameSession.TestingMode ? "Testing mode" : "Menu";
 
             Vector2 f = player.viewer != null ? player.viewer.Facing : Vector2.up;
             float heading = Mathf.Repeat(Mathf.Atan2(f.x, f.y) * Mathf.Rad2Deg, 360f);

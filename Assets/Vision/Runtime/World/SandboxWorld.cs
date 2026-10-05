@@ -45,6 +45,11 @@ namespace Vision.World
         public List<Transform> Crows = new List<Transform>();
         public List<Pickup> Pickups = new List<Pickup>();
         public List<Transform> Generators = new List<Transform>();
+        /// <summary>For the painted map: each tree's spot, its crown radius and whether it is dead; each rock's spot and radius.</summary>
+        public readonly List<(Vector2 p, float r, bool dead)> MapTrees = new List<(Vector2, float, bool)>();
+        public readonly List<(Vector2 p, float r)> MapRocks = new List<(Vector2, float)>();
+        /// <summary>Raised after <see cref="Generate"/> builds a level.</summary>
+        public static event System.Action<SandboxWorld> Built;
 
         /// <summary>How a prefab becomes a scene object. Null means Object.Instantiate.</summary>
         public System.Func<GameObject, Transform, GameObject> placeHook;
@@ -161,6 +166,8 @@ namespace Vision.World
             Crows.Clear();
             Pickups.Clear();
             Generators.Clear();
+            MapTrees.Clear();
+            MapRocks.Clear();
             blocked.Clear();
             Player = null;
             Wanderer = null;
@@ -198,6 +205,7 @@ namespace Vision.World
             LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees";
             Debug.Log($"[Vision] Generated {LastGenerationReport}");
             Generated?.Invoke();
+            Built?.Invoke(this);
         }
 
         // ---------------------------------------------------------------- land character (gradual, no borders)
@@ -1084,6 +1092,7 @@ namespace Vision.World
                 else
                     go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius * hg.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blocked.Add(p);
+                MapTrees.Add((p, isDead ? 0.45f * hg.y : 1.1f * Mathf.Sqrt(hg.x * hg.y), isDead));
                 placed++;
             }
             TreeCount = placed;
@@ -1144,6 +1153,7 @@ namespace Vision.World
                     () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
                 Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
                 blocked.Add(p);
+                MapRocks.Add((p, radius));
                 placed++;
             }
         }

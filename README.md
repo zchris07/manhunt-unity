@@ -1,13 +1,19 @@
 # Manhunt (Unity)
 
-Single-player Unity foundation for a top-down 2.5D horror game, currently an **atmospheric
-exploration sandbox**: an orthographic, 60° pitch camera over a stylized, flat-shaded low-poly world
-built from triangle meshes, lit by a 3D port of the 2D visibility-polygon illumination system. The
-80 x 80 m level has hills and ditches, four biomes, procedural footpaths, car wrecks, campfires and
-supplies to find. The level is authored in design units (a person is 1.8 m) and its root is scaled by
-`WorldScale.S` = 2, so the camera sits twice as close. Characters are plain 222-triangle mannequins
-animated by a procedural walk and sprint that adapts to slopes. A HUD shows health, stamina, the
-inventory, the objective and a compass.
+Single-player Unity port of the 2D browser game **Manhunt** (github.com/zchris07/manhunt, `main`), the
+blueprint for its map, objectives, items and rules: a top-down 2.5D horror game on an orthographic, 60°
+pitch camera over a flat-shaded low-poly world, lit by a 3D port of the 2D visibility-polygon
+illumination system. It opens on the title screen; **Testing mode** is the only way in so far.
+
+The map is the original's at **3 cm per original unit**: a 180 x 180 m forest (6000 units) with the
+procedural 36 m central building (1200 units) in the middle, its north exit gate and fenced yard, the
+survivors' spawn in the south, clearings joined by footpaths, three cabins, a lake with a dock, fences,
+logs, tall grass to hide in, power lines, a graveyard, an abandoned playground and a hanging tree, and
+about 2,350 evergreens and dead trees. Every map is generated at runtime from a seed (about 3.8 s);
+**New map** in the game menu builds another. Start all five generators, then pull the lever to open the
+gate. The level is authored in design units (a person is 1.8 m) and its root is scaled by `WorldScale.S`
+= 2, so the camera sits twice as close. Characters are 222-triangle mannequins animated by a procedural
+walk and sprint that adapts to any slope.
 
 Unity **6000.6.3f1**, URP 17 (Render Graph), Input System, Windows desktop.
 
@@ -51,33 +57,62 @@ map), so bindings can be changed there or rebound at runtime.
 
 | Keyboard and mouse | Gamepad | Action |
 |---|---|---|
-| WASD or arrows | Left stick | Move |
+| WASD or arrows | Left stick | Move (crawl while downed) |
 | Shift | Left stick press | Run |
 | Mouse | Right stick | Aim the flashlight cone (whichever moved last) |
-| E | X / Square | Pick up the nearest supply, or open or close the nearest door or shutter |
+| E | X / Square | Pick up a supply, open or close a door, hide or leave a hiding spot, drop a pallet; **hold** on a generator or the gate lever |
 | F | Y / Triangle | Toggle the see-through cone |
-| C | B / Circle | Crouch (bound, not used yet) |
-| 1-6 | – | Use the item in that inventory slot |
-| Esc | Start | Pause menu (Resume, Look settings, Full screen, Quit) |
-| R | – | Restart after dying |
+| 1-8 | – | Use the item in that inventory slot |
+| M | – | Full map (the minimap is always on) |
+| V | – | Speed mode (testing): full sprint, +100% speed |
+| R | – | Get back up when downed (testing) |
+| Esc | Start | Game menu (does not pause): Resume, Speed mode, New map, Look settings, Full screen, Quit to main menu |
 | F1 | – | Draw the visibility polygons |
 | F2 | – | Cycle view: final, mask RGB, lit amount, raw scene, character shadows |
 | F3 | – | Show the stats overlay (off by default) |
 | F4 | – | Open or close the look panel (sliders, below) |
 | F5 | – | Toggle all camera effects |
 
-The number keys, Esc, R and F1-F5 read the keyboard directly and are not part of the actions asset.
+The number keys, M, V, R, Esc and F1-F5 read the keyboard directly and are not part of the actions asset.
+
+### Menus and testing mode
+
+- **Title screen** (`GameHud`): MANHUNT, the original's kicker ("Crystal Lake · Night shoot") and blurb,
+  **Testing mode** and **Quit**. The level runs behind it.
+- **Testing mode** (`GameSession`): the original's testing kit (bottle and book nine each, goggles,
+  shotgun, mini shield, Mr Beast bar, gas trap, and a Doctor Pepper for the pistol this game lacks),
+  never used up, and no win condition. **Speed mode** (menu or V) keeps the sprint meter full and doubles
+  movement speed.
+- **Game menu** (Esc) leaves the world running, as the original does. **New map** regenerates everything
+  from a new random seed; the menu and the full map show the seed. **Quit to main menu** returns to the
+  title screen; Testing mode from there starts on a fresh map.
+- **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
+  map (M) show the level painted from above, under a fog of war that stays black until your own light
+  has been there. Supplies, generators (yellow, green running) and the gate (grey, yellow powered, green
+  open) appear once seen, with an arrow for where you face. Testing mode adds **Reveal all** and
+  click-to-teleport on the full map.
 
 ### HUD and game systems
 
-- **Health and stamina** (`Vitals`, `PlayerStats`), bottom left. Sprinting drains 18 stamina a second; it
-  refills at 12 a second after a 0.8 s pause. Running dry locks sprint until a quarter is back.
-- **Inventory** (`Inventory`), bottom centre: six slots, stacks of five. Bandages heal 35, water restores
-  60 stamina, canned food heals 15 and restores 25. Using one at full health keeps it.
-- **Supplies** (`Pickup`): 22 lie by the campfires, the wrecks, the generator and in the cabin. The
-  objective (top left) counts them; the compass (top centre) shows where the flashlight points.
-- The **wanderer** hurts the player when it walks into them (10, at most once a second). At low health
-  the screen edge turns red; at zero a death screen offers a restart.
+- **Health and shield** (`Vitals`, `PlayerStats`), bottom left, as in the original. Health runs 0-100% and
+  never regenerates; the blue shield bar takes damage first. At 0 you are **downed**: you lie prone and
+  crawl at 32/120 of walking pace and see 0.6 as far (testing: R gets back up with a third of the bar).
+- **Stamina**: sprinting drains 18 a second; it refills at 12 a second after a 0.8 s pause. Running dry
+  locks sprint until a quarter is back.
+- **Supplies** (`Pickup`, `Inventory`): the original's nine, at its counts (86 in all): bottle 20,
+  The Grapes of Wrath 4, night vision goggles 3, shotgun 2, Doctor Pepper 8, galaxy gas trap 8, duck
+  confit 6, Mr Beast bar 15, mini shield 20. They are placed by its rules (spots in the building's rooms,
+  the cabins, around the clearings and beside the paths, at least 4.8 m apart). Eight slots; identical
+  items stack without limit; each shotgun takes its own slot. Duck confit heals to full, a Mr Beast bar
+  gives 20%, and a mini shield is drunk over 2 s (moving spills it) for 25% shield. The others are only
+  collected so far.
+- **Generators and the gate** (`GeneratorObjective`, `ExitGate`): five generators, two in the building
+  and three in the woods. Hold E for the original's 70 s to start one; running, it shakes and glows. With
+  all five running, hold E at the lever beside the north gate for 20 s and the roll-up door opens onto
+  the yard. The objective (top left) counts them: "Generators n/5".
+- **Hiding**: tall grass, wardrobes, beds, lockers and barrels (E to hide, E to leave). **Pallets** stand
+  beside some doorways; E drops one across the gap.
+- The **wanderer** walks a loop near the spawn and takes 20% when it walks into you.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference, so it keeps its proportions
   at any resolution.
 
@@ -151,22 +186,51 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
    already-lit ground and never block light or sight. The flashlight never shadows the player's own
    body, and an entity's shadow only appears while the entity itself is visible.
 
+## The central building
+
+`BuildingPlan` generates the 36 x 36 m single-storey building from the seed (the roof is never drawn):
+
+- **Hallways** are cut through the footprint recursively: a 2.4-3 m spine end to end, then narrower
+  branches (1.4-2.4 m), so they differ in width and length.
+- **Rooms** (3 x 3 to 10 x 8 m) split the blocks between them, preferring cuts that keep every room on a
+  hallway. Each gets a door or doorway onto a hallway (some get two), back rooms a door through a
+  neighbour, and a few rooms connect to each other, so everything is reachable with loops.
+- **Room types**: offices, storage, break room, restrooms, locker room, workshop, electrical and server
+  rooms, a studio set for the night shoot (a fake cabin bedroom with lights, a camera and mannequins), the
+  loading bay at the gate and a boiler room, each furnished by its own recipe.
+- **Outside**: entrances as in the original (two south, one north, one or two east and west), some open
+  with a pallet beside them; windows, a quarter of them boarded; the **north exit gate** with its lever and
+  the chain-link **yard** beyond it.
+- **Generators**: two, in rooms and never hallways. With its working space the generator takes at most
+  30% of its room's floor and keeps a walkway to every wall.
+- **Fittings**: lockers in the hallways (up to 8), wardrobes, beds and barrels to hide in; pipes, ducts,
+  breaker panels, junction boxes and vent grilles; posters, clocks, stains, cobwebs and dead plants.
+  Furniture keeps every doorway clear and covers under half of each room.
+- **Lamps** have the original's 9 m radius: 6-14 work (some flicker), the rest are dead fixtures.
+
+`SandboxWorld.Building.cs` builds it: cinder-block outer walls, painted inner walls with dark tops so the
+plan reads from above, tiled and concrete floors, hinged doors, windows (glass stops you, not your
+sight), headers, the roll-up gate and every item with its collider, occluder (tall pieces) and hiding
+spot.
+
 ## Terrain
 
 `TerrainField` is the single source of ground height. Four sine waves at seeded headings make rolling
 hills and a ridged term cuts ditches: about 5 m of relief and slopes up to about 35° (sines, so the
-steepest slope is bounded). The ground flattens to pads under the cabin, the spawn point, the campfires,
-the wrecks and the generator, across every footpath, and toward the walls. The ground is built in
+steepest slope is bounded). The ground flattens to pads under the building and its yard, the cabins, the clearings,
+the cover pieces and the special sites, across every footpath, and toward the walls; the lake sits in a
+basin you can wade (at 0.45 of your speed). The finished field is baked to a 0.25 m grid for speed. The ground is built in
 16 m chunks, each with a `MeshCollider`, whose vertices sit exactly on the field.
 
 Trees, walls, doors and lantern posts stand upright, sunk to the lowest point under them; rocks,
-crates, wrecks and crows tilt to the slope. Hills are visual: sight and light stay 2D.
+crates, wrecks and crows tilt to the slope. Hills are visual: sight and light stay 2D. Any grade can be walked: the
+controller follows the ground, uphill steps shorten and the body leans into the climb.
 
 `PathNetwork` joins the points of interest with a minimum spanning tree and routes each link with A*
-over a grid whose cost rises steeply with slope, then smooths it. Region noise gives four biomes (dead
-forest, woods, meadow, scrub) that choose the trees and plants; the ground is coloured straw to green
-grass by moisture, with dark soil, light dirt, rock grey on steep slopes, mud in the ditches and packed
-dirt on the paths.
+over a grid whose cost rises steeply with slope, then smooths it. The land changes gradually: slow
+noise fields choose between evergreens (seven forms, including spiky ones) and twelve dead-tree designs,
+and colour the ground from earth and clay to moss and straw, with rock grey on steep slopes, mud in the
+ditches and packed dirt on the paths.
 
 ## Characters
 
@@ -209,27 +273,25 @@ facet size against its class.
 
 ## Level assets
 
-The level is saved as ordinary Unity content, so you can open `VisionSandbox.unity` and see and edit it
-without pressing Play:
+The level is generated when the scene starts (`SandboxWorld.generateOnAwake`), from `seed`; the props are
+saved as ordinary Unity content:
 
 | Folder | Contents |
 |---|---|
-| `Assets/Vision/Prefabs/` | One prefab per prop variant (6 dead trees, 4 leafy and autumn trees, 3 conifers, 8 rocks from pebbles to boulders, 3 crates, 3 car wrecks, a generator, a burning barrel and a campfire with animated flames, a lantern post, 2 crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
+| `Assets/Vision/Prefabs/` | One prefab per prop variant (12 dead-tree designs and 7 evergreen forms in three sizes, rocks from pebbles to boulders, crates, car wrecks, a generator, a burning barrel and a campfire with animated flames, a lantern post, crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
 | `Assets/Vision/Meshes/Props/` | The mesh behind each prop prefab, and `Mannequin.asset` shared by the player and the wanderer. |
-| `Assets/Vision/Meshes/Level/` | One mesh per ground chunk (with its plants merged in) and its collider, and per wall, door and supply in the scene. |
 | `Assets/Vision/Materials/` | `LowPoly`, `LowPolyEntity` (hidden outside the viewer's light) and `LowPolyGlow`. |
 
-The scene's `Sandbox World` object has `generateOnAwake` off, because the level is already in the scene.
-Trees, rocks and the rest are prefab instances, so editing a prefab updates every copy; moving an
-instance or deleting one is a normal scene edit. Turn `generateOnAwake` on, or use the component's
-**Generate Level** context menu, to rebuild the level from the seed instead. Rebaking overwrites the
-assets in place, so references to them keep working, but it discards hand edits to the scene.
+`MapLayout` ports the original's map generator (clearings, cabins, generators and their cover pieces,
+the lake, grass, fences, logs, fires, the power line and the special sites); `BuildingPlan` is the
+building. Use the `Sandbox World` component's **Generate Level** context menu to see a level in the
+Editor without pressing Play.
 
 The art itself is procedural. `LowPolyMeshBuilder` gives every triangle its own vertices, face normal
 and slightly jittered colour, with sRGB vertex colours converted to linear. Its primitives are faceted
 tubes and cones, jittered icospheres, irregular hexahedra and a jittered, triangulated ground grid.
-`LowPolyModels` builds the props from them (at the resolution `PolyBudget` sets), and `PropFactory` adds
-each prop's collider, occluder and light. The models use the same footprints as the colliders and occluders. The meshes under
+`LowPolyModels` builds the props, furniture and fittings from them (at the resolution `PolyBudget`
+sets), and `PropFactory` adds each prop's collider, occluder and light. The meshes under
 `Assets/Vision/Meshes/` are generated, so they are stored in Git LFS.
 
 ## Commands
@@ -239,9 +301,9 @@ Run these from this folder:
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.CreateSandbox
 ```
-Bakes the whole level: materials, the URP settings (real-time shadows off), every prop mesh and prefab, the prop library, a mesh
-asset for each ground, wall and door object, and the scene with the level laid out in it (also **Vision →
-Bake Level and Scene** in the Editor).
+Bakes the materials, the URP settings (real-time shadows off), every prop mesh and prefab, the prop
+library and the scene (also **Vision → Bake Level and Scene** in the Editor). The level itself is built
+at runtime.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.ConfigureProject
@@ -251,13 +313,13 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 92 EditMode tests: visibility polygons, doors, spatial hash, triangle winding and normals,
-model sizes and determinism, the polygon budget, the mannequin (triangle cap, closed shoulders,
-size, skinning, colour), the gait on flat ground and on 30° ramps up and down, the terrain (slope
-limit, pads, mesh matches the field), paths (connected, gentle, flattened), the new models, the
-shadow rules, penumbra and beam falloff, health, stamina, inventory and pickups, the HUD, the look
-settings, level generation (biomes, nothing on the paths, no renderer casts shadows) and the saved
-prefabs.
+Runs the 117 EditMode tests: visibility polygons, doors, triangle winding and normals, model sizes and
+determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and
+paths, the map layout (the original's scale and rules, the lake), the building (rooms tile the footprint,
+hallway widths and lengths, every room reachable with loops, openings in walls, the original's entrances
+and the north gate, generators under 30% of their rooms, furniture clear of doorways, lamps), supplies at
+the original's counts, health and shield, downing, stacking, healing, generators and the gate, the fog
+of war and the painted map, the menus and testing mode, New map, generation time and the saved prefabs.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindows
@@ -267,23 +329,27 @@ Builds `Builds/Windows/VisionSandbox.exe`.
 ```bash
 ./Builds/Windows/VisionSandbox.exe -visionCapture Captures -screen-width 1600 -screen-height 900 -screen-fullscreen 0
 ```
-Stages the test situations (cone, doors, entity hiding, shutter, see-through cone, walking, sprinting,
-strafing, backpedalling, close-ups, the player from three sides, the wanderer in the beam and its
-shadow, camera effects off, each look slider low and high, soft shadows by a campfire and in the beam,
-the hills and the whole map from above, wrecks, the generator, each biome, fire frames and the HUD) and
-a gait sheet with uphill and downhill rows, saves a screenshot of each plus `perf.txt` and
+Skips the title screen and stages the test situations (cone, doors, entity hiding, walking and sprinting,
+close-ups, the look sliders, soft shadows, the lake, graveyard, playground, hanging tree, power line, tall
+grass and the woods generators, the building's hallway, gate, yard and one room of each kind, the whole
+map and the building from above, the HUD, downed, a generator being started and running, the gate
+lever and the open gate, the nine supplies, testing mode with the minimap, the game menu, the full map
+under its fog and revealed, the title screen and a New map) and the tree and gait sheets, saves a
+screenshot of each plus `perf.txt` and
 `characters.txt` (renderer state of each character and the feet's gaps to the ground on a slope) to
 `Captures/`, then quits.
 
 ## Known gaps
 
-- The polygon pass runs on the main thread. That is fine for this map (about 2.3 ms per frame in
-  total at 1600x900), but a much larger one will want Burst/Jobs.
+- CI's Unity licence activation has been failing since early October 2026 ("Access token is unavailable",
+  then the runner kills Unity); the tests pass locally. The `UNITY_LICENSE`, `UNITY_EMAIL` and
+  `UNITY_PASSWORD` secrets need refreshing (and old activations returned on the Unity account).
+- Bottles, books, goggles, the shotgun, Doctor Pepper and gas traps are collected but not usable yet.
+- There is no hunter: the wanderer only walks its loop. Nothing ends a match (testing mode has no win
+  condition).
+- The polygon pass runs on the main thread. That is fine for this map, but a much larger one will want
+  Burst/Jobs.
 - Hills are visual only: a crest does not hide what is behind it.
-- The wanderer only walks its loop; it does not hunt the player.
-- The baked meshes are about 44 MB (Git LFS), mostly the ground chunks with their plants.
-- Wall tops sit inside their own footprint, so they always read dark. That matches Darkwood, but
-  there is no option to light them.
-- There is no Darkwood-style canopy overlay, fog cards or foliage sway yet, and no flicker on the
-  viewer's own light. Tree canopies can hide the player when they walk behind one.
+- Tree canopies can hide the player when they walk behind one.
 - The distance blur also softens the edges of near objects that overlap far ground.
+

@@ -20,6 +20,9 @@ namespace Vision.Player
         public VisionDebugHud hud;
         public GameHud gameHud;
 
+        /// <summary>True when the player was launched to take the captures (it skips the title screen).</summary>
+        public static bool Requested => Array.IndexOf(Environment.GetCommandLineArgs(), "-visionCapture") >= 0;
+
         string folder;
 
         void Start()
@@ -350,6 +353,32 @@ namespace Vision.Player
                     yield return Shot("58_gate_open");
                 }
                 yield return Wait(5);
+
+                // Testing mode with speed mode, the minimap (explored where the captures went), the game menu, the full
+                // map under its fog and revealed, and the title screen.
+                gameHud.StartTesting(false);
+                GameSession.SpeedMode = true;
+                yield return Stage(player, V(L.Spawn + new Vector2(0f, 6f)), Vector2.up, wanderer, away);
+                yield return new WaitForSeconds(0.5f);
+                gameHud.Refresh();
+                yield return Shot("70_testing_mode_minimap");
+                gameHud.SetMenu(true);
+                yield return Wait(5);
+                gameHud.Refresh();
+                yield return Shot("71_game_menu");
+                gameHud.SetMenu(false);
+                gameHud.Map.SetOpen(true);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot("72_full_map_fog");
+                gameHud.Map.RevealAll();
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot("73_full_map_revealed");
+                gameHud.Map.SetOpen(false);
+                gameHud.ShowMainMenu();
+                yield return Wait(5);
+                yield return Shot("74_main_menu");
+                gameHud.StartTesting(false);
+                GameSession.SpeedMode = false;
                 gameHud.visible = false;
             }
 
@@ -369,9 +398,37 @@ namespace Vision.Player
             const int frames = 300;
             yield return Wait(frames);
             float ms = (Time.realtimeSinceStartup - t0) * 1000f / frames;
+            // The same again without the HUD (and its maps), to see what the interface costs.
+            float hudMs = float.NaN;
+            if (gameHud != null)
+            {
+                gameHud.enabled = false;
+                yield return Wait(30);
+                float t1 = Time.realtimeSinceStartup;
+                yield return Wait(frames);
+                hudMs = (Time.realtimeSinceStartup - t1) * 1000f / frames;
+                gameHud.enabled = true;
+            }
             File.WriteAllText(Path.Combine(folder, "perf.txt"),
-                $"avg frame {ms:0.00} ms ({1000f / ms:0} fps) over {frames} frames at {Screen.width}x{Screen.height}\n" +
+                $"avg frame {ms:0.00} ms ({1000f / ms:0} fps) over {frames} frames at {Screen.width}x{Screen.height}; {hudMs:0.00} ms without the HUD\n" +
+                $"lights {FindObjectsByType<Vision.Visibility.VisionLight>(FindObjectsSortMode.None).Length}, generators running {GeneratorObjective.RunningCount}\n" +
                 $"generation {world.LastGenerationReport}\n");
+
+            // New map: a fresh random seed, the whole map revealed on the full map.
+            if (gameHud != null)
+            {
+                int before = world.seed;
+                gameHud.visible = true;
+                gameHud.NewMap();
+                yield return new WaitForSeconds(1.5f);
+                while (world.seed == before) yield return null;
+                yield return new WaitForSeconds(1.5f);
+                gameHud.Map.SetOpen(true);
+                gameHud.Map.RevealAll();
+                yield return new WaitForSeconds(0.5f);
+                yield return Shot("75_new_map_revealed");
+                File.AppendAllText(Path.Combine(folder, "perf.txt"), $"new map {world.LastGenerationReport}\n");
+            }
             Application.Quit();
         }
 

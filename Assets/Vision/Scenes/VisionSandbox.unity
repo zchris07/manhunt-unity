@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &248405285
+--- !u!1 &389697635
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,13 +127,13 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 248405292}
-  - component: {fileID: 248405287}
-  - component: {fileID: 248405291}
-  - component: {fileID: 248405290}
-  - component: {fileID: 248405289}
-  - component: {fileID: 248405288}
-  - component: {fileID: 248405286}
+  - component: {fileID: 389697642}
+  - component: {fileID: 389697637}
+  - component: {fileID: 389697641}
+  - component: {fileID: 389697640}
+  - component: {fileID: 389697639}
+  - component: {fileID: 389697638}
+  - component: {fileID: 389697636}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -141,29 +141,29 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &248405286
+--- !u!114 &389697636
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 00a24d67cc8199b45885f8802585a11e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.Player.VisionDebugHud
-  maskRenderer: {fileID: 1545333877}
-  composite: {fileID: 248405288}
+  maskRenderer: {fileID: 892457623}
+  composite: {fileID: 389697638}
   visible: 0
   lookPanel: 0
---- !u!20 &248405287
+--- !u!20 &389697637
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -208,19 +208,19 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!114 &248405288
+--- !u!114 &389697638
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7a2c1286fbb5b624ca1a7a7176e3fdfb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.Rendering.VisionComposite
-  targetCamera: {fileID: 248405287}
+  targetCamera: {fileID: 389697637}
   compositeShader: {fileID: 4800000, guid: 0366fd74b3870a940846fd4c2b6c2641, type: 3}
   look:
     contrast: 1
@@ -246,13 +246,13 @@ MonoBehaviour:
   vignette: 0.9
   grain: 0.03
   debugView: 0
---- !u!114 &248405289
+--- !u!114 &389697639
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 237748d2a4531e34bbebdfb7cabe982c, type: 3}
@@ -265,13 +265,13 @@ MonoBehaviour:
   referenceHeight: 900
   smoothTime: 0.12
   heightSmoothTime: 0.35
---- !u!114 &248405290
+--- !u!114 &389697640
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
@@ -309,21 +309,21 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!81 &248405291
+--- !u!81 &389697641
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   m_Enabled: 1
---- !u!4 &248405292
+--- !u!4 &389697642
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 248405285}
+  m_GameObject: {fileID: 389697635}
   serializedVersion: 2
   m_LocalRotation: {x: 0.5, y: 0, z: 0, w: 0.8660254}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -332,7 +332,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &835466341
+--- !u!1 &892457622
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -340,8 +340,221 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 835466343}
-  - component: {fileID: 835466342}
+  - component: {fileID: 892457624}
+  - component: {fileID: 892457623}
+  m_Layer: 0
+  m_Name: Vision
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &892457623
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892457622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07a0922be4efa074ab19902e938e0c24, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Rendering.VisionMaskRenderer
+  viewCamera: {fileID: 389697637}
+  viewer: {fileID: 0}
+  maskShader: {fileID: 4800000, guid: 9abe6fb9478dfe54abdf160cf06903ba, type: 3}
+  blurShader: {fileID: 4800000, guid: 3860707f7d9cfe74daefa25c471cf2eb, type: 3}
+  worldSize: 48
+  resolutionScale: 0.5
+  blurIterations: 3
+  blurRadius: 2.5
+  penumbraGrowth: 0.055
+  maxPenumbra: 1.1
+  shadowLights: 4
+  maxLights: 6
+  entityThreshold: 0.3
+  drawPolygons: 0
+--- !u!4 &892457624
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 892457622}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &923783424
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 923783426}
+  - component: {fileID: 923783425}
+  m_Layer: 0
+  m_Name: Sandbox World
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &923783425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 923783424}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b9eb970e459bf24cb552639c6c4ddc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.World.SandboxWorld
+  seed: 1337
+  halfExtent: 90
+  generateOnAwake: 1
+  library: {fileID: 11400000, guid: 86219b41d2dbd984084a5fa179c3a5a9, type: 2}
+  lowPolyMaterial: {fileID: 2100000, guid: f82f31db62c379145b56ac658364fcb9, type: 2}
+  entityMaterial: {fileID: 2100000, guid: 5a0234fa3d679d245be711ab8940687a, type: 2}
+  glowMaterial: {fileID: 2100000, guid: 64b80004690cd784dba5a8cc3459f762, type: 2}
+  cameraRig: {fileID: 389697639}
+  maskRenderer: {fileID: 892457623}
+  Player: {fileID: 0}
+  Wanderer: {fileID: 0}
+  Doors: []
+  Crows: []
+  Pickups: []
+  Generators: []
+--- !u!4 &923783426
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 923783424}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 2, y: 2, z: 2}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1376009810
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1376009812}
+  - component: {fileID: 1376009811}
+  m_Layer: 0
+  m_Name: Game HUD
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1376009811
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1376009810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 773a9991ce55a424b945fdca32b39cb7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Player.GameHud
+  world: {fileID: 923783425}
+  debugHud: {fileID: 389697636}
+  visible: 1
+--- !u!4 &1376009812
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1376009810}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1684453175
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1684453177}
+  - component: {fileID: 1684453176}
+  m_Layer: 0
+  m_Name: Vision Capture
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1684453176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1684453175}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 774992849f61dc54fb429ce661eafc4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Player.VisionCapture
+  world: {fileID: 923783425}
+  cameraRig: {fileID: 389697639}
+  composite: {fileID: 389697638}
+  hud: {fileID: 389697636}
+  gameHud: {fileID: 1376009811}
+--- !u!4 &1684453177
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1684453175}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1690240008
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1690240010}
+  - component: {fileID: 1690240009}
   m_Layer: 0
   m_Name: Moonlight
   m_TagString: Untagged
@@ -349,13 +562,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &835466342
+--- !u!108 &1690240009
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 835466341}
+  m_GameObject: {fileID: 1690240008}
   m_Enabled: 1
   serializedVersion: 13
   m_Type: 1
@@ -414,228 +627,15 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &835466343
+--- !u!4 &1690240010
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 835466341}
+  m_GameObject: {fileID: 1690240008}
   serializedVersion: 2
   m_LocalRotation: {x: 0.31049988, y: -0.28432295, z: 0.097900234, w: 0.9017571}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1545333876
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1545333878}
-  - component: {fileID: 1545333877}
-  m_Layer: 0
-  m_Name: Vision
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1545333877
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1545333876}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 07a0922be4efa074ab19902e938e0c24, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Vision.Runtime::Vision.Rendering.VisionMaskRenderer
-  viewCamera: {fileID: 248405287}
-  viewer: {fileID: 0}
-  maskShader: {fileID: 4800000, guid: 9abe6fb9478dfe54abdf160cf06903ba, type: 3}
-  blurShader: {fileID: 4800000, guid: 3860707f7d9cfe74daefa25c471cf2eb, type: 3}
-  worldSize: 48
-  resolutionScale: 0.5
-  blurIterations: 3
-  blurRadius: 2.5
-  penumbraGrowth: 0.055
-  maxPenumbra: 1.1
-  shadowLights: 4
-  maxLights: 6
-  entityThreshold: 0.3
-  drawPolygons: 0
---- !u!4 &1545333878
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1545333876}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1689334139
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1689334141}
-  - component: {fileID: 1689334140}
-  m_Layer: 0
-  m_Name: Vision Capture
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1689334140
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1689334139}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 774992849f61dc54fb429ce661eafc4e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Vision.Runtime::Vision.Player.VisionCapture
-  world: {fileID: 1815770183}
-  cameraRig: {fileID: 248405289}
-  composite: {fileID: 248405288}
-  hud: {fileID: 248405286}
-  gameHud: {fileID: 2137529020}
---- !u!4 &1689334141
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1689334139}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1815770182
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1815770184}
-  - component: {fileID: 1815770183}
-  m_Layer: 0
-  m_Name: Sandbox World
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1815770183
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1815770182}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6b9eb970e459bf24cb552639c6c4ddc2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Vision.Runtime::Vision.World.SandboxWorld
-  seed: 1337
-  halfExtent: 90
-  generateOnAwake: 1
-  library: {fileID: 11400000, guid: 86219b41d2dbd984084a5fa179c3a5a9, type: 2}
-  lowPolyMaterial: {fileID: 2100000, guid: f82f31db62c379145b56ac658364fcb9, type: 2}
-  entityMaterial: {fileID: 2100000, guid: 5a0234fa3d679d245be711ab8940687a, type: 2}
-  glowMaterial: {fileID: 2100000, guid: 64b80004690cd784dba5a8cc3459f762, type: 2}
-  cameraRig: {fileID: 248405289}
-  maskRenderer: {fileID: 1545333877}
-  Player: {fileID: 0}
-  Wanderer: {fileID: 0}
-  Doors: []
-  Crows: []
-  Pickups: []
-  Generators: []
---- !u!4 &1815770184
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1815770182}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 2, y: 2, z: 2}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2137529019
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2137529021}
-  - component: {fileID: 2137529020}
-  m_Layer: 0
-  m_Name: Game HUD
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2137529020
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2137529019}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 773a9991ce55a424b945fdca32b39cb7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Vision.Runtime::Vision.Player.GameHud
-  world: {fileID: 1815770183}
-  debugHud: {fileID: 248405286}
-  visible: 1
---- !u!4 &2137529021
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2137529019}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -646,9 +646,9 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 248405292}
-  - {fileID: 835466343}
-  - {fileID: 1545333878}
-  - {fileID: 1815770184}
-  - {fileID: 2137529021}
-  - {fileID: 1689334141}
+  - {fileID: 389697642}
+  - {fileID: 1690240010}
+  - {fileID: 892457624}
+  - {fileID: 923783426}
+  - {fileID: 1376009812}
+  - {fileID: 1684453177}
