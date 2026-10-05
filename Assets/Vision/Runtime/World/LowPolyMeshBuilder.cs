@@ -328,6 +328,7 @@ namespace Vision.World
             public readonly float HalfExtent, Step, JitterXZ;
             readonly Func<float, float, float> height, jitterScale;
             readonly int salt;
+            readonly Vector3[] vertices;
 
             public TerrainGrid(float halfExtent, float cell, Func<float, float, float> height, Func<float, float, float> jitterScale, float jitterXZ, int salt)
             {
@@ -338,9 +339,21 @@ namespace Vision.World
                 this.height = height;
                 this.jitterScale = jitterScale;
                 this.salt = salt;
+                vertices = null;
+                // Every vertex is shared by up to six triangles and the collision mesh: work each out once.
+                var v = new Vector3[(Cells + 1) * (Cells + 1)];
+                int cells = Cells;
+                var self = this;
+                System.Threading.Tasks.Parallel.For(0, cells + 1, j =>
+                {
+                    for (int i = 0; i <= cells; i++) v[j * (cells + 1) + i] = self.Compute(i, j);
+                });
+                vertices = v;
             }
 
-            public Vector3 Vertex(int i, int j)
+            public Vector3 Vertex(int i, int j) => vertices != null ? vertices[j * (Cells + 1) + i] : Compute(i, j);
+
+            Vector3 Compute(int i, int j)
             {
                 float x = -HalfExtent + i * Step, z = -HalfExtent + j * Step;
                 if (i > 0 && j > 0 && i < Cells && j < Cells)

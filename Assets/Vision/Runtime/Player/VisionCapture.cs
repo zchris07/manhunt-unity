@@ -40,51 +40,14 @@ namespace Vision.Player
             PlayerController player = world.Player;
             Wanderer wanderer = world.Wanderer;
             wanderer.enabled = false;
-            Door door = world.Doors[0];
-            Door shutter = world.Doors[1];
+            MapLayout L = world.Layout;
+            Vector3 away = new Vector3(L.Spawn.x + 60f, 0f, L.Spawn.y);
+            Vector3 V(Vector2 p, float dx = 0f, float dz = 0f) => new Vector3(p.x + dx, 0f, p.y + dz);
+            float ortho = cameraRig.orthographicSize;
 
-            // 1. Spawn view: flashlight north towards the clearing, crows and lantern about.
-            yield return Stage(player, new Vector3(0f, 0f, -5f), new Vector2(0.3f, -1f), wanderer, new Vector3(1.5f, 0f, -9f));
-            yield return Shot("01_clearing_cone");
-
-            // 2. Facing into the dead forest: the cone is cut by trunks and wraps around them.
-            yield return Stage(player, new Vector3(-3f, 0f, -2f), new Vector2(-1f, 0.15f), wanderer, new Vector3(-8f, 0f, -2f));
-            yield return Shot("02_forest_cone");
-
-            // 3. In front of the closed cabin door, then with it open.
-            door.SetOpen(false);
-            yield return Stage(player, new Vector3(2.5f, 0f, 7.2f), new Vector2(1f, 0f), wanderer, new Vector3(7f, 0f, 7.2f));
-            yield return Shot("03_door_closed");
-            door.SetOpen(true);
-            yield return Wait(30);
-            yield return Shot("04_door_open");
-            door.SetOpen(false);
-
-            // 4. Entity right behind the player, next to a campfire: lit ground, but it stays invisible.
-            yield return Stage(player, new Vector3(-1f, 0f, -6.5f), new Vector2(0f, 1f), wanderer, new Vector3(-1f, 0f, -9.2f));
-            yield return Shot("05_entity_behind_by_fire");
-            player.AimOverride = new Vector2(0f, -1f);
-            yield return Wait(10);
-            yield return Shot("06_entity_turned_towards");
-
-            // 5. Inside the cabin, facing away from the window. The lantern outside lights the ground
-            //    south of the cabin, but we only see that once the shutter opens (line of sight, G).
-            shutter.SetOpen(false);
-            yield return Stage(player, new Vector3(8.3f, 0f, 6.0f), new Vector2(0f, 1f), wanderer, new Vector3(-12f, 0f, -12f));
-            yield return Shot("07_shutter_closed_outside_light_hidden");
-            shutter.SetOpen(true);
-            yield return Wait(30);
-            yield return Shot("08_shutter_open_outside_light_seen");
-            shutter.SetOpen(false);
-
-            // 6. See-through cone at a wall.
-            player.viewer.seeThroughEnabled = true;
-            yield return Stage(player, new Vector3(2.5f, 0f, 9.5f), new Vector2(1f, 0f), wanderer, new Vector3(7.5f, 0f, 9.5f));
-            yield return Shot("09_see_through_cone");
-            player.viewer.seeThroughEnabled = false;
-
-            // 7. Debug views of the spawn shot.
-            yield return Stage(player, new Vector3(0f, 0f, -5f), new Vector2(0.3f, -1f), wanderer, new Vector3(1.5f, 0f, -9f));
+            // 1. Spawn view, flashlight north into the woods; a forest view; debug views of the first.
+            yield return Stage(player, V(L.Spawn), new Vector2(0.2f, 1f), wanderer, away);
+            yield return Shot("01_spawn_cone");
             composite.debugView = VisionComposite.DebugView.MaskRgb;
             yield return Wait(5);
             yield return Shot("10_debug_mask_rgb");
@@ -92,53 +55,101 @@ namespace Vision.Player
             yield return Wait(5);
             yield return Shot("11_debug_scene_only");
             composite.debugView = VisionComposite.DebugView.Final;
+            MapLayout.Clearing woods = L.Clearings[L.Clearings.Count > 2 ? 2 : 1];
+            yield return Stage(player, V(woods.Centre, -woods.Radius - 3f), new Vector2(-1f, 0.15f), wanderer, away);
+            yield return Shot("02_forest_cone");
 
-            // 8. Moving: walking, sprinting, strafing and backpedalling (input overrides, real gait).
-            Vector3 away = new Vector3(-16f, 0f, 16f);
-            yield return Stage(player, new Vector3(-1f, 0f, -3f), new Vector2(0f, -1f), wanderer, away);
-            player.MoveOverride = new Vector2(0f, -1f);
+            // 2. A cabin: outside its closed door, then open; inside facing a window.
+            MapLayout.Cabin cabin = L.Cabins[0];
+            Door door = null;
+            float best = float.MaxValue;
+            foreach (Door d in world.Doors)
+            {
+                Vector3 lp = world.transform.InverseTransformPoint(d.transform.position);
+                float dist = (new Vector2(lp.x, lp.z) - cabin.Area.center).sqrMagnitude;
+                if (dist < best) { best = dist; door = d; }
+            }
+            Vector2 outward = cabin.DoorSide switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
+            Vector2 doorAt = cabin.Area.center + outward * ((cabin.DoorSide % 2 == 0 ? cabin.Area.height : cabin.Area.width) * 0.5f);
+            if (door != null)
+            {
+                door.SetOpen(false);
+                yield return Stage(player, V(doorAt + outward * 2.4f), -outward, wanderer, away);
+                yield return Shot("03_cabin_door_closed");
+                door.SetOpen(true);
+                yield return Wait(30);
+                yield return Shot("04_cabin_door_open");
+            }
+            yield return Stage(player, V(cabin.Area.center - outward * 0.5f), new Vector2(outward.y, -outward.x), wanderer, away);
+            yield return Shot("07_inside_cabin");
+            player.viewer.seeThroughEnabled = true;
+            yield return Stage(player, V(doorAt + outward * 2.5f + new Vector2(outward.y, -outward.x) * 2f), -outward, wanderer, away);
+            yield return Shot("09_see_through_cone");
+            player.viewer.seeThroughEnabled = false;
+            if (door != null) door.SetOpen(false);
+
+            // 3. Entity behind the player by a campfire: lit ground, but it stays invisible until the light finds it.
+            if (L.Campfires.Count > 0)
+            {
+                Vector2 fire = L.Campfires[0];
+                yield return Stage(player, V(fire, 1.2f, 0.8f), Vector2.up, wanderer, V(fire, 1.2f, -1.8f));
+                yield return Shot("05_entity_behind_by_fire");
+                player.AimOverride = Vector2.down;
+                yield return Wait(10);
+                yield return Shot("06_entity_turned_towards");
+                cameraRig.orthographicSize = 3.2f;
+                yield return Stage(player, V(fire, 1.4f, 1.2f), new Vector2(-0.3f, -1f), wanderer, V(fire, -1.6f, -1.4f));
+                yield return Shot("16_closeup_campfire");
+                composite.debugView = VisionComposite.DebugView.Shadows;
+                yield return Wait(3);
+                yield return Shot("16b_campfire_shadow_mask");
+                composite.debugView = VisionComposite.DebugView.Final;
+                cameraRig.orthographicSize = 2.2f;
+                yield return Stage(player, V(fire, -1.3f, 0f), new Vector2(1f, 0.2f), wanderer, away);
+                for (int f = 0; f < 3; f++)
+                {
+                    yield return Wait(9);
+                    yield return Shot($"37_fire_frame_{f}");
+                }
+                cameraRig.orthographicSize = 4.5f;
+                yield return Stage(player, V(fire, 3f, 0.5f), Vector2.right, wanderer, V(fire, -2.4f, 1.2f));
+                yield return Shot("29_campfire_soft_shadows");
+                composite.debugView = VisionComposite.DebugView.MaskRgb;
+                yield return Wait(5);
+                yield return Shot("29b_campfire_soft_shadows_mask");
+                composite.debugView = VisionComposite.DebugView.Final;
+                cameraRig.orthographicSize = ortho;
+            }
+
+            // 4. Moving: walking, sprinting, strafing and backpedalling (input overrides, real gait).
+            yield return Stage(player, V(L.Spawn, 0f, 2f), Vector2.up, wanderer, away);
+            player.MoveOverride = Vector2.up;
             yield return Wait(70);
             yield return Shot("12_walking");
             player.SprintOverride = true;
             yield return Wait(50);
             yield return Shot("13_sprinting");
             player.SprintOverride = null;
-            yield return Stage(player, new Vector3(-6f, 0f, -12f), new Vector2(0f, 1f), wanderer, away);
-            player.MoveOverride = new Vector2(1f, 0f);
+            yield return Stage(player, V(L.Spawn, -4f, 4f), Vector2.up, wanderer, away);
+            player.MoveOverride = Vector2.right;
             yield return Wait(60);
             yield return Shot("14_strafing");
-            player.MoveOverride = new Vector2(0f, -1f);
+            player.MoveOverride = Vector2.down;
             yield return Wait(60);
             yield return Shot("15_backpedal");
             player.MoveOverride = null;
 
-            // 9. Close-ups from the gameplay angle: by the campfire, among the trees, at the cabin door.
-            float ortho = cameraRig.orthographicSize;
+            // 5. The player close up from the front, back and side; the wanderer in the beam and its shadow.
             cameraRig.orthographicSize = 3.2f;
-            yield return Stage(player, new Vector3(-0.2f, 0f, -7.4f), new Vector2(-0.3f, -1f), wanderer, new Vector3(-2.2f, 0f, -9.6f));
-            yield return Wait(10);
-            yield return Shot("16_closeup_campfire");
-            composite.debugView = VisionComposite.DebugView.Shadows;
-            yield return Wait(3);
-            yield return Shot("16b_campfire_shadow_mask");
-            composite.debugView = VisionComposite.DebugView.Final;
-            yield return Stage(player, new Vector3(-4.5f, 0f, -2f), new Vector2(-1f, 0.2f), wanderer, away);
-            yield return Shot("17_closeup_trees");
-            door.SetOpen(false);
-            yield return Stage(player, new Vector3(3.2f, 0f, 7.2f), new Vector2(1f, 0.1f), wanderer, away);
-            yield return Shot("18_closeup_cabin");
-            cameraRig.orthographicSize = ortho;
-
-            // 10. The player close up with the flashlight on, from the front, back and side; the wanderer in the beam.
-            cameraRig.orthographicSize = 3.2f;
-            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(0f, -1f), wanderer, away);
+            Vector2 open = L.Spawn + new Vector2(2f, 1f);
+            yield return Stage(player, V(open), Vector2.down, wanderer, away);
             yield return Shot("20_player_facing_camera");
             WriteCharacterReport(player, wanderer);
-            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(0f, 1f), wanderer, away);
+            yield return Stage(player, V(open), Vector2.up, wanderer, away);
             yield return Shot("21_player_back");
-            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(1f, 0f), wanderer, away);
+            yield return Stage(player, V(open), Vector2.right, wanderer, away);
             yield return Shot("22_player_side");
-            yield return Stage(player, new Vector3(4f, 0f, -6f), new Vector2(-0.25f, -1f), wanderer, new Vector3(3.6f, 0f, -7.6f));
+            yield return Stage(player, V(open), new Vector2(-0.25f, -1f), wanderer, V(open, -0.6f, -2.4f));
             yield return Shot("23_wanderer_in_beam");
             composite.debugView = VisionComposite.DebugView.Shadows;
             yield return Wait(3);
@@ -146,8 +157,8 @@ namespace Vision.Player
             composite.debugView = VisionComposite.DebugView.Final;
             cameraRig.orthographicSize = ortho;
 
-            // 11. Look: camera effects off, then each look slider low and high (spawn view).
-            yield return Stage(player, new Vector3(0f, 0f, -5f), new Vector2(0.3f, -1f), wanderer, away);
+            // 6. Look: camera effects off, then each look slider low and high (spawn view).
+            yield return Stage(player, V(L.Spawn), new Vector2(0.2f, 1f), wanderer, away);
             composite.look.cameraEffects = false;
             yield return Wait(5);
             yield return Shot("24_camera_effects_off");
@@ -170,8 +181,6 @@ namespace Vision.Player
                 }
             }
             composite.look = VisionComposite.Look.Defaults;
-
-            // The F4 look panel, as the player sees it.
             if (hud != null)
             {
                 hud.visible = true;
@@ -182,25 +191,136 @@ namespace Vision.Player
                 hud.visible = false;
             }
 
-            // Soft shadows: trees and the player around a campfire, with the flashlight pointed away; then the mask.
-            cameraRig.orthographicSize = 4.5f;
-            yield return Stage(player, new Vector3(-8.2f, 0f, 4.4f), new Vector2(1f, 0f), wanderer, new Vector3(-11.5f, 0f, 2.8f));
-            wanderer.transform.position = world.transform.TransformPoint(new Vector3(-11.5f, TerrainField.Active != null ? world.Terrain.Height(-11.5f, 2.8f) : 0f, 2.8f));
-            yield return Wait(10);
-            yield return Shot("29_campfire_soft_shadows");
-            composite.debugView = VisionComposite.DebugView.MaskRgb;
-            yield return Wait(5);
-            yield return Shot("29b_campfire_soft_shadows_mask");
-            composite.debugView = VisionComposite.DebugView.Final;
-            yield return Stage(player, new Vector3(-1f, 0f, -2f), new Vector2(-1f, 0.05f), wanderer, away);
-            yield return Wait(5);
-            yield return Shot("30_beam_tree_shadows");
-            composite.debugView = VisionComposite.DebugView.MaskRgb;
-            yield return Wait(5);
-            yield return Shot("30b_beam_tree_shadows_mask");
-            composite.debugView = VisionComposite.DebugView.Final;
+            // 7. A tree in the beam, lit from the south and from the west (shadow from the base, soft back side).
+            yield return TreeShots(player, wanderer, away);
+
+            // 8. The new places, lit by the flashlight and seen raw: the lake and dock, the graveyard, the playground,
+            //    the hanging tree, a power pole, a fence, a tall-grass patch, a woods generator with its cover.
+            var places = new System.Collections.Generic.List<(string name, Vector2 at, Vector2 aim)>
+            {
+                ("31_lake_and_dock", L.DockStart - (L.DockEnd - L.DockStart).normalized * 3f, (L.DockEnd - L.DockStart).normalized),
+                ("32_graveyard", L.Graveyard.center + new Vector2(0f, -2f), Vector2.up),
+                ("33_playground", L.Playground.center + new Vector2(0f, -1.5f), Vector2.up),
+                ("34_hanging_tree", L.HangingTree + new Vector2(0f, -2.5f), Vector2.up),
+            };
+            if (L.PowerPoles.Count > 2) places.Add(("35_power_line", L.PowerPoles[2] + new Vector2(-2.5f, -3f), new Vector2(0.5f, 1f)));
+            if (L.Fences.Count > 0) places.Add(("36_fence", (L.Fences[0].A + L.Fences[0].B) * 0.5f + new Vector2(0f, -3f), Vector2.up));
+            if (L.GrassPatches.Count > 0) places.Add(("39_tall_grass", L.GrassPatches[0].Centre + new Vector2(0f, -L.GrassPatches[0].Radius - 2f), Vector2.up));
+            if (L.WoodsGenerators.Count > 0) places.Add(("40_woods_generator", L.WoodsGenerators[0] + new Vector2(-2.5f, -2.5f), new Vector2(1f, 1f)));
+            foreach (MapLayout.Kit k in L.Kits)
+                if (k.Kind == MapLayout.KitKind.Shack) { places.Add(("41_shack", k.Centre + new Vector2(0f, -5f), Vector2.up)); break; }
+            foreach (MapLayout.Kit k in L.Kits)
+                if (k.Kind == MapLayout.KitKind.Wreck) { places.Add(("42_wreck_kit", k.Centre + new Vector2(-1f, -5f), Vector2.up)); break; }
+            cameraRig.orthographicSize = 14f;
+            foreach (var (name, at, aim) in places)
+            {
+                yield return Stage(player, V(at), aim, wanderer, away);
+                yield return Wait(5);
+                yield return Shot(name);
+                composite.debugView = VisionComposite.DebugView.SceneOnly;
+                yield return Wait(3);
+                yield return Shot(name + "_scene");
+                composite.debugView = VisionComposite.DebugView.Final;
+            }
+            // Hiding in the tall grass: the player vanishes, the prompt offers the way out.
+            if (L.GrassPatches.Count > 0 && gameHud != null)
+            {
+                gameHud.visible = true;
+                yield return Stage(player, V(L.GrassPatches[0].Centre), Vector2.up, wanderer, away);
+                foreach (HidingSpot h in HidingSpot.All)
+                    if (h.kind == HidingSpot.Kind.Grass) { player.EnterHiding(h); break; }
+                yield return Wait(5);
+                gameHud.Refresh();
+                yield return Shot("39b_hiding_in_grass");
+                player.LeaveHiding();
+                gameHud.visible = false;
+            }
             cameraRig.orthographicSize = ortho;
 
+            // 9. The whole map from above (raw scene), and a closer survey around the building's site.
+            yield return Overview("28c_whole_map_scene", Vector2.zero, 100f);
+            yield return Overview("28_survey_building_site", Vector2.zero, 32f);
+            yield return Overview("28b_survey_spawn", L.Spawn + new Vector2(0f, 14f), 22f);
+
+            // 10. The HUD: prompt at a supply, a filled inventory, hurt, paused, dead.
+            if (gameHud != null && player.GetComponent<PlayerStats>() is PlayerStats ps)
+            {
+                gameHud.visible = true;
+                Pickup near = world.Pickups.Count > 0 ? world.Pickups[0] : null;
+                if (near != null)
+                {
+                    Vector3 lp = world.transform.InverseTransformPoint(near.transform.position);
+                    yield return Stage(player, new Vector3(lp.x, 0f, lp.z - 1.1f), Vector2.up, wanderer, away);
+                }
+                yield return Wait(10);
+                gameHud.Refresh();
+                yield return Shot("50_hud_prompt");
+                ps.inventory.Add(ItemType.Bandage, 2);
+                ps.inventory.Add(ItemType.Water, 3);
+                ps.inventory.Add(ItemType.CannedFood, 1);
+                ps.vitals.Tick(2f, true);
+                gameHud.Notify("Picked up Water x2");
+                gameHud.Notify("Used a bandage (+35 health)");
+                yield return Wait(5);
+                yield return Shot("51_hud_inventory");
+                ps.vitals.TakeDamage(72f);
+                yield return Wait(20);
+                yield return Shot("52_hud_low_health");
+                gameHud.SetMenu(true);
+                yield return Wait(5);
+                yield return Shot("53_hud_pause_menu");
+                gameHud.SetMenu(false);
+                ps.vitals.TakeDamage(100f);
+                yield return Wait(5);
+                yield return Shot("54_hud_death");
+                ps.vitals.Reset();
+                yield return Wait(5);
+                gameHud.visible = false;
+            }
+
+            // 11. Tree catalogues and the gait sheet (side-on, fully lit).
+            yield return TreeSheets();
+            yield return GaitSheet(player);
+
+            // Frame time over a short run with everything live, and how long the map took to build.
+            yield return Stage(player, V(L.Spawn), Vector2.up, wanderer, away);
+            wanderer.enabled = true;
+            player.AimOverride = new Vector2(0f, 1f);
+            yield return Wait(30);
+            float t0 = Time.realtimeSinceStartup;
+            const int frames = 300;
+            yield return Wait(frames);
+            float ms = (Time.realtimeSinceStartup - t0) * 1000f / frames;
+            File.WriteAllText(Path.Combine(folder, "perf.txt"),
+                $"avg frame {ms:0.00} ms ({1000f / ms:0} fps) over {frames} frames at {Screen.width}x{Screen.height}\n" +
+                $"generation {world.LastGenerationReport}\n");
+            Application.Quit();
+        }
+
+        /// <summary>The raw scene from high above, centred on a design-unit point, with the clip planes opened up.</summary>
+        IEnumerator Overview(string name, Vector2 centre, float size)
+        {
+            Camera cam = cameraRig.GetComponent<Camera>();
+            float far = cam.farClipPlane, dist = cameraRig.distance, ortho = cameraRig.orthographicSize;
+            float s = world.transform.lossyScale.x;
+            cameraRig.orthographicSize = size * s;
+            cameraRig.distance = 400f;
+            cam.farClipPlane = 1400f;
+            composite.debugView = VisionComposite.DebugView.SceneOnly;
+            yield return Stage(world.Player, new Vector3(centre.x, 0f, centre.y), Vector2.up, world.Wanderer, new Vector3(world.Layout.Spawn.x + 60f, 0f, world.Layout.Spawn.y));
+            yield return Wait(5);
+            yield return Shot(name);
+            composite.debugView = VisionComposite.DebugView.Final;
+            cam.farClipPlane = far;
+            cameraRig.distance = dist;
+            cameraRig.orthographicSize = ortho;
+        }
+
+        /// <summary>A tree near the spawn in the beam, lit from the south and from the west, with its neighbours hidden.</summary>
+        IEnumerator TreeShots(PlayerController player, Wanderer wanderer, Vector3 away)
+        {
+            float ortho = cameraRig.orthographicSize;
+            Vector2 near = world.Layout.Spawn + new Vector2(0f, 20f);
             // A tree in the beam, lit from the south and from the west: its shadow starts at the base and its
             // back side is a soft darkness rather than a black silhouette.
             Transform tree = null;
@@ -209,7 +329,7 @@ namespace Vision.Player
             {
                 if (!(t.name.StartsWith("Fir") || t.name.StartsWith("Spruce") || t.name.StartsWith("Dead"))) continue;
                 Vector3 lp = world.transform.InverseTransformPoint(t.position);
-                float d = new Vector2(lp.x - 2f, lp.z + 16f).sqrMagnitude;
+                float d = new Vector2(lp.x - near.x, lp.z - near.y).sqrMagnitude;
                 if (d < bestTree) { bestTree = d; tree = t; }
             }
             if (tree != null)
@@ -234,112 +354,6 @@ namespace Vision.Player
                 cameraRig.orthographicSize = ortho;
             }
 
-            // The hills from high above (raw scene, then as played).
-            cameraRig.orthographicSize = 20f;
-            yield return Stage(player, new Vector3(0f, 0f, -2f), new Vector2(0f, -1f), wanderer, away);
-            composite.debugView = VisionComposite.DebugView.SceneOnly;
-            yield return Wait(5);
-            yield return Shot("28_hills_survey_scene");
-            composite.debugView = VisionComposite.DebugView.Final;
-            yield return Wait(5);
-            yield return Shot("28b_hills_survey");
-            cameraRig.orthographicSize = 44f;
-            composite.debugView = VisionComposite.DebugView.SceneOnly;
-            yield return Stage(player, new Vector3(0f, 0f, 0f), new Vector2(0f, -1f), wanderer, away);
-            yield return Wait(5);
-            yield return Shot("28c_whole_map_scene");
-            composite.debugView = VisionComposite.DebugView.Final;
-
-            // New content up close, lit by the flashlight: a wreck by its burning barrel, the generator, woods, a fire.
-            cameraRig.orthographicSize = 4.5f;
-            var closeups = new (string name, Vector3 at, Vector2 aim)[]
-            {
-                ("31_wreck_and_barrel", new Vector3(25.5f, 0f, -9.5f), new Vector2(0.7f, 0.5f)),
-                ("32_generator_by_cabin", new Vector3(15.3f, 0f, 6.7f), new Vector2(0f, 1f)),
-                ("33_wreck_north", new Vector3(-3.5f, 0f, 28f), new Vector2(-0.8f, 0.6f)),
-            };
-            foreach (var c in closeups)
-            {
-                yield return Stage(player, c.at, c.aim, wanderer, away);
-                yield return Wait(5);
-                yield return Shot(c.name);
-            }
-            composite.debugView = VisionComposite.DebugView.SceneOnly;
-            foreach (var c in new (string name, Vector3 at)[] { ("34_woods_scene", new Vector3(20f, 0f, 30f)), ("35_meadow_scene", new Vector3(-26f, 0f, 0f)), ("36_dead_forest_scene", new Vector3(-12f, 0f, -18f)) })
-            {
-                cameraRig.orthographicSize = 9f;
-                yield return Stage(player, c.at, Vector2.up, wanderer, away);
-                yield return Wait(5);
-                yield return Shot(c.name);
-            }
-            composite.debugView = VisionComposite.DebugView.Final;
-            cameraRig.orthographicSize = 2.2f;
-            yield return Stage(player, new Vector3(-2.3f, 0f, -9.6f), new Vector2(1f, 0.2f), wanderer, away);
-            for (int f = 0; f < 3; f++)
-            {
-                yield return Wait(9);
-                yield return Shot($"37_fire_frame_{f}");
-            }
-            cameraRig.orthographicSize = ortho;
-
-            // The HUD: prompt at a supply, a filled inventory, hurt, paused, dead.
-            if (gameHud != null && player.GetComponent<PlayerStats>() is PlayerStats ps)
-            {
-                gameHud.visible = true;
-                cameraRig.orthographicSize = ortho;
-                yield return Stage(player, new Vector3(-4.8f, 0f, 30.2f), new Vector2(0.6f, 0.8f), wanderer, away);
-                Pickup near = null;
-                foreach (Pickup pk in world.Pickups)
-                    if (pk != null && (near == null || Vector3.Distance(pk.transform.position, player.transform.position) < Vector3.Distance(near.transform.position, player.transform.position))) near = pk;
-                if (near != null)
-                {
-                    Vector3 at = near.transform.position - player.transform.position;
-                    at.y = 0f;
-                    player.Teleport(near.transform.position - at.normalized * (1.2f * player.transform.lossyScale.x));
-                    player.AimOverride = new Vector2(at.x, at.z).normalized;
-                    cameraRig.Snap();
-                }
-                yield return Wait(10);
-                gameHud.Refresh();
-                yield return Shot("40_hud_prompt");
-                ps.inventory.Add(ItemType.Bandage, 2);
-                ps.inventory.Add(ItemType.Water, 3);
-                ps.inventory.Add(ItemType.CannedFood, 1);
-                ps.vitals.Tick(2f, true);
-                gameHud.Notify("Picked up Water x2");
-                gameHud.Notify("Used a bandage (+35 health)");
-                yield return Wait(5);
-                yield return Shot("41_hud_inventory");
-                ps.vitals.TakeDamage(72f);
-                yield return Wait(20);
-                yield return Shot("42_hud_low_health");
-                gameHud.SetMenu(true);
-                yield return Wait(5);
-                yield return Shot("43_hud_pause_menu");
-                gameHud.SetMenu(false);
-                ps.vitals.TakeDamage(100f);
-                yield return Wait(5);
-                yield return Shot("44_hud_death");
-                ps.vitals.Reset();
-                yield return Wait(5);
-                gameHud.visible = false;
-            }
-
-            // 12. Gait sheet (side-on, fully lit).
-            yield return TreeSheets();
-            yield return GaitSheet(player);
-
-            // Frame time over a short run with everything live.
-            wanderer.enabled = true;
-            player.AimOverride = new Vector2(0f, 1f);
-            yield return Wait(30);
-            float t0 = Time.realtimeSinceStartup;
-            const int frames = 300;
-            yield return Wait(frames);
-            float ms = (Time.realtimeSinceStartup - t0) * 1000f / frames;
-            File.WriteAllText(Path.Combine(folder, "perf.txt"),
-                $"avg frame {ms:0.00} ms ({1000f / ms:0} fps) over {frames} frames at {Screen.width}x{Screen.height}\n");
-            Application.Quit();
         }
 
         /// <summary>
@@ -630,16 +644,16 @@ namespace Vision.Player
             float best = float.MaxValue;
             const float len = 4f;
             Vector2[] dirs = { Vector2.up, Vector2.down, Vector2.right, Vector2.left };
-            for (float x = -13f; x <= 13f; x += 0.5f)
+            for (float x = -80f; x <= 80f; x += 1f)
             {
-                for (float z = -13f; z <= 13f; z += 0.5f)
+                for (float z = -80f; z <= 80f; z += 1f)
                 {
                     foreach (Vector2 d in dirs)
                     {
                         if (Mathf.Abs(d.y) < 0.5f) continue;   // side-on camera looks along X, so climb along Z
                         var a = new Vector2(x, z);
                         Vector2 b = a + d * len;
-                        if (Mathf.Abs(b.y) > 13f) continue;
+                        if (Mathf.Abs(b.y) > 80f || world.Layout.Blocked(a) || world.Layout.LakeDepth(a) > -3f) continue;
                         bool ok = true;
                         for (float t = 0f; t < len && ok; t += 0.5f)
                         {

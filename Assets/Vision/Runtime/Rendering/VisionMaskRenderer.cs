@@ -159,7 +159,7 @@ namespace Vision.Rendering
             cmd.DrawMesh(mesh, Matrix4x4.identity, maskMaterial, 0, 0);
 
             // Penumbra: the blur widens with distance from the viewer (B, G, A) and from the nearest light source (R).
-            int blurLights = Mathf.Min(MaxBlurLights, lightOrder.Count, maxLights);
+            int blurLights = Mathf.Min(MaxBlurLights, Mathf.Min(lightOrder.Count, maxLights));
             blurOrigins[0] = origin;
             for (int i = 0; i < blurLights; i++) blurOrigins[i + 1] = lightOrder[i].PlanePosition;
             cmd.SetGlobalVectorArray(BlurOriginsId, blurOrigins);

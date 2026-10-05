@@ -209,7 +209,7 @@ namespace Vision.Tests
                 var world = root.AddComponent<SandboxWorld>();
                 world.lowPolyMaterial = world.entityMaterial = world.glowMaterial = mat;
                 world.Generate();
-                Assert.GreaterOrEqual(world.TreeCount, 480, "about twice the 260 trees of before");
+                Assert.GreaterOrEqual(world.TreeCount, 2300, "about 2,900 trees: the 80 m map's density over 180 m");
 
                 // No borders: the ground colour drifts slowly from point to point.
                 float worst = 0f, sum = 0f;
@@ -230,7 +230,7 @@ namespace Vision.Tests
 
                 Assert.Greater(paths.Paths.Count, 5);
                 var names = new Dictionary<string, int>();
-                foreach (Transform t in world.transform.Find("Static"))
+                foreach (Transform t in world.transform.Find("Static").GetComponentsInChildren<Transform>())
                 {
                     string kind = t.name.Split(' ')[0];
                     names[kind] = names.TryGetValue(kind, out int c) ? c + 1 : 1;
@@ -238,7 +238,7 @@ namespace Vision.Tests
                     Vector3 local = world.transform.InverseTransformPoint(t.position);
                     Assert.Greater(paths.Distance(new Vector2(local.x, local.z)), paths.HalfWidth, $"{t.name} stands off the path");
                 }
-                foreach (string kind in new[] { "Dead", "Pine", "Snapped", "Fallen", "Fir", "Spruce", "Spiky", "Black", "Rock", "Sedan", "Van", "Pickup", "Generator", "Burning", "Campfire", "Lantern" })
+                foreach (string kind in new[] { "Dead", "Pine", "Snapped", "Fallen", "Fir", "Spruce", "Spiky", "Black", "Rock", "Generator", "Campfire", "Lantern", "Power", "Headstone", "Iron", "Swings", "Slide", "Hanging", "Lake", "Fence" })
                     Assert.IsTrue(names.ContainsKey(kind), $"the level has {kind}");
                 foreach (string kind in new[] { "Leafy", "Autumn" })
                     Assert.IsFalse(names.ContainsKey(kind), $"no {kind} trees");

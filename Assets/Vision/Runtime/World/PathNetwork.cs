@@ -68,6 +68,44 @@ namespace Vision.World
         static Vector2Int Cell(Vector2 p) => new Vector2Int(Mathf.FloorToInt(p.x / HashCell), Mathf.FloorToInt(p.y / HashCell));
 
         /// <summary>Distance to the nearest path centre line (large when none is near), and the path's ground height there.</summary>
+        /// <summary>
+        /// Draws every path segment into a distance grid (and the path's height at the nearest point): cells within
+        /// <paramref name="reach"/> of a path get their distance, the rest stay at <paramref name="far"/>. One pass over
+        /// the segments instead of a search per point.
+        /// </summary>
+        public void Rasterize(float min, float step, int n, float reach, float far, float[] distance, float[] height)
+        {
+            for (int k = 0; k < distance.Length; k++) { distance[k] = far; height[k] = 0f; }
+            for (int p = 0; p < Paths.Count; p++)
+            {
+                List<Vector2> path = Paths[p];
+                List<float> hs = heights[p];
+                for (int s = 0; s < path.Count - 1; s++)
+                {
+                    Vector2 a = path[s], b = path[s + 1], ab = b - a;
+                    float len2 = Mathf.Max(1e-6f, ab.sqrMagnitude);
+                    int i0 = Mathf.Max(0, Mathf.FloorToInt((Mathf.Min(a.x, b.x) - reach - min) / step));
+                    int i1 = Mathf.Min(n - 1, Mathf.CeilToInt((Mathf.Max(a.x, b.x) + reach - min) / step));
+                    int j0 = Mathf.Max(0, Mathf.FloorToInt((Mathf.Min(a.y, b.y) - reach - min) / step));
+                    int j1 = Mathf.Min(n - 1, Mathf.CeilToInt((Mathf.Max(a.y, b.y) + reach - min) / step));
+                    for (int j = j0; j <= j1; j++)
+                    {
+                        float z = min + j * step;
+                        for (int i = i0; i <= i1; i++)
+                        {
+                            var q = new Vector2(min + i * step, z);
+                            float t = Mathf.Clamp01(Vector2.Dot(q - a, ab) / len2);
+                            float d = (q - (a + ab * t)).magnitude;
+                            int k = j * n + i;
+                            if (d >= distance[k]) continue;
+                            distance[k] = d;
+                            height[k] = Mathf.Lerp(hs[s], hs[s + 1], t);
+                        }
+                    }
+                }
+            }
+        }
+
         public float Distance(float x, float z, out float pathHeight)
         {
             pathHeight = 0f;

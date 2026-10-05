@@ -119,11 +119,9 @@ namespace Vision.EditorTools
             world.maskRenderer = mask;
             world.library = library;
 
-            // Lay the level out as scene objects now, instead of when Play starts.
-            world.placeHook = (prefab, parent) => (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
-            world.Generate();
-            world.placeHook = null;
-            world.generateOnAwake = false;
+            // The 180 m level is generated when Play starts (and again by New map), not stored in the scene; this
+            // also deletes any level meshes an earlier bake saved.
+            world.generateOnAwake = true;
             int meshes = LevelBaker.SaveLooseMeshes(worldGo.transform);
 
             var gameHud = new GameObject("Game HUD").AddComponent<GameHud>();

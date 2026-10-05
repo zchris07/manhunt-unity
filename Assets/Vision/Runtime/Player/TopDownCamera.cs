@@ -55,6 +55,7 @@ namespace Vision.Player
 
         void Apply()
         {
+            if (cam == null) cam = GetComponent<Camera>();   // the level may snap the camera before this Awake runs
             cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight);
             transform.rotation = Quaternion.Euler(pitch, 0f, 0f);
         }

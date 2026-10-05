@@ -34,6 +34,43 @@ namespace Vision.World
         PathNetwork paths;
         float pathFlat, pathBlend;
 
+        MapLayout lake;
+        float lakeLevel;
+
+        /// <summary>The water surface height (design units) when there is a lake.</summary>
+        public float LakeLevel => lakeLevel;
+        public MapLayout LakeLayout => lake;
+
+        /// <summary>
+        /// Carves the layout's lake: the shore flattens to the water level over a few metres, and the bed falls away
+        /// under the water to about a metre deep.
+        /// </summary>
+        public void SetLake(MapLayout layout)
+        {
+            lake = layout;
+            lakeLevel = Natural(layout.LakeCentre.x, layout.LakeCentre.y) - 0.6f;
+        }
+
+        /// <summary>Whether a point is standing in the lake's water (wading), not on the dock.</summary>
+        public bool InWater(float x, float z)
+        {
+            if (lake == null) return false;
+            var p = new Vector2(x, z);
+            if (lake.LakeDepth(p) <= 0.4f) return false;
+            Vector2 a = lake.DockStart, ab = lake.DockEnd - lake.DockStart;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(1e-5f, ab.sqrMagnitude));
+            return (p - (a + ab * t)).magnitude > lake.DockHalfWidth;
+        }
+
+        /// <summary>Whether a world point is in the active level's lake.</summary>
+        public static bool InWaterAt(Vector3 world)
+        {
+            TerrainField f = Active;
+            if (f == null) return false;
+            Vector3 local = activeRoot.InverseTransformPoint(world);
+            return f.InWater(local.x, local.z);
+        }
+
         /// <summary>Footpaths the ground is flattened across (null for none).</summary>
         public PathNetwork Paths => paths;
 
@@ -96,22 +133,97 @@ namespace Vision.World
             return h;
         }
 
-        public float Height(float x, float z)
+        // A baked copy of the finished field on a fine grid: building a 180 m level asks for millions of heights,
+        // and the full function (pads, paths, lake) is far too slow for that.
+        float[] bakedHeight, bakedPath;
+        float bakeStep, bakeMin;
+        int bakeN;
+
+        public bool IsBaked => bakedHeight != null;
+
+        /// <summary>
+        /// Samples the finished terrain (after its pads, lake and paths are set) and the distance to the nearest path onto
+        /// a <paramref name="step"/> grid; from then on <see cref="Height"/> and <see cref="PathDistance"/> read the grid.
+        /// </summary>
+        public void Bake(float step = 0.25f)
+        {
+            float ext = halfExtent + 6f;
+            int n = Mathf.CeilToInt(2f * ext / step) + 1;
+            var h = new float[n * n];
+            var d = new float[n * n];
+            float min = -ext;
+            // Paths first, drawn into the grid in one pass; the heights then read the path terms from it.
+            var ph = new float[n * n];
+            if (paths != null) paths.Rasterize(min, step, n, pathFlat + pathBlend + 6f, 1000f, d, ph);
+            else for (int k = 0; k < d.Length; k++) d[k] = 1000f;
+            System.Threading.Tasks.Parallel.For(0, n, j =>
+            {
+                float z = min + j * step;
+                for (int i = 0; i < n; i++)
+                {
+                    int k = j * n + i;
+                    h[k] = HeightCore(min + i * step, z, d[k], ph[k]);
+                }
+            });
+            bakeStep = step;
+            bakeMin = min;
+            bakeN = n;
+            bakedHeight = h;
+            bakedPath = d;
+        }
+
+        float Sample(float[] grid, float x, float z)
+        {
+            float fx = Mathf.Clamp((x - bakeMin) / bakeStep, 0f, bakeN - 1.001f);
+            float fz = Mathf.Clamp((z - bakeMin) / bakeStep, 0f, bakeN - 1.001f);
+            int i = (int)fx, j = (int)fz;
+            float tx = fx - i, tz = fz - j;
+            int k = j * bakeN + i;
+            float a = grid[k] + (grid[k + 1] - grid[k]) * tx;
+            float b = grid[k + bakeN] + (grid[k + bakeN + 1] - grid[k + bakeN]) * tx;
+            return a + (b - a) * tz;
+        }
+
+        /// <summary>Distance to the nearest path centre line (large when there is none).</summary>
+        public float PathDistance(float x, float z)
+        {
+            if (bakedPath != null) return Sample(bakedPath, x, z);
+            return paths != null ? paths.Distance(x, z, out _) : 1000f;
+        }
+
+        public float Height(float x, float z) => bakedHeight != null ? Sample(bakedHeight, x, z) : HeightExact(x, z);
+
+        /// <summary>The terrain function itself (hills, pads, paths, lake, wall band), unbaked.</summary>
+        public float HeightExact(float x, float z)
+        {
+            float d = 1000f, ph = 0f;
+            if (paths != null) d = paths.Distance(x, z, out ph);
+            return HeightCore(x, z, d, ph);
+        }
+
+        /// <summary>The terrain at a point given the distance to the nearest path and that path's height there.</summary>
+        float HeightCore(float x, float z, float pathDistance, float pathHeight)
         {
             float h = Natural(x, z);
             for (int i = 0; i < pads.Count; i++)
             {
                 Pad p = pads[i];
-                float dx = Mathf.Max(p.Area.xMin - x, 0f, x - p.Area.xMax);
-                float dz = Mathf.Max(p.Area.yMin - z, 0f, z - p.Area.yMax);
+                // Two-argument Max: the three-argument overload allocates an array on every call.
+                float dx = Mathf.Max(Mathf.Max(p.Area.xMin - x, x - p.Area.xMax), 0f);
+                float dz = Mathf.Max(Mathf.Max(p.Area.yMin - z, z - p.Area.yMax), 0f);
                 float w = 1f - Mathf.SmoothStep(0f, 1f, Mathf.Sqrt(dx * dx + dz * dz) / p.Blend);
                 if (w > 0f) h = Mathf.Lerp(h, p.Height, w);
             }
-            if (paths != null)
+            if (paths != null && pathDistance < pathFlat + pathBlend)
+                h = Mathf.Lerp(h, pathHeight, 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((pathDistance - pathFlat) / pathBlend)));
+            if (lake != null)
             {
-                float d = paths.Distance(x, z, out float ph);
-                if (d < pathFlat + pathBlend)
-                    h = Mathf.Lerp(h, ph, 1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((d - pathFlat) / pathBlend)));
+                float depth = lake.LakeDepth(new Vector2(x, z));
+                if (depth > -5f)
+                {
+                    h = Mathf.Lerp(h, lakeLevel + 0.15f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-5f, 0f, depth)));
+                    if (depth > 0f) h -= 1.1f * Mathf.SmoothStep(0f, 1f, depth / 3.5f);
+                }
             }
             float edge = Mathf.Max(Mathf.Abs(x), Mathf.Abs(z));
             float inner = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(halfExtent - 1f, halfExtent - 1f - edgeBand, edge));

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Vision.Characters;
 using Vision.Player;
 using Vision.Rendering;
 using Vision.Visibility;
@@ -7,24 +8,23 @@ using Vision.Visibility;
 namespace Vision.World
 {
     /// <summary>
-    /// Builds the vision sandbox diorama (deterministic from <see cref="seed"/>): ground, a walled
-    /// arena, a cabin with a door, a window shutter and an inner partition, a dead forest with rocks,
-    /// campfires and lanterns (more than the 6-light cap), crows, one wandering figure and the player,
-    /// then wires the player into the camera and mask renderer.
+    /// Builds the whole level from <see cref="seed"/>, laid out like the original 2D game's map (<see cref="MapLayout"/>):
+    /// a 180 m square of hills and woods walled in, the central building's site with the gate yard north of it,
+    /// the survivors' spawn in the south, clearings joined by footpaths, three cabins, the woods generators with
+    /// their cover, a lake with a dock in one corner, fences, logs, campfires, tall-grass hiding patches, power
+    /// lines, a graveyard, a playground and a hanging tree; then about 2,900 trees, rocks and plants, crows, the
+    /// wanderer and the player.
     ///
-    /// The layout is in design units (local space). Scale this object to resize the world; see
-    /// <see cref="WorldScale"/>.
-    ///
-    /// <see cref="Generate"/> works in the Editor as well as in Play mode. The level baker calls it
-    /// to lay the level out in the scene and save its meshes as assets; the saved scene then has
-    /// <see cref="generateOnAwake"/> off, and everything is ordinary, editable scene content.
+    /// The layout is in design units (local space); the level root is scaled by <see cref="WorldScale"/>.
+    /// The level is built when Play starts (and again by <see cref="Regenerate"/>); nothing of it is saved in the scene.
     /// </summary>
     [DefaultExecutionOrder(-100)]
     public sealed class SandboxWorld : MonoBehaviour
     {
         public int seed = 1337;
-        public float halfExtent = 40f;
-        [Tooltip("Build the level when Play starts. Off for a baked level that is already in the scene.")]
+        [Tooltip("Half the map's width in design units: the original's 6000 units at 3 cm each.")]
+        public float halfExtent = 90f;
+        [Tooltip("Build the level when Play starts.")]
         public bool generateOnAwake = true;
 
         [Header("Props and materials")]
@@ -37,37 +37,33 @@ namespace Vision.World
         [Header("Wiring")]
         public TopDownCamera cameraRig;
         public VisionMaskRenderer maskRenderer;
-        public Vector3 playerSpawn = new Vector3(0f, 0f, -5f);
 
-        [Header("Generated (serialized so a baked scene keeps them)")]
+        [Header("Generated")]
         public PlayerController Player;
         public Wanderer Wanderer;
         public List<Door> Doors = new List<Door>();
         public List<Transform> Crows = new List<Transform>();
         public List<Pickup> Pickups = new List<Pickup>();
+        public List<Transform> Generators = new List<Transform>();
 
-        /// <summary>
-        /// How a prefab becomes a scene object. Null means Object.Instantiate; the level baker sets it to
-        /// PrefabUtility.InstantiatePrefab so baked objects stay linked to their prefabs.
-        /// </summary>
+        /// <summary>How a prefab becomes a scene object. Null means Object.Instantiate.</summary>
         public System.Func<GameObject, Transform, GameObject> placeHook;
 
         System.Random rng;
         Transform staticRoot, entityRoot;
-        readonly List<Vector2> blockedSpots = new List<Vector2>();
+        readonly PointGrid blocked = new PointGrid(4f);
 
-        // Cabin footprint (world X,Z).
-        static readonly Rect Cabin = new Rect(5f, 4f, 8f, 7f);
-        static readonly Vector2[] Fires = { new Vector2(-1f, -9f), new Vector2(12f, -13f), new Vector2(-10f, 4f), new Vector2(-27f, 21f), new Vector2(25f, 27f) };
-        /// <summary>Where the car wrecks lie (sedan, van, pickup, sedan); paths lead to each.</summary>
-        static readonly Vector2[] WreckSites = { new Vector2(-21f, -25f), new Vector2(29f, -7f), new Vector2(-7f, 31f), new Vector2(22f, 14f) };
-        static readonly Vector2 GeneratorSite = new Vector2(15.5f, 8.5f);
-        static readonly Vector2 CabinDoor = new Vector2(3.6f, 7.2f);
-        /// <summary>Open ground around the spawn point and the wanderer's loop: no trees or rocks.</summary>
-        static readonly Rect SpawnClearing = new Rect(-5.5f, -13.5f, 10f, 12f);
+        /// <summary>Where everything is on this map.</summary>
+        public MapLayout Layout { get; private set; }
 
-        /// <summary>The ground height of this level (design units, local space). Rebuilt from the seed when needed.</summary>
+        /// <summary>The ground height of this level (design units, local space).</summary>
         public TerrainField Terrain { get; private set; }
+
+        /// <summary>The player's start, design units.</summary>
+        public Vector3 playerSpawn => Layout != null ? new Vector3(Layout.Spawn.x, 0f, Layout.Spawn.y) : Vector3.zero;
+
+        /// <summary>Raised after every (re)generation.</summary>
+        public event System.Action Generated;
 
         void Awake()
         {
@@ -76,38 +72,79 @@ namespace Vision.World
 
         void OnEnable()
         {
-            Terrain ??= CreateTerrain();
+            if (Terrain == null)
+            {
+                Layout ??= new MapLayout(seed, halfExtent);
+                Terrain = CreateTerrain(Layout);
+            }
             TerrainField.SetActive(Terrain, transform);
-            Characters.HumanoidAnimator.Ground = TerrainField.TrySample;
+            HumanoidAnimator.Ground = TerrainField.TrySample;
         }
 
         void OnDisable()
         {
             TerrainField.ClearActive(transform);
-            if (TerrainField.Active == null) Characters.HumanoidAnimator.Ground = null;
+            if (TerrainField.Active == null) HumanoidAnimator.Ground = null;
+        }
+
+        /// <summary>Builds a fresh map from a new seed (random when none is given).</summary>
+        public void Regenerate(int? newSeed = null)
+        {
+            seed = newSeed ?? new System.Random().Next(1, 1000000);
+            Generate();
         }
 
         /// <summary>
-        /// Hills and ditches with flat pads under the cabin, the spawn point, the campfires, the wrecks and the
-        /// generator, and footpaths routed between them (the ground is flattened across each path).
+        /// Hills and ditches with flat ground under the building and its yard, the cabins, the clearings, the cover
+        /// pieces and the special sites, the lake's basin, and footpaths routed between everything.
         /// </summary>
-        public TerrainField CreateTerrain()
+        public TerrainField CreateTerrain(MapLayout layout)
         {
             var f = new TerrainField(seed, halfExtent);
-            f.AddPad(new Rect(Cabin.x - 1.5f, Cabin.y - 1.5f, Cabin.width + 3f, Cabin.height + 3f), 6f);
-            var spawn = new Vector2(playerSpawn.x, playerSpawn.z);
-            f.AddPad(spawn, 1.5f, 4f);
-            foreach (Vector2 fire in Fires) f.AddPad(fire, 1.6f, 3.5f);
-            foreach (Vector2 wreck in WreckSites) f.AddPad(wreck, 2.6f, 5f);
-            f.AddPad(GeneratorSite, 1.2f, 3f);
+            f.AddPad(Expand(layout.Building, 1.5f), 6f);
+            f.AddPad(Expand(layout.Yard, 1f), 4f);
+            foreach (MapLayout.Cabin c in layout.Cabins) f.AddPad(Expand(c.Area, 1.2f), 5f);
+            for (int i = 0; i < layout.Clearings.Count; i++)
+                f.AddPad(layout.Clearings[i].Centre, layout.Clearings[i].Radius * 0.45f, layout.Clearings[i].Radius * 0.6f);
+            foreach (MapLayout.Kit k in layout.Kits) f.AddPad(k.Centre, 3.5f, 3f);
+            foreach (Vector2 g in layout.WoodsGenerators) f.AddPad(g, 1.4f, 3f);
+            f.AddPad(Expand(layout.Graveyard, 1f), 4f);
+            f.AddPad(Expand(layout.Playground, 1f), 4f);
+            f.AddPad(layout.HangingTree, 2.5f, 3f);
+            f.SetLake(layout);
 
-            var points = new List<Vector2> { spawn, CabinDoor + Vector2.left * 1.2f, GeneratorSite + Vector2.left * 1.5f };
-            points.AddRange(Fires);
-            foreach (Vector2 wreck in WreckSites) points.Add(wreck + Vector2.right * 3.2f);
-            var cabinBlock = new Rect(Cabin.x - 0.6f, Cabin.y - 0.6f, Cabin.width + 1.2f, Cabin.height + 1.2f);
-            f.SetPaths(PathNetwork.Build(points, f.Height, halfExtent - 3f, p => cabinBlock.Contains(p)));
+            var building = Expand(layout.Building, 0.6f);
+            var yard = Expand(layout.Yard, 0.2f);
+            var cabins = new List<Rect>();
+            foreach (MapLayout.Cabin c in layout.Cabins) cabins.Add(Expand(c.Area, 0.4f));
+            bool Blocked(Vector2 p)
+            {
+                if (building.Contains(p) || yard.Contains(p) || layout.LakeDepth(p) > -1.5f) return true;
+                foreach (Rect r in cabins) if (r.Contains(p)) return true;
+                if (layout.Graveyard.Contains(p) || layout.Playground.Contains(p)) return true;
+                foreach (Vector2 pole in layout.PowerPoles) if ((pole - p).sqrMagnitude < 1.6f * 1.6f) return true;
+                foreach (Vector2 g in layout.WoodsGenerators) if ((g - p).sqrMagnitude < 2.2f * 2.2f) return true;
+                foreach (MapLayout.Kit k in layout.Kits) if ((k.Centre - p).sqrMagnitude < 3.2f * 3.2f) return true;
+                foreach (MapLayout.Segment fence in layout.Fences)
+                {
+                    Vector2 ab = fence.B - fence.A;
+                    float t = Mathf.Clamp01(Vector2.Dot(p - fence.A, ab) / ab.sqrMagnitude);
+                    if (t > fence.GapStart && t < fence.GapEnd) continue;   // through the gap
+                    if ((fence.A + ab * t - p).sqrMagnitude < 0.8f * 0.8f) return true;
+                }
+                return false;
+            }
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var net = PathNetwork.Build(layout.PathPoints(), f.Height, halfExtent - 3f, Blocked);
+            net.HalfWidth = 70f * MapLayout.Unit * 0.5f;
+            f.SetPaths(net);
+            long tPaths = sw.ElapsedMilliseconds;
+            f.Bake();
+            TerrainReport = $"paths {tPaths} ms, bake {sw.ElapsedMilliseconds - tPaths} ms";
             return f;
         }
+
+        static Rect Expand(Rect r, float by) => new Rect(r.x - by, r.y - by, r.width + 2f * by, r.height + 2f * by);
 
         /// <summary>Clears and rebuilds the whole level under this object.</summary>
         [ContextMenu("Generate Level")]
@@ -117,34 +154,78 @@ namespace Vision.World
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 GameObject child = transform.GetChild(i).gameObject;
-                if (Application.isPlaying) Destroy(child);
+                if (Application.isPlaying) { child.SetActive(false); Destroy(child); }
                 else DestroyImmediate(child);
             }
             Doors.Clear();
             Crows.Clear();
             Pickups.Clear();
-            blockedSpots.Clear();
+            Generators.Clear();
+            blocked.Clear();
             Player = null;
             Wanderer = null;
 
-            Terrain = CreateTerrain();
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            var times = new System.Text.StringBuilder();
+            void Step(string name, System.Action build)
+            {
+                long t0 = timer.ElapsedMilliseconds;
+                build();
+                times.Append($" {name} {timer.ElapsedMilliseconds - t0}");
+            }
+            Step("layout", () => Layout = new MapLayout(seed, halfExtent));
+            Step("terrain", () => Terrain = CreateTerrain(Layout));
             TerrainField.SetActive(Terrain, transform);
             staticRoot = new GameObject("Static").transform;
             staticRoot.SetParent(transform, false);
             entityRoot = new GameObject("Entities").transform;
             entityRoot.SetParent(transform, false);
 
-            BuildPerimeter();
-            BuildCabin();
-            BuildTrees();
-            BuildRocks();
-            BuildLights();
-            BuildProps();
-            BuildPickups();
-            BuildGround();   // last, so plants grow around everything placed
-            BuildCrows();
-            BuildWanderer();
-            BuildPlayer();
+            Step("walls", BuildPerimeter);
+            Step("cabins", BuildCabins);
+            Step("kits", BuildKits);
+            Step("fences", () => { BuildFences(); BuildLogs(); });
+            Step("lake", BuildLake);
+            Step("power", BuildPowerLine);
+            Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); });
+            Step("lights", () => { BuildGenerators(); BuildLights(); });
+            Step("trees", BuildTrees);
+            Step("rocks", BuildRocks);
+            Step("supplies", BuildPickups);
+            Step("ground", BuildGround);   // last, so plants and grass grow around everything placed
+            Step("entities", () => { BuildCrows(); BuildWanderer(); BuildPlayer(); });
+            LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees";
+            Debug.Log($"[Vision] Generated {LastGenerationReport}");
+            Generated?.Invoke();
+        }
+
+        // ---------------------------------------------------------------- land character (gradual, no borders)
+
+        float Offset => (seed % 1000) * 0.37f;
+
+        /// <summary>0 = living evergreens, 1 = dead trees.</summary>
+        public float Deadness(float x, float z)
+        {
+            float r = Mathf.PerlinNoise(x * 0.03f + 17.3f + Offset, z * 0.03f + 4.1f);
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 0.32f, r));
+        }
+
+        /// <summary>0 = open ground, 1 = thick woods: how densely trees grow.</summary>
+        public float Woodland(float x, float z) =>
+            Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.28f, 0.68f, Mathf.PerlinNoise(x * 0.04f + 51.7f, z * 0.04f + 23.9f + Offset)));
+
+        /// <summary>0 = dry, 1 = damp: grass, ferns and moss versus straw and dry scrub.</summary>
+        public float Moisture(float x, float z) => Mathf.PerlinNoise(x * 0.05f + 7.1f, z * 0.05f + 2.3f);
+
+        /// <summary>Somewhere a solid prop may stand: inside the walls, off the paths, the lake and every reserved site.</summary>
+        bool Free(Vector2 p, float radius, float spacing)
+        {
+            float lim = halfExtent - 1.5f - radius;
+            if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
+            if (Layout.Blocked(p) || Layout.LakeDepth(p) > -2f - radius) return false;
+            PathNetwork paths = Terrain.Paths;
+            if (paths != null && Terrain.PathDistance(p.x, p.y) < paths.HalfWidth + radius + 0.4f) return false;
+            return !blocked.AnyWithin(p, spacing + radius);
         }
 
         // ---------------------------------------------------------------- ground
@@ -162,19 +243,29 @@ namespace Vision.World
             public static readonly Color Moss = new Color(0.33f, 0.35f, 0.26f);
             public static readonly Color Rocky = new Color(0.36f, 0.35f, 0.33f);
             public static readonly Color Mud = new Color(0.22f, 0.19f, 0.16f);
+            public static readonly Color LakeBed = new Color(0.16f, 0.15f, 0.13f);
             public static readonly Color Path = new Color(0.46f, 0.38f, 0.28f);
             public static readonly Color Floor = new Color(0.33f, 0.25f, 0.18f);
+            public static readonly Color Concrete = new Color(0.36f, 0.36f, 0.35f);
+            public static readonly Color GraveGrass = new Color(0.27f, 0.30f, 0.23f);
+        }
+
+        bool InCabin(Vector2 p)
+        {
+            foreach (MapLayout.Cabin c in Layout.Cabins) if (c.Area.Contains(p)) return true;
+            return false;
         }
 
         /// <summary>
-        /// Ground colour: shades of earth (light and dark soil, a little clay, greyer where the trees are dead)
-        /// blending slowly into each other, with a hint of moss where it is damp and straw where it is dry,
-        /// rock grey on steep slopes, mud in the ditches and packed dirt on the paths (with ragged edges).
+        /// Ground colour: shades of earth blending slowly, a hint of moss where it is damp and straw where it is dry,
+        /// trodden dirt in the clearings, rock grey on steep slopes, mud in the ditches and the lake bed, packed dirt
+        /// on the paths, plank floors in the cabins, concrete in the building and its yard, darker grass in the graveyard.
         /// </summary>
         public Color GroundColor(float x, float z)
         {
-            if (Cabin.Contains(new Vector2(x, z)))
-                return Ground.Floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);   // planks along X, 0.5 m wide
+            var p = new Vector2(x, z);
+            if (InCabin(p)) return Ground.Floor * (Mathf.FloorToInt(z / 0.5f) % 2 == 0 ? 1f : 0.85f);
+            if (Layout.Building.Contains(p) || Layout.Yard.Contains(p)) return Ground.Concrete * (0.94f + 0.08f * Mathf.PerlinNoise(x * 0.6f, z * 0.6f));
             float f1 = Mathf.PerlinNoise(x * 0.045f + 3.3f, z * 0.045f + 9.1f);
             float f2 = Mathf.PerlinNoise(x * 0.12f + 11f, z * 0.12f + 5f);
             float f3 = Mathf.PerlinNoise(x * 0.022f + 31f, z * 0.022f + 2f);
@@ -186,12 +277,20 @@ namespace Vision.World
             c = Color.Lerp(c, Ground.Moss, 0.4f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.8f, moist)) * (1f - dead));
             c = Color.Lerp(c, Ground.Straw, 0.35f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.25f, moist)));
             c = Color.Lerp(c, Ground.DarkEarth * 0.9f, 0.3f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f, 0.8f, f2)));
+            foreach (MapLayout.Clearing cl in Layout.Clearings)
+            {
+                float d = (cl.Centre - p).magnitude / (cl.Radius * 0.75f);
+                if (d < 1.4f) c = Color.Lerp(c, Ground.Path * 0.95f, 0.6f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.4f, 0.8f, d + (n3 - 0.5f) * 0.3f)));
+            }
+            if (Expand(Layout.Graveyard, 0.5f).Contains(p)) c = Color.Lerp(c, Ground.GraveGrass, 0.7f);
             c = Color.Lerp(c, Ground.Rocky, 0.8f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(27f, 35f, Terrain.SlopeDeg(x, z))));
             c = Color.Lerp(c, Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.1f, -1.8f, Terrain.Natural(x, z))));
+            float lake = Layout.LakeDepth(p);
+            if (lake > -3f) c = Color.Lerp(c, lake > 0f ? Ground.LakeBed : Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-3f, 0.5f, lake)));
             PathNetwork paths = Terrain.Paths;
             if (paths != null)
             {
-                float d = paths.Distance(x, z, out _);
+                float d = Terrain.PathDistance(x, z);
                 float edge = paths.HalfWidth + 0.15f + (n3 - 0.5f) * 0.5f;
                 c = Color.Lerp(c, Ground.Path * (0.92f + 0.16f * n3), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge + 0.25f, edge - 0.25f, d)));
             }
@@ -201,26 +300,31 @@ namespace Vision.World
         void BuildGround()
         {
             float e = halfExtent + 4f;
-            // The cabin floor (and a margin around it) stays regular so its planks line up with the walls.
-            var flatZone = new Rect(Cabin.x - 0.5f, Cabin.y - 0.5f, Cabin.width + 1f, Cabin.height + 1f);
+            var cabinZones = new List<Rect>();
+            foreach (MapLayout.Cabin c in Layout.Cabins) cabinZones.Add(Expand(c.Area, 0.5f));
+            Rect buildingZone = Expand(Layout.Building, 0.5f), yardZone = Layout.Yard;
+            bool Flat(Vector2 p)
+            {
+                if (buildingZone.Contains(p) || yardZone.Contains(p)) return true;
+                foreach (Rect r in cabinZones) if (r.Contains(p)) return true;
+                return false;
+            }
 
-            // Cell size from the shared polygon budget (the player's facet size, relaxed for flat ground).
+            // Cell size from the shared polygon budget (the player's facet size, relaxed for the ground).
             var grid = new LowPolyMeshBuilder.TerrainGrid(e, PolyBudget.Edge(PolyBudget.Class.Ground),
-                (x, z) => Terrain.Height(x, z), (x, z) => flatZone.Contains(new Vector2(x, z)) ? 0f : 1f, 0.28f, seed);
-            Color GroundColorVaried(float x, float z) => Vary(GroundColor(x, z), Cabin.Contains(new Vector2(x, z)) ? 0.03f : 0.05f);
+                (x, z) => Terrain.Height(x, z), (x, z) => Flat(new Vector2(x, z)) ? 0f : 1f, 0.28f, seed);
+            Color GroundColorVaried(float x, float z) => Vary(GroundColor(x, z), Flat(new Vector2(x, z)) ? 0.03f : 0.05f);
 
             int perChunk = Mathf.Max(1, Mathf.RoundToInt(ChunkSize / grid.Step));
             int chunks = Mathf.CeilToInt(grid.Cells / (float)perChunk);
             var builders = new LowPolyMeshBuilder[chunks, chunks];
             for (int cj = 0; cj < chunks; cj++)
-            {
                 for (int ci = 0; ci < chunks; ci++)
                 {
                     builders[ci, cj] = new LowPolyMeshBuilder(rng);
                     builders[ci, cj].AddTerrainPatch(grid, ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
                         cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), GroundColorVaried);
                 }
-            }
             LowPolyMeshBuilder ChunkAt(Vector2 p)
             {
                 int ci = Mathf.Clamp(Mathf.FloorToInt((p.x + e) / grid.Step / perChunk), 0, chunks - 1);
@@ -228,7 +332,8 @@ namespace Vision.World
                 return builders[ci, cj];
             }
             PathNetwork paths = Terrain.Paths;
-            float OnPath(Vector2 p) => paths != null ? paths.Distance(p) - paths.HalfWidth : float.MaxValue;
+            float OnPath(Vector2 p) => paths != null ? Terrain.PathDistance(p.x, p.y) - paths.HalfWidth : float.MaxValue;
+            bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p);
             float lim = halfExtent - 0.8f;
 
             // Short grass blades (dead or green with the ground), pebbles and bone-pale debris.
@@ -236,7 +341,7 @@ namespace Vision.World
             for (int i = 0; i < total; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (flatZone.Contains(p) || OnPath(p) < -0.2f) continue;
+                if (Bare(p) || OnPath(p) < -0.2f) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
                 Color grass = Color.Lerp(GroundColor(p.x, p.y), new Color(0.36f, 0.36f, 0.26f), 0.5f) * 1.1f;
                 int blades = 2 + rng.Next(4);
@@ -252,7 +357,7 @@ namespace Vision.World
             for (int i = 0; i < total * 0.37f; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (flatZone.Contains(p)) continue;
+                if (Flat(p)) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
                 float s = Range(0.05f, 0.14f);
                 bool bone = rng.NextDouble() < 0.2;
@@ -261,22 +366,21 @@ namespace Vision.World
                 b.AddBlob(new Vector3(p.x, Terrain.Height(p.x, p.y), p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
             }
 
-            // Plant life: shrubs, ferns, tall grass, reeds in the ditches, dead shrubs, flowers, mushrooms.
+            // Plant life: shrubs, ferns, tall grass, reeds in ditches and by the lake, dead shrubs, flowers, mushrooms.
             int plants = Mathf.RoundToInt(260f * (halfExtent * halfExtent) / 400f);
             for (int i = 0; i < plants; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (flatZone.Contains(p) || OnPath(p) < 0.2f || TooClose(blockedSpots, p, 0.7f)) continue;
+                if (Bare(p) || OnPath(p) < 0.2f || blocked.AnyWithin(p, 0.7f)) continue;
                 float dead = Deadness(p.x, p.y), moist = Moisture(p.x, p.y), wood = Woodland(p.x, p.y);
-                bool ditch = Terrain.Natural(p.x, p.y) < -1.3f;
+                bool wet = Terrain.Natural(p.x, p.y) < -1.3f || Layout.LakeDepth(p) > -4f;
                 float roll = (float)rng.NextDouble();
                 LowPolyMeshBuilder b = ChunkAt(p);
                 Vector3 n = Terrain.Normal(p.x, p.y);
                 b.Transform = Matrix4x4.TRS(new Vector3(p.x, Terrain.Height(p.x, p.y) - 0.02f, p.y),
                     Quaternion.FromToRotation(Vector3.up, Vector3.Slerp(Vector3.up, n, 0.5f)) * Quaternion.Euler(0f, Range(0f, 360f), 0f),
                     Vector3.one * Range(0.8f, 1.25f));
-                // What grows here shifts gradually with how dead, damp and wooded the land is.
-                if (ditch && roll < 0.6f) LowPolyModels.AddReeds(b, Range(0.9f, 1.4f));
+                if (wet && roll < 0.6f) LowPolyModels.AddReeds(b, Range(0.9f, 1.4f));
                 else if (roll < 0.35f * dead) LowPolyModels.AddDeadShrub(b, Range(0.5f, 0.9f));
                 else if (roll < 0.5f) LowPolyModels.AddTallGrass(b, Range(0.45f, 0.85f), (float)rng.NextDouble() > moist);
                 else if (roll < 0.62f + 0.12f * wood) LowPolyModels.AddBush(b, Range(0.4f, 0.7f), moist < 0.35f || dead > 0.6f);
@@ -286,8 +390,30 @@ namespace Vision.World
                 b.Transform = null;
             }
 
-            for (int cj = 0; cj < chunks; cj++)
+            // Tall-grass hiding patches: dense, head-high grass (a hiding spot each).
+            Transform hiding = Group("Tall Grass");
+            foreach (MapLayout.Clearing g in Layout.GrassPatches)
             {
+                int clumps = Mathf.RoundToInt(g.Radius * g.Radius * 3.2f);
+                for (int k = 0; k < clumps; k++)
+                {
+                    float a = Range(0f, Mathf.PI * 2f), r = g.Radius * Mathf.Sqrt((float)rng.NextDouble());
+                    var p = g.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                    LowPolyMeshBuilder b = ChunkAt(p);
+                    b.Transform = Matrix4x4.TRS(new Vector3(p.x, Terrain.Height(p.x, p.y) - 0.02f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f), Vector3.one * Range(0.9f, 1.2f));
+                    LowPolyModels.AddTallGrass(b, Range(1.15f, 1.6f) * (1f - 0.35f * r / g.Radius), Deadness(p.x, p.y) > 0.5f);
+                    b.Transform = null;
+                }
+                var spot = new GameObject("Tall Grass Patch");
+                spot.transform.SetParent(hiding, false);
+                spot.transform.localPosition = new Vector3(g.Centre.x, H(g.Centre), g.Centre.y);
+                var hs = spot.AddComponent<HidingSpot>();
+                hs.kind = HidingSpot.Kind.Grass;
+                hs.reach = g.Radius;
+                hs.exit = Vector3.zero;
+            }
+
+            for (int cj = 0; cj < chunks; cj++)
                 for (int ci = 0; ci < chunks; ci++)
                 {
                     var go = MakeStatic("Ground", builders[ci, cj].ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
@@ -295,7 +421,6 @@ namespace Vision.World
                         cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), "Ground Collider");
                     go.SetActive(true);
                 }
-            }
         }
 
         // ---------------------------------------------------------------- placement on the terrain
@@ -329,6 +454,33 @@ namespace Vision.World
             t.SetLocalPositionAndRotation(new Vector3(p.x, H(p) - sink * Mathf.Max(radius, 0.3f), p.y), tilt * Quaternion.Euler(0f, yaw, 0f));
         }
 
+        Transform Group(string name)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(staticRoot, false);
+            return t;
+        }
+
+        /// <summary>A plain static mesh object (no collider), placed upright at a point with a yaw.</summary>
+        GameObject Piece(string name, Mesh mesh, Transform parent, Vector3 pos, float yaw, Material mat = null)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.SetLocalPositionAndRotation(pos, Quaternion.Euler(0f, yaw, 0f));
+            go.isStatic = true;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = mat != null ? mat : lowPolyMaterial;
+            return go;
+        }
+
+        static BoxCollider AddBox(GameObject go, Vector3 centre, Vector3 size)
+        {
+            var c = go.AddComponent<BoxCollider>();
+            c.center = centre;
+            c.size = size;
+            return c;
+        }
+
         // ---------------------------------------------------------------- walls
 
         void BuildPerimeter()
@@ -352,24 +504,20 @@ namespace Vision.World
 
         void PlankWall(Vector2 a, Vector2 b, float height = 2.4f, bool occludes = true)
         {
+            if (Vector2.Distance(a, b) < 0.05f) return;
             Mesh m = LowPolyModels.PlankWall(rng, Vector2.Distance(a, b), height, 0.3f);
             Wall("Plank Wall", a, b, height, 0.3f, m, occludes, true);
         }
 
-        GameObject Wall(string name, Vector2 a, Vector2 b, float height, float thickness, Mesh m, bool occludes, bool collides)
+        GameObject Wall(string name, Vector2 a, Vector2 b, float height, float thickness, Mesh m, bool occludes, bool collides, float baseY = float.NaN)
         {
             Vector2 d = b - a;
             float length = d.magnitude;
             Vector2 mid = (a + b) * 0.5f;
             Quaternion rot = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
-            float baseY = Mathf.Min(H(a), Mathf.Min(H(mid), H(b))) - 0.03f;
+            if (float.IsNaN(baseY)) baseY = Mathf.Min(H(a), Mathf.Min(H(mid), H(b))) - 0.03f;
             GameObject go = MakeStatic(name, m, new Vector3(mid.x, baseY, mid.y), rot, lowPolyMaterial);
-            if (collides)
-            {
-                var col = go.AddComponent<BoxCollider>();
-                col.center = new Vector3(0f, height * 0.5f, 0f);
-                col.size = new Vector3(length, height, thickness);
-            }
+            if (collides) AddBox(go, new Vector3(0f, height * 0.5f, 0f), new Vector3(length, height, thickness));
             if (occludes)
             {
                 var occ = go.AddComponent<Occluder>();
@@ -380,43 +528,16 @@ namespace Vision.World
             return go;
         }
 
-        // ---------------------------------------------------------------- cabin
-
-        void BuildCabin()
-        {
-            float x0 = Cabin.xMin, x1 = Cabin.xMax, z0 = Cabin.yMin, z1 = Cabin.yMax;
-            const float doorZ0 = 6.6f, doorWidth = 1.2f;
-            const float winX0 = 7.5f, winWidth = 1.6f;
-
-            // West wall with a doorway.
-            PlankWall(new Vector2(x0, z0), new Vector2(x0, doorZ0));
-            PlankWall(new Vector2(x0, doorZ0 + doorWidth), new Vector2(x0, z1));
-            MakeDoor(new Vector2(x0, doorZ0), new Vector2(0f, 1f), doorWidth, 2.2f, false);
-
-            // South wall with a shuttered window: a sill that blocks movement but not sight.
-            PlankWall(new Vector2(x0, z0), new Vector2(winX0, z0));
-            PlankWall(new Vector2(winX0 + winWidth, z0), new Vector2(x1, z0));
-            PlankWall(new Vector2(winX0, z0), new Vector2(winX0 + winWidth, z0), 0.8f, false);
-            MakeDoor(new Vector2(winX0, z0), new Vector2(1f, 0f), winWidth, 1.2f, true);
-
-            PlankWall(new Vector2(x1, z0), new Vector2(x1, z1));
-            PlankWall(new Vector2(x0, z1), new Vector2(x1, z1));
-
-            // Inner partition for corners to wrap around.
-            PlankWall(new Vector2(9.5f, z1), new Vector2(9.5f, 8.2f));
-            blockedSpots.Add(Cabin.center);
-        }
-
         /// <summary>
         /// A hinged panel filling a gap that starts at <paramref name="start"/> and runs along
         /// <paramref name="along"/>. Shutters sit on the sill (raised) and never unblock movement.
         /// </summary>
-        void MakeDoor(Vector2 start, Vector2 along, float width, float height, bool shutter)
+        void MakeDoor(Vector2 start, Vector2 along, float width, float height, bool shutter, float baseY)
         {
             var root = new GameObject(shutter ? "Window Shutter" : "Door");
             root.SetActive(false);
             root.transform.SetParent(staticRoot, false);
-            root.transform.SetLocalPositionAndRotation(new Vector3(start.x, H(start), start.y),
+            root.transform.SetLocalPositionAndRotation(new Vector3(start.x, baseY, start.y),
                 Quaternion.Euler(0f, -Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg, 0f));
 
             var hinge = new GameObject("Hinge").transform;
@@ -428,10 +549,7 @@ namespace Vision.World
             panel.AddComponent<MeshFilter>().sharedMesh = m;
             PropFactory.NoShadows(panel.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
 
-            var blocker = root.AddComponent<BoxCollider>();
-            blocker.center = new Vector3(width * 0.5f, 1f, 0f);
-            blocker.size = new Vector3(width, 2f, 0.2f);
-
+            var blocker = AddBox(root, new Vector3(width * 0.5f, 1f, 0f), new Vector3(width, 2f, 0.2f));
             var occ = root.AddComponent<Occluder>();
             occ.shape = Occluder.Shape.Box;
             occ.size = new Vector2(width, 0.12f);
@@ -446,47 +564,466 @@ namespace Vision.World
             root.SetActive(true);
         }
 
-        // ---------------------------------------------------------------- land character (gradual, no borders)
-
-        float Offset => (seed % 1000) * 0.37f;
-
-        /// <summary>0 = living evergreens, 1 = dead trees. The old arena's west side leans dead.</summary>
-        public float Deadness(float x, float z)
+        /// <summary>A window in a wall from <paramref name="a"/> to <paramref name="b"/>: a sill wall, glass that blocks movement but not sight.</summary>
+        void Window(Vector2 a, Vector2 b, float baseY)
         {
-            float r = Mathf.PerlinNoise(x * 0.03f + 17.3f + Offset, z * 0.03f + 4.1f);
-            if (Mathf.Abs(z) < 20f && x < 0f) r -= 0.25f * Mathf.InverseLerp(-2f, -10f, x);
-            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 0.32f, r));
+            float width = Vector2.Distance(a, b);
+            Mesh sill = LowPolyModels.PlankWall(rng, width, 0.9f, 0.3f);
+            Wall("Window Sill", a, b, 0.9f, 0.3f, sill, false, true, baseY);
+            Vector2 d = (b - a).normalized;
+            GameObject pane = Piece("Window", LowPolyModels.WindowPane(width), staticRoot, new Vector3(a.x, baseY, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+            AddBox(pane, new Vector3(width * 0.5f, 1.5f, 0f), new Vector3(width, 1.2f, 0.1f));
         }
 
-        /// <summary>0 = open ground, 1 = thick woods: how densely trees grow.</summary>
-        public float Woodland(float x, float z) =>
-            Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.28f, 0.68f, Mathf.PerlinNoise(x * 0.04f + 51.7f, z * 0.04f + 23.9f + Offset)));
+        // ---------------------------------------------------------------- cabins
 
-        /// <summary>0 = dry, 1 = damp: grass, ferns and moss versus straw and dry scrub.</summary>
-        public float Moisture(float x, float z) => Mathf.PerlinNoise(x * 0.05f + 7.1f, z * 0.05f + 2.3f);
-
-        /// <summary>Somewhere a solid prop may stand: inside the walls, off the paths and pads, away from other props.</summary>
-        bool Free(Vector2 p, float radius, float spacing)
+        /// <summary>
+        /// The three cabins: plank walls, a door on one side and a window in the middle of each other side, a wardrobe
+        /// against the wall facing the door, a bed in a corner and a bare bulb.
+        /// </summary>
+        void BuildCabins()
         {
-            float lim = halfExtent - 1.5f - radius;
-            if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
-            var cabinZone = new Rect(Cabin.x - 2f - radius, Cabin.y - 2f - radius, Cabin.width + 4f + 2f * radius, Cabin.height + 4f + 2f * radius);
-            if (cabinZone.Contains(p) || SpawnClearing.Contains(p)) return false;
+            const float doorW = 1.3f, winW = 1.4f;
+            foreach (MapLayout.Cabin cabin in Layout.Cabins)
+            {
+                Rect r = cabin.Area;
+                float y = H(r.center);
+                var corners = new[] { new Vector2(r.xMin, r.yMax), new Vector2(r.xMax, r.yMax), new Vector2(r.xMax, r.yMin), new Vector2(r.xMin, r.yMin) };
+                for (int side = 0; side < 4; side++)
+                {
+                    Vector2 a = corners[side], b = corners[(side + 1) % 4];
+                    Vector2 mid = (a + b) * 0.5f, u = (b - a).normalized;
+                    float half = side == cabin.DoorSide ? doorW * 0.5f : winW * 0.5f;
+                    PlankWallAt(a, mid - u * half, y);
+                    PlankWallAt(mid + u * half, b, y);
+                    if (side == cabin.DoorSide) MakeDoor(mid - u * half, u, doorW, 2.2f, false, y);
+                    else Window(mid - u * half, mid + u * half, y);
+                }
+                // Inside: wardrobe against the wall facing the door, bed in a far corner, a bulb.
+                Vector2 inward = cabin.DoorSide switch { 0 => Vector2.down, 1 => Vector2.left, 2 => Vector2.up, _ => Vector2.right };
+                Vector2 wardrobe = r.center - inward * (cabin.DoorSide % 2 == 0 ? r.height : r.width) * 0.5f + inward * 0.45f + new Vector2(inward.y, -inward.x) * 1.4f;
+                float wYaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg;
+                GameObject w = Piece("Wardrobe", LowPolyModels.Wardrobe(rng), staticRoot, new Vector3(wardrobe.x, y, wardrobe.y), wYaw);
+                AddBox(w, new Vector3(0f, 0.95f, 0f), new Vector3(1f, 1.9f, 0.55f));
+                AddHiding(w, HidingSpot.Kind.Wardrobe, 1.1f, new Vector3(0f, 0f, 0.9f));
+                Vector2 bedAt = new Vector2(r.center.x + (inward.x >= 0f ? -1f : 1f) * (r.width * 0.5f - 0.7f), r.center.y + (inward.y >= 0f ? -1f : 1f) * (r.height * 0.5f - 1.15f));
+                GameObject bed = Piece("Bed", LowPolyModels.Bed(rng), staticRoot, new Vector3(bedAt.x, y, bedAt.y), 0f);
+                AddBox(bed, new Vector3(0f, 0.3f, 0f), new Vector3(1f, 0.6f, 2f));
+                AddHiding(bed, HidingSpot.Kind.Bed, 1.3f, new Vector3(bedAt.x < r.center.x ? 0.9f : -0.9f, 0f, 0f));
+                Vector2 tableAt = r.center + new Vector2(inward.y, -inward.x) * -1.2f;
+                Piece("Table", LowPolyModels.Table(rng), staticRoot, new Vector3(tableAt.x, y, tableAt.y), Range(-10f, 10f));
+                Piece("Chair", LowPolyModels.Chair(rng, rng.NextDouble() < 0.4), staticRoot, new Vector3(tableAt.x + 0.7f, y, tableAt.y), Range(0f, 360f));
+                Lamp(new Vector3(r.center.x, y, r.center.y), 2.4f);
+                blocked.Add(r.center);
+            }
+        }
+
+        void PlankWallAt(Vector2 a, Vector2 b, float baseY)
+        {
+            if (Vector2.Distance(a, b) < 0.05f) return;
+            Mesh m = LowPolyModels.PlankWall(rng, Vector2.Distance(a, b), 2.4f, 0.3f);
+            Wall("Plank Wall", a, b, 2.4f, 0.3f, m, true, true, baseY);
+        }
+
+        static void AddHiding(GameObject go, HidingSpot.Kind kind, float reach, Vector3 exit)
+        {
+            var hs = go.AddComponent<HidingSpot>();
+            hs.kind = kind;
+            hs.reach = reach;
+            hs.exit = exit;
+        }
+
+        /// <summary>
+        /// A bare bulb hanging from a ceiling <paramref name="ceiling"/> above <paramref name="floor"/>: a 9 m light, as the
+        /// original's lamps. The light sits on the floor (its polygon is cast from there), the bulb hangs above it.
+        /// </summary>
+        GameObject Lamp(Vector3 floor, float ceiling, float intensity = 0.8f, float flicker = 0.1f)
+        {
+            var root = new GameObject("Lamp");
+            root.SetActive(false);
+            root.transform.SetParent(staticRoot, false);
+            root.transform.localPosition = floor;
+            Piece("Bulb", LowPolyModels.HangingBulb(rng), root.transform, Vector3.up * ceiling, 0f, glowMaterial);
+            var light = root.AddComponent<VisionLight>();
+            light.range = 300f * MapLayout.Unit;
+            light.intensity = intensity;
+            light.flickerAmount = flicker;
+            light.height = ceiling - 0.7f;
+            root.SetActive(true);
+            return root;
+        }
+
+        // ---------------------------------------------------------------- the original's cover pieces
+
+        static Vector2 Rot(Vector2 v, int turns)
+        {
+            for (int i = 0; i < (turns & 3); i++) v = new Vector2(-v.y, v.x);
+            return v;
+        }
+
+        /// <summary>Kit coordinates (original units, y south) to map metres.</summary>
+        static Vector2 KitPoint(MapLayout.Kit k, float x, float y) => k.Centre + Rot(new Vector2(x, -y) * MapLayout.Unit, k.Turns);
+
+        void BuildKits()
+        {
+            foreach (MapLayout.Kit k in Layout.Kits)
+            {
+                float y = H(k.Centre);
+                switch (k.Kind)
+                {
+                    case MapLayout.KitKind.LWall:
+                        PlankWallAt(KitPoint(k, -130, -60), KitPoint(k, -35, -60), y);
+                        PlankWallAt(KitPoint(k, 35, -60), KitPoint(k, 130, -60), y);
+                        PlankWallAt(KitPoint(k, 130, -60), KitPoint(k, 130, 95), y);
+                        break;
+                    case MapLayout.KitKind.Shack:
+                        PlankWallAt(KitPoint(k, -95, -65), KitPoint(k, -35, -65), y);
+                        PlankWallAt(KitPoint(k, 35, -65), KitPoint(k, 95, -65), y);
+                        PlankWallAt(KitPoint(k, 95, -65), KitPoint(k, 95, -30), y);
+                        Window(KitPoint(k, 95, -30), KitPoint(k, 95, 30), y);
+                        PlankWallAt(KitPoint(k, 95, 30), KitPoint(k, 95, 65), y);
+                        PlankWallAt(KitPoint(k, 95, 65), KitPoint(k, 40, 65), y);
+                        PlankWallAt(KitPoint(k, -40, 65), KitPoint(k, -95, 65), y);
+                        PlankWallAt(KitPoint(k, -95, 65), KitPoint(k, -95, -65), y);
+                        Vector2 hinge = KitPoint(k, 40, 65), end = KitPoint(k, -40, 65);
+                        MakeDoor(hinge, (end - hinge).normalized, Vector2.Distance(hinge, end), 2.2f, false, y);
+                        break;
+                    default:
+                        // A car wreck beside two boulders.
+                        Vector2 car = KitPoint(k, -87.5f, 0f);
+                        Vector2 along = (KitPoint(k, 1, 0) - KitPoint(k, 0, 0)).normalized;
+                        int kind = rng.Next(PropLibrary.CarVariants);
+                        GameObject wreck = Prop(library != null ? library.cars : null, kind, staticRoot,
+                            () => PropFactory.CreateCar(LowPolyModels.Car(rng, kind), lowPolyMaterial, kind));
+                        Conform(wreck.transform, car, 1.8f, Mathf.Atan2(along.x, along.y) * Mathf.Rad2Deg + Range(-8f, 8f), 0.9f, 0.05f);
+                        blocked.Add(car);
+                        PlaceRock(KitPoint(k, 115, 0), 38f * MapLayout.Unit);
+                        PlaceRock(KitPoint(k, 150, 30), 26f * MapLayout.Unit);
+                        break;
+                }
+                blocked.Add(k.Centre);
+            }
+        }
+
+        void PlaceRock(Vector2 p, float wantRadius)
+        {
+            int variant = 0;
+            for (int i = 1; i < PropLibrary.RockRadii.Length; i++)
+                if (Mathf.Abs(PropLibrary.RockRadii[i] - wantRadius) < Mathf.Abs(PropLibrary.RockRadii[variant] - wantRadius)) variant = i;
+            float radius = PropLibrary.RockRadii[variant];
+            GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
+                () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
+            Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
+            blocked.Add(p);
+        }
+
+        // ---------------------------------------------------------------- fences and logs
+
+        void BuildFences()
+        {
+            Transform parent = Group("Fences");
+            foreach (MapLayout.Segment f in Layout.Fences)
+            {
+                foreach (var (t0, t1) in new[] { (0f, f.GapStart), (f.GapEnd, 1f) })
+                {
+                    Vector2 a = Vector2.Lerp(f.A, f.B, t0), b = Vector2.Lerp(f.A, f.B, t1);
+                    float len = Vector2.Distance(a, b);
+                    if (len < 0.5f) continue;
+                    Vector2 d = (b - a) / len;
+                    float y = Mathf.Min(H(a), H(b), H((a + b) * 0.5f));
+                    GameObject go = Piece("Fence", LowPolyModels.Fence(rng, len), parent, new Vector3(a.x, y, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+                    AddBox(go, new Vector3(len * 0.5f, 0.7f, 0f), new Vector3(len, 1.4f, 0.2f));
+                }
+            }
+        }
+
+        void BuildLogs()
+        {
+            Transform parent = Group("Logs");
+            foreach (MapLayout.Segment l in Layout.Logs)
+            {
+                Vector2 mid = (l.A + l.B) * 0.5f, d = (l.B - l.A).normalized;
+                float len = Vector2.Distance(l.A, l.B);
+                GameObject go = Piece("Log", LowPolyModels.Log(rng, len), parent, Vector3.zero, 0f);
+                Conform(go.transform, mid, len * 0.4f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0.85f, 0.04f);
+                AddBox(go, new Vector3(0f, 0.3f, 0f), new Vector3(len, 0.6f, 0.6f));
+                blocked.Add(mid);
+            }
+        }
+
+        // ---------------------------------------------------------------- the lake
+
+        void BuildLake()
+        {
+            Transform parent = Group("Lake");
+            var shore = new List<Vector2>();
+            const int n = 56;
+            for (int i = 0; i < n; i++)
+            {
+                float a = i * Mathf.PI * 2f / n;
+                shore.Add(new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (Layout.ShoreRadius(a) + 0.6f));
+            }
+            Piece("Lake Water", LowPolyModels.Water(shore), parent, new Vector3(Layout.LakeCentre.x, Terrain.LakeLevel, Layout.LakeCentre.y), 0f);
+            Vector2 d = (Layout.DockEnd - Layout.DockStart).normalized;
+            float len = Vector2.Distance(Layout.DockStart, Layout.DockEnd);
+            float yaw = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
+            float deck = Mathf.Max(H(Layout.DockStart), Terrain.LakeLevel) + 0.35f - Terrain.LakeLevel;
+            Piece("Dock", LowPolyModels.Dock(rng, len, Layout.DockHalfWidth, deck), parent, new Vector3(Layout.DockStart.x, Terrain.LakeLevel, Layout.DockStart.y), yaw);
+            // A lantern at the end of the dock.
+            Vector2 at = Layout.DockEnd - d * 0.6f + new Vector2(d.y, -d.x) * (Layout.DockHalfWidth - 0.25f);
+            GameObject lantern = Prop(library != null ? library.lantern : null, parent,
+                () => PropFactory.CreateLantern(LowPolyModels.LanternPost(rng), glowMaterial));
+            lantern.transform.SetLocalPositionAndRotation(new Vector3(at.x, Terrain.LakeLevel + deck, at.y), Quaternion.Euler(0f, yaw + 90f, 0f));
+        }
+
+        // ---------------------------------------------------------------- power line
+
+        void BuildPowerLine()
+        {
+            if (Layout.PowerPoles.Count < 2) return;
+            Transform parent = Group("Power Line");
+            var bases = new List<Vector3>();
+            var yaws = new List<float>();
+            for (int i = 0; i < Layout.PowerPoles.Count; i++)
+            {
+                Vector2 p = Layout.PowerPoles[i];
+                Vector2 prev = Layout.PowerPoles[Mathf.Max(0, i - 1)], next = Layout.PowerPoles[Mathf.Min(Layout.PowerPoles.Count - 1, i + 1)];
+                Vector2 dir = (next - prev).normalized;
+                float yaw = Quaternion.LookRotation(new Vector3(dir.x, 0f, dir.y)).eulerAngles.y;
+                Vector3 at = Upright(p, 0.2f);
+                GameObject pole = Piece("Power Pole", LowPolyModels.PowerPole(rng, i % 5 == 2), parent, at, yaw);
+                var col = pole.AddComponent<CapsuleCollider>();
+                col.radius = 0.18f;
+                col.height = LowPolyModels.PowerPoleHeight;
+                col.center = Vector3.up * LowPolyModels.PowerPoleHeight * 0.5f;
+                var occ = pole.AddComponent<Occluder>();
+                occ.shape = Occluder.Shape.Circle;
+                occ.radius = 0.16f;
+                occ.sides = 6;
+                bases.Add(at);
+                yaws.Add(yaw);
+                blocked.Add(p);
+            }
+            Piece("Power Wires", LowPolyModels.PowerWires(bases, yaws), parent, Vector3.zero, 0f);
+        }
+
+        // ---------------------------------------------------------------- graveyard
+
+        void BuildGraveyard()
+        {
+            Transform parent = Group("Graveyard");
+            Rect g = Layout.Graveyard;
+            Quaternion q = Quaternion.Euler(0f, Layout.GraveyardYaw, 0f);
+            Vector2 Local(float x, float z)
+            {
+                Vector3 v = q * new Vector3(x, 0f, z);
+                return g.center + new Vector2(v.x, v.z);
+            }
+            float hx = g.width * 0.5f, hz = g.height * 0.5f;
+            // Iron fence round the plot, a gate gap in the middle of the south side.
+            var sides = new[] { (new Vector2(-hx, -hz), new Vector2(-1f, -hz)), (new Vector2(1f, -hz), new Vector2(hx, -hz)),
+                                (new Vector2(hx, -hz), new Vector2(hx, hz)), (new Vector2(hx, hz), new Vector2(-hx, hz)), (new Vector2(-hx, hz), new Vector2(-hx, -hz)) };
+            foreach (var (a0, b0) in sides)
+            {
+                Vector2 a = Local(a0.x, a0.y), b = Local(b0.x, b0.y);
+                float len = Vector2.Distance(a, b);
+                Vector2 d = (b - a) / len;
+                GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, len), parent, new Vector3(a.x, Mathf.Min(H(a), H(b)) - 0.05f, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+                AddBox(f, new Vector3(len * 0.5f, 0.7f, 0f), new Vector3(len, 1.4f, 0.12f));
+            }
+            // Rows of graves facing the gate, some missing, some crooked.
+            for (int row = 0; row < 4; row++)
+                for (int col = 0; col < 7; col++)
+                {
+                    if (rng.NextDouble() < 0.18) continue;
+                    float x = -hx + 1.6f + col * (g.width - 3.2f) / 6f + Range(-0.3f, 0.3f);
+                    float z = hz - 1.6f - row * 2.9f + Range(-0.2f, 0.2f);
+                    Vector2 p = Local(x, z);
+                    int style = rng.Next(LowPolyModels.HeadstoneStyles);
+                    GameObject stone = Piece("Headstone", LowPolyModels.Headstone(rng, style), parent, Vector3.zero, 0f);
+                    stone.transform.SetLocalPositionAndRotation(new Vector3(p.x, H(p) - 0.02f, p.y), q * Quaternion.Euler(0f, 180f + Range(-6f, 6f), 0f));
+                    AddBox(stone, new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.9f, 0.3f));
+                }
+            // Dead trees in two corners.
+            foreach (var (cx, cz, kind) in new[] { (-hx + 1.3f, hz - 1.2f, LowPolyModels.DeadTreeKind.Elm), (hx - 1.4f, -hz + 1.6f, LowPolyModels.DeadTreeKind.Oak) })
+            {
+                Vector2 p = Local(cx, cz);
+                GameObject t = Prop(library != null ? library.trees : null, (int)kind * 3 + 2, parent,
+                    () => PropFactory.CreateDeadTree(LowPolyModels.DeadTree(kind, 2), lowPolyMaterial, kind));
+                t.transform.SetLocalPositionAndRotation(Upright(p, 0.4f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                blocked.Add(p);
+            }
+            blocked.Add(g.center);
+        }
+
+        // ---------------------------------------------------------------- playground
+
+        void BuildPlayground()
+        {
+            Transform parent = Group("Playground");
+            Rect r = Layout.Playground;
+            float y = H(r.center);
+            var pieces = new (LowPolyModels.PlayKind kind, Vector2 at, float yaw, Vector3 box)[]
+            {
+                (LowPolyModels.PlayKind.Swings, new Vector2(-3.8f, 2.6f), 0f, new Vector3(4.2f, 2.5f, 2f)),
+                (LowPolyModels.PlayKind.Slide, new Vector2(3.4f, 2.8f), 180f, new Vector3(3.2f, 1.9f, 0.8f)),
+                (LowPolyModels.PlayKind.Seesaw, new Vector2(-3.6f, -2.8f), 25f, new Vector3(3.2f, 0.6f, 0.4f)),
+                (LowPolyModels.PlayKind.Roundabout, new Vector2(1.2f, -2.4f), 0f, new Vector3(2.6f, 0.5f, 2.6f)),
+                (LowPolyModels.PlayKind.Climber, new Vector2(4.6f, -2.2f), 0f, new Vector3(2.8f, 1.5f, 2.8f)),
+            };
+            foreach (var (kind, at, yaw, box) in pieces)
+            {
+                Vector2 p = r.center + at;
+                GameObject go = Piece(kind.ToString(), LowPolyModels.Playground(rng, kind), parent, new Vector3(p.x, y, p.y), yaw + Range(-6f, 6f));
+                AddBox(go, new Vector3(0f, box.y * 0.5f, 0f), box);
+                if (kind == LowPolyModels.PlayKind.Swings)
+                {
+                    // Two seats: one still, one creaking back and forth on its own; the third chain snapped.
+                    foreach (var (x, broken, sway) in new[] { (-1.1f, false, true), (0f, true, false), (1.1f, false, false) })
+                    {
+                        GameObject seat = Piece("Swing", LowPolyModels.SwingSeat(rng, broken), go.transform, new Vector3(x, 2.4f, 0f), 0f);
+                        seat.isStatic = false;
+                        if (sway) seat.AddComponent<Sway>().Set(new Vector3(18f, 0f, 0f), 0.42f);
+                    }
+                }
+            }
+            // A sandbox frame, half buried.
+            Vector2 sb = r.center + new Vector2(-0.6f, 0.4f);
+            var frame = new LowPolyMeshBuilder(rng);
+            foreach (var (o, s) in new[] { (new Vector3(-1.2f, 0f, -1.2f), new Vector3(2.4f, 0.22f, 0.15f)), (new Vector3(-1.2f, 0f, 1.05f), new Vector3(2.4f, 0.22f, 0.15f)),
+                                         (new Vector3(-1.2f, 0f, -1.2f), new Vector3(0.15f, 0.22f, 2.4f)), (new Vector3(1.05f, 0f, -1.2f), new Vector3(0.15f, 0.22f, 2.4f)) })
+                frame.AddBox(o, s, LowPolyModels.Site.Weathered, 0.1f);
+            frame.AddBox(new Vector3(-1.05f, 0f, -1.05f), new Vector3(2.1f, 0.08f, 2.1f), new Color(0.55f, 0.50f, 0.40f), 0.08f);
+            Piece("Sandbox", frame.ToMesh("Sandbox"), parent, new Vector3(sb.x, y - 0.02f, sb.y), 8f);
+            blocked.Add(r.center);
+        }
+
+        // ---------------------------------------------------------------- the hanging tree
+
+        void BuildHangingTree()
+        {
+            Transform parent = Group("Hanging Tree");
+            Vector2 p = Layout.HangingTree;
+            float yaw = Range(0f, 360f);
+            GameObject tree = Piece("Hanging Tree", LowPolyModels.HangingOak(rng), parent, Upright(p, 0.5f), yaw);
+            var col = tree.AddComponent<CapsuleCollider>();
+            col.radius = 0.55f;
+            col.height = 4f;
+            col.center = Vector3.up * 2f;
+            var occ = tree.AddComponent<Occluder>();
+            occ.shape = Occluder.Shape.Circle;
+            occ.radius = 0.55f;
+            occ.sides = 8;
+            // The rope hangs from the long limb; the figure turns slowly on it.
+            Vector2 rope = LowPolyModels.HangingRope;
+            var pivot = new GameObject("Rope").transform;
+            pivot.SetParent(tree.transform, false);
+            pivot.localPosition = new Vector3(rope.y, rope.x, 0f);
+            pivot.gameObject.AddComponent<Sway>().Set(new Vector3(3f, 18f, 3f), 0.11f);
+            const float ropeLength = 1.55f;
+            Piece("Noose", LowPolyModels.Noose(ropeLength), pivot, Vector3.zero, 0f).isStatic = false;
+            var figure = new GameObject("Hanged Figure");
+            figure.transform.SetParent(pivot, false);
+            // The mannequin's neck (about 1.53 up) meets the noose; the head tips forward.
+            figure.transform.SetLocalPositionAndRotation(new Vector3(0f, -ropeLength - 1.5f, 0.03f), Quaternion.Euler(4f, 0f, 2f));
+            figure.AddComponent<MeshFilter>().sharedMesh = library != null && library.player != null
+                ? library.player.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh
+                : MannequinBuilder.Build();
+            PropFactory.NoShadows(figure.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+            blocked.Add(p);
+        }
+
+        // ---------------------------------------------------------------- generators, lights
+
+        void BuildGenerators()
+        {
+            foreach (Vector2 g in Layout.WoodsGenerators)
+            {
+                GameObject gen = Prop(library != null ? library.generator : null, staticRoot,
+                    () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
+                Conform(gen.transform, g, 0.7f, Range(0f, 4f) * 90f, 0.85f, 0.03f);
+                Generators.Add(gen.transform);
+                blocked.Add(g);
+            }
+        }
+
+        void BuildLights()
+        {
+            foreach (Vector2 p in Layout.Campfires)
+            {
+                GameObject go = Prop(library != null ? library.campfire : null, staticRoot, CampfireFromScratch);
+                go.transform.SetLocalPositionAndRotation(Upright(p, 0.6f), Quaternion.identity);
+                blocked.Add(p);
+            }
+
+            // Lanterns along the paths every ~20 units, alternating sides.
+            var lanterns = new PointGrid(8f);
             PathNetwork paths = Terrain.Paths;
-            if (paths != null && paths.Distance(p) < paths.HalfWidth + radius + 0.4f) return false;
-            foreach (Vector2 f in Fires) if ((f - p).sqrMagnitude < (2.8f + radius) * (2.8f + radius)) return false;
-            foreach (Vector2 w in WreckSites) if ((w - p).sqrMagnitude < (4.2f + radius) * (4.2f + radius)) return false;
-            if ((GeneratorSite - p).sqrMagnitude < (2f + radius) * (2f + radius)) return false;
-            return !TooClose(blockedSpots, p, spacing + radius);
+            int count = 0;
+            if (paths != null)
+            {
+                int side = 1;
+                foreach (List<Vector2> path in paths.Paths)
+                {
+                    float walked = 10f;
+                    for (int i = 0; i < path.Count - 1 && count < 40; i++)
+                    {
+                        Vector2 a = path[i], b = path[i + 1];
+                        float seg = Vector2.Distance(a, b);
+                        walked += seg;
+                        if (walked < 20f || seg < 1e-3f) continue;
+                        Vector2 dir = (b - a) / seg;
+                        Vector2 p = a + new Vector2(-dir.y, dir.x) * (side * (paths.HalfWidth + 0.7f));
+                        side = -side;
+                        if (!Free(p, 0.15f, 1.5f) || lanterns.AnyWithin(p, 12f)) continue;
+                        lanterns.Add(p);
+                        GameObject go = Prop(library != null ? library.lantern : null, staticRoot,
+                            () => PropFactory.CreateLantern(LowPolyModels.LanternPost(rng), glowMaterial));
+                        go.transform.SetLocalPositionAndRotation(Upright(p, 0.15f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                        blocked.Add(p);
+                        walked = 0f;
+                        count++;
+                    }
+                }
+            }
+
+            // A burning barrel beside the first wreck.
+            foreach (MapLayout.Kit k in Layout.Kits)
+            {
+                if (k.Kind != MapLayout.KitKind.Wreck) continue;
+                Vector2 barrel = KitPoint(k, -87.5f, 95f);
+                GameObject drum = Prop(library != null ? library.burningBarrel : null, staticRoot, BarrelFromScratch);
+                drum.transform.SetLocalPositionAndRotation(Upright(barrel, 0.3f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                blocked.Add(barrel);
+                break;
+            }
+        }
+
+        GameObject CampfireFromScratch()
+        {
+            var flames = LowPolyModels.Flames(rng, 0.14f, 0.55f, 5);
+            return PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial, flames.ConvertAll(f => f.mesh).ToArray(),
+                flames.ConvertAll(f => f.position).ToArray(), LowPolyModels.Ember(rng));
+        }
+
+        GameObject BarrelFromScratch()
+        {
+            var flames = LowPolyModels.Flames(rng, 0.12f, 0.45f, 4);
+            return PropFactory.CreateBurningBarrel(LowPolyModels.BurningBarrel(rng), glowMaterial, flames.ConvertAll(f => f.mesh).ToArray(),
+                flames.ConvertAll(f => f.position).ToArray(), LowPolyModels.Ember(rng));
         }
 
         // ---------------------------------------------------------------- trees and rocks
 
-        /// <summary>About 520 trees: denser where the land is wooded, dead or evergreen by <see cref="Deadness"/>.</summary>
+        /// <summary>Trees per square metre of open ground (as the 80 m map had), about 2,900 on the 180 m map.</summary>
+        public const float TreeDensity = 0.09f;
+
+        /// <summary>Trees: denser where the land is wooded, dead or evergreen by <see cref="Deadness"/>.</summary>
         void BuildTrees()
         {
+            int target = Mathf.RoundToInt(TreeDensity * (2f * halfExtent) * (2f * halfExtent));
             int placed = 0;
-            for (int attempt = 0; attempt < 90000 && placed < 520; attempt++)
+            for (int attempt = 0; attempt < target * 60 && placed < target; attempt++)
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
                 float wood = Woodland(p.x, p.y);
@@ -508,8 +1045,6 @@ namespace Vision.World
                 }
                 else
                 {
-                    // Spruce where it is damp, pine where it is dry, young firs at the edges of the woods, dying pines
-                    // where the dead forest begins, ragged spiky spruces scattered through, black spruce in the wet.
                     float moist = Moisture(p.x, p.y), roll = (float)rng.NextDouble();
                     int style = roll < 0.25f * dead * 2f ? 4
                         : roll < 0.62f && moist > 0.6f ? (roll < 0.4f ? 6 : 1)
@@ -528,7 +1063,7 @@ namespace Vision.World
                     Conform(go.transform, p, 1.5f, Range(0f, 360f), 0.9f, 0.05f);
                 else
                     go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius * hg.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
-                blockedSpots.Add(p);
+                blocked.Add(p);
                 placed++;
             }
             TreeCount = placed;
@@ -562,190 +1097,77 @@ namespace Vision.World
             return LowPolyModels.DeadTreeKind.PineSnag;
         }
 
+        /// <summary>Timing of the terrain set-up (paths, baking).</summary>
+        public string TerrainReport { get; private set; }
+
+        /// <summary>Timing of the last generation, step by step.</summary>
+        public string LastGenerationReport { get; private set; }
+
         /// <summary>How many trees the last generation placed.</summary>
         public int TreeCount { get; private set; }
 
         void BuildRocks()
         {
+            int target = Mathf.RoundToInt(70f * (halfExtent * halfExtent) / 1600f);
             int placed = 0;
-            for (int attempt = 0; attempt < 3000 && placed < 70; attempt++)
+            for (int attempt = 0; attempt < target * 40 && placed < target; attempt++)
             {
                 var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
-                // Small stones are common, boulders rare; steep ground gets more of them.
+                // Small stones are common, boulders rare; steep ground and dead woods get more of them.
                 float roll = (float)rng.NextDouble();
                 int variant = roll < 0.45f ? rng.Next(3) : roll < 0.85f ? 3 + rng.Next(3) : 6 + rng.Next(2);
                 float radius = PropLibrary.RockRadii[variant];
                 float steep = Mathf.InverseLerp(10f, 30f, Terrain.SlopeDeg(p.x, p.y));
                 if ((float)rng.NextDouble() > 0.3f + 0.45f * steep + 0.25f * Deadness(p.x, p.y)) continue;
                 if (!Free(p, radius, 1.4f)) continue;
-                if (Vector2.Distance(p, new Vector2(playerSpawn.x, playerSpawn.z)) < 3f) continue;
                 GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
                     () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
                 Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
-                blockedSpots.Add(p);
+                blocked.Add(p);
                 placed++;
             }
         }
 
-        // ---------------------------------------------------------------- lights and props
+        // ---------------------------------------------------------------- supplies
 
-        void BuildLights()
-        {
-            foreach (Vector2 p in Fires)
-            {
-                GameObject go = Prop(library != null ? library.campfire : null, staticRoot, CampfireFromScratch);
-                go.transform.SetLocalPositionAndRotation(Upright(p, 0.6f), Quaternion.identity);
-                blockedSpots.Add(p);
-            }
-
-            // A lantern by the cabin, then lanterns along the paths every ~15 units, alternating sides.
-            var lanterns = new List<Vector2> { new Vector2(6.2f, 2.3f) };
-            PathNetwork paths = Terrain.Paths;
-            if (paths != null)
-            {
-                int side = 1;
-                foreach (List<Vector2> path in paths.Paths)
-                {
-                    float walked = 7f;
-                    for (int i = 0; i < path.Count - 1 && lanterns.Count < 14; i++)
-                    {
-                        Vector2 a = path[i], b = path[i + 1];
-                        float seg = Vector2.Distance(a, b);
-                        walked += seg;
-                        if (walked < 15f || seg < 1e-3f) continue;
-                        Vector2 dir = (b - a) / seg;
-                        Vector2 p = a + new Vector2(-dir.y, dir.x) * (side * (paths.HalfWidth + 0.7f));
-                        side = -side;
-                        if (!Free(p, 0.15f, 1.5f) || TooClose(lanterns, p, 8f)) continue;
-                        lanterns.Add(p);
-                        walked = 0f;
-                    }
-                }
-            }
-            foreach (Vector2 p in lanterns)
-            {
-                GameObject go = Prop(library != null ? library.lantern : null, staticRoot,
-                    () => PropFactory.CreateLantern(LowPolyModels.LanternPost(rng), glowMaterial));
-                go.transform.SetLocalPositionAndRotation(Upright(p, 0.15f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
-                blockedSpots.Add(p);
-            }
-
-            // A burning barrel by the second wreck.
-            Vector2 barrel = WreckSites[1] + new Vector2(2.6f, 2.2f);
-            GameObject drum = Prop(library != null ? library.burningBarrel : null, staticRoot, BarrelFromScratch);
-            drum.transform.SetLocalPositionAndRotation(Upright(barrel, 0.3f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
-            blockedSpots.Add(barrel);
-        }
-
-        GameObject CampfireFromScratch()
-        {
-            var flames = LowPolyModels.Flames(rng, 0.14f, 0.55f, 5);
-            return PropFactory.CreateCampfire(LowPolyModels.Campfire(rng), glowMaterial, flames.ConvertAll(f => f.mesh).ToArray(),
-                flames.ConvertAll(f => f.position).ToArray(), LowPolyModels.Ember(rng));
-        }
-
-        GameObject BarrelFromScratch()
-        {
-            var flames = LowPolyModels.Flames(rng, 0.12f, 0.45f, 4);
-            return PropFactory.CreateBurningBarrel(LowPolyModels.BurningBarrel(rng), glowMaterial, flames.ConvertAll(f => f.mesh).ToArray(),
-                flames.ConvertAll(f => f.position).ToArray(), LowPolyModels.Ember(rng));
-        }
-
-        void BuildProps()
-        {
-            var crates = new List<Vector2> { new Vector2(12f, 5f), new Vector2(11.9f, 5.9f), new Vector2(4.2f, 2.8f), new Vector2(14f, 2f) };
-            crates.Add(WreckSites[0] + new Vector2(-2.6f, 1.2f));
-            crates.Add(WreckSites[2] + new Vector2(2.4f, -1.4f));
-            foreach (Vector2 p in crates)
-            {
-                int variant = rng.Next(PropLibrary.CrateSizes.Length);
-                float size = PropLibrary.CrateSizes[variant];
-                GameObject go = Prop(library != null ? library.crates : null, variant, staticRoot,
-                    () => PropFactory.CreateCrate(LowPolyModels.Crate(rng, size), lowPolyMaterial, size));
-                Conform(go.transform, p, size * 0.5f, Range(-15f, 15f), 0.75f, 0.04f);
-                blockedSpots.Add(p);
-            }
-
-            // Car wrecks, roughly along the nearest path, abandoned at an angle.
-            for (int i = 0; i < WreckSites.Length; i++)
-            {
-                Vector2 p = WreckSites[i];
-                int kind = i % PropLibrary.CarVariants;
-                float yaw = Range(0f, 360f);
-                PathNetwork paths = Terrain.Paths;
-                if (paths != null)
-                {
-                    Vector2 along = PathDirection(paths, p);
-                    if (along != Vector2.zero) yaw = Mathf.Atan2(along.x, along.y) * Mathf.Rad2Deg + Range(-30f, 30f);
-                }
-                GameObject go = Prop(library != null ? library.cars : null, kind, staticRoot,
-                    () => PropFactory.CreateCar(LowPolyModels.Car(rng, kind), lowPolyMaterial, kind));
-                Conform(go.transform, p, LowPolyModels.CarSize(kind).z * 0.4f, yaw, 0.9f, 0.05f);
-                blockedSpots.Add(p);
-            }
-
-            GameObject gen = Prop(library != null ? library.generator : null, staticRoot,
-                () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
-            Conform(gen.transform, GeneratorSite, 0.7f, Range(-20f, 20f) + 90f, 0.85f, 0.03f);
-            blockedSpots.Add(GeneratorSite);
-        }
-
-        /// <summary>Supplies by the camps, the wrecks, the generator and in the cabin.</summary>
+        /// <summary>Supplies by the camps, the cabins, the cover pieces and the clearings.</summary>
         void BuildPickups()
         {
-            var spots = new List<Vector2> { new Vector2(10.5f, 9.6f), new Vector2(6.2f, 5.0f), GeneratorSite + new Vector2(0.2f, -1.4f) };
-            foreach (Vector2 f in Fires) spots.Add(f + new Vector2(Range(-1.6f, 1.6f), Range(1.2f, 1.6f) * (rng.NextDouble() < 0.5 ? -1f : 1f)));
-            foreach (Vector2 w in WreckSites)
-            {
-                spots.Add(w + new Vector2(Range(-2.4f, -1.6f), Range(-1.5f, 1.5f)));
-                spots.Add(w + new Vector2(Range(1.6f, 2.4f), Range(-1.5f, 1.5f)));
-            }
-            Transform parent = new GameObject("Supplies").transform;
-            parent.SetParent(staticRoot, false);
+            var spots = new List<Vector2>();
+            foreach (MapLayout.Cabin c in Layout.Cabins) spots.Add(c.Area.center + new Vector2(Range(-1.5f, 1.5f), 0.8f));
+            foreach (Vector2 f in Layout.Campfires) spots.Add(f + new Vector2(Range(-1.6f, 1.6f), Range(1.2f, 1.6f)));
+            foreach (MapLayout.Kit k in Layout.Kits) spots.Add(k.Centre + new Vector2(Range(-1f, 1f), Range(-1f, 1f)));
+            for (int i = 1; i < Layout.Clearings.Count; i++) spots.Add(Layout.Clearings[i].Centre + new Vector2(Range(-2f, 2f), Range(-2f, 2f)));
+            Transform parent = Group("Supplies");
             foreach (Vector2 p in spots)
             {
+                if (Layout.LakeDepth(p) > -1f) continue;
                 double roll = rng.NextDouble();
-                var item = roll < 0.4 ? Vision.Player.ItemType.Bandage : roll < 0.75 ? Vision.Player.ItemType.Water : Vision.Player.ItemType.CannedFood;
+                var item = roll < 0.4 ? ItemType.Bandage : roll < 0.75 ? ItemType.Water : ItemType.CannedFood;
                 var go = new GameObject($"Pickup {item}");
                 go.transform.SetParent(parent, false);
                 go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, item);
                 PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
                 var pickup = go.AddComponent<Pickup>();
                 pickup.item = item;
-                pickup.count = item == Vision.Player.ItemType.Bandage ? 1 : 1 + rng.Next(2);
+                pickup.count = item == ItemType.Bandage ? 1 : 1 + rng.Next(2);
                 Conform(go.transform, p, 0.1f, Range(0f, 360f), 0.8f, 0f);
                 go.transform.localScale = Vector3.one * 1.6f;
                 Pickups.Add(pickup);
             }
         }
 
-        /// <summary>Direction of the path segment nearest to a point (zero when no path is near).</summary>
-        static Vector2 PathDirection(PathNetwork paths, Vector2 p)
-        {
-            float best = float.MaxValue;
-            Vector2 dir = Vector2.zero;
-            foreach (List<Vector2> path in paths.Paths)
-                for (int i = 0; i < path.Count - 1; i++)
-                {
-                    Vector2 mid = (path[i] + path[i + 1]) * 0.5f;
-                    float d = (mid - p).sqrMagnitude;
-                    if (d < best && (path[i + 1] - path[i]).sqrMagnitude > 1e-6f)
-                    {
-                        best = d;
-                        dir = (path[i + 1] - path[i]).normalized;
-                    }
-                }
-            return best < 100f ? dir : Vector2.zero;
-        }
-
         // ---------------------------------------------------------------- entities
 
         void BuildCrows()
         {
-            var spots = new List<Vector2> { new Vector2(2f, -7f), new Vector2(4.5f, -9.5f), new Vector2(0.5f, -12f), new Vector2(6f, -3.5f), new Vector2(-3f, -6f), new Vector2(9f, -10f) };
-            for (int i = 0; i < 4; i++) spots.Add(WreckSites[i % WreckSites.Length] + new Vector2(Range(-3f, 3f), Range(2.6f, 3.4f) * (i % 2 == 0 ? 1f : -1f)));
+            var spots = new List<Vector2>();
+            for (int i = 0; i < 6; i++) spots.Add(Layout.Spawn + new Vector2(Range(-7f, 7f), Range(3f, 10f)));
+            foreach (MapLayout.Kit k in Layout.Kits) if (spots.Count < 12) spots.Add(k.Centre + new Vector2(Range(-3f, 3f), Range(2.6f, 3.4f)));
+            spots.Add(Layout.HangingTree + new Vector2(1.2f, 1.5f));
             foreach (Vector2 p in spots)
             {
+                if (Layout.LakeDepth(p) > -0.5f) continue;
                 GameObject go = Prop(library != null ? library.crows : null, rng.Next(PropLibrary.CrowVariants), entityRoot,
                     () => PropFactory.CreateCrow(LowPolyModels.Crow(rng), entityMaterial));
                 Conform(go.transform, p, 0.15f, Range(0f, 360f), 0.6f, 0f);
@@ -757,18 +1179,20 @@ namespace Vision.World
         {
             GameObject go = Prop(library != null ? library.wanderer : null, entityRoot,
                 () => PropFactory.CreateWanderer(entityMaterial));
-            go.transform.localPosition = new Vector3(3f, H(new Vector2(3f, -3f)), -3f);
+            Vector2 s = Layout.Spawn;
+            var loop = new[] { s + new Vector2(5f, 4f), s + new Vector2(5f, 12f), s + new Vector2(-5f, 12f), s + new Vector2(-5f, 4f) };
+            go.transform.localPosition = new Vector3(loop[0].x, H(loop[0]), loop[0].y);
             Wanderer = go.GetComponent<Wanderer>();
-            Wanderer.waypoints = new[] { new Vector3(3f, 0f, -3f), new Vector3(3f, 0f, -12f), new Vector3(-4f, 0f, -12f), new Vector3(-4f, 0f, -3f) };
+            Wanderer.waypoints = new Vector3[loop.Length];
             // Waypoints are world positions; the layout is in design units under the scaled root.
-            for (int i = 0; i < Wanderer.waypoints.Length; i++) Wanderer.waypoints[i] = transform.TransformPoint(Wanderer.waypoints[i]);
+            for (int i = 0; i < loop.Length; i++) Wanderer.waypoints[i] = transform.TransformPoint(new Vector3(loop[i].x, 0f, loop[i].y));
         }
 
         void BuildPlayer()
         {
             GameObject go = Prop(library != null ? library.player : null, transform,
                 () => PropFactory.CreatePlayer(lowPolyMaterial));
-            go.transform.localPosition = new Vector3(playerSpawn.x, H(new Vector2(playerSpawn.x, playerSpawn.z)) + 0.05f, playerSpawn.z);
+            go.transform.localPosition = new Vector3(Layout.Spawn.x, H(Layout.Spawn) + 0.05f, Layout.Spawn.y);
 
             Player = go.GetComponent<PlayerController>();
             Player.world = this;
@@ -776,6 +1200,7 @@ namespace Vision.World
             {
                 cameraRig.target = go.transform;
                 Player.viewCamera = cameraRig.GetComponent<Camera>();
+                cameraRig.Snap();
             }
             if (maskRenderer != null) maskRenderer.viewer = go.GetComponent<VisionViewer>();
         }
@@ -795,7 +1220,6 @@ namespace Vision.World
         GameObject Prop(GameObject[] variants, int variant, Transform parent, System.Func<GameObject> generate) =>
             Prop(variants != null && variants.Length > variant ? variants[variant] : null, parent, generate);
 
-        /// <summary>A generated mesh object in the static root: walls and the ground, which are saved as mesh assets.</summary>
         GameObject MakeStatic(string name, Mesh mesh, Vector3 pos, Quaternion rot, Material mat)
         {
             var go = new GameObject(name);
@@ -815,12 +1239,32 @@ namespace Vision.World
             float k = 1f + Range(-amount, amount);
             return new Color(c.r * k, c.g * k, c.b * k);
         }
+    }
 
-        static bool TooClose(List<Vector2> points, Vector2 p, float minDistance)
+    /// <summary>Slow pendulum motion about the object's own pivot (a creaking swing, a body turning on a rope).</summary>
+    public sealed class Sway : MonoBehaviour
+    {
+        public Vector3 amplitude = new Vector3(10f, 0f, 0f);
+        public float frequency = 0.4f;
+        Quaternion rest;
+        float phase;
+
+        public void Set(Vector3 degrees, float hz)
         {
-            for (int i = 0; i < points.Count; i++)
-                if ((points[i] - p).sqrMagnitude < minDistance * minDistance) return true;
-            return false;
+            amplitude = degrees;
+            frequency = hz;
+        }
+
+        void Awake()
+        {
+            rest = transform.localRotation;
+            phase = (transform.position.x * 0.37f + transform.position.z * 0.61f) % 6.28f;
+        }
+
+        void Update()
+        {
+            float t = Time.time * frequency * Mathf.PI * 2f + phase;
+            transform.localRotation = rest * Quaternion.Euler(amplitude.x * Mathf.Sin(t), amplitude.y * Mathf.Sin(t * 0.37f + 1f), amplitude.z * Mathf.Sin(t * 0.83f + 2f));
         }
     }
 }

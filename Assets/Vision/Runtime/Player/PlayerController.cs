@@ -36,6 +36,12 @@ namespace Vision.Player
         /// <summary>When set, replaces the sprint input.</summary>
         public bool? SprintOverride { get; set; }
 
+        /// <summary>Where the player is hiding (null when not hidden).</summary>
+        public HidingSpot Hidden { get; private set; }
+
+        /// <summary>Speed in the lake's water (the original's wading multiplier).</summary>
+        public const float WadeMultiplier = 0.45f;
+
         /// <summary>What Interact would do right now ("Pick up Bandage", "Open door"), or null.</summary>
         public string InteractPrompt { get; private set; }
 
@@ -80,6 +86,14 @@ namespace Vision.Player
                 if (dead && cc.enabled) cc.Move(Vector3.down * (9.81f * Time.deltaTime));
                 return;
             }
+            if (Hidden != null)
+            {
+                // Hidden: still, out of sight; Interact steps back out.
+                InteractPrompt = $"Leave the {Hidden.Label}";
+                if (interact.WasPressedThisFrame()) LeaveHiding();
+                if (animator != null) animator.Drive(Vector3.zero, viewer != null ? viewer.Facing : Vector2.up);
+                return;
+            }
             Vector2 input = Vector2.ClampMagnitude(MoveOverride ?? move.ReadValue<Vector2>(), 1f);
             bool wantsSprint = (SprintOverride ?? sprint.IsPressed()) && input.sqrMagnitude > 0.01f;
             bool sprinting = wantsSprint && (stats == null || stats.vitals.CanSprint);
@@ -91,6 +105,7 @@ namespace Vision.Player
 
             float grade = Grade(velocity);
             velocity *= SlopeFactor(grade);
+            if (TerrainField.InWaterAt(transform.position)) velocity *= WadeMultiplier;
             // Movement follows the ground: the climb or drop along the way is added to the step, so any grade can be
             // walked up or down without the controller blocking or the player leaving the ground.
             if (cc.isGrounded || grade != 0f)
@@ -205,19 +220,51 @@ namespace Vision.Player
                     float d = Vector3.Distance(dr.blocker != null ? dr.blocker.bounds.center : dr.transform.position, transform.position + Vector3.up * scale);
                     if (d < best) { best = d; door = dr; pickup = null; }
                 }
+            // A hiding spot is used when nothing closer is in reach (tall grass: anywhere inside the patch).
+            HidingSpot hide = null;
+            if (door == null && pickup == null)
+            {
+                float bestHide = float.MaxValue;
+                foreach (HidingSpot h in HidingSpot.All)
+                {
+                    Vector3 d3 = h.transform.position - transform.position;
+                    d3.y = 0f;
+                    float d = d3.magnitude / scale;
+                    if (d < h.reach && d < bestHide) { bestHide = d; hide = h; }
+                }
+            }
 
             if (door != null) InteractPrompt = $"{(door.IsOpen ? "Close" : "Open")} {(door.blocksMovementWhenOpen ? "shutter" : "door")}";
             else if (pickup != null) InteractPrompt = $"Pick up {pickup.Label}";
+            else if (hide != null) InteractPrompt = hide.kind == HidingSpot.Kind.Bed ? "Hide under the bed" : $"Hide in the {hide.Label}";
             else InteractPrompt = null;
             if (!pressed) return;
 
-            if (door != null) door.Toggle();
+            if (hide != null) EnterHiding(hide);
+            else if (door != null) door.Toggle();
             else if (pickup != null && stats != null)
             {
                 string label = pickup.Label;
                 int taken = pickup.TakeInto(stats.inventory);
                 Notice?.Invoke(taken > 0 ? $"Picked up {label}" : "Inventory full");
             }
+        }
+
+        /// <summary>Hides in a spot: the player stops and disappears (a wardrobe or bed: inside it; tall grass: where they stand).</summary>
+        public void EnterHiding(HidingSpot spot)
+        {
+            Hidden = spot;
+            if (spot.kind != HidingSpot.Kind.Grass) Teleport(new Vector3(spot.transform.position.x, transform.position.y, spot.transform.position.z));
+            foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = false;
+            Notice?.Invoke(spot.kind == HidingSpot.Kind.Bed ? "Hiding under the bed" : $"Hiding in the {spot.Label}");
+        }
+
+        public void LeaveHiding()
+        {
+            if (Hidden == null) return;
+            if (Hidden.kind != HidingSpot.Kind.Grass) Teleport(Hidden.ExitPosition);
+            Hidden = null;
+            foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = true;
         }
 
         public bool ToggleNearestDoor()
