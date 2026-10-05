@@ -10,8 +10,8 @@ namespace Vision.World
         [Tooltip("World units per second (the player's walking pace).")]
         public float speed = 3.2f;
         public HumanoidAnimator animator;
-        [Tooltip("Damage when it walks into the player (design units of reach), at most once per cooldown.")]
-        public float touchDamage = 10f;
+        [Tooltip("Share of a full health bar it takes when it walks into the player (design units of reach), at most once per cooldown.")]
+        public float touchDamage = 0.2f;
         public float touchReach = 0.6f;
         public float touchCooldown = 1f;
 

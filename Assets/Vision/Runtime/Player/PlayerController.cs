@@ -23,6 +23,10 @@ namespace Vision.Player
         [Tooltip("World units per second. At 2x world scale this is half of the original on-screen pace.")]
         public float walkSpeed = 3.2f;
         public float runSpeed = 5.2f;
+        /// <summary>Downed survivors crawl at the original's 32 / 120 of the walking pace.</summary>
+        public const float CrawlFraction = 32f / 120f;
+        /// <summary>And see 0.6 as far.</summary>
+        public const float DownedVision = 0.6f;
         [Tooltip("Design units; multiplied by the transform scale.")]
         public float interactRange = 2f;
         [Range(0.1f, 0.9f)] public float stickAimDeadzone = 0.35f;
@@ -44,6 +48,9 @@ namespace Vision.Player
 
         /// <summary>What Interact would do right now ("Pick up Bandage", "Open door"), or null.</summary>
         public string InteractPrompt { get; private set; }
+
+        /// <summary>Progress (0 to 1) of what Interact is held on (a generator or the gate lever), or -1.</summary>
+        public float HoldProgress { get; private set; } = -1f;
 
         /// <summary>Short messages for the HUD (pickups, items used, a full inventory).</summary>
         public event System.Action<string> Notice;
@@ -78,13 +85,22 @@ namespace Vision.Player
         void Update()
         {
             if (move == null) return;
-            bool dead = stats != null && stats.vitals.IsDead;
-            if (GameHud.MenuOpen || dead)
+            bool downed = stats != null && stats.vitals.IsDowned;
+            if (viewer != null) viewer.visionMultiplier = downed ? DownedVision : 1f;
+            if (animator != null) animator.Prone = downed;
+            HoldProgress = -1f;
+            if (GameHud.MenuOpen)
             {
                 InteractPrompt = null;
                 if (animator != null) animator.Drive(Vector3.zero, viewer != null ? viewer.Facing : Vector2.up);
-                if (dead && cc.enabled) cc.Move(Vector3.down * (9.81f * Time.deltaTime));
                 return;
+            }
+            // Downed: crawl, nothing else. (Testing: R gets back up.)
+            if (downed && Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame)
+            {
+                stats.vitals.StandUp();
+                Notice?.Invoke("Back on your feet");
+                downed = false;
             }
             if (Hidden != null)
             {
@@ -95,13 +111,24 @@ namespace Vision.Player
                 return;
             }
             Vector2 input = Vector2.ClampMagnitude(MoveOverride ?? move.ReadValue<Vector2>(), 1f);
+            bool busy = false;
+            if (downed) InteractPrompt = null;
+            else
+            {
+                busy = UpdateInteraction(interact.WasPressedThisFrame(), interact.IsPressed());
+                if (seeThrough.WasPressedThisFrame() && viewer != null) viewer.seeThroughEnabled = !viewer.seeThroughEnabled;
+                UseItemKeys();
+            }
+            // Working on a generator or the lever keeps you in place, as in the original.
+            if (busy) input = Vector2.zero;
             bool wantsSprint = (SprintOverride ?? sprint.IsPressed()) && input.sqrMagnitude > 0.01f;
-            bool sprinting = wantsSprint && (stats == null || stats.vitals.CanSprint);
-            if (stats != null) stats.vitals.Tick(Time.deltaTime, sprinting);
-            Vector2 velocity = input * (sprinting ? runSpeed : walkSpeed);
-            UpdateInteraction(interact.WasPressedThisFrame());
-            if (seeThrough.WasPressedThisFrame() && viewer != null) viewer.seeThroughEnabled = !viewer.seeThroughEnabled;
-            UseItemKeys();
+            bool sprinting = !downed && wantsSprint && (stats == null || stats.vitals.CanSprint);
+            if (stats != null)
+            {
+                stats.vitals.Tick(Time.deltaTime, sprinting);
+                if (stats.Tick(Time.deltaTime, input.sqrMagnitude > 0.01f)) Notice?.Invoke("Mini shield: +25% shield");
+            }
+            Vector2 velocity = input * (downed ? walkSpeed * CrawlFraction : sprinting ? runSpeed : walkSpeed);
 
             float grade = Grade(velocity);
             velocity *= SlopeFactor(grade);
@@ -188,21 +215,36 @@ namespace Vision.Player
         {
             Keyboard kb = Keyboard.current;
             if (kb == null || stats == null) return;
-            Key[] keys = { Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5, Key.Digit6 };
+            Key[] keys = { Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8 };
             for (int i = 0; i < keys.Length; i++)
             {
                 if (!kb[keys[i]].wasPressedThisFrame) continue;
                 ItemType? item = stats.inventory.ItemAt(i);
                 if (item == null) continue;
-                ItemInfo info = Items.Info(item.Value);
-                if (stats.UseSlot(i))
-                    Notice?.Invoke(info.heal > 0f && info.stamina > 0f ? $"Ate {info.name.ToLower()}" : info.heal > 0f ? $"Used a bandage (+{info.heal:0} health)" : $"Drank water (+{info.stamina:0} stamina)");
-                else Notice?.Invoke(info.heal > 0f ? "Already at full health" : "Already rested");
+                string name = Items.Info(item.Value).name;
+                switch (stats.UseSlot(i))
+                {
+                    case PlayerStats.UseResult.Used:
+                        Notice?.Invoke(item == ItemType.Confit ? "Ate the duck confit: health full" : "Ate a Mr Beast bar: +20% health");
+                        break;
+                    case PlayerStats.UseResult.Drinking:
+                        Notice?.Invoke("Drinking a mini shield (stand still)");
+                        break;
+                    case PlayerStats.UseResult.AlreadyFull:
+                        Notice?.Invoke(item == ItemType.MiniShield ? "Shield already full" : "Already at full health");
+                        break;
+                    case PlayerStats.UseResult.NotYet:
+                        Notice?.Invoke($"{name}: can't be used yet");
+                        break;
+                }
             }
         }
 
-        /// <summary>The nearest thing to interact with in reach: a pickup or a door (whichever is closer).</summary>
-        void UpdateInteraction(bool pressed)
+        /// <summary>
+        /// The nearest thing to interact with in reach: a pickup, a door, a generator or the gate lever (whichever is
+        /// closest), else a hiding spot or a pallet. Generators and the lever are held. Returns true while holding one.
+        /// </summary>
+        bool UpdateInteraction(bool pressed, bool held)
         {
             float scale = transform.lossyScale.x;
             Vector3 from = transform.position + Vector3.up * (0.5f * scale);
@@ -220,6 +262,46 @@ namespace Vision.Player
                     float d = Vector3.Distance(dr.blocker != null ? dr.blocker.bounds.center : dr.transform.position, transform.position + Vector3.up * scale);
                     if (d < best) { best = d; door = dr; pickup = null; }
                 }
+            GeneratorObjective generator = null;
+            foreach (GeneratorObjective g in GeneratorObjective.All)
+            {
+                if (g.Running) continue;
+                Vector3 d3 = g.transform.position - transform.position;
+                d3.y = 0f;
+                float d = Mathf.Max(0f, d3.magnitude - 0.7f * scale);
+                if (d < best) { best = d; generator = g; door = null; pickup = null; }
+            }
+            ExitGate gate = world != null ? world.Gate : null;
+            bool lever = false;
+            if (gate != null && !gate.IsOpen && gate.lever != null)
+            {
+                Vector3 d3 = gate.lever.position - transform.position;
+                d3.y = 0f;
+                if (d3.magnitude < Mathf.Min(best, 1.5f * scale)) { lever = true; generator = null; door = null; pickup = null; }
+            }
+            if (generator != null || lever)
+            {
+                int running = GeneratorObjective.RunningCount, total = GeneratorObjective.All.Count;
+                if (generator != null)
+                {
+                    HoldProgress = generator.progress;
+                    InteractPrompt = $"Hold to start the generator   {Mathf.FloorToInt(generator.progress * 100f)}%";
+                    if (!held) return false;
+                    if (generator.Repair(Time.deltaTime))
+                        Notice?.Invoke(GeneratorObjective.AllRunning ? "Every generator is running: the gate has power" : $"Generator running ({running + 1}/{total})");
+                    return true;
+                }
+                if (!ExitGate.Powered)
+                {
+                    InteractPrompt = $"The gate has no power ({running}/{total} generators)";
+                    return false;
+                }
+                HoldProgress = gate.LeverProgress;
+                InteractPrompt = $"Hold to pull the gate lever   {Mathf.FloorToInt(gate.LeverProgress * 100f)}%";
+                if (!held) return false;
+                if (gate.PullLever(Time.deltaTime)) Notice?.Invoke("The gate is open");
+                return true;
+            }
             // A hiding spot is used when nothing closer is in reach (tall grass: anywhere inside the patch).
             HidingSpot hide = null;
             if (door == null && pickup == null)
@@ -253,7 +335,7 @@ namespace Vision.Player
             else if (hide != null) InteractPrompt = hide.kind == HidingSpot.Kind.Bed ? "Hide under the bed" : $"Hide in the {hide.Label}";
             else if (pallet != null) InteractPrompt = "Drop the pallet";
             else InteractPrompt = null;
-            if (!pressed) return;
+            if (!pressed) return false;
 
             if (hide != null) EnterHiding(hide);
             else if (pallet != null) pallet.Drop();
@@ -264,6 +346,7 @@ namespace Vision.Player
                 int taken = pickup.TakeInto(stats.inventory);
                 Notice?.Invoke(taken > 0 ? $"Picked up {label}" : "Inventory full");
             }
+            return false;
         }
 
         /// <summary>Hides in a spot: the player stops and disappears (a wardrobe or bed: inside it; tall grass: where they stand).</summary>

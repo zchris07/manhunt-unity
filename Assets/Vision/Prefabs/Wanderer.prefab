@@ -231,6 +231,7 @@ MonoBehaviour:
   - {fileID: 6647849557175492717}
   turnSpeed: 420
   maxTwist: 80
+  Prone: 0
 --- !u!114 &1816689943759076844
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -246,7 +247,7 @@ MonoBehaviour:
   waypoints: []
   speed: 3.2
   animator: {fileID: 1896661226833108241}
-  touchDamage: 10
+  touchDamage: 0.2
   touchReach: 0.6
   touchCooldown: 1
 --- !u!114 &188741314072927807

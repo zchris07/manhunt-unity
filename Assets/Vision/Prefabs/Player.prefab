@@ -711,6 +711,7 @@ MonoBehaviour:
   - {fileID: 2931506249621829996}
   turnSpeed: 420
   maxTwist: 80
+  Prone: 0
 --- !u!143 &3346030196746331178
 CharacterController:
   m_ObjectHideFlags: 0
@@ -758,6 +759,7 @@ MonoBehaviour:
   proximityFalloffStart: 0.55
   lineOfSightRange: 30
   seeThroughEnabled: 0
+  visionMultiplier: 1
   seeThroughHalfAngleDeg: 22
   seeThroughRange: 8
   seeThroughStrength: 0.7
@@ -774,7 +776,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.Player.PlayerStats
   vitals:
-    maxHealth: 100
     maxStamina: 100
     sprintDrain: 18
     regen: 12
@@ -794,6 +795,11 @@ MonoBehaviour:
       count: 0
     - item: 0
       count: 0
+    - item: 0
+      count: 0
+    - item: 0
+      count: 0
+    Infinite: 0
 --- !u!114 &8508204900453197659
 MonoBehaviour:
   m_ObjectHideFlags: 0

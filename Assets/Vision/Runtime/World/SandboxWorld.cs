@@ -943,9 +943,28 @@ namespace Vision.World
                 GameObject gen = Prop(library != null ? library.generator : null, staticRoot,
                     () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
                 Conform(gen.transform, g, 0.7f, Range(0f, 4f) * 90f, 0.85f, 0.03f);
+                MakeObjective(gen);
                 Generators.Add(gen.transform);
                 blocked.Add(g);
             }
+        }
+
+        /// <summary>Makes a generator startable: hold Interact beside it; running, it shakes and glows.</summary>
+        void MakeObjective(GameObject gen)
+        {
+            gen.isStatic = false;
+            var glowGo = new GameObject("Running Light");
+            glowGo.transform.SetParent(gen.transform, false);
+            glowGo.transform.localPosition = new Vector3(0f, 0f, 0.75f);
+            var glow = glowGo.AddComponent<VisionLight>();
+            glow.range = 3.2f;
+            glow.intensity = 0.5f;
+            glow.flickerAmount = 0.12f;
+            glow.height = 1.0f;
+            glow.enabled = false;
+            var objective = gen.AddComponent<GeneratorObjective>();
+            objective.body = gen.transform;
+            objective.glow = glow;
         }
 
         void BuildLights()
@@ -1131,31 +1150,84 @@ namespace Vision.World
 
         // ---------------------------------------------------------------- supplies
 
-        /// <summary>Supplies by the camps, the cabins, the cover pieces and the clearings.</summary>
+        /// <summary>
+        /// The original's supplies at its counts (86 in all), placed by its rules: candidate spots in the building's
+        /// rooms, in the cabins, around the clearings and beside the paths, shuffled, each item taking the first spot
+        /// at least 4.8 m (160 units) from the others, or 1.8 m when the map runs short.
+        /// </summary>
         void BuildPickups()
         {
-            var spots = new List<Vector2>();
-            foreach (MapLayout.Cabin c in Layout.Cabins) spots.Add(c.Area.center + new Vector2(Range(-1.5f, 1.5f), 0.8f));
-            foreach (Vector2 f in Layout.Campfires) spots.Add(f + new Vector2(Range(-1.6f, 1.6f), Range(1.2f, 1.6f)));
-            foreach (MapLayout.Kit k in Layout.Kits) spots.Add(k.Centre + new Vector2(Range(-1f, 1f), Range(-1f, 1f)));
-            for (int i = 1; i < Layout.Clearings.Count; i++) spots.Add(Layout.Clearings[i].Centre + new Vector2(Range(-2f, 2f), Range(-2f, 2f)));
-            Transform parent = Group("Supplies");
-            foreach (Vector2 p in spots)
+            var inside = new List<Vector2>();
+            if (Layout.Plan != null) inside.AddRange(Layout.Plan.LootSpots);
+            var outside = new List<Vector2>();
+            foreach (MapLayout.Cabin c in Layout.Cabins)
             {
-                if (Layout.LakeDepth(p) > -1f) continue;
-                double roll = rng.NextDouble();
-                var item = roll < 0.4 ? ItemType.Bandage : roll < 0.75 ? ItemType.Water : ItemType.CannedFood;
-                var go = new GameObject($"Pickup {item}");
-                go.transform.SetParent(parent, false);
-                go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, item);
-                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
-                var pickup = go.AddComponent<Pickup>();
-                pickup.item = item;
-                pickup.count = item == ItemType.Bandage ? 1 : 1 + rng.Next(2);
-                Conform(go.transform, p, 0.1f, Range(0f, 360f), 0.8f, 0f);
-                go.transform.localScale = Vector3.one * 1.6f;
-                Pickups.Add(pickup);
+                outside.Add(c.Area.center + new Vector2(Range(-1.5f, 1.5f), 0.9f));
+                outside.Add(new Vector2(c.Area.xMin + 1.2f, c.Area.yMax - 1.2f));
             }
+            for (int i = 1; i < Layout.Clearings.Count; i++)
+            {
+                MapLayout.Clearing c = Layout.Clearings[i];
+                for (int k = 0; k < 3; k++)
+                {
+                    float a = Range(0f, Mathf.PI * 2f);
+                    outside.Add(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * c.Radius * Range(0.3f, 0.7f));
+                }
+            }
+            PathNetwork paths = Terrain.Paths;
+            if (paths != null)
+                foreach (List<Vector2> path in paths.Paths)
+                {
+                    if (path.Count < 4) continue;
+                    for (int k = 0; k < 11; k++)
+                    {
+                        int s = rng.Next(1, path.Count - 2);
+                        Vector2 a = path[s], b = path[s + 1], d = (b - a).normalized;
+                        Vector2 at = Vector2.Lerp(a, b, Range(0f, 1f)) + new Vector2(-d.y, d.x) * (rng.Next(2) == 0 ? 1f : -1f) * (42f * MapLayout.Unit + paths.HalfWidth * 0.5f);
+                        outside.Add(at);
+                    }
+                }
+            var pool = new List<(Vector2 p, bool inside)>();
+            foreach (Vector2 p in inside) pool.Add((p, true));
+            foreach (Vector2 p in outside)
+            {
+                if (Mathf.Abs(p.x) > halfExtent - 2f || Mathf.Abs(p.y) > halfExtent - 2f) continue;
+                if (Layout.LakeDepth(p) > -1f || Layout.Yard.Contains(p) || Layout.Building.Contains(p) || blocked.AnyWithin(p, 0.6f)) continue;
+                pool.Add((p, false));
+            }
+            for (int i = pool.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (pool[i], pool[j]) = (pool[j], pool[i]);
+            }
+
+            Transform parent = Group("Supplies");
+            var placed = new List<Vector2>();
+            foreach (ItemType item in Items.All)
+                for (int n = 0; n < Items.Info(item).mapCount; n++)
+                {
+                    int idx = -1;
+                    foreach (float spacing in new[] { 160f * MapLayout.Unit, 60f * MapLayout.Unit })
+                    {
+                        idx = pool.FindIndex(c => placed.TrueForAll(q => (q - c.p).sqrMagnitude > spacing * spacing));
+                        if (idx >= 0) break;
+                    }
+                    if (idx < 0) break;
+                    (Vector2 p, bool indoors) = pool[idx];
+                    pool.RemoveAt(idx);
+                    placed.Add(p);
+                    var go = new GameObject($"Pickup {item}");
+                    go.transform.SetParent(parent, false);
+                    go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, item);
+                    PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+                    var pickup = go.AddComponent<Pickup>();
+                    pickup.item = item;
+                    pickup.count = 1;
+                    if (indoors) go.transform.SetLocalPositionAndRotation(new Vector3(p.x, BuildingFloor + 0.015f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                    else Conform(go.transform, p, 0.1f, Range(0f, 360f), 0.8f, 0f);
+                    go.transform.localScale = Vector3.one * 1.6f;
+                    Pickups.Add(pickup);
+                }
         }
 
         // ---------------------------------------------------------------- entities

@@ -29,6 +29,8 @@ namespace Vision.Visibility
 
         [Header("See-through cone (ignores occluders)")]
         public bool seeThroughEnabled;
+        [Tooltip("Scales how far the beam and line of sight reach (the original's 0.6 while downed).")]
+        [Range(0.1f, 1f)] public float visionMultiplier = 1f;
         [Range(5f, 90f)] public float seeThroughHalfAngleDeg = 22f;
         public float seeThroughRange = 8f;
         [Range(0f, 1f)] public float seeThroughStrength = 0.7f;

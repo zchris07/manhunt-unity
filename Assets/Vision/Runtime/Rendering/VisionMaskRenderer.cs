@@ -265,6 +265,7 @@ namespace Vision.Rendering
                 coneRange = Mathf.Min(viewer.coneRange * k, halfSize * 0.95f);
                 coneStart = viewer.coneFalloffStart;
             }
+            coneRange *= viewer.visionMultiplier;
             this.origin = origin;
             coneRangeW = coneRange;
             coneStartW = coneStart;
@@ -298,7 +299,7 @@ namespace Vision.Rendering
             }
 
             // G: long-range 360° line of sight. No falloff (falloffStart >= 1 disables it).
-            float losRange = Mathf.Min(viewer.lineOfSightRange * k, halfSize * 1.42f);
+            float losRange = Mathf.Min(viewer.lineOfSightRange * k * viewer.visionMultiplier, halfSize * 1.42f);
             vc.Compute(ViewQuery.Circle(origin, losRange), polygon);
             AddPolygon(polygon, true, origin, new Color(0f, 1f, 0f, 0f), losRange, 2f);
             rays += vc.LastRayCount; polygons++;

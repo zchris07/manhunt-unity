@@ -210,6 +210,7 @@ namespace Vision.World
             Gate = go.AddComponent<ExitGate>();
             Gate.door = door.transform;
             Gate.leverHandle = handle;
+            Gate.lever = box.transform;
             Gate.blocker = blocker;
             Gate.occluder = occ;
             Gate.height = h;
@@ -256,6 +257,7 @@ namespace Vision.World
                 GameObject gen = Prop(library != null ? library.generator : null, root,
                     () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
                 gen.transform.SetLocalPositionAndRotation(pos, Quaternion.Euler(0f, item.Yaw, 0f));
+                MakeObjective(gen);
                 Generators.Add(gen.transform);
                 return;
             }

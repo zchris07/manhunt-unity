@@ -267,7 +267,7 @@ namespace Vision.Player
             yield return Overview("28d_building_plan", L.Building.center + new Vector2(0f, 2f), 21f);
             yield return Overview("28b_survey_spawn", L.Spawn + new Vector2(0f, 14f), 22f);
 
-            // 10. The HUD: prompt at a supply, a filled inventory, hurt, paused, dead.
+            // 10. The HUD: prompt at a supply, a filled inventory, hurt, paused, downed.
             if (gameHud != null && player.GetComponent<PlayerStats>() is PlayerStats ps)
             {
                 gameHud.visible = true;
@@ -280,28 +280,81 @@ namespace Vision.Player
                 yield return Wait(10);
                 gameHud.Refresh();
                 yield return Shot("50_hud_prompt");
-                ps.inventory.Add(ItemType.Bandage, 2);
-                ps.inventory.Add(ItemType.Water, 3);
-                ps.inventory.Add(ItemType.CannedFood, 1);
+                ps.inventory.Add(ItemType.Bottle, 3);
+                ps.inventory.Add(ItemType.Goggles, 1);
+                ps.inventory.Add(ItemType.Shotgun, 1);
+                ps.inventory.Add(ItemType.DoctorPepper, 2);
+                ps.inventory.Add(ItemType.Trap, 1);
+                ps.inventory.Add(ItemType.Confit, 1);
+                ps.inventory.Add(ItemType.MrBeastBar, 4);
+                ps.inventory.Add(ItemType.MiniShield, 2);
+                ps.vitals.AddShield(0.5f);
                 ps.vitals.Tick(2f, true);
-                gameHud.Notify("Picked up Water x2");
-                gameHud.Notify("Used a bandage (+35 health)");
+                gameHud.Notify("Picked up Mini shield");
+                gameHud.Notify("Mini shield: +25% shield");
                 yield return Wait(5);
                 yield return Shot("51_hud_inventory");
-                ps.vitals.TakeDamage(72f);
+                ps.vitals.TakeDamage(1.35f);
                 yield return Wait(20);
                 yield return Shot("52_hud_low_health");
                 gameHud.SetMenu(true);
                 yield return Wait(5);
                 yield return Shot("53_hud_pause_menu");
                 gameHud.SetMenu(false);
-                ps.vitals.TakeDamage(100f);
-                yield return Wait(5);
-                yield return Shot("54_hud_death");
+                ps.vitals.TakeDamage(1f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot("54_hud_downed");
                 ps.vitals.Reset();
+                ps.inventory.Clear();
+                yield return new WaitForSeconds(1f);
+
+                // The objective: a woods generator half started, then running; the gate lever without and with power;
+                // the gate rolled open.
+                if (L.WoodsGenerators.Count > 0 && GeneratorObjective.All.Count > 0)
+                {
+                    Vector2 g = L.WoodsGenerators[0];
+                    GeneratorObjective gen = null;
+                    float bestD = float.MaxValue;
+                    foreach (GeneratorObjective o in GeneratorObjective.All)
+                    {
+                        Vector3 lp = world.transform.InverseTransformPoint(o.transform.position);
+                        float d = (new Vector2(lp.x, lp.z) - g).sqrMagnitude;
+                        if (d < bestD) { bestD = d; gen = o; }
+                    }
+                    yield return Stage(player, V(g + new Vector2(0f, -1.7f)), Vector2.up, wanderer, away);
+                    gen.progress = 0.4f;
+                    yield return Wait(10);
+                    gameHud.Refresh();
+                    yield return Shot("55_hud_generator_repair");
+                    gen.Repair(GeneratorObjective.RepairTime);
+                    gameHud.Notify("Generator running (1/5)");
+                    yield return Wait(10);
+                    gameHud.Refresh();
+                    yield return Shot("56_generator_running");
+                }
+                if (L.Plan != null && world.Gate != null)
+                {
+                    yield return Stage(player, V(L.Plan.Lever + new Vector2(-0.3f, -1.0f)), Vector2.up, wanderer, away);
+                    yield return Wait(10);
+                    gameHud.Refresh();
+                    yield return Shot("57_gate_lever_no_power");
+                    foreach (GeneratorObjective o in GeneratorObjective.All) o.Repair(GeneratorObjective.RepairTime);
+                    yield return Wait(5);
+                    gameHud.Refresh();
+                    yield return Shot("57b_gate_lever_powered");
+                    world.Gate.Open();
+                    yield return new WaitForSeconds(3f);
+                    gameHud.Refresh();
+                    yield return Stage(player, V(new Vector2(L.Plan.GateX, L.Plan.Bounds.yMax - 2.5f)), Vector2.up, wanderer, away);
+                    yield return Wait(10);
+                    yield return Shot("58_gate_open");
+                }
                 yield return Wait(5);
                 gameHud.visible = false;
             }
+
+            // The nine supplies in a row, close up and fully lit.
+            yield return SupplyLineup(player, wanderer, away);
 
             // 11. Tree catalogues and the gait sheet (side-on, fully lit).
             yield return TreeSheets();
@@ -323,6 +376,33 @@ namespace Vision.Player
         }
 
         /// <summary>The raw scene from high above, centred on a design-unit point, with the clip planes opened up.</summary>
+        IEnumerator SupplyLineup(PlayerController player, Wanderer wanderer, Vector3 away)
+        {
+            float ortho = cameraRig.orthographicSize;
+            Vector2 at = world.Layout.Spawn + new Vector2(0f, 3f);
+            var row = new System.Collections.Generic.List<GameObject>();
+            var rng = new System.Random(7);
+            for (int i = 0; i < Items.All.Length; i++)
+            {
+                var go = new GameObject("Lineup " + Items.All[i]);
+                go.transform.SetParent(world.transform, false);
+                Vector2 p = at + new Vector2((i - 4) * 0.55f, 0f);
+                go.transform.localPosition = new Vector3(p.x, TerrainField.Active != null ? TerrainField.Active.Height(p.x, p.y) + 0.02f : 0f, p.y);
+                go.transform.localScale = Vector3.one * 1.6f;
+                go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, Items.All[i]);
+                go.AddComponent<MeshRenderer>().sharedMaterial = world.lowPolyMaterial;
+                row.Add(go);
+            }
+            yield return Stage(player, new Vector3(at.x, 0f, at.y - 0.9f), Vector2.up, wanderer, away);
+            cameraRig.orthographicSize = 1.9f * world.transform.lossyScale.x;
+            composite.debugView = VisionComposite.DebugView.SceneOnly;
+            yield return Wait(8);
+            yield return Shot("59_supplies_lineup");
+            composite.debugView = VisionComposite.DebugView.Final;
+            cameraRig.orthographicSize = ortho;
+            foreach (GameObject go in row) Destroy(go);
+        }
+
         /// <summary>Just inside a room's door, looking in.</summary>
         static bool Entry(BuildingPlan plan, BuildingPlan.Room room, out Vector2 at, out Vector2 aim)
         {

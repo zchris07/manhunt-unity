@@ -11,9 +11,10 @@ namespace Vision.Player
 {
     /// <summary>
     /// The game's HUD, built in code with uGUI and scaled from a 1080p reference so it grows with the screen:
-    /// health and stamina bars (bottom left), the six inventory slots with their number keys (bottom centre),
-    /// the interaction prompt, the objective and a compass (top), short notices (top right), a red edge when
-    /// hurt, a death screen (R restarts) and the pause menu (Esc): Resume, Look settings, Full screen, Quit.
+    /// health, shield and stamina bars (bottom left), the eight inventory slots with their number keys (bottom
+    /// centre), the interaction prompt with a progress bar for held work, the objective (generators, then the gate)
+    /// and a compass (top), short notices (top right), a red edge when hurt, the downed screen and the pause menu
+    /// (Esc): Resume, Look settings, Full screen, Quit.
     /// </summary>
     public sealed class GameHud : MonoBehaviour
     {
@@ -30,21 +31,21 @@ namespace Vision.Player
         static readonly Color Muted = new Color(0.62f, 0.61f, 0.57f);
         static readonly Color HealthColor = new Color(0.66f, 0.16f, 0.13f);
         static readonly Color StaminaColor = new Color(0.80f, 0.72f, 0.42f);
+        static readonly Color ShieldColor = new Color(0.30f, 0.58f, 0.95f);
         static readonly Color ExhaustedColor = new Color(0.45f, 0.40f, 0.30f);
 
         Canvas canvas;
         Font font;
-        RectTransform healthFill, staminaFill;
+        RectTransform healthFill, shieldFill, staminaFill, holdFill;
         Image staminaImage;
-        Text healthValue, staminaValue, prompt, objective, compass, notices;
-        GameObject promptBox, deathScreen, menu;
+        Text healthValue, shieldValue, staminaValue, prompt, objective, compass, notices;
+        GameObject promptBox, holdBar, downedScreen, menu;
         Text fullScreenLabel;
         readonly Image[] slotIcons = new Image[Inventory.Slots];
         readonly Text[] slotCounts = new Text[Inventory.Slots], slotNames = new Text[Inventory.Slots];
         RawImage vignette;
         readonly List<(string text, float until)> noticeList = new List<(string, float)>();
         float flash;
-        int totalSupplies = -1;
         PlayerController player;
         PlayerStats stats;
 
@@ -140,10 +141,11 @@ namespace Vision.Player
             vignette.raycastTarget = false;
 
             // Health and stamina, bottom left.
-            RectTransform vitalsBox = Node("Vitals", root, Vector2.zero, Vector2.zero, new Vector2(28f, 28f), new Vector2(360f, 92f));
+            RectTransform vitalsBox = Node("Vitals", root, Vector2.zero, Vector2.zero, new Vector2(28f, 28f), new Vector2(360f, 128f));
             Box(vitalsBox, Panel);
             healthFill = Bar(vitalsBox, "Health", new Vector2(14f, -16f), HealthColor, out healthValue, out _);
-            staminaFill = Bar(vitalsBox, "Stamina", new Vector2(14f, -52f), StaminaColor, out staminaValue, out staminaImage);
+            shieldFill = Bar(vitalsBox, "Shield", new Vector2(14f, -52f), ShieldColor, out shieldValue, out _);
+            staminaFill = Bar(vitalsBox, "Stamina", new Vector2(14f, -88f), StaminaColor, out staminaValue, out staminaImage);
 
             // Inventory, bottom centre.
             RectTransform strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(Inventory.Slots * 78f + 10f, 92f));
@@ -163,6 +165,11 @@ namespace Vision.Player
             Box(promptRt, Panel);
             prompt = Label(Stretch(Node("Text", promptRt, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)), "", 22, TextAnchor.MiddleCenter, Text);
             promptBox = promptRt.gameObject;
+            RectTransform hold = Node("Hold", promptRt, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -2f), new Vector2(400f, 8f));
+            Box(hold, new Color(0.15f, 0.15f, 0.16f, 0.95f));
+            holdFill = Stretch(Node("Fill", hold, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            Box(holdFill, StaminaColor);
+            holdBar = hold.gameObject;
 
             // Objective (top left) and compass (top centre).
             RectTransform obj = Node("Objective", root, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -24f), new Vector2(560f, 64f));
@@ -174,12 +181,12 @@ namespace Vision.Player
             // Notices, top right.
             notices = Label(Node("Notices", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -24f), new Vector2(520f, 200f)), "", 19, TextAnchor.UpperRight, Text);
 
-            // Death screen.
-            RectTransform death = Stretch(Node("Death", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
-            Box(death, new Color(0f, 0f, 0f, 0.78f));
-            Label(Node("Title", death, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(600f, 80f)), "You died", 64, TextAnchor.MiddleCenter, new Color(0.75f, 0.18f, 0.15f));
-            Label(Node("Hint", death, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -30f), new Vector2(600f, 40f)), "Press R to restart", 26, TextAnchor.MiddleCenter, Text);
-            deathScreen = death.gameObject;
+            // Downed: a dark wash (you can still crawl), the state and the way back up.
+            RectTransform down = Stretch(Node("Downed", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            Box(down, new Color(0.08f, 0f, 0f, 0.35f));
+            Label(Node("Title", down, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 300f), new Vector2(600f, 80f)), "You're down", 56, TextAnchor.MiddleCenter, new Color(0.80f, 0.20f, 0.16f));
+            Label(Node("Hint", down, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 250f), new Vector2(700f, 40f)), "Crawl to safety   ·   R to get back up (testing)", 24, TextAnchor.MiddleCenter, Text);
+            downedScreen = down.gameObject;
 
             BuildMenu(root);
         }
@@ -215,7 +222,7 @@ namespace Vision.Player
             fullScreenLabel = MenuButton(panel, "", ref y, ToggleFullScreen);
             MenuButton(panel, "Quit", ref y, Application.Quit);
             Label(Node("Controls", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(400f, 150f)),
-                "WASD move   Shift sprint   Mouse aim\nE interact   F see-through cone   1-6 use item\nEsc pause   F3 stats   F4 look   F5 camera effects",
+                "WASD move   Shift sprint   Mouse aim\nE interact (hold on generators and the lever)   F see-through cone\n1-8 use item   Esc pause   F3 stats   F4 look   F5 camera effects",
                 16, TextAnchor.LowerCenter, Muted);
             menu = shade.gameObject;
             menu.SetActive(false);
@@ -256,7 +263,6 @@ namespace Vision.Player
         public void SetMenu(bool open)
         {
             EnsureBuilt();
-            if (stats != null && stats.vitals.IsDead) open = false;
             MenuOpen = open;
             menu.SetActive(open);
             Time.timeScale = open ? 0f : 1f;
@@ -291,22 +297,10 @@ namespace Vision.Player
             Bind();
             canvas.enabled = visible;
             Keyboard kb = Keyboard.current;
-            bool dead = stats != null && stats.vitals.IsDead;
-            if (kb != null)
-            {
-                if (kb.escapeKey.wasPressedThisFrame) SetMenu(!MenuOpen);
-                if (dead && kb.rKey.wasPressedThisFrame) Restart();
-            }
+            if (kb != null && kb.escapeKey.wasPressedThisFrame) SetMenu(!MenuOpen);
             if (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame) SetMenu(!MenuOpen);
             if (stats == null) return;
             Refresh();
-        }
-
-        void Restart()
-        {
-            Time.timeScale = 1f;
-            MenuOpen = false;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         /// <summary>Copies the game state into the widgets (also called by captures and tests).</summary>
@@ -316,10 +310,12 @@ namespace Vision.Player
             Bind();
             if (stats == null) return;
             Vitals v = stats.vitals;
-            healthFill.anchorMax = new Vector2(Mathf.Clamp01(v.Health / v.maxHealth), 1f);
+            healthFill.anchorMax = new Vector2(Mathf.Clamp01(v.Health), 1f);
+            shieldFill.anchorMax = new Vector2(Mathf.Clamp01(v.Shield), 1f);
             staminaFill.anchorMax = new Vector2(Mathf.Clamp01(v.Stamina / v.maxStamina), 1f);
             staminaImage.color = v.Exhausted ? ExhaustedColor : StaminaColor;
-            healthValue.text = Mathf.CeilToInt(v.Health).ToString();
+            healthValue.text = Mathf.CeilToInt(v.Health * 100f - 0.01f).ToString();
+            shieldValue.text = Mathf.CeilToInt(v.Shield * 100f - 0.01f).ToString();
             staminaValue.text = Mathf.CeilToInt(v.Stamina).ToString();
 
             Inventory inv = stats.inventory;
@@ -328,18 +324,24 @@ namespace Vision.Player
                 ItemType? item = inv.ItemAt(i);
                 slotIcons[i].color = item.HasValue ? Items.Info(item.Value).color : Color.clear;
                 slotCounts[i].text = item.HasValue && inv.CountAt(i) > 1 ? inv.CountAt(i).ToString() : "";
-                slotNames[i].text = item.HasValue ? Items.Info(item.Value).name : "";
+                slotNames[i].text = item.HasValue ? Items.Short(item.Value) : "";
             }
 
             string p = player.InteractPrompt;
-            promptBox.SetActive(!string.IsNullOrEmpty(p) && !v.IsDead && !MenuOpen);
+            promptBox.SetActive(!string.IsNullOrEmpty(p) && !v.IsDowned && !MenuOpen);
             prompt.text = string.IsNullOrEmpty(p) ? "" : $"[E]  {p}";
+            holdBar.SetActive(player.HoldProgress >= 0f);
+            holdFill.anchorMax = new Vector2(Mathf.Clamp01(player.HoldProgress), 1f);
+            if (stats.DrinkLeft > 0f)
+            {
+                promptBox.SetActive(true);
+                prompt.text = "Drinking a mini shield...";
+                holdBar.SetActive(true);
+                holdFill.anchorMax = new Vector2(1f - stats.DrinkLeft / PlayerStats.ShieldDrinkTime, 1f);
+            }
 
-            int left = 0;
-            foreach (Pickup pk in Pickup.All) left += pk.count;
-            if (totalSupplies < left) totalSupplies = left;
-            objective.text = $"Search the camps and wrecks for supplies\n<color=#9c9b91>Supplies found {totalSupplies - left} / {totalSupplies}</color>";
             objective.supportRichText = true;
+            objective.text = ObjectiveText(world);
 
             Vector2 f = player.viewer != null ? player.viewer.Facing : Vector2.up;
             float heading = Mathf.Repeat(Mathf.Atan2(f.x, f.y) * Mathf.Rad2Deg, 360f);
@@ -352,10 +354,21 @@ namespace Vision.Player
             notices.text = sb.ToString();
 
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime * 2.5f);
-            float hurt = Mathf.Clamp01(1f - v.Health / 45f);
+            float hurt = Mathf.Clamp01(1f - v.Health / 0.45f);
             vignette.color = new Color(0.55f, 0.02f, 0.02f, Mathf.Clamp01(hurt * 0.85f + flash * 0.5f));
-            deathScreen.SetActive(v.IsDead);
+            downedScreen.SetActive(v.IsDowned);
             if (fullScreenLabel != null) fullScreenLabel.text = Screen.fullScreenMode == FullScreenMode.Windowed ? "Full screen: off" : "Full screen: on";
+        }
+
+        /// <summary>The objective line: start the generators, then pull the gate lever, then get out.</summary>
+        public static string ObjectiveText(SandboxWorld world)
+        {
+            int running = GeneratorObjective.RunningCount, total = GeneratorObjective.All.Count;
+            if (world != null && world.Gate != null && world.Gate.IsOpen)
+                return "The gate is open: get out through the yard\n<color=#9c9b91>North side of the building</color>";
+            if (total > 0 && running >= total)
+                return $"Pull the lever at the north gate\n<color=#9c9b91>Generators {running}/{total}</color>";
+            return $"Start the generators\n<color=#9c9b91>Generators {running}/{total}</color>";
         }
 
         public static string Cardinal(float heading)

@@ -49,6 +49,8 @@ namespace Vision.World
         }
 
         public readonly List<Item> Items = new List<Item>();
+        /// <summary>Floor spots clear of furniture where supplies may lie (the original: a fifth of its 3.6 m cells).</summary>
+        public readonly List<Vector2> LootSpots = new List<Vector2>();
         public IEnumerable<Item> Generators { get { foreach (Item i in Items) if (i.Kind == Furn.Generator) yield return i; } }
 
         readonly List<Vector2> hallLockers = new List<Vector2>();
@@ -75,6 +77,9 @@ namespace Vision.World
                     case RoomType.Boiler: f.Boiler(); break;
                 }
                 f.Common();
+                int cells = Mathf.Max(1, Mathf.RoundToInt(room.FloorArea / 13f)), loot = 0;
+                for (int i = 0; i < cells; i++) if (Chance(0.2f)) loot++;
+                f.Loot(loot);
             }
             PlaceLamps();
         }
@@ -581,6 +586,23 @@ namespace Vision.World
                 Run(Furn.Pipes, 2.35f, 3);
                 Run(Furn.Pipes, 2.2f, 2);
                 Loose(Furn.Stain, p.Range(0.8f, 1.6f), p.rng.Next(1, 3));
+            }
+
+            /// <summary>Floor spots for supplies, clear of anything solid.</summary>
+            public void Loot(int count)
+            {
+                for (int n = 0; n < count; n++)
+                    for (int t = 0; t < 12; t++)
+                    {
+                        var c = new Vector2(p.Range(inner.xMin + 0.4f, inner.xMax - 0.4f), p.Range(inner.yMin + 0.4f, inner.yMax - 0.4f));
+                        var r = new Rect(c - Vector2.one * 0.35f, Vector2.one * 0.7f);
+                        if (!Fits(r, false, 0f)) continue;
+                        bool near = false;
+                        foreach (Vector2 l in p.LootSpots) if ((l - c).sqrMagnitude < 1.5f * 1.5f) near = true;
+                        if (near) continue;
+                        p.LootSpots.Add(c);
+                        break;
+                    }
             }
 
             /// <summary>Every room: decorations and services.</summary>

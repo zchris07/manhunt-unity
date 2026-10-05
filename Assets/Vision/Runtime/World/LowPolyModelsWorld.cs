@@ -403,24 +403,75 @@ namespace Vision.World
 
         // ------------------------------------------------------------------ supplies
 
-        /// <summary>A supply the player can pick up: a bandage roll, a water bottle or a tin of food.</summary>
+        /// <summary>The original's supplies, lying on the ground (they are drawn 1.6x larger so they read from above).</summary>
         public static Mesh Item(System.Random rng, Vision.Player.ItemType item)
         {
             var b = new LowPolyMeshBuilder(rng);
             switch (item)
             {
-                case Vision.Player.ItemType.Bandage:
-                    b.AddFrustum(new Vector3(-0.08f, 0.07f, 0f), new Vector3(0.08f, 0.07f, 0f), 0.07f, 0.07f, 7, new Color(0.88f, 0.86f, 0.80f), 0.05f);
-                    b.AddFrustum(new Vector3(-0.02f, 0.07f, 0f), new Vector3(0.02f, 0.07f, 0f), 0.073f, 0.073f, 7, new Color(0.62f, 0.12f, 0.10f), 0.05f);
+                case Vision.Player.ItemType.Bottle:
+                {
+                    // An empty glass bottle on its side.
+                    var glass = new Color(0.22f, 0.40f, 0.22f);
+                    b.AddFrustum(new Vector3(-0.1f, 0.045f, 0f), new Vector3(0.06f, 0.045f, 0f), 0.045f, 0.045f, 7, glass, 0.05f);
+                    b.AddFrustum(new Vector3(0.06f, 0.045f, 0f), new Vector3(0.1f, 0.045f, 0f), 0.045f, 0.018f, 7, glass, 0.05f);
+                    b.AddFrustum(new Vector3(0.1f, 0.045f, 0f), new Vector3(0.16f, 0.045f, 0f), 0.018f, 0.018f, 5, glass * 1.1f, 0.05f);
+                    b.AddFrustum(new Vector3(-0.04f, 0.045f, 0f), new Vector3(0.03f, 0.045f, 0f), 0.047f, 0.047f, 7, new Color(0.70f, 0.66f, 0.52f), 0.05f);
                     break;
-                case Vision.Player.ItemType.Water:
-                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.2f, 0f), 0.055f, 0.055f, 7, new Color(0.45f, 0.60f, 0.70f), 0.05f);
-                    b.AddFrustum(new Vector3(0f, 0.2f, 0f), new Vector3(0f, 0.25f, 0f), 0.055f, 0.022f, 7, new Color(0.45f, 0.60f, 0.70f), 0.05f);
-                    b.AddFrustum(new Vector3(0f, 0.25f, 0f), new Vector3(0f, 0.28f, 0f), 0.024f, 0.024f, 6, new Color(0.20f, 0.30f, 0.62f), 0.05f);
+                }
+                case Vision.Player.ItemType.Book:
+                    // The Grapes of Wrath: a worn paperback, cover up.
+                    b.AddBox(new Vector3(-0.07f, 0f, -0.1f), new Vector3(0.14f, 0.035f, 0.2f), new Color(0.80f, 0.76f, 0.64f), 0.03f);
+                    b.AddBox(new Vector3(-0.072f, 0.035f, -0.102f), new Vector3(0.144f, 0.006f, 0.204f), new Color(0.62f, 0.44f, 0.20f), 0.05f);
+                    b.AddBox(new Vector3(-0.05f, 0.041f, 0.02f), new Vector3(0.1f, 0.002f, 0.05f), new Color(0.30f, 0.16f, 0.10f), 0.05f);
+                    b.AddBox(new Vector3(-0.072f, 0f, -0.102f), new Vector3(0.012f, 0.041f, 0.204f), new Color(0.45f, 0.30f, 0.14f), 0.05f);
+                    break;
+                case Vision.Player.ItemType.Goggles:
+                    // Night vision goggles: two tubes on a strap.
+                    foreach (float x in new[] { -0.045f, 0.045f })
+                    {
+                        b.AddFrustum(new Vector3(x, 0.04f, -0.05f), new Vector3(x, 0.04f, 0.07f), 0.035f, 0.03f, 7, new Color(0.14f, 0.16f, 0.14f), 0.05f);
+                        b.AddFrustum(new Vector3(x, 0.04f, 0.07f), new Vector3(x, 0.04f, 0.075f), 0.026f, 0.026f, 7, new Color(0.25f, 0.70f, 0.30f), 0.05f);
+                    }
+                    b.AddBox(new Vector3(-0.08f, 0.02f, -0.07f), new Vector3(0.16f, 0.04f, 0.04f), new Color(0.2f, 0.2f, 0.19f), 0.05f);
+                    b.AddBox(new Vector3(-0.12f, 0.005f, -0.11f), new Vector3(0.24f, 0.01f, 0.03f), new Color(0.12f, 0.12f, 0.12f), 0.05f);
+                    break;
+                case Vision.Player.ItemType.Shotgun:
+                    // A pump shotgun lying flat: stock, receiver, barrel and the pump.
+                    b.AddBox(new Vector3(-0.32f, 0.01f, -0.035f), new Vector3(0.2f, 0.035f, 0.07f), new Color(0.40f, 0.26f, 0.14f), 0.06f);
+                    b.AddBox(new Vector3(-0.12f, 0.012f, -0.025f), new Vector3(0.14f, 0.04f, 0.05f), new Color(0.16f, 0.16f, 0.17f), 0.04f);
+                    b.AddFrustum(new Vector3(0.02f, 0.035f, 0f), new Vector3(0.38f, 0.035f, 0f), 0.014f, 0.014f, 6, new Color(0.18f, 0.18f, 0.19f), 0.04f);
+                    b.AddFrustum(new Vector3(0.06f, 0.02f, 0f), new Vector3(0.2f, 0.02f, 0f), 0.022f, 0.022f, 6, new Color(0.36f, 0.24f, 0.13f), 0.05f);
+                    break;
+                case Vision.Player.ItemType.DoctorPepper:
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.12f, 0f), 0.033f, 0.033f, 8, new Color(0.45f, 0.06f, 0.10f), 0.04f);
+                    b.AddFrustum(new Vector3(0f, 0.04f, 0f), new Vector3(0f, 0.08f, 0f), 0.034f, 0.034f, 8, new Color(0.85f, 0.82f, 0.78f), 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.12f, 0f), new Vector3(0f, 0.13f, 0f), 0.033f, 0.026f, 8, new Color(0.62f, 0.62f, 0.62f), 0.03f);
+                    break;
+                case Vision.Player.ItemType.Trap:
+                    // Galaxy gas trap: a squat canister with a purple band and a nozzle.
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.1f, 0f), 0.065f, 0.06f, 8, new Color(0.22f, 0.22f, 0.25f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.03f, 0f), new Vector3(0f, 0.07f, 0f), 0.067f, 0.067f, 8, new Color(0.48f, 0.26f, 0.70f), 0.06f);
+                    b.AddFrustum(new Vector3(0f, 0.1f, 0f), new Vector3(0f, 0.14f, 0f), 0.015f, 0.01f, 5, new Color(0.6f, 0.6f, 0.62f), 0.04f);
+                    break;
+                case Vision.Player.ItemType.Confit:
+                    // Duck confit: a wide tin with a pale label.
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.07f, 0f), 0.075f, 0.075f, 9, new Color(0.62f, 0.60f, 0.56f), 0.04f);
+                    b.AddFrustum(new Vector3(0f, 0.012f, 0f), new Vector3(0f, 0.058f, 0f), 0.077f, 0.077f, 9, new Color(0.80f, 0.62f, 0.34f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.07f, 0f), new Vector3(0f, 0.075f, 0f), 0.07f, 0.07f, 9, new Color(0.55f, 0.55f, 0.52f), 0.03f);
+                    break;
+                case Vision.Player.ItemType.MrBeastBar:
+                    // A chocolate bar in a bright blue wrapper.
+                    b.AddBox(new Vector3(-0.09f, 0f, -0.04f), new Vector3(0.18f, 0.025f, 0.08f), new Color(0.22f, 0.48f, 0.88f), 0.04f);
+                    b.AddBox(new Vector3(-0.1f, 0.003f, -0.042f), new Vector3(0.012f, 0.02f, 0.084f), new Color(0.85f, 0.85f, 0.88f), 0.03f);
+                    b.AddBox(new Vector3(0.088f, 0.003f, -0.042f), new Vector3(0.012f, 0.02f, 0.084f), new Color(0.85f, 0.85f, 0.88f), 0.03f);
+                    b.AddBox(new Vector3(-0.04f, 0.025f, -0.02f), new Vector3(0.08f, 0.003f, 0.04f), new Color(0.95f, 0.92f, 0.85f), 0.03f);
                     break;
                 default:
-                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.11f, 0f), 0.065f, 0.065f, 8, new Color(0.62f, 0.61f, 0.58f), 0.04f);
-                    b.AddFrustum(new Vector3(0f, 0.02f, 0f), new Vector3(0f, 0.09f, 0f), 0.067f, 0.067f, 8, new Color(0.72f, 0.40f, 0.14f), 0.05f, 0f, false, false);
+                    // Mini shield: a small blue potion jug with a white cap.
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.08f, 0f), 0.045f, 0.05f, 7, new Color(0.30f, 0.60f, 0.95f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.08f, 0f), new Vector3(0f, 0.11f, 0f), 0.05f, 0.02f, 7, new Color(0.30f, 0.60f, 0.95f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.11f, 0f), new Vector3(0f, 0.135f, 0f), 0.021f, 0.021f, 6, new Color(0.88f, 0.88f, 0.90f), 0.03f);
                     break;
             }
             return b.ToMesh(item.ToString());

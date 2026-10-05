@@ -30,6 +30,8 @@ namespace Vision.Characters
         [Tooltip("Degrees per second the legs turn toward the travel direction.")]
         public float turnSpeed = 420f;
         public float maxTwist = 80f;
+        [Tooltip("Downed: the body lies forward on the ground and the legs crawl.")]
+        public bool Prone;
 
         readonly GaitSolver solver = new GaitSolver();
         Vector3 worldVelocity;
@@ -37,7 +39,8 @@ namespace Vision.Characters
         float legsYaw;
         bool initialized;
 
-        float pelvisDrop, slopeLean;
+        float pelvisDrop, slopeLean, prone;
+        Vector3 bodyRest;
 
         public GaitSolver Solver => solver;
         /// <summary>World-space ankle targets of the last frame (after terrain adaptation), left then right.</summary>
@@ -64,8 +67,10 @@ namespace Vision.Characters
             if (!initialized)
             {
                 legsYaw = aimYaw;
+                bodyRest = body.localPosition;
                 initialized = true;
             }
+            prone = Mathf.MoveTowards(prone, Prone ? 1f : 0f, dt * 2.5f);
 
             float targetYaw = legsYaw;
             if (speed > 0.15f)
@@ -82,6 +87,14 @@ namespace Vision.Characters
             var forward = new Vector2(Mathf.Sin(legsYaw * Mathf.Deg2Rad), Mathf.Cos(legsYaw * Mathf.Deg2Rad));
             solver.Advance(dt, Vector2.Dot(v, forward));
             body.localRotation = Quaternion.Euler(0f, legsYaw, 0f);
+            if (prone > 0f)
+            {
+                // Lying forward on the ground (raised a little so the chest rests on it rather than in it).
+                float s = Mathf.SmoothStep(0f, 1f, prone);
+                body.localRotation *= Quaternion.Euler(80f * s, 0f, 0f);
+                body.localPosition = bodyRest + Vector3.up * (0.13f * s);
+            }
+            else body.localPosition = bodyRest;
 
             // Lean into the slope along the legs' heading (half the slope angle, while moving).
             float grade = 0f;
@@ -121,11 +134,12 @@ namespace Vision.Characters
         void Apply(GaitPose pose, float twist, float scale)
         {
             // Feet follow the ground under them; the pelvis drops by the lowest foot so that leg can still reach.
-            float offL = GroundOffset(pose.Left.Ankle, out Vector3 nL);
-            float offR = GroundOffset(pose.Right.Ankle, out Vector3 nR);
+            Vector3 nL = Vector3.up, nR = Vector3.up;
+            float offL = prone > 0f ? 0f : GroundOffset(pose.Left.Ankle, out nL);
+            float offR = prone > 0f ? 0f : GroundOffset(pose.Right.Ankle, out nR);
             float maxDrop = 0.5f * HumanoidSkeleton.HipHeight * scale;
             float drop = Mathf.Clamp(-Mathf.Min(offL, offR), 0f, maxDrop);
-            pelvisDrop = Ground == null ? 0f : drop;   // continuous already: the ankle targets move smoothly
+            pelvisDrop = Ground == null || prone > 0f ? 0f : drop;   // continuous already: the ankle targets move smoothly
 
             Transform pelvis = B(Bone.Pelvis);
             pelvis.localPosition = HumanoidSkeleton.BindPosition(Bone.Pelvis) + pose.PelvisOffset - Vector3.up * (pelvisDrop / scale);
