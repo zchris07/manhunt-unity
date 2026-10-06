@@ -67,6 +67,11 @@ namespace Vision.Rendering
         const int MaxBlurLights = 8;
         readonly Vector4[] blurOrigins = new Vector4[MaxBlurLights + 1];
 
+        static readonly Unity.Profiling.ProfilerMarker ViewerMarker = new Unity.Profiling.ProfilerMarker("Vision.Viewer"),
+            SightMarker = new Unity.Profiling.ProfilerMarker("Vision.LineOfSight"), LightsMarker = new Unity.Profiling.ProfilerMarker("Vision.Lights"),
+            ShadowsMarker = new Unity.Profiling.ProfilerMarker("Vision.Shadows"), MeshMarker = new Unity.Profiling.ProfilerMarker("Vision.Mesh");
+        public static int VersionChanges, LastVersion, LightRebuilds;
+
         VisibilityComputer computer;
         Material maskMaterial;
         Material blurMaterial;
@@ -273,6 +278,7 @@ namespace Vision.Rendering
             this.origin = origin;
             coneRangeW = coneRange;
             coneStartW = coneStart;
+            ViewerMarker.Begin();
             float halfAngle = viewer.coneHalfAngleDeg * Mathf.Deg2Rad;
             vc.Compute(ViewQuery.Cone(origin, dir, halfAngle, coneRange), polygon);
             // The beam fades toward its sides as well as with distance (soft cone edge).
@@ -302,18 +308,18 @@ namespace Vision.Rendering
                 rays += vc.LastRayCount; polygons++;
             }
 
-            // G: long-range 360° line of sight. No falloff (falloffStart >= 1 disables it).
-            float losRange = Mathf.Min(viewer.lineOfSightRange * k * viewer.visionMultiplier, halfSize * 1.42f);
-            vc.Compute(ViewQuery.Circle(origin, losRange), polygon);
-            AddPolygon(polygon, true, origin, new Color(0f, 1f, 0f, 0f), losRange, 2f);
-            rays += vc.LastRayCount; polygons++;
-
+            ViewerMarker.End();
+            SightMarker.Begin();
+            // G (line of sight) is no longer drawn: light-source light shows whether or not the player can see it.
+            SightMarker.End();
+            LightsMarker.Begin();
             // R: the nearest light sources, each with its own (cached when static) polygon.
             lightOrder.Clear();
             lightOrder.AddRange(VisionWorld.Lights);
             lightOrder.Sort((a, b) => (a.PlanePosition - origin).sqrMagnitude.CompareTo((b.PlanePosition - origin).sqrMagnitude));
             int lightCount = Mathf.Min(maxLights, lightOrder.Count);
             int version = VisionWorld.Occluders.Version;
+            if (version != LastVersion) { VersionChanges++; LastVersion = version; }
             for (int i = 0; i < lightCount; i++)
             {
                 VisionLight light = lightOrder[i];
@@ -322,6 +328,8 @@ namespace Vision.Rendering
                 polygons++;
             }
 
+            LightsMarker.End();
+            ShadowsMarker.Begin();
             // A: soft character shadows, cast away from the flashlight and from the nearest light sources.
             LastShadowCount = 0;
             int castingLights = Mathf.Min(shadowLights, lightCount);
@@ -345,6 +353,8 @@ namespace Vision.Rendering
                 }
             }
 
+            ShadowsMarker.End();
+            MeshMarker.Begin();
             // The player's feet, for the composite's distance blur.
             Vector3 feet = viewer.transform.position;
             Shader.SetGlobalVector(ViewerPosId, new Vector4(feet.x, feet.y, feet.z, 1f));
@@ -361,6 +371,7 @@ namespace Vision.Rendering
             mesh.SetUVs(2, uv2);
             mesh.SetIndices(indices, MeshTopology.Triangles, 0, false);
             mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
+            MeshMarker.End();
         }
 
         /// <summary>

@@ -119,6 +119,65 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void Occluder_PlacedAfterSpawning_BlocksWhereItStands()
+        {
+            // Props are spawned at the origin and moved into place afterwards: the footprint must follow (Start refreshes it).
+            var go = new GameObject("Rock");
+            var occ = go.AddComponent<Occluder>();
+            occ.shape = Occluder.Shape.Circle;
+            occ.radius = 0.5f;
+            var ids = new List<int>();
+            try
+            {
+                occ.Refresh();
+                go.transform.position = new Vector3(5000f, 0f, 5000f);
+                occ.Refresh();
+                Vector2 at = VisionWorld.ToPlane(go.transform.position);
+                VisionWorld.Occluders.Query(at.x - 1f, at.y - 1f, at.x + 1f, at.y + 1f, ids);
+                Assert.AreEqual(occ.sides, ids.Count, "where it stands");
+                VisionWorld.Occluders.Query(-1f, -1f, 1f, 1f, ids);
+                float[] seg = VisionWorld.Occluders.Packed;
+                foreach (int id in ids) Assert.Greater(Mathf.Abs(seg[id * 4]), 100f, "nothing left behind at the origin");
+            }
+            finally
+            {
+                occ.Release();
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void HiddenSegmentCulling_KeepsThePolygon()
+        {
+            // A dense random field (thousands of segments): culling what is hidden must not change what is visible.
+            var set = new OccluderSet();
+            var rng = new System.Random(4);
+            for (int i = 0; i < 1500; i++)
+            {
+                float x = (float)rng.NextDouble() * 160f - 80f, y = (float)rng.NextDouble() * 160f - 80f, s = 0.3f + (float)rng.NextDouble() * 1.5f;
+                if (Mathf.Abs(x) < 2f && Mathf.Abs(y) < 2f) continue;
+                Box(set, x, y, x + s, y + s * 0.6f);
+            }
+            float Area(List<Vector2> p) { float a = 0f; for (int i = 0; i < p.Count; i++) { Vector2 u = p[i], w = p[(i + 1) % p.Count]; a += u.x * w.y - w.x * u.y; } return Mathf.Abs(a) * 0.5f; }
+            int was = VisibilityComputer.CullAbove;
+            try
+            {
+                foreach (ViewQuery q in new[] { ViewQuery.Circle(Vector2.zero, 60f), ViewQuery.Cone(Vector2.zero, 0.7f, 0.5f, 70f), ViewQuery.Cone(new Vector2(10f, -5f), -2.5f, 0.4f, 50f) })
+                {
+                    VisibilityComputer.CullAbove = int.MaxValue;
+                    float exact = Area(Compute(set, q));
+                    VisibilityComputer.CullAbove = 100;
+                    var vc = new VisibilityComputer(set);
+                    var poly = new List<Vector2>();
+                    vc.Compute(q, poly);
+                    Assert.AreEqual(exact, Area(poly), exact * 0.005f, "the same visible area");
+                    Assert.Less(VisibilityComputer.LastKept, VisibilityComputer.LastQueried, "hidden segments are dropped");
+                }
+            }
+            finally { VisibilityComputer.CullAbove = was; }
+        }
+
+        [Test]
         public void SpatialHash_QueryReturnsOnlyNearbySegments()
         {
             var set = new OccluderSet();

@@ -134,6 +134,9 @@ namespace Vision.EditorTools
             capture.composite = composite;
             capture.hud = hud;
             capture.gameHud = gameHud;
+            var perf = capture.gameObject.AddComponent<VisionPerf>();
+            perf.world = world;
+            perf.gameHud = gameHud;
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -191,14 +194,19 @@ namespace Vision.EditorTools
         }
 
         [MenuItem("Vision/Build Windows Player")]
-        public static void BuildWindows()
+        public static void BuildWindows() => Build(BuildPath, BuildOptions.None);
+
+        /// <summary>A development build beside the release one, for profiling (-visionPerf reads its markers).</summary>
+        public static void BuildWindowsDev() => Build("Builds/WindowsDev/VisionSandbox.exe", BuildOptions.Development);
+
+        static void Build(string path, BuildOptions buildOptions)
         {
             var options = new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
-                locationPathName = BuildPath,
+                locationPathName = path,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.None,
+                options = buildOptions,
             };
             var report = BuildPipeline.BuildPlayer(options);
             Debug.Log($"[Vision] Build {report.summary.result}: {report.summary.totalErrors} errors, {report.summary.totalSize / (1024 * 1024)} MB");

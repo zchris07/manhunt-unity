@@ -2,7 +2,7 @@ namespace Vision.Player
 {
     /// <summary>
     /// The mode the game is in. The only mode so far is the original's testing mode: every item and never used up,
-    /// no win condition. Speed mode (testing) doubles movement and keeps the sprint meter full.
+    /// no win condition. Speed mode (testing) makes movement six times as fast (+500%) and keeps the sprint meter full.
     /// </summary>
     public static class GameSession
     {
@@ -10,7 +10,7 @@ namespace Vision.Player
         public static bool SpeedMode;
 
         /// <summary>Movement multiplier in speed mode.</summary>
-        public const float SpeedMultiplier = 2f;
+        public const float SpeedMultiplier = 6f;
 
         /// <summary>
         /// The original's testing kit (bottle and book nine each, goggles, shotgun, mini shield, Mr Beast bar, gas trap;

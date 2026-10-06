@@ -4,13 +4,13 @@ using UnityEngine;
 namespace Vision.World
 {
     /// <summary>
-    /// The central building's floor plan, generated from a seed like the original's warehouse but at full scale: a
-    /// single storey of hallways and rooms. Hallways are cut through the footprint recursively (a wide spine first, then
-    /// narrower branches, so they differ in width and length); the blocks between them are split into rooms that keep a
-    /// wall on a hallway where they can. Rooms get a door onto a hallway (a few get two, and back rooms a door through a
-    /// neighbour) so every room is reachable with a few loops. The outside gets entrances on every side, windows and the
-    /// north exit gate. Pure data: <see cref="SandboxWorld"/> builds it, the tests check it.
-    /// Coordinates are map metres, x east and y north (the world's z).
+    /// The central building's floor plan, a port of the original's warehouse generator scaled to the building's size: a grid
+    /// of cells (16 x 16 of 2.25 m), a BSP that picks rooms, a recursive-backtracker maze carved through every room and
+    /// corridor cell, then extra walls knocked out for loops. The result is a maze of corridors with rooms along them, as in
+    /// the original, inside a footprint with corners cut out (an L, T, U, S or a docked square). Room entrances get doors or
+    /// open doorways, the outside the original's entrances, windows and the north exit gate with its loading bay.
+    /// Corridor cells are gathered into hallways along their straight runs. Pure data: <see cref="SandboxWorld"/> builds it,
+    /// the tests check it. Coordinates are map metres, x east and y north (the world's z).
     /// </summary>
     public sealed partial class BuildingPlan
     {
@@ -18,14 +18,12 @@ namespace Vision.World
         public const float ExteriorThickness = 0.3f, InteriorThickness = 0.16f;
         public const float DoorWidth = 1.1f, WideDoorWidth = 2.2f, ExteriorDoorWidth = 1.4f, WindowWidth = 1.4f, GateWidth = 3.2f;
         public const float DoorHeight = 2.1f;
-        public const float HallMin = 1.4f, HallMax = 3.6f;
-        public const float RoomMin = 3f, RoomLong = 10f, RoomShort = 8f;
         /// <summary>The original's lamps light 300 units: 9 m.</summary>
         public const float LampRange = 9f;
         public const int MaxBarricades = 7, MaxHallLockers = 8;
 
         public enum RoomType { Hallway, Office, Storage, BreakRoom, Restroom, LockerRoom, Workshop, Electrical, ServerRoom, StudioSet, LoadingBay, Boiler }
-        public enum OpeningKind { Doorway, Door, Window, BoardedWindow, Gate }
+        public enum OpeningKind { Doorway, Door, Window, BoardedWindow, Gate, Gap }
 
         public sealed class Room
         {
@@ -65,7 +63,7 @@ namespace Vision.World
             public bool StartsOpen;
             public Vector2 Centre => (A + B) * 0.5f;
             public float Width => Vector2.Distance(A, B);
-            public bool IsPassage => Kind == OpeningKind.Door || Kind == OpeningKind.Doorway || Kind == OpeningKind.Gate;
+            public bool IsPassage => Kind == OpeningKind.Door || Kind == OpeningKind.Doorway || Kind == OpeningKind.Gate || Kind == OpeningKind.Gap;
         }
 
         /// <summary>A solid run of wall to build (openings already cut out).</summary>
@@ -134,22 +132,39 @@ namespace Vision.World
             }
         }
 
+        /// <summary>The plan is a grid of <see cref="Cells"/> x <see cref="Cells"/> square cells (the original: 10 x 10 of 3.6 m).</summary>
+        public const int Cells = 16;
+        /// <summary>BSP leaves are at most this many cells across (the original: 4).</summary>
+        public const int MaxLeaf = 6;
+        /// <summary>Share of the remaining walls between cells knocked out for loops (the original's braid).</summary>
+        public const float Braid = 0.16f;
+
+        public float Cell => Bounds.width / Cells;
+
+        enum Edge { Wall, Open, Door, Gate }
+
+        // h[r, c]: the horizontal edge under cell (r, c), r in 0..Cells (row 0 is the south edge). v[r, c]: the vertical
+        // edge left of cell (r, c), c in 0..Cells.
+        Edge[,] h, v;
+        /// <summary>Which space each cell belongs to (-1: outside, a notch).</summary>
+        int[,] space;
+        bool[,] inside;
+        /// <summary>Which interface each cell edge lies on (-1: none, inside one space).</summary>
+        int[,] hFace, vFace;
+
         public BuildingPlan(int seed, Rect bounds)
         {
             Seed = seed;
             Bounds = bounds;
             rng = new System.Random(seed * 131 + 17);
             ChooseNotches();
-            var blocks = new List<Rect>();
-            SplitHalls(bounds, 0, blocks);
-            foreach (Rect b in blocks) SplitRooms(b);
-            for (int i = 0; i < Rooms.Count; i++) Rooms[i].Id = i;
-            FindInterfaces();
-            PlaceGate();
+            List<RectInt> rooms = PlaceRooms(out RectInt bay);
+            CarveMaze(rooms);
+            MakeSpaces(rooms, bay);
+            BuildInterfaces();
             AssignTypes();
-            PlaceDoors();
-            PlaceEntrances();
-            PlaceWindows();
+            PlaceExterior();
+            PlaceInteriorOpenings();
             PlaceBarricades();
             BuildWalls();
             Furnish();
@@ -162,7 +177,9 @@ namespace Vision.World
             return -1;
         }
 
-        // ------------------------------------------------------------------ hallways and rooms
+        Rect CellRect(RectInt r) => new Rect(Bounds.xMin + r.x * Cell, Bounds.yMin + r.y * Cell, r.width * Cell, r.height * Cell);
+
+        // ------------------------------------------------------------------ the footprint
 
         /// <summary>True in the open ground of a notch, at least <paramref name="margin"/> from the building's walls (paths may cross it).</summary>
         public bool InNotch(Vector2 p, float margin)
@@ -188,250 +205,341 @@ namespace Vision.World
         }
 
         /// <summary>
-        /// Cuts corners out of the square: an L, a T or U (two corners of one side), an S (opposite corners) or a square
-        /// with one small loading-dock notch. Each notch stays well inside a corner so the north wall keeps room for the
-        /// gate and every side keeps a long enough wall for its entrances.
+        /// Cuts whole cells out of the square's corners: an L, a T or U (two corners of one side), an S (opposite corners)
+        /// or a square with one small loading-dock notch. The north wall always keeps its middle for the gate.
         /// </summary>
         void ChooseNotches()
         {
-            Rect Corner(int c, float nx, float ny) => new Rect(c % 2 == 0 ? Bounds.xMin : Bounds.xMax - nx, c < 2 ? Bounds.yMin : Bounds.yMax - ny, nx, ny);
-            float roll = (float)rng.NextDouble();
-            if (roll < 0.30f) Notches.Add(Corner(rng.Next(4), Range(7f, 12f), Range(7f, 12f)));                  // L
-            else if (roll < 0.52f)                                                                               // T or U
+            int n = Cells;
+            inside = new bool[n, n];
+            for (int r = 0; r < n; r++) for (int c = 0; c < n; c++) inside[r, c] = true;
+            var cut = new List<RectInt>();
+            RectInt Corner(int k, int w, int d) => new RectInt(k % 2 == 0 ? 0 : n - w, k < 2 ? 0 : n - d, w, d);
+            double roll = rng.NextDouble();
+            if (roll < 0.30) cut.Add(Corner(rng.Next(4), rng.Next(4, 7), rng.Next(4, 7)));                       // L
+            else if (roll < 0.52)                                                                                // T or U
             {
                 int pair = rng.Next(4);   // the south, north, west or east side
-                (int c0, int c1) = pair switch { 0 => (0, 1), 1 => (2, 3), 2 => (0, 2), _ => (1, 3) };
-                bool horizontal = pair < 2;
-                Notches.Add(Corner(c0, horizontal ? Range(6f, 10.5f) : Range(7f, 12f), horizontal ? Range(7f, 12f) : Range(6f, 10.5f)));
-                Notches.Add(Corner(c1, horizontal ? Range(6f, 10.5f) : Range(7f, 12f), horizontal ? Range(7f, 12f) : Range(6f, 10.5f)));
+                (int k0, int k1) = pair switch { 0 => (0, 1), 1 => (2, 3), 2 => (0, 2), _ => (1, 3) };
+                bool across = pair < 2;   // two corners of a north or south side: narrow, deep
+                cut.Add(Corner(k0, across ? rng.Next(3, 6) : rng.Next(4, 7), across ? rng.Next(4, 7) : rng.Next(3, 6)));
+                cut.Add(Corner(k1, across ? rng.Next(3, 6) : rng.Next(4, 7), across ? rng.Next(4, 7) : rng.Next(3, 6)));
             }
-            else if (roll < 0.68f)                                                                               // S
+            else if (roll < 0.68)                                                                                // S
             {
                 bool flip = Chance(0.5f);
-                Notches.Add(Corner(flip ? 0 : 1, Range(6.5f, 10.5f), Range(6.5f, 10.5f)));
-                Notches.Add(Corner(flip ? 3 : 2, Range(6.5f, 10.5f), Range(6.5f, 10.5f)));
+                cut.Add(Corner(flip ? 0 : 1, rng.Next(3, 6), rng.Next(3, 6)));
+                cut.Add(Corner(flip ? 3 : 2, rng.Next(3, 6), rng.Next(3, 6)));
             }
-            else Notches.Add(Corner(rng.Next(4), Range(4.5f, 7f), Range(4.5f, 7f)));                             // a loading dock
+            else cut.Add(Corner(rng.Next(4), rng.Next(2, 4), rng.Next(2, 4)));                                   // a loading dock
+            foreach (RectInt k in cut)
+            {
+                Notches.Add(CellRect(k));
+                for (int r = k.y; r < k.yMax; r++) for (int c = k.x; c < k.xMax; c++) inside[r, c] = false;
+            }
         }
 
-        static Rect Intersect(Rect a, Rect b)
+        bool Inside(int r, int c) => r >= 0 && c >= 0 && r < Cells && c < Cells && inside[r, c];
+
+        bool AllInside(RectInt k)
         {
-            float x0 = Mathf.Max(a.xMin, b.xMin), x1 = Mathf.Min(a.xMax, b.xMax), y0 = Mathf.Max(a.yMin, b.yMin), y1 = Mathf.Min(a.yMax, b.yMax);
-            return new Rect(x0, y0, Mathf.Max(0f, x1 - x0), Mathf.Max(0f, y1 - y0));
+            for (int r = k.y; r < k.yMax; r++) for (int c = k.x; c < k.xMax; c++) if (!Inside(r, c)) return false;
+            return true;
         }
 
-        float HallWidth(int depth)
-        {
-            if (depth == 0) return Range(2.6f, HallMax);
-            float t = (float)rng.NextDouble();
-            return t < 0.34f ? Range(HallMin, 1.75f) : t < 0.76f ? Range(1.8f, 2.5f) : Range(2.7f, HallMax);
-        }
-
-        void AddHall(Rect hall) => Rooms.Add(new Room { Area = hall, Type = RoomType.Hallway });
+        // ------------------------------------------------------------------ rooms (the original's BSP)
 
         /// <summary>
-        /// Cuts <paramref name="r"/> into blocks: hallways run through it (a wide spine first, then narrow and wide branches
-        /// of every length), sometimes after a plain wall has split it so the halls on either side don't line up. Where the
-        /// footprint is notched, a hallway runs along the notch's edge so no room is ever part notch.
+        /// The loading bay on the north wall (the gate opens from it), then the original's rooms: a BSP split into leaves of at
+        /// most <see cref="MaxLeaf"/> cells, about half of which become rooms (the two largest always), most shrunk a cell
+        /// inside their leaf so corridors run round them. Rooms keep out of the notches and the bay.
         /// </summary>
-        void SplitHalls(Rect r, int depth, List<Rect> blocks)
+        List<RectInt> PlaceRooms(out RectInt bay)
         {
-            if (r.width < 0.5f || r.height < 0.5f) return;
-            foreach (Rect notch in Notches)
+            int n = Cells;
+            // The gate spans two cells of the top row, away from the corners: try a 4 x 3 bay round it, then smaller.
+            bay = default;
+            var cols = new List<int>();
+            for (int g = 3; g <= n - 5; g++) cols.Add(g);
+            Shuffle(cols);
+            foreach ((int w, int d, int left) in new[] { (4, 3, 1), (3, 3, 0), (2, 2, 0) })
             {
-                Rect n = Intersect(r, notch);
-                if (n.width <= 0.05f || n.height <= 0.05f) continue;
-                bool spansX = n.width >= r.width - 0.05f, spansY = n.height >= r.height - 0.05f;
-                if (spansX && spansY) return;   // all notch
-                CutAtNotch(r, n, spansY || (!spansX && Chance(0.5f)), depth, blocks);
-                return;
-            }
-
-            float limit = Range(7f, 10f);
-            float longSide = Mathf.Max(r.width, r.height);
-            if (depth > 0 && (longSide <= limit || depth >= 7)) { blocks.Add(r); return; }
-            bool cutX = r.width > r.height * 1.1f || (r.height <= r.width * 1.1f && Chance(0.5f));
-            float span = cutX ? r.width : r.height;
-
-            if (depth >= 1 && span >= 10f && longSide > 14f && Chance(0.3f))
-            {
-                float cut = Mathf.Lerp(4.5f, span - 4.5f, Range(0.3f, 0.7f));
-                Rect wa = cutX ? new Rect(r.xMin, r.yMin, cut, r.height) : new Rect(r.xMin, r.yMin, r.width, cut);
-                Rect wb = cutX ? new Rect(r.xMin + cut, r.yMin, r.width - cut, r.height) : new Rect(r.xMin, r.yMin + cut, r.width, r.height - cut);
-                SplitHalls(wa, depth + 1, blocks);
-                SplitHalls(wb, depth + 1, blocks);
-                return;
-            }
-
-            float w = HallWidth(depth);
-            if (span < 2f * 4f + w) { blocks.Add(r); return; }
-            float at = Mathf.Lerp(4f, span - 4f - w, Range(0.25f, 0.75f));
-            Rect hall, ra, rb;
-            if (cutX)
-            {
-                hall = new Rect(r.xMin + at, r.yMin, w, r.height);
-                ra = new Rect(r.xMin, r.yMin, at, r.height);
-                rb = new Rect(hall.xMax, r.yMin, r.xMax - hall.xMax, r.height);
-            }
-            else
-            {
-                hall = new Rect(r.xMin, r.yMin + at, r.width, w);
-                ra = new Rect(r.xMin, r.yMin, r.width, at);
-                rb = new Rect(r.xMin, hall.yMax, r.width, r.yMax - hall.yMax);
-            }
-            AddHall(hall);
-            SplitHalls(ra, depth + 1, blocks);
-            SplitHalls(rb, depth + 1, blocks);
-        }
-
-        /// <summary>Cuts along the edge of a notch, with a hallway on the building side of it.</summary>
-        void CutAtNotch(Rect r, Rect n, bool cutX, int depth, List<Rect> blocks)
-        {
-            float w = Chance(0.3f) ? Range(2.6f, HallMax) : Range(HallMin, 2.6f);
-            Rect keep, notchSide, hall;
-            bool hasHall;
-            if (cutX)
-            {
-                bool east = n.xMax >= r.xMax - 0.05f;
-                float c = east ? n.xMin : n.xMax, room = east ? c - r.xMin : r.xMax - c;
-                hasHall = room >= w + 3.2f;
-                if (!hasHall) w = 0f;
-                hall = east ? new Rect(c - w, r.yMin, w, r.height) : new Rect(c, r.yMin, w, r.height);
-                keep = east ? new Rect(r.xMin, r.yMin, c - w - r.xMin, r.height) : new Rect(c + w, r.yMin, r.xMax - c - w, r.height);
-                notchSide = east ? new Rect(c, r.yMin, r.xMax - c, r.height) : new Rect(r.xMin, r.yMin, c - r.xMin, r.height);
-            }
-            else
-            {
-                bool north = n.yMax >= r.yMax - 0.05f;
-                float c = north ? n.yMin : n.yMax, room = north ? c - r.yMin : r.yMax - c;
-                hasHall = room >= w + 3.2f;
-                if (!hasHall) w = 0f;
-                hall = north ? new Rect(r.xMin, c - w, r.width, w) : new Rect(r.xMin, c, r.width, w);
-                keep = north ? new Rect(r.xMin, r.yMin, r.width, c - w - r.yMin) : new Rect(r.xMin, c + w, r.width, r.yMax - c - w);
-                notchSide = north ? new Rect(r.xMin, c, r.width, r.yMax - c) : new Rect(r.xMin, r.yMin, r.width, c - r.yMin);
-            }
-            if (hasHall) AddHall(hall);
-            SplitHalls(keep, depth + 1, blocks);
-            SplitHalls(notchSide, depth + 1, blocks);
-        }
-
-        /// <summary>Length of the edge a rectangle shares with any hallway.</summary>
-        float HallContact(Rect r)
-        {
-            float best = 0f;
-            foreach (Room h in Rooms)
-                if (h.IsHallway) best = Mathf.Max(best, Shared(r, h.Area, out _, out _));
-            return best;
-        }
-
-        void SplitRooms(Rect r)
-        {
-            float longSide = Mathf.Max(r.width, r.height), shortSide = Mathf.Min(r.width, r.height);
-            bool fits = longSide <= RoomLong && shortSide <= RoomShort;
-            bool canX = r.width >= 2f * RoomMin, canY = r.height >= 2f * RoomMin;
-            float area = r.width * r.height;
-            if (!canX && !canY) { AddRoom(r); return; }
-            if (fits && (area < 14f ? Chance(0.92f) : area < 40f ? Chance(0.82f) : Chance(0.62f))) { AddRoom(r); return; }
-
-            // Try a few cuts; prefer ones that leave both halves on a hallway, then ones across the long side.
-            float bestScore = float.MinValue;
-            Rect bestA = default, bestB = default;
-            for (int t = 0; t < 8; t++)
-            {
-                bool x = canX && (!canY || Chance(r.width / (r.width + r.height)));
-                float span = x ? r.width : r.height;
-                float at = Range(RoomMin, span - RoomMin);
-                Rect a = x ? new Rect(r.xMin, r.yMin, at, r.height) : new Rect(r.xMin, r.yMin, r.width, at);
-                Rect b = x ? new Rect(r.xMin + at, r.yMin, r.width - at, r.height) : new Rect(r.xMin, r.yMin + at, r.width, r.height - at);
-                float score = (HallContact(a) >= 1.8f ? 2f : 0f) + (HallContact(b) >= 1.8f ? 2f : 0f) + (span == longSide ? 1f : 0f) + Range(0f, 0.8f);
-                if (score > bestScore) { bestScore = score; bestA = a; bestB = b; }
-            }
-            SplitRooms(bestA);
-            SplitRooms(bestB);
-        }
-
-        void AddRoom(Rect r) => Rooms.Add(new Room { Area = r, Type = RoomType.Storage });
-
-        // ------------------------------------------------------------------ walls between spaces
-
-        /// <summary>The length of edge two rectangles share (0 when they don't touch), and its ends.</summary>
-        static float Shared(Rect a, Rect b, out Vector2 p0, out Vector2 p1)
-        {
-            const float eps = 0.01f;
-            p0 = p1 = default;
-            if (Mathf.Abs(a.xMax - b.xMin) < eps || Mathf.Abs(b.xMax - a.xMin) < eps)
-            {
-                float x = Mathf.Abs(a.xMax - b.xMin) < eps ? a.xMax : a.xMin;
-                float lo = Mathf.Max(a.yMin, b.yMin), hi = Mathf.Min(a.yMax, b.yMax);
-                if (hi - lo <= 0.05f) return 0f;
-                p0 = new Vector2(x, lo);
-                p1 = new Vector2(x, hi);
-                return hi - lo;
-            }
-            if (Mathf.Abs(a.yMax - b.yMin) < eps || Mathf.Abs(b.yMax - a.yMin) < eps)
-            {
-                float y = Mathf.Abs(a.yMax - b.yMin) < eps ? a.yMax : a.yMin;
-                float lo = Mathf.Max(a.xMin, b.xMin), hi = Mathf.Min(a.xMax, b.xMax);
-                if (hi - lo <= 0.05f) return 0f;
-                p0 = new Vector2(lo, y);
-                p1 = new Vector2(hi, y);
-                return hi - lo;
-            }
-            return 0f;
-        }
-
-        /// <summary>Two hallways meet: most are open, but a wider join sometimes gets a wall and a door (a bulkhead), which breaks the sight line.</summary>
-        bool ClosesJoin(Room a, Room b, float length) =>
-            length >= 2.3f && Mathf.Min(Mathf.Min(a.Area.width, a.Area.height), Mathf.Min(b.Area.width, b.Area.height)) < 2.7f && Chance(0.3f);
-
-        void FindInterfaces()
-        {
-            for (int i = 0; i < Rooms.Count; i++)
-            {
-                Rect a = Rooms[i].Area;
-                for (int j = i + 1; j < Rooms.Count; j++)
+                foreach (int g in cols)
                 {
-                    float shared = Shared(a, Rooms[j].Area, out Vector2 p0, out Vector2 p1);
-                    if (shared <= 0f) continue;
-                    Vector2 n = Mathf.Abs(p0.x - p1.x) < 1e-4f ? new Vector2(Mathf.Sign(Rooms[j].Area.center.x - a.center.x), 0f) : new Vector2(0f, Mathf.Sign(Rooms[j].Area.center.y - a.center.y));
-                    bool bothHalls = Rooms[i].IsHallway && Rooms[j].IsHallway;
-                    Interfaces.Add(new Interface { A = i, B = j, P0 = p0, P1 = p1, Normal = n, Open = bothHalls && !ClosesJoin(Rooms[i], Rooms[j], shared) });
+                    var k = new RectInt(g - left, n - d, w, d);
+                    if (k.x < 1 || k.xMax > n - 1 || !AllInside(k)) continue;
+                    bay = k;
+                    GateCol = g;
+                    break;
                 }
-                ExteriorEdges(i);
+                if (bay.width > 0) break;
             }
+
+            var leaves = new List<RectInt>();
+            void Split(RectInt r)
+            {
+                if (r.width <= MaxLeaf && r.height <= MaxLeaf) { leaves.Add(r); return; }
+                bool vertical = r.width > r.height || (r.width == r.height && Chance(0.5f));
+                if (vertical)
+                {
+                    int s = rng.Next(2, r.width - 1);
+                    Split(new RectInt(r.x, r.y, s, r.height));
+                    Split(new RectInt(r.x + s, r.y, r.width - s, r.height));
+                }
+                else
+                {
+                    int s = rng.Next(2, r.height - 1);
+                    Split(new RectInt(r.x, r.y, r.width, s));
+                    Split(new RectInt(r.x, r.y + s, r.width, r.height - s));
+                }
+            }
+            Split(new RectInt(0, 0, n, n));
+
+            RectInt reserved = bay;
+            bool Blocked(int r, int c) => !Inside(r, c) || (reserved.width > 0 && reserved.Contains(new Vector2Int(c, r)));
+            // A leaf cut by a notch or the bay keeps its largest clear rectangle.
+            RectInt Fit(RectInt k)
+            {
+                for (int guard = 0; guard < 32 && k.width > 0 && k.height > 0; guard++)
+                {
+                    Vector2Int bad = new Vector2Int(-1, -1);
+                    for (int r = k.y; r < k.yMax && bad.x < 0; r++) for (int c = k.x; c < k.xMax; c++) if (Blocked(r, c)) { bad = new Vector2Int(c, r); break; }
+                    if (bad.x < 0) return k;
+                    RectInt best = default;
+                    foreach (RectInt o in new[]
+                    {
+                        new RectInt(k.x, k.y, bad.x - k.x, k.height), new RectInt(bad.x + 1, k.y, k.xMax - bad.x - 1, k.height),
+                        new RectInt(k.x, k.y, k.width, bad.y - k.y), new RectInt(k.x, bad.y + 1, k.width, k.yMax - bad.y - 1),
+                    })
+                        if (o.width > 0 && o.height > 0 && o.width * o.height > best.width * best.height) best = o;
+                    k = best;
+                }
+                return default;
+            }
+
+            var fitted = new List<RectInt>();
+            foreach (RectInt leaf in leaves) fitted.Add(Fit(leaf));
+            var byArea = new List<int>();
+            for (int i = 0; i < fitted.Count; i++) byArea.Add(i);
+            byArea.Sort((a, b) => (fitted[b].width * fitted[b].height).CompareTo(fitted[a].width * fitted[a].height));
+            var rooms = new List<RectInt>();
+            for (int i = 0; i < fitted.Count; i++)
+            {
+                RectInt rr = fitted[i];
+                bool forced = i == byArea[0] || (byArea.Count > 1 && i == byArea[1]);
+                if (rr.width < 2 || rr.height < 2) continue;
+                if (!forced && !Chance(0.5f)) continue;
+                if (!forced && rr.width > 2 && Chance(0.5f)) { rr.width -= 1; if (Chance(0.5f)) rr.x += 1; }
+                if (!forced && rr.height > 2 && Chance(0.5f)) { rr.height -= 1; if (Chance(0.5f)) rr.y += 1; }
+                rooms.Add(rr);
+            }
+            return rooms;
         }
 
-        /// <summary>Each stretch of a room's edge that no other room covers faces the outside (the square's edge or a notch).</summary>
-        void ExteriorEdges(int i)
+        int GateCol = -1;
+
+        // ------------------------------------------------------------------ the maze (the original's backtracker and braid)
+
+        void CarveMaze(List<RectInt> rooms)
         {
-            Rect a = Rooms[i].Area;
-            for (int side = 0; side < 4; side++)
+            int n = Cells;
+            h = new Edge[n + 1, n];
+            v = new Edge[n, n + 1];
+            var roomOf = new int[n, n];
+            for (int r = 0; r < n; r++) for (int c = 0; c < n; c++) roomOf[r, c] = -1;
+            for (int i = 0; i < rooms.Count; i++)
             {
-                bool horizontal = side == 0 || side == 2;
-                float line = side == 0 ? a.yMin : side == 1 ? a.xMax : side == 2 ? a.yMax : a.xMin;
-                float lo = horizontal ? a.xMin : a.yMin, hi = horizontal ? a.xMax : a.yMax;
-                var covered = new List<(float, float)>();
-                for (int j = 0; j < Rooms.Count; j++)
+                RectInt rr = rooms[i];
+                for (int r = rr.y; r < rr.yMax; r++)
+                    for (int c = rr.x; c < rr.xMax; c++)
+                    {
+                        roomOf[r, c] = i;
+                        if (c > rr.x) v[r, c] = Edge.Open;
+                        if (r > rr.y) h[r, c] = Edge.Open;
+                    }
+            }
+            cellRoom = roomOf;
+
+            // Recursive backtracker (iterative). Entering a room visits all its cells.
+            var visited = new bool[n, n];
+            var stack = new List<Vector2Int>();
+            void Visit(int r, int c)
+            {
+                int ri = roomOf[r, c];
+                if (ri >= 0)
                 {
-                    if (j == i || Shared(a, Rooms[j].Area, out Vector2 p0, out Vector2 p1) <= 0f) continue;
-                    if (horizontal ? (Mathf.Abs(p0.y - line) > 0.01f || Mathf.Abs(p1.y - line) > 0.01f) : (Mathf.Abs(p0.x - line) > 0.01f || Mathf.Abs(p1.x - line) > 0.01f)) continue;
-                    covered.Add(horizontal ? (Mathf.Min(p0.x, p1.x), Mathf.Max(p0.x, p1.x)) : (Mathf.Min(p0.y, p1.y), Mathf.Max(p0.y, p1.y)));
+                    RectInt rr = rooms[ri];
+                    for (int y = rr.y; y < rr.yMax; y++)
+                        for (int x = rr.x; x < rr.xMax; x++)
+                            if (!visited[y, x]) { visited[y, x] = true; stack.Add(new Vector2Int(x, y)); }
                 }
-                covered.Sort((x, y) => x.Item1.CompareTo(y.Item1));
-                Vector2 normal = side == 0 ? Vector2.down : side == 1 ? Vector2.right : side == 2 ? Vector2.up : Vector2.left;
-                float at = lo;
-                void Stretch(float from, float to)
+                else { visited[r, c] = true; stack.Add(new Vector2Int(c, r)); }
+            }
+            var all = new List<Vector2Int>();
+            for (int r = 0; r < n; r++) for (int c = 0; c < n; c++) if (inside[r, c]) all.Add(new Vector2Int(c, r));
+            Vector2Int first = Pick(all);
+            Visit(first.y, first.x);
+            var options = new List<Vector2Int>(4);
+            while (stack.Count > 0)
+            {
+                Vector2Int cell = stack[stack.Count - 1];
+                options.Clear();
+                foreach (Vector2Int d in Dirs)
                 {
-                    if (to - from <= 0.05f) return;
-                    Vector2 q0 = horizontal ? new Vector2(from, line) : new Vector2(line, from), q1 = horizontal ? new Vector2(to, line) : new Vector2(line, to);
-                    Interfaces.Add(new Interface { A = i, B = -1, P0 = q0, P1 = q1, Normal = normal });
+                    int nr = cell.y + d.y, nc = cell.x + d.x;
+                    if (Inside(nr, nc) && !visited[nr, nc]) options.Add(new Vector2Int(nc, nr));
                 }
-                foreach ((float c0, float c1) in covered)
+                if (options.Count == 0) { stack.RemoveAt(stack.Count - 1); continue; }
+                Vector2Int next = Pick(options);
+                SetBetween(cell, next, Edge.Open);
+                Visit(next.y, next.x);
+            }
+
+            // Braid: remove extra walls for loops.
+            for (int r = 0; r < n; r++)
+                for (int c = 0; c < n; c++)
                 {
-                    Stretch(at, c0);
-                    at = Mathf.Max(at, c1);
+                    if (!inside[r, c]) continue;
+                    if (Inside(r, c + 1) && v[r, c + 1] == Edge.Wall && Chance(Braid)) v[r, c + 1] = Edge.Open;
+                    if (Inside(r + 1, c) && h[r + 1, c] == Edge.Wall && Chance(Braid)) h[r + 1, c] = Edge.Open;
                 }
-                Stretch(at, hi);
+        }
+
+        static readonly Vector2Int[] Dirs = { new Vector2Int(1, 0), new Vector2Int(0, 1), new Vector2Int(-1, 0), new Vector2Int(0, -1) };
+
+        int[,] cellRoom;
+
+        void SetBetween(Vector2Int a, Vector2Int b, Edge e)
+        {
+            if (a.y == b.y) v[a.y, Mathf.Max(a.x, b.x)] = e;
+            else h[Mathf.Max(a.y, b.y), a.x] = e;
+        }
+
+        // ------------------------------------------------------------------ spaces
+
+        /// <summary>
+        /// The bay and rooms become spaces; the corridor cells are gathered into hallways along their straight runs (the
+        /// longest first), so a hallway is a corridor you can see down. A corridor cell left over is a hallway of one cell.
+        /// </summary>
+        void MakeSpaces(List<RectInt> rooms, RectInt bay)
+        {
+            int n = Cells;
+            space = new int[n, n];
+            for (int r = 0; r < n; r++) for (int c = 0; c < n; c++) space[r, c] = -1;
+            void Claim(RectInt k, RoomType type)
+            {
+                int id = Rooms.Count;
+                Rooms.Add(new Room { Id = id, Area = CellRect(k), Type = type });
+                for (int r = k.y; r < k.yMax; r++) for (int c = k.x; c < k.xMax; c++) space[r, c] = id;
+            }
+            if (bay.width > 0)
+            {
+                // The bay is open inside, and its cells join the maze on every open edge they already had.
+                for (int r = bay.y; r < bay.yMax; r++)
+                    for (int c = bay.x; c < bay.xMax; c++)
+                    {
+                        if (c > bay.x) v[r, c] = Edge.Open;
+                        if (r > bay.y) h[r, c] = Edge.Open;
+                    }
+                GateRoom = Rooms.Count;
+                Claim(bay, RoomType.LoadingBay);
+            }
+            foreach (RectInt k in rooms) Claim(k, RoomType.Storage);
+
+            // Straight corridor runs: consecutive corridor cells joined by open edges.
+            bool Corridor(int r, int c) => Inside(r, c) && space[r, c] < 0;
+            var runs = new List<RectInt>();
+            for (int r = 0; r < n; r++)
+                for (int c = 0; c < n; c++)
+                {
+                    if (!Corridor(r, c)) continue;
+                    if (!(c > 0 && Corridor(r, c - 1) && v[r, c] == Edge.Open))
+                    {
+                        int e = c;
+                        while (e + 1 < n && Corridor(r, e + 1) && v[r, e + 1] == Edge.Open) e++;
+                        if (e > c) runs.Add(new RectInt(c, r, e - c + 1, 1));
+                    }
+                    if (!(r > 0 && Corridor(r - 1, c) && h[r, c] == Edge.Open))
+                    {
+                        int e = r;
+                        while (e + 1 < n && Corridor(e + 1, c) && h[e + 1, c] == Edge.Open) e++;
+                        if (e > r) runs.Add(new RectInt(c, r, 1, e - r + 1));
+                    }
+                }
+            runs.Sort((a, b) => Mathf.Max(b.width, b.height).CompareTo(Mathf.Max(a.width, a.height)));
+            foreach (RectInt run in runs)
+            {
+                // The unclaimed stretches of this run, two cells or more.
+                bool alongX = run.width > 1;
+                int len = alongX ? run.width : run.height, start = -1;
+                for (int i = 0; i <= len; i++)
+                {
+                    bool free = i < len && space[run.y + (alongX ? 0 : i), run.x + (alongX ? i : 0)] < 0;
+                    if (free && start < 0) start = i;
+                    if (!free && start >= 0)
+                    {
+                        if (i - start >= 2) Claim(alongX ? new RectInt(run.x + start, run.y, i - start, 1) : new RectInt(run.x, run.y + start, 1, i - start), RoomType.Hallway);
+                        start = -1;
+                    }
+                }
+            }
+            for (int r = 0; r < n; r++) for (int c = 0; c < n; c++) if (Corridor(r, c)) Claim(new RectInt(c, r, 1, 1), RoomType.Hallway);
+        }
+
+        // ------------------------------------------------------------------ interfaces
+
+        /// <summary>Each line of cell edges between the same two spaces (or a space and the outside) is one interface.</summary>
+        void BuildInterfaces()
+        {
+            int n = Cells;
+            hFace = new int[n + 1, n];
+            vFace = new int[n, n + 1];
+            float C = Cell;
+            for (int line = 0; line <= n; line++)
+            {
+                // Horizontal line y = line: the cell below is (line - 1, c), above (line, c).
+                int run = -1, ra = 0, rb = 0;
+                for (int c = 0; c <= n; c++)
+                {
+                    int below = c < n && Inside(line - 1, c) ? space[line - 1, c] : -1, above = c < n && Inside(line, c) ? space[line, c] : -1;
+                    bool edge = c < n && below != above;
+                    if (c < n) hFace[line, c] = -1;
+                    if (edge && run >= 0 && below == ra && above == rb) { hFace[line, c] = run; Interfaces[run].P1 = new Vector2(Bounds.xMin + (c + 1) * C, Bounds.yMin + line * C); continue; }
+                    run = -1;
+                    if (!edge) continue;
+                    ra = below;
+                    rb = above;
+                    var p0 = new Vector2(Bounds.xMin + c * C, Bounds.yMin + line * C);
+                    var p1 = p0 + new Vector2(C, 0f);
+                    if (below < 0) Interfaces.Add(new Interface { A = above, B = -1, P0 = p0, P1 = p1, Normal = Vector2.down });
+                    else if (above < 0) Interfaces.Add(new Interface { A = below, B = -1, P0 = p0, P1 = p1, Normal = Vector2.up });
+                    else Interfaces.Add(new Interface { A = below, B = above, P0 = p0, P1 = p1, Normal = Vector2.up });
+                    run = Interfaces.Count - 1;
+                    hFace[line, c] = run;
+                }
+            }
+            for (int line = 0; line <= n; line++)
+            {
+                // Vertical line x = line: the cell left is (r, line - 1), right (r, line).
+                int run = -1, ra = 0, rb = 0;
+                for (int r = 0; r <= n; r++)
+                {
+                    int left = r < n && Inside(r, line - 1) ? space[r, line - 1] : -1, right = r < n && Inside(r, line) ? space[r, line] : -1;
+                    bool edge = r < n && left != right;
+                    if (r < n) vFace[r, line] = -1;
+                    if (edge && run >= 0 && left == ra && right == rb) { vFace[r, line] = run; Interfaces[run].P1 = new Vector2(Bounds.xMin + line * C, Bounds.yMin + (r + 1) * C); continue; }
+                    run = -1;
+                    if (!edge) continue;
+                    ra = left;
+                    rb = right;
+                    var p0 = new Vector2(Bounds.xMin + line * C, Bounds.yMin + r * C);
+                    var p1 = p0 + new Vector2(0f, C);
+                    if (left < 0) Interfaces.Add(new Interface { A = right, B = -1, P0 = p0, P1 = p1, Normal = Vector2.left });
+                    else if (right < 0) Interfaces.Add(new Interface { A = left, B = -1, P0 = p0, P1 = p1, Normal = Vector2.right });
+                    else Interfaces.Add(new Interface { A = left, B = right, P0 = p0, P1 = p1, Normal = Vector2.right });
+                    run = Interfaces.Count - 1;
+                    vFace[r, line] = run;
+                }
             }
         }
 
@@ -440,64 +548,170 @@ namespace Vision.World
             for (int k = 0; k < Interfaces.Count; k++) if (Interfaces[k].A == room || Interfaces[k].B == room) yield return k;
         }
 
-        /// <summary>Cuts an opening of <paramref name="width"/> into an interface at a free spot, keeping clear of its ends and other openings.</summary>
-        bool TryOpening(int iface, float width, OpeningKind kind, float margin, out Opening opening, float atFraction = -1f)
+        /// <summary>An opening of <paramref name="width"/> centred on a cell edge (horizontal: under cell (r, c); else left of it).</summary>
+        Opening Cut(bool horizontal, int r, int c, float width, OpeningKind kind)
         {
-            opening = null;
-            Interface f = Interfaces[iface];
-            float len = f.Length, lo = margin, hi = len - margin - width;
-            if (hi < lo) return false;
-            for (int t = 0; t < 10; t++)
-            {
-                float s = atFraction >= 0f && t == 0 ? Mathf.Lerp(lo, hi, atFraction) : Range(lo, hi);
-                Vector2 a = f.P0 + f.Along * s, b = a + f.Along * width;
-                bool clear = true;
-                foreach (Opening o in Openings)
-                {
-                    if (o.Interface != iface) continue;
-                    float o0 = Vector2.Dot(o.A - f.P0, f.Along), o1 = Vector2.Dot(o.B - f.P0, f.Along);
-                    if (s < Mathf.Max(o0, o1) + 0.5f && s + width > Mathf.Min(o0, o1) - 0.5f) { clear = false; break; }
-                }
-                if (!clear) continue;
-                opening = new Opening { Kind = kind, Interface = iface, A = a, B = b, Exterior = f.Exterior };
-                Openings.Add(opening);
-                return true;
-            }
-            return false;
+            int face = horizontal ? hFace[r, c] : vFace[r, c];
+            if (face < 0) return null;
+            float C = Cell;
+            Vector2 mid = horizontal ? new Vector2(Bounds.xMin + (c + 0.5f) * C, Bounds.yMin + r * C) : new Vector2(Bounds.xMin + c * C, Bounds.yMin + (r + 0.5f) * C);
+            Vector2 along = horizontal ? Vector2.right : Vector2.up;
+            var o = new Opening { Kind = kind, Interface = face, A = mid - along * (width * 0.5f), B = mid + along * (width * 0.5f), Exterior = Interfaces[face].Exterior };
+            Openings.Add(o);
+            return o;
         }
 
-        // ------------------------------------------------------------------ the gate and room types
+        // ------------------------------------------------------------------ the outside: gate, entrances, windows
 
         /// <summary>Wall to the gate's east, for the lever.</summary>
         const float LeverRoom = 1.0f;
 
-        void PlaceGate()
+        /// <summary>One exterior cell edge: which edge, its side, and the point outside it.</summary>
+        struct OuterEdge
         {
-            // A room on the north wall, wide enough, in the middle band so the yard has room: it becomes the loading bay.
-            // If the notches leave too little wall, the band and the lever room shrink until something fits.
-            for (int pass = 0; pass < 6 && GateRoom < 0; pass++)
-            {
-                float band = pass < 2 ? 9f : pass == 2 ? 5f : pass == 3 ? 3f : 1.5f;
-                float lever = pass < 4 ? LeverRoom : 0.7f;
-                var candidates = new List<int>();
-                for (int k = 0; k < Interfaces.Count; k++)
+            public bool Horizontal;
+            public int R, C;
+            public char Side;
+            public Vector2 Mid, Normal;
+        }
+
+        List<OuterEdge> OuterEdges()
+        {
+            int n = Cells;
+            float C = Cell;
+            var list = new List<OuterEdge>();
+            for (int r = 0; r < n; r++)
+                for (int c = 0; c < n; c++)
                 {
-                    Interface f = Interfaces[k];
-                    if (!f.Exterior || f.Normal != Vector2.up || Mathf.Abs(f.P0.y - Bounds.yMax) > 0.01f) continue;
-                    if (pass == 0 && Rooms[f.A].IsHallway) continue;
-                    float lo = Mathf.Max(f.P0.x + GateWidth * 0.5f + 0.4f, Bounds.xMin + band), hi = Mathf.Min(f.P1.x - GateWidth * 0.5f - lever, Bounds.xMax - band);
-                    if (lo <= hi) candidates.Add(k);
+                    if (!inside[r, c]) continue;
+                    if (!Inside(r - 1, c)) list.Add(new OuterEdge { Horizontal = true, R = r, C = c, Side = 's', Normal = Vector2.down, Mid = new Vector2(Bounds.xMin + (c + 0.5f) * C, Bounds.yMin + r * C) });
+                    if (!Inside(r + 1, c)) list.Add(new OuterEdge { Horizontal = true, R = r + 1, C = c, Side = 'n', Normal = Vector2.up, Mid = new Vector2(Bounds.xMin + (c + 0.5f) * C, Bounds.yMin + (r + 1) * C) });
+                    if (!Inside(r, c - 1)) list.Add(new OuterEdge { Horizontal = false, R = r, C = c, Side = 'w', Normal = Vector2.left, Mid = new Vector2(Bounds.xMin + c * C, Bounds.yMin + (r + 0.5f) * C) });
+                    if (!Inside(r, c + 1)) list.Add(new OuterEdge { Horizontal = false, R = r, C = c + 1, Side = 'e', Normal = Vector2.right, Mid = new Vector2(Bounds.xMin + (c + 1) * C, Bounds.yMin + (r + 0.5f) * C) });
                 }
-                if (candidates.Count == 0) continue;
-                int iface = Pick(candidates);
-                Interface g = Interfaces[iface];
-                float x0 = Mathf.Max(g.P0.x + GateWidth * 0.5f + 0.4f, Bounds.xMin + band), x1 = Mathf.Min(g.P1.x - GateWidth * 0.5f - lever, Bounds.xMax - band);
-                GateX = Range(x0, x1);
-                GateRoom = g.A;
-                Openings.Add(new Opening { Kind = OpeningKind.Gate, Interface = iface, A = new Vector2(GateX - GateWidth * 0.5f, g.P0.y), B = new Vector2(GateX + GateWidth * 0.5f, g.P0.y), Exterior = true });
-                Lever = new Vector2(GateX + GateWidth * 0.5f + lever * 0.45f, g.P0.y - 0.35f);
-                if (!Rooms[GateRoom].IsHallway) Rooms[GateRoom].Type = RoomType.LoadingBay;
+            return list;
+        }
+
+        /// <summary>
+        /// As the original: the gate in the north wall (two cells of the loading bay), two entrances south, one north, one or
+        /// two east and west, 40% of them open with a pallet beside them, the rest doors; a window in every third cell of wall.
+        /// </summary>
+        void PlaceExterior()
+        {
+            int n = Cells;
+            float C = Cell;
+            if (GateRoom >= 0)
+            {
+                GateX = Bounds.xMin + (GateCol + 1) * C;
+                int face = hFace[n, GateCol];
+                Openings.Add(new Opening { Kind = OpeningKind.Gate, Interface = face, A = new Vector2(GateX - GateWidth * 0.5f, Bounds.yMax), B = new Vector2(GateX + GateWidth * 0.5f, Bounds.yMax), Exterior = true });
+                h[n, GateCol] = h[n, GateCol + 1] = Edge.Gate;
+                Rect bayArea = Rooms[GateRoom].Area;
+                Lever = new Vector2(Mathf.Min(GateX + GateWidth * 0.5f + 0.45f, bayArea.xMax - 0.4f), Bounds.yMax - 0.35f);
             }
+
+            List<OuterEdge> outer = OuterEdges();
+            var sides = new (char side, int count)[] { ('s', 2), ('n', 1), ('w', rng.Next(1, 3)), ('e', rng.Next(1, 3)) };
+            foreach ((char side, int count) in sides)
+            {
+                var options = outer.FindAll(e => e.Side == side);
+                Shuffle(options);
+                int placed = 0;
+                foreach (OuterEdge e in options)
+                {
+                    if (placed >= count) break;
+                    if ((e.Horizontal ? h[e.R, e.C] : v[e.R, e.C]) != Edge.Wall) continue;
+                    // Away from the corners, the gate and the other doors on this side.
+                    int along = e.Horizontal ? e.C : e.R;
+                    if (along < 1 || along > n - 2) continue;
+                    Vector2 outside = e.Mid + e.Normal * 2.1f;
+                    if (side == 'n' && Mathf.Abs(e.Mid.x - GateX) < GateWidth * 0.5f + 2f * C) continue;
+                    bool spaced = true;
+                    foreach ((Vector2 p, char s) in Entrances) if (s == side && Vector2.Distance(p, outside) < 3f * C) spaced = false;
+                    if (!spaced) continue;
+                    bool open = Chance(0.4f);
+                    if (e.Horizontal) h[e.R, e.C] = open ? Edge.Open : Edge.Door;
+                    else v[e.R, e.C] = open ? Edge.Open : Edge.Door;
+                    Opening o = Cut(e.Horizontal, e.R, e.C, ExteriorDoorWidth, open ? OpeningKind.Doorway : OpeningKind.Door);
+                    if (open && o != null) Barricades.Add(new Barricade { A = o.A, B = o.B, Side = -e.Normal });
+                    Entrances.Add((outside, side));
+                    placed++;
+                }
+            }
+
+            // Exterior walls get a window every third cell: glass stops you, not your sight.
+            foreach (OuterEdge e in outer)
+            {
+                if ((e.Horizontal ? h[e.R, e.C] : v[e.R, e.C]) != Edge.Wall) continue;
+                int along = e.Horizontal ? e.C : e.R;
+                if (along % 3 != 1) continue;
+                Room room = Rooms[space[e.Horizontal ? (e.Side == 's' ? e.R : e.R - 1) : e.R, e.Horizontal ? e.C : (e.Side == 'w' ? e.C : e.C - 1)]];
+                if (room.Type == RoomType.Restroom || room.Type == RoomType.ServerRoom) continue;
+                Cut(e.Horizontal, e.R, e.C, WindowWidth, Chance(0.25f) ? OpeningKind.BoardedWindow : OpeningKind.Window);
+            }
+        }
+
+        // ------------------------------------------------------------------ inside: gaps, doorways and doors
+
+        static bool Big(RoomType t) => t == RoomType.StudioSet || t == RoomType.LoadingBay || t == RoomType.Workshop || t == RoomType.Storage;
+
+        /// <summary>
+        /// Every open edge between two spaces becomes a passage: hallway to hallway, no wall at all (a gap the cell's width);
+        /// into a room, a doorway, half of them with a door as in the original (restrooms always). Some doors stand open.
+        /// </summary>
+        void PlaceInteriorOpenings()
+        {
+            int n = Cells;
+            float C = Cell;
+            void Passage(bool horizontal, int r, int c)
+            {
+                Edge e = horizontal ? h[r, c] : v[r, c];
+                int face = horizontal ? hFace[r, c] : vFace[r, c];
+                if (e != Edge.Open || face < 0 || Interfaces[face].Exterior) return;
+                Room a = Rooms[Interfaces[face].A], b = Rooms[Interfaces[face].B];
+                if (a.IsHallway && b.IsHallway) { Cut(horizontal, r, c, C, OpeningKind.Gap); return; }
+                Room room = a.IsHallway ? b : a;
+                bool door = room.Type == RoomType.Restroom || (room.Type != RoomType.LoadingBay && Chance(0.5f));
+                if (door)
+                {
+                    Opening o = Cut(horizontal, r, c, DoorWidth, OpeningKind.Door);
+                    o.StartsOpen = Chance(0.45f);
+                }
+                else Cut(horizontal, r, c, Big(room.Type) && Chance(0.5f) ? C - 0.3f : Mathf.Min(C - 0.5f, 1.6f), OpeningKind.Doorway);
+            }
+            for (int r = 1; r < n; r++) for (int c = 0; c < n; c++) Passage(true, r, c);
+            for (int r = 0; r < n; r++) for (int c = 1; c < n; c++) Passage(false, r, c);
+        }
+
+        bool HasPassage(int iface)
+        {
+            foreach (Opening o in Openings) if (o.Interface == iface && o.IsPassage) return true;
+            return false;
+        }
+
+        /// <summary>Pallets beside some open doorways (up to the original's seven), spread apart.</summary>
+        void PlaceBarricades()
+        {
+            var inner = new List<Opening>();
+            foreach (Opening o in Openings)
+            {
+                if (o.Kind != OpeningKind.Doorway || o.Exterior) continue;
+                Interface f = Interfaces[o.Interface];
+                bool mixed = !Rooms[f.A].IsHallway || !Rooms[f.B].IsHallway;
+                if (mixed || Chance(0.15f)) inner.Add(o);
+            }
+            Shuffle(inner);
+            foreach (Opening o in inner)
+            {
+                if (Barricades.Count >= MaxBarricades) break;
+                if (!Chance(0.45f)) continue;
+                bool spaced = true;
+                foreach (Barricade b in Barricades) if (Vector2.Distance((b.A + b.B) * 0.5f, o.Centre) < Cell * 1.5f) spaced = false;
+                if (!spaced) continue;
+                Interface f = Interfaces[o.Interface];
+                Barricades.Add(new Barricade { A = o.A, B = o.B, Side = Chance(0.5f) ? f.Normal : -f.Normal });
+            }
+            while (Barricades.Count > MaxBarricades) Barricades.RemoveAt(Barricades.Count - 1);
         }
 
         /// <summary>Footprint the generator needs: the machine (1.3 x 0.9) and a working space round it.</summary>
@@ -546,7 +760,7 @@ namespace Vision.World
             free.Sort((a, b) => b.FloorArea.CompareTo(a.FloorArea));
             if (free.Count > 0 && free[0].FloorArea >= 30f) Set(free[0], RoomType.StudioSet);
             Shuffle(free);
-            foreach ((RoomType t, float min, float max) in new[] { (RoomType.Restroom, 9f, 20f), (RoomType.BreakRoom, 14f, 45f), (RoomType.LockerRoom, 14f, 45f), (RoomType.ServerRoom, 9f, 25f) })
+            foreach ((RoomType t, float min, float max) in new[] { (RoomType.Restroom, 9f, 31f), (RoomType.BreakRoom, 20f, 61f), (RoomType.LockerRoom, 20f, 61f), (RoomType.ServerRoom, 9f, 31f) })
             {
                 Room r = free.Find(x => x.FloorArea >= min && x.FloorArea <= max);
                 if (r != null) Set(r, t);
@@ -560,9 +774,9 @@ namespace Vision.World
             foreach (Room r in free.ToArray())
             {
                 float area = r.FloorArea;
-                (RoomType, float)[] weights = area < 14f
+                (RoomType, float)[] weights = area < 31f
                     ? new[] { (RoomType.Office, 3f), (RoomType.Storage, 3f), (RoomType.Restroom, 1.5f), (RoomType.ServerRoom, 0.7f) }
-                    : area < 35f
+                    : area < 61f
                         ? new[] { (RoomType.Office, 4f), (RoomType.Storage, 2f), (RoomType.BreakRoom, 1f), (RoomType.Workshop, 2f), (RoomType.LockerRoom, 0.8f), (RoomType.ServerRoom, 0.6f), (RoomType.Electrical, 0.8f), (RoomType.Boiler, 0.6f) }
                         : new[] { (RoomType.Storage, 3f), (RoomType.Workshop, 2f), (RoomType.StudioSet, 1.5f), (RoomType.Office, 1.5f), (RoomType.BreakRoom, 0.8f) };
                 float total = 0f;
@@ -577,84 +791,6 @@ namespace Vision.World
                 }
                 Set(r, chosen);
             }
-        }
-
-        // ------------------------------------------------------------------ doors, entrances, windows, barricades
-
-        static bool Big(RoomType t) => t == RoomType.StudioSet || t == RoomType.LoadingBay || t == RoomType.Workshop || t == RoomType.Storage;
-
-        void AddDoor(int iface, Room room)
-        {
-            bool wide = Big(room.Type) && Interfaces[iface].Length >= WideDoorWidth + 1.2f && Chance(0.4f);
-            float width = wide ? WideDoorWidth : DoorWidth;
-            OpeningKind kind = wide ? OpeningKind.Doorway : room.Type == RoomType.Restroom || Chance(0.68f) ? OpeningKind.Door : OpeningKind.Doorway;
-            if (TryOpening(iface, width, kind, 0.4f + InteriorThickness, out Opening o) || (!wide && TryOpening(iface, 0.9f, kind, 0.25f, out o)))
-                o.StartsOpen = kind == OpeningKind.Door && Chance(0.45f);
-        }
-
-        void PlaceDoors()
-        {
-            // A closed join between hallways gets a door of its own.
-            for (int k = 0; k < Interfaces.Count; k++)
-            {
-                Interface f = Interfaces[k];
-                if (!f.Exterior && !f.Open && Rooms[f.A].IsHallway && Rooms[f.B].IsHallway) AddDoor(k, Rooms[f.A]);
-            }
-            foreach (Room room in Rooms)
-            {
-                if (room.IsHallway) continue;
-                var onHall = new List<int>();
-                foreach (int k in InterfacesOf(room.Id))
-                {
-                    Interface f = Interfaces[k];
-                    if (!f.Exterior && Rooms[f.Other(room.Id)].IsHallway && f.Length >= DoorWidth + 1.1f) onHall.Add(k);
-                }
-                if (onHall.Count == 0) continue;
-                onHall.Sort((a, b) => Interfaces[b].Length.CompareTo(Interfaces[a].Length));
-                AddDoor(Chance(0.7f) ? onHall[0] : Pick(onHall), room);
-                float second = Big(room.Type) ? 0.45f : 0.22f;
-                foreach (int k in onHall)
-                    if (!HasPassage(k) && Chance(second)) { AddDoor(k, room); break; }
-            }
-
-            // Back rooms: a door through a neighbour until everything is reachable.
-            for (int guard = 0; guard < Rooms.Count; guard++)
-            {
-                bool[] reach = Reachable();
-                bool changed = false;
-                foreach (Room room in Rooms)
-                {
-                    if (reach[room.Id]) continue;
-                    var options = new List<int>();
-                    foreach (int k in InterfacesOf(room.Id))
-                    {
-                        Interface f = Interfaces[k];
-                        if (!f.Exterior && reach[f.Other(room.Id)] && f.Length >= 1.5f) options.Add(k);
-                    }
-                    if (options.Count == 0) continue;
-                    options.Sort((a, b) => Interfaces[b].Length.CompareTo(Interfaces[a].Length));
-                    AddDoor(options[0], room);
-                    changed = true;
-                    break;
-                }
-                if (!changed) break;
-            }
-
-            // A few extra doors between rooms for loops.
-            for (int k = 0; k < Interfaces.Count; k++)
-            {
-                Interface f = Interfaces[k];
-                if (f.Exterior || f.Open || HasPassage(k) || f.Length < 2.4f) continue;
-                Room a = Rooms[f.A], b = Rooms[f.B];
-                if (a.IsHallway || b.IsHallway || a.Type == RoomType.Restroom || b.Type == RoomType.Restroom) continue;
-                if (Chance(0.1f)) AddDoor(k, a);
-            }
-        }
-
-        bool HasPassage(int iface)
-        {
-            foreach (Opening o in Openings) if (o.Interface == iface && o.IsPassage) return true;
-            return false;
         }
 
         /// <summary>Which rooms can be walked to from the hallways (through open hallway joins and doorways).</summary>
@@ -680,91 +816,6 @@ namespace Vision.World
                 }
             }
             return reach;
-        }
-
-        void PlaceEntrances()
-        {
-            // As the original: two in the south, one in the north (besides the gate), one or two east and west.
-            var sides = new (Vector2 normal, char name, int count)[] { (Vector2.down, 's', 2), (Vector2.up, 'n', 1), (Vector2.left, 'w', rng.Next(1, 3)), (Vector2.right, 'e', rng.Next(1, 3)) };
-            foreach ((Vector2 normal, char name, int count) in sides)
-            {
-                var halls = new List<int>();
-                var rooms = new List<int>();
-                for (int k = 0; k < Interfaces.Count; k++)
-                {
-                    Interface f = Interfaces[k];
-                    if (!f.Exterior || f.Normal != normal || f.Length < ExteriorDoorWidth + 1.4f) continue;
-                    Room r = Rooms[f.A];
-                    if (r.IsHallway) halls.Add(k);
-                    else if (!r.HasGenerator && r.Type != RoomType.Restroom) rooms.Add(k);
-                }
-                Shuffle(halls);
-                Shuffle(rooms);
-                halls.AddRange(rooms);
-                int placed = 0;
-                foreach (int k in halls)
-                {
-                    if (placed >= count) break;
-                    if (!TryOpening(k, ExteriorDoorWidth, OpeningKind.Door, 0.55f, out Opening o, 0.5f)) continue;
-                    bool spaced = true;
-                    foreach ((Vector2 p, char s) in Entrances) if (s == name && Vector2.Distance(p, o.Centre + normal * 2.1f) < 7f) spaced = false;
-                    if (name == 'n' && Mathf.Abs(o.Centre.x - GateX) < GateWidth * 0.5f + 3f) spaced = false;
-                    if (!spaced) { Openings.Remove(o); continue; }
-                    // Some entrances stand open with a pallet beside them instead of a door, as in the original.
-                    if (Chance(0.4f)) o.Kind = OpeningKind.Doorway;
-                    Entrances.Add((o.Centre + normal * 2.1f, name));
-                    placed++;
-                }
-            }
-        }
-
-        void PlaceWindows()
-        {
-            for (int k = 0; k < Interfaces.Count; k++)
-            {
-                Interface f = Interfaces[k];
-                if (!f.Exterior) continue;
-                Room r = Rooms[f.A];
-                if (r.Type == RoomType.Restroom || r.Type == RoomType.ServerRoom) continue;
-                float len = f.Length;
-                for (float s = Range(0.7f, 1.6f); s + WindowWidth < len - 0.7f; s += WindowWidth + Range(1.4f, 2.8f))
-                {
-                    if (!Chance(r.IsHallway ? 0.55f : 0.7f)) continue;
-                    Vector2 a = f.P0 + f.Along * s, b = a + f.Along * WindowWidth;
-                    bool clear = true;
-                    foreach (Opening o in Openings)
-                    {
-                        if (o.Interface != k) continue;
-                        float o0 = Vector2.Dot(o.A - f.P0, f.Along), o1 = Vector2.Dot(o.B - f.P0, f.Along);
-                        float gap = o.IsPassage ? 1.3f : 0.6f;   // keep clear of the doors, where the paths arrive
-                        if (s < Mathf.Max(o0, o1) + gap && s + WindowWidth > Mathf.Min(o0, o1) - gap) clear = false;
-                    }
-                    if (!clear) continue;
-                    Openings.Add(new Opening { Kind = Chance(0.25f) ? OpeningKind.BoardedWindow : OpeningKind.Window, Interface = k, A = a, B = b, Exterior = true });
-                }
-            }
-        }
-
-        void PlaceBarricades()
-        {
-            var candidates = new List<Opening>();
-            foreach (Opening o in Openings)
-                if (o.Kind == OpeningKind.Doorway && o.Exterior) candidates.Add(o);
-            var inner = new List<Opening>();
-            foreach (Opening o in Openings)
-                if (o.Kind == OpeningKind.Doorway && !o.Exterior && Chance(0.5f)) inner.Add(o);
-            Shuffle(inner);
-            candidates.AddRange(inner);
-            foreach (Opening o in candidates)
-            {
-                if (Barricades.Count >= MaxBarricades) break;
-                bool spaced = true;
-                foreach (Barricade b in Barricades) if (Vector2.Distance((b.A + b.B) * 0.5f, o.Centre) < 5.4f) spaced = false;
-                if (!spaced) continue;
-                Interface f = Interfaces[o.Interface];
-                Vector2 side = f.Exterior ? -f.Normal : (Chance(0.5f) ? f.Normal : -f.Normal);
-                Barricades.Add(new Barricade { A = o.A, B = o.B, Side = side });
-            }
         }
 
         // ------------------------------------------------------------------ wall runs

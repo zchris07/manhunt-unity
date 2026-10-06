@@ -300,7 +300,7 @@ namespace Vision.Player
         {
             if (!GameSession.TestingMode) return;
             GameSession.SpeedMode = !GameSession.SpeedMode;
-            Notify(GameSession.SpeedMode ? "Speed mode on: full sprint, +100% speed" : "Speed mode off");
+            Notify(GameSession.SpeedMode ? "Speed mode on: full sprint, +500% speed" : "Speed mode off");
         }
 
         RectTransform Bar(RectTransform parent, string name, Vector2 pos, Color color, out Text value, out Image fillImage)
@@ -414,11 +414,7 @@ namespace Vision.Player
             Bind();
             canvas.enabled = visible;
             Keyboard kb = Keyboard.current;
-            if (needsMapBind && world != null && world.Layout != null)
-            {
-                needsMapBind = false;
-                map.Bind(world);
-            }
+            SyncMap();
             if (!MainMenuOpen)
             {
                 bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame);
@@ -430,6 +426,21 @@ namespace Vision.Player
             map.Update(visible);
             if (stats == null) return;
             Refresh();
+        }
+
+        /// <summary>
+        /// Paints the maps for the level when it is new to them: the first level (generated before the HUD woke), and every
+        /// New map after it.
+        /// </summary>
+        public void SyncMap()
+        {
+            EnsureBuilt();
+            if (world == null || world.Layout == null) return;
+            if (needsMapBind || map.BoundLayout != world.Layout)
+            {
+                needsMapBind = false;
+                map.Bind(world);
+            }
         }
 
         /// <summary>Copies the game state into the widgets (also called by captures and tests).</summary>

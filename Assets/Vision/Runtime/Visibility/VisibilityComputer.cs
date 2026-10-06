@@ -41,8 +41,19 @@ namespace Vision.Visibility
         public const float Epsilon = 1e-4f;
         const float ArcStep = 3f * Mathf.Deg2Rad;
 
+        static readonly Unity.Profiling.ProfilerMarker QueryMarker = new Unity.Profiling.ProfilerMarker("Vision.VC.Query"),
+            BinMarker = new Unity.Profiling.ProfilerMarker("Vision.VC.Bin"), CullMarker = new Unity.Profiling.ProfilerMarker("Vision.VC.Cull"),
+            RayMarker = new Unity.Profiling.ProfilerMarker("Vision.VC.Rays");
+        /// <summary>Diagnostics: segments near the last query, and how many survived the hidden-segment cull.</summary>
+        public static int LastQueried, LastKept;
+
         readonly OccluderSet occluders;
         readonly List<int> segIds = new List<int>(512);
+        readonly List<int> kept = new List<int>(512);
+        /// <summary>Above this many nearby segments a coarse pass first drops the ones hidden behind nearer ones.</summary>
+        public static int CullAbove = 400;
+        const int CoarseRays = 1024;
+        readonly float[] coarse = new float[CoarseRays];
         readonly List<int>[] bins = new List<int>[Bins];
         float[] angles = new float[2048];
         int angleCount;
@@ -70,14 +81,43 @@ namespace Vision.Visibility
             float[] seg = null;
             if (q.UseOccluders)
             {
-                occluders.Query(ox - range, oy - range, ox + range, oy + range, segIds);
+                // A cone only needs the box round itself: the origin, its two edges and any compass extreme inside it.
+                float minX = ox, maxX = ox, minY = oy, maxY = oy;
+                if (full) { minX -= range; maxX += range; minY -= range; maxY += range; }
+                else
+                {
+                    void Extend(float ang) { float px = ox + Mathf.Cos(ang) * range, py = oy + Mathf.Sin(ang) * range; minX = Mathf.Min(minX, px); maxX = Mathf.Max(maxX, px); minY = Mathf.Min(minY, py); maxY = Mathf.Max(maxY, py); }
+                    Extend(start);
+                    Extend(start + span);
+                    for (int k = 0; k < 4; k++)
+                        if (NormPositive(k * 0.5f * Mathf.PI - start) <= span) Extend(k * 0.5f * Mathf.PI);
+                }
+                QueryMarker.Begin();
+                occluders.Query(minX, minY, maxX, maxY, segIds);
+                QueryMarker.End();
+                BinMarker.Begin();
                 seg = occluders.Packed;
+                kept.Clear();
                 for (int i = 0; i < segIds.Count; i++)
                 {
                     int o = segIds[i] * 4;
+                    if (SegmentDistance2(seg[o] - ox, seg[o + 1] - oy, seg[o + 2] - ox, seg[o + 3] - oy) <= range2) kept.Add(segIds[i]);
+                }
+                for (int i = 0; i < kept.Count; i++)
+                {
+                    int o = kept[i] * 4;
+                    BinSegment(kept[i], seg[o] - ox, seg[o + 1] - oy, seg[o + 2] - ox, seg[o + 3] - oy);
+                }
+                BinMarker.End();
+                LastQueried = segIds.Count;
+                CullMarker.Begin();
+                if (kept.Count > CullAbove) CullHidden(ox, oy, range, seg, full ? 0f : start, full ? 2f * Mathf.PI : span);
+                CullMarker.End();
+                LastKept = kept.Count;
+                for (int i = 0; i < kept.Count; i++)
+                {
+                    int o = kept[i] * 4;
                     float ax = seg[o] - ox, ay = seg[o + 1] - oy, bx = seg[o + 2] - ox, by = seg[o + 3] - oy;
-                    if (SegmentDistance2(ax, ay, bx, by) > range2) continue;
-                    BinSegment(segIds[i], ax, ay, bx, by);
                     if (ax * ax + ay * ay < range2) AddEndpointRays(Mathf.Atan2(ay, ax), start, span, full);
                     if (bx * bx + by * by < range2) AddEndpointRays(Mathf.Atan2(by, bx), start, span, full);
                 }
@@ -87,6 +127,7 @@ namespace Vision.Visibility
             int arcLast = full ? arcRays - 1 : arcRays;
             for (int i = 0; i <= arcLast; i++) PushAngle(span * i / arcRays);
 
+            RayMarker.Begin();
             Array.Sort(angles, 0, angleCount);
 
             if (!full) output.Add(q.Origin);
@@ -114,6 +155,52 @@ namespace Vision.Visibility
                 rays++;
             }
             LastRayCount = rays;
+            RayMarker.End();
+        }
+
+        /// <summary>
+        /// Drops from <see cref="kept"/> every segment that lies wholly behind what a fan of coarse rays already hits: its
+        /// corners would only cast rays that stop short of it. Cheap (a thousand rays) and it keeps the exact pass to the
+        /// segments that can shape the polygon, so cost follows what is visible rather than everything within range.
+        /// The bins stay as they are (hidden segments never shorten a ray).
+        /// </summary>
+        void CullHidden(float ox, float oy, float range, float[] seg, float from, float span)
+        {
+            const float step = 2f * Mathf.PI / CoarseRays;
+            // Only the directions the query covers get a coarse ray; the rest count as open (nothing is dropped there).
+            for (int r = 0; r < CoarseRays; r++)
+            {
+                float a = (r + 0.5f) * step;
+                if (NormPositive(a - from) > span + 2f * step) { coarse[r] = range; continue; }
+                float dx = Mathf.Cos(a), dy = Mathf.Sin(a), t = range;
+                List<int> bin = bins[BinOf(a)];
+                for (int k = 0; k < bin.Count; k++)
+                {
+                    int o = bin[k] * 4;
+                    float hit = RaySegment(ox, oy, dx, dy, seg[o], seg[o + 1], seg[o + 2], seg[o + 3]);
+                    if (hit < t) t = hit;
+                }
+                coarse[r] = t;
+            }
+            int w = 0;
+            for (int i = 0; i < kept.Count; i++)
+            {
+                int o = kept[i] * 4;
+                float ax = seg[o] - ox, ay = seg[o + 1] - oy, bx = seg[o + 2] - ox, by = seg[o + 3] - oy;
+                float a1 = NormPositive(Mathf.Atan2(ay, ax)), a2 = NormPositive(Mathf.Atan2(by, bx));
+                float diff = a2 - a1;
+                if (diff > Mathf.PI) diff -= 2f * Mathf.PI;
+                else if (diff < -Mathf.PI) diff += 2f * Mathf.PI;
+                float lo = diff >= 0f ? a1 : a2;
+                // The coarse rays either side of the segment's silhouette (one more each way for safety).
+                int r0 = Mathf.FloorToInt(lo / step - 0.5f) - 1, r1 = Mathf.CeilToInt((lo + Mathf.Abs(diff)) / step - 0.5f) + 1;
+                if (r1 - r0 >= CoarseRays) { kept[w++] = kept[i]; continue; }
+                float reach = 0f;
+                for (int r = r0; r <= r1; r++) reach = Mathf.Max(reach, coarse[((r % CoarseRays) + CoarseRays) % CoarseRays]);
+                float near = Mathf.Sqrt(SegmentDistance2(ax, ay, bx, by));
+                if (near <= reach + 0.05f) kept[w++] = kept[i];
+            }
+            kept.RemoveRange(w, kept.Count - w);
         }
 
         void AddEndpointRays(float angle, float start, float span, bool full)

@@ -54,7 +54,7 @@ namespace Vision.Tests
             Assert.That(lights, Is.InRange(20, 76), "campfires, cabin lamps, the dock lantern, lanterns along the paths and the building's lamps");
             Assert.AreEqual(5, world.Generators.Count, "three generators in the woods and two in the building");
             Assert.NotNull(world.Gate, "the building's exit gate");
-            Assert.Greater(world.Doors.Count, 20, "the building's doors");
+            Assert.Greater(world.Doors.Count, 10, "the building's doors");
             Assert.Greater(System.Linq.Enumerable.Count(world.GetComponentsInChildren<HidingSpot>(), h => h.kind == HidingSpot.Kind.Locker), 0, "lockers to hide in");
             Assert.Greater(world.GetComponentsInChildren<Barricade>().Length, 0, "pallets by the doorways");
             var buildingSize = world.Layout.Plan.Bounds;

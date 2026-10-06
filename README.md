@@ -64,7 +64,7 @@ map), so bindings can be changed there or rebound at runtime.
 | F | Y / Triangle | Toggle the see-through cone |
 | 1-8 | – | Use the item in that inventory slot |
 | M | – | Full map (the minimap is always on) |
-| V | – | Speed mode (testing): full sprint, +100% speed |
+| V | – | Speed mode (testing): full sprint, +500% speed |
 | R | – | Get back up when downed (testing) |
 | Esc | Start | Game menu (does not pause): Resume, Speed mode, New map, Look settings, Full screen, Quit to main menu |
 | F1 | – | Draw the visibility polygons |
@@ -81,8 +81,8 @@ The number keys, M, V, R, Esc and F1-F5 read the keyboard directly and are not p
   **Testing mode** and **Quit**. The level runs behind it.
 - **Testing mode** (`GameSession`): the original's testing kit (bottle and book nine each, goggles,
   shotgun, mini shield, Mr Beast bar, gas trap, and a Doctor Pepper for the pistol this game lacks),
-  never used up, and no win condition. **Speed mode** (menu or V) keeps the sprint meter full and doubles
-  movement speed.
+  never used up, and no win condition. **Speed mode** (menu or V) keeps the sprint meter full and makes
+  movement six times as fast (+500%).
 - **Game menu** (Esc) leaves the world running, as the original does. **New map** regenerates everything
   from a new random seed; the menu and the full map show the seed. **Quit to main menu** returns to the
   title screen; Testing mode from there starts on a fresh map.
@@ -140,13 +140,14 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
 
 1. **Polygons** (`Runtime/Visibility/VisibilityComputer.cs`). An angular sweep casts rays at every
    nearby occluder endpoint and at ±ε around it, plus evenly spaced arc rays. Hits are sorted by angle.
+   With many segments nearby, a fan of 1,024 coarse rays first drops every segment that lies wholly
+   behind what they hit, so the cost follows what is visible rather than everything in range.
    `OccluderSet` holds the segments in a spatial hash. Its `Version` bumps whenever a door opens or
    closes, which throws away the cached light polygons. Occluders are box or N-gon footprints
    (`Occluder.cs`) for walls, trunks, rocks, crates, closed doors and shutters.
    - Cone: fixed half-angle; it reaches the edge of the screen (the distance along the beam to the edge
      of the visible ground, plus 6%) at any resolution.
    - Proximity circle: small 360° polygon around the viewer.
-   - 360° line of sight: long range. It lights nothing itself.
    - Light sources (`VisionLight.cs`): the 6 nearest each frame; static ones cache their polygon.
    - See-through cone: ignores occluders and is drawn at 70%.
 2. **Mask** (`Runtime/Rendering/VisionMaskRenderer.cs`). The polygons are rasterised into a
@@ -155,7 +156,7 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
    - B = viewer light (cone, proximity, see-through) with distance falloff. The beam fades as
      1 - (d / reach)^p (p = 2.5): bright near the player, dropping faster toward the screen edge. It also
      fades over the outer 35% of its half angle (`VisionViewer.coneEdgeSoftness`).
-   - G = line of sight.
+   - G is unused: light-source light shows whether or not the player has a line of sight to it.
    - R = light sources with distance falloff.
    - A = character shadows (below).
 
@@ -164,7 +165,7 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
 3. **Composite** (`VisionCompositePass.cs`, `Shaders/VisionComposite.shader`). This is a Render Graph
    full-screen pass injected per camera. It reconstructs each pixel's world position from depth.
    - The scene is blurred with distance from the player (Darkwood-style; a camera effect).
-   - `lit = max(B × beam intensity, R × smoothstep(G))`
+   - `lit = max(B × beam intensity, R)`: lit areas are visible through walls; entities in them are not.
    - Lit ground is the scene × lit × lit brightness; light-source light is tinted warm.
    - Unlit ground is a near-neutral grey (saturation under 0.03), about 20% of the scene's luminance ×
      unlit brightness.
@@ -188,36 +189,34 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
 
 ## The central building
 
-`BuildingPlan` generates the single-storey building from the seed (the roof is never drawn):
+`BuildingPlan` ports the original's warehouse generator (`shared/src/map/warehouse.ts`), scaled to the
+building: a 16 x 16 grid of 2.25 m cells (the original: 10 x 10 of 3.6 m). The roof is never drawn.
 
-- **Footprint**: not a perfect rectangle. One or two corners of the 36 x 36 m square are cut out: an L, a
-  T or U (two corners of one side), an S (opposite corners) or a square with a small loading-dock notch.
-  A hallway runs along every notch edge, the notch is flat open ground, and the walls turn with it.
-- **Hallways** are the backbone: roughly a third of the floor. A spine of 2.6-3.6 m runs end to end, then
-  narrow (1.4-1.75 m), medium and wide (2.7-3.6 m) branches of every length, so the plan twists like a
-  maze. A plain wall sometimes splits a block first so the halls either side don't line up, and some wider
-  hall joins get a wall and a door (a bulkhead) that breaks the sight line instead of an open junction.
-- **Rooms** (3 x 3 to 10 x 8 m) are the blocks between the hallways, kept whole where they fit, so there
-  are fewer of them (about 18-32 rooms to 13-23 hallways) and each sits on a hallway. Each gets a door or
-  doorway onto one (some get two), back rooms a door through a neighbour, and a few rooms connect to each
-  other, so everything is reachable with loops.
-- **Room types**: offices, storage, break room, restrooms, locker room, workshop, electrical and server
-  rooms, a studio set for the night shoot (a fake cabin bedroom with lights, a camera and mannequins), the
-  loading bay at the gate and a boiler room, each furnished by its own recipe.
-- **Outside**: entrances as in the original (two south, one north, one or two east and west), some open
-  with a pallet beside them; windows, a quarter of them boarded; the **north exit gate** with its lever and
-  the chain-link **yard** beyond it.
-- **Generators**: two, in any room with the space for one, never a hallway: at least about 3.4 x 3.8 m,
-  with the generator and its working space taking at most 40% of the floor and a walkway to every wall.
-- **Fittings**: lockers in the hallways (up to 8), wardrobes, beds and barrels to hide in; pipes, ducts,
-  breaker panels, junction boxes and vent grilles; posters, clocks, stains, cobwebs and dead plants.
-  Furniture keeps every doorway clear and covers under half of each room.
-- **Light**: only about a third of the rooms and hallways are lit, each by something that belongs there:
-  fluorescent fittings in hallways, offices, restrooms and the loading bay, bare bulbs in storage, the
-  workshop and electrical rooms, a desk lamp on an office desk, the vending machine's glow in the break
-  room, the boiler's fire, a server rack's status lights, stage lights on the studio set, and green exit
-  signs over some outside doors. Lights keep the original's 9 m radius (smaller for the small ones), 6-16
-  work (some flicker); the rest are dead fixtures.
+- **Footprint**: not a perfect rectangle. Whole cells are cut out of one or two corners: an L, a T or U,
+  an S or a square with a small loading-dock notch. The notch is flat open ground and the walls turn
+  with it.
+- **Rooms**: the original's BSP splits the grid into leaves of at most 6 x 6 cells; about half become
+  rooms (the two largest always), most shrunk a cell inside their leaf so corridors run round them.
+  The **loading bay** sits on the north wall behind the gate.
+- **Maze**: the original's recursive backtracker carves a maze through every cell (entering a room
+  visits all of it), then 16% of the remaining walls are knocked out for loops. The corridors twist,
+  dead-end and loop like a maze rather than a real office; straight runs become one hallway each.
+- **Openings**: corridor meets corridor with no wall; a corridor meets a room through a doorway, half of
+  them with a door as in the original (restrooms always), some standing open. Outside: the original's
+  entrances (two south, one north, one or two east and west; 40% open with a pallet), a window in
+  every third cell of wall (a quarter boarded), and the **north exit gate** with its lever and the
+  chain-link **yard**. Up to seven barricades.
+- **Room types** (office-like): offices, storage, break room, restrooms, locker room, workshop,
+  electrical and server rooms, a studio set for the night shoot, the loading bay and a boiler room, each
+  furnished by its own recipe.
+- **Generators**: two, in any room with the space for one (never a corridor), spread apart.
+- **Fittings**: lockers along the corridors (up to 8), wardrobes, beds and barrels to hide in; pipes,
+  ducts, breaker panels, vent grilles, posters, clocks, stains, cobwebs and dead plants. Furniture keeps
+  every doorway clear and covers under half of each room.
+- **Light**: only part of the building is lit, each light by something that belongs there: fluorescent
+  fittings in corridors and offices, bare bulbs in storage and workshops, desk lamps, the vending
+  machine's glow, the boiler's fire, server-rack lights, stage lights and green exit signs. 6-16 work;
+  the rest are dead fixtures.
 
 `SandboxWorld.Building.cs` builds it: cinder-block outer walls, painted inner walls with dark tops so the
 plan reads from above, tiled and concrete floors, hinged doors, windows (glass stops you, not your
@@ -324,13 +323,15 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 118 EditMode tests: visibility polygons, doors, triangle winding and normals, model sizes and
+Runs the 121 EditMode tests: visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and
-paths, the map layout (the original's scale and rules, the lake), the building (rooms tile the footprint,
-hallway widths and lengths, every room reachable with loops, openings in walls, the original's entrances
-and the north gate, the notched footprint, hallways plentiful, generators within their rooms' space, furniture clear of doorways, lamps that fit their rooms), supplies at
+paths, hidden-segment culling, the map layout (the original's scale and rules, the lake), the building
+(spaces tile the notched footprint on the grid, a maze of corridors with dead ends and loops, every room
+reachable, openings in walls, the original's entrances and the north gate, generators within their
+rooms' space, furniture clear of doorways, lamps that fit their rooms), supplies at
 the original's counts, health and shield, downing, stacking, healing, generators and the gate, the fog
-of war and the painted map, the menus and testing mode, New map, generation time and the saved prefabs.
+of war and the painted map (bound to a level built before the HUD), the menus and testing mode, New map,
+generation time and the saved prefabs.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindows
@@ -349,6 +350,15 @@ under its fog and revealed, the title screen and a New map) and the tree and gai
 screenshot of each plus `perf.txt` and
 `characters.txt` (renderer state of each character and the feet's gaps to the ground on a slope) to
 `Captures/`, then quits.
+
+```bash
+unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindowsDev
+./Builds/WindowsDev/VisionSandbox.exe -visionPerf Logs/perf.txt -screen-fullscreen 1 -screen-width 2560 -screen-height 1600
+```
+A frame-time check under play: from the title screen into testing mode, it walks and sprints the player
+from spawn through the building for 30 s, then writes frame-time percentiles, the costliest profiler
+markers (development build) and the slowest frames, screenshots the minimap and full map, and quits.
+It also runs on the release build without the markers.
 
 ## Known gaps
 

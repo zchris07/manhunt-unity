@@ -69,6 +69,7 @@ namespace Vision.Visibility
             if (!valid)
             {
                 computer.Compute(ViewQuery.Circle(origin, worldRange), cachedPolygon);
+                Vision.Rendering.VisionMaskRenderer.LightRebuilds++;
                 cachedVersion = occluderVersion;
                 cachedOrigin = origin;
                 cachedRange = worldRange;

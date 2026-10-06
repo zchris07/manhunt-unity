@@ -98,8 +98,8 @@ Shader "Hidden/Vision/Composite"
                 float2 sampleXZ = ws.xz + n.xz * _VisDark.z;
                 half4 m = SampleVisionMask(sampleXZ);
 
-                half sight = smoothstep(_VisLook.z, _VisLook.w, m.g);
-                half fromSources = m.r * sight;
+                // Lit areas show whether or not the player has a line of sight to them.
+                half fromSources = m.r;
                 half beam = m.b * _VisBeam.x;
 
                 // Upright faces turned away from a light (a trunk's or rock's back side) get part of the light on the
@@ -111,7 +111,7 @@ Shader "Hidden/Vision/Composite"
                     half4 front = SampleVisionMask(ws.xz - normalize(n.xz + 1e-5) * _VisBeam.z);
                     half k = _VisBeam.y * upright;
                     beam = max(beam, front.b * _VisBeam.x * k);
-                    fromSources = max(fromSources, front.r * smoothstep(_VisLook.z, _VisLook.w, front.g) * k);
+                    fromSources = max(fromSources, front.r * k);
                 }
                 half lit = max(beam, fromSources);
 

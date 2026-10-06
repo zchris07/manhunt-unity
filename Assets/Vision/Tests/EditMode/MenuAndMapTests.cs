@@ -96,7 +96,7 @@ namespace Vision.Tests
                 for (int k = 0; k < 5; k++) stats.UseSlot(beast);
                 Assert.AreEqual(1, stats.inventory.Count(ItemType.MrBeastBar), "never used up");
                 Assert.AreEqual(1f, stats.vitals.Health, 1e-4f);
-                Assert.AreEqual(2f, GameSession.SpeedMultiplier, "speed mode: +100%");
+                Assert.AreEqual(6f, GameSession.SpeedMultiplier, "speed mode: +500%");
             }
             finally { Object.DestroyImmediate(go); }
         }
@@ -161,6 +161,22 @@ namespace Vision.Tests
             hud.ShowMainMenu();
             Assert.IsFalse(GameSession.TestingMode, "back at the title");
             Assert.IsFalse(GameSession.SpeedMode);
+        }
+
+        [Test]
+        public void Maps_BindToALevelBuiltBeforeTheHud_AndToEveryNewMap()
+        {
+            // The level generates in Awake, before the HUD can hear about it: the maps must still be painted.
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.SyncMap();
+            Assert.AreSame(world.Layout, hud.Map.BoundLayout, "the first level is on the map");
+            Assert.NotNull(hud.Map.Fog);
+            world.Regenerate(world.seed + 3);
+            hud.SyncMap();
+            Assert.AreSame(world.Layout, hud.Map.BoundLayout, "and a new map replaces it");
+            Assert.AreEqual(0, hud.Map.Fog.SeenCount, "under fresh fog");
         }
 
         [Test]

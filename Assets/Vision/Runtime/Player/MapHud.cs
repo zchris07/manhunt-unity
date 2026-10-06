@@ -20,11 +20,12 @@ namespace Vision.Player
         const float MiniPx = 250f, FullPx = 860f;
 
         readonly Font font;
-        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow;
+        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniNpc, fullNpc;
+        readonly Image youRingImage;
         readonly RawImage miniArt, miniFog, fullArt, fullFog;
         readonly GameObject full, revealButton, teleportHint;
         readonly Text revealLabel, title;
-        readonly Sprite dot, arrow;
+        readonly Sprite dot, arrow, ring;
         readonly Dictionary<Object, (Image mini, Image full)> icons = new Dictionary<Object, (Image, Image)>();
         readonly HashSet<Object> seen = new HashSet<Object>();
 
@@ -42,6 +43,11 @@ namespace Vision.Player
         {
             this.font = font;
             dot = MakeSprite(32, (x, y) => Mathf.Clamp01(16f - Mathf.Sqrt((x - 15.5f) * (x - 15.5f) + (y - 15.5f) * (y - 15.5f))));
+            ring = MakeSprite(64, (x, y) =>
+            {
+                float r = Mathf.Sqrt((x - 31.5f) * (x - 31.5f) + (y - 31.5f) * (y - 31.5f));
+                return Mathf.Clamp01(2.2f - Mathf.Abs(r - 28f)) + 0.35f * Mathf.Clamp01(1f - r / 28f);
+            });
             arrow = MakeSprite(32, (x, y) =>
             {
                 // A chevron pointing up: inside the triangle (16, 30), (3, 2), (29, 2), minus a notch at the base.
@@ -77,10 +83,24 @@ namespace Vision.Player
             fullArt = Raw(Stretch(Node("Art", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             fullArt.raycastTarget = true;
             fullFog = Raw(Stretch(Node("Fog", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
-            fullArrow = Node("You", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(22f, 22f));
+            // You, on the full map: a pulsing ring and a label so you're easy to find, as in the original.
+            youRing = Node("You Ring", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 48f));
+            youRingImage = Image(youRing, new Color(1f, 0.91f, 0.55f, 0.8f));
+            youRingImage.sprite = ring;
+            youLabel = Label(Node("You Label", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(80f, 20f)), "YOU", 16, TextAnchor.LowerCenter, new Color(1f, 0.91f, 0.55f)).rectTransform;
+            youLabel.gameObject.AddComponent<Shadow>().effectColor = Color.black;
+            fullArrow = Node("You", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
             Image(fullArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
+            fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
+            // Testing mode: the wanderer, as the original shows its NPCs.
+            miniNpc = Node("Wanderer", view, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(9f, 9f));
+            Image(miniNpc, new Color(0.71f, 0.54f, 1f)).sprite = dot;
+            fullNpc = Node("Wanderer", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f));
+            Image(fullNpc, new Color(0.71f, 0.54f, 1f)).sprite = dot;
+            Text npcName = Label(Node("Name", fullNpc, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(120f, 18f)), "Wanderer", 14, TextAnchor.LowerCenter, new Color(0.85f, 0.78f, 1f));
+            npcName.gameObject.AddComponent<Shadow>().effectColor = Color.black;
             Label(Node("Legend", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(420f, 26f)),
-                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   <color=#4cff6a>●</color> supply   gate ▬", 16, TextAnchor.MiddleLeft, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
+                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   <color=#4cff6a>●</color> supply   <color=#8a8aa0>▬</color> gate", 16, TextAnchor.MiddleLeft, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
             RectTransform reveal = Node("Reveal all", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -12f), new Vector2(170f, 34f));
             Image(reveal, new Color(0.16f, 0.16f, 0.17f, 1f)).raycastTarget = true;
             reveal.gameObject.AddComponent<Button>().onClick.AddListener(RevealAll);
@@ -98,6 +118,7 @@ namespace Vision.Player
         public void Bind(SandboxWorld w)
         {
             world = w;
+            BoundLayout = w.Layout;
             Kill(art);
             art = MapPainter.Paint(w);
             if (Fog != null) Kill(Fog.Texture);
@@ -116,6 +137,8 @@ namespace Vision.Player
         }
 
         public SandboxWorld World => world;
+        /// <summary>The level the maps were painted from (a New map makes a new one).</summary>
+        public MapLayout BoundLayout { get; private set; }
 
         public void Toggle() => full.SetActive(!full.activeSelf);
         public void SetOpen(bool open) => full.SetActive(open);
@@ -125,6 +148,12 @@ namespace Vision.Player
             if (Fog == null || !GameSession.TestingMode) return;
             Fog.RevealAll();
             Fog.Apply();
+        }
+
+        Vector2 NpcAt()
+        {
+            Vector3 lp = world.transform.InverseTransformPoint(world.Wanderer.transform.position);
+            return new Vector2(lp.x, lp.z);
         }
 
         /// <summary>Map coordinates of the player.</summary>
@@ -155,6 +184,16 @@ namespace Vision.Player
             {
                 scratch.Clear();
                 foreach (Vector2 v in poly) scratch.Add(ToMap(v));
+                Fog.Reveal(scratch);
+            }
+            // Lit areas on screen count as seen too (light shows whether or not you have a line of sight to it).
+            Rect view = mask.MaskRect;
+            int version = Vision.Visibility.VisionWorld.Occluders.Version;
+            foreach (Vision.Visibility.VisionLight light in Vision.Visibility.VisionWorld.Lights)
+            {
+                if (light == null || !view.Contains(light.PlanePosition)) continue;
+                scratch.Clear();
+                foreach (Vector2 v in light.GetPolygon(mask.Computer, version)) scratch.Add(ToMap(v));
                 Fog.Reveal(scratch);
             }
         }
@@ -189,7 +228,25 @@ namespace Vision.Player
                 lastYaw = yaw;
                 miniContent.anchoredPosition = -me * miniScale;
                 miniArrow.localRotation = fullArrow.localRotation = Quaternion.Euler(0f, 0f, yaw);
-                fullArrow.anchoredPosition = me * fullScale;
+                fullArrow.anchoredPosition = youRing.anchoredPosition = me * fullScale;
+                youLabel.anchoredPosition = me * fullScale + new Vector2(0f, 38f);
+            }
+            if (full.activeSelf)
+            {
+                float pulse = 0.5f + 0.5f * Mathf.Sin(now * 4f);
+                youRing.sizeDelta = Vector2.one * (40f + pulse * 22f);
+                youRingImage.color = new Color(1f, 0.91f, 0.55f, 0.9f - pulse * 0.5f);
+            }
+
+            // Testing mode: where the wanderer is.
+            bool npc = GameSession.TestingMode && world.Wanderer != null && world.Wanderer.isActiveAndEnabled;
+            miniNpc.gameObject.SetActive(npc && Mathf.Abs(NpcAt().x - me.x) < MiniSpan * 0.5f && Mathf.Abs(NpcAt().y - me.y) < MiniSpan * 0.5f);
+            fullNpc.gameObject.SetActive(npc);
+            if (npc)
+            {
+                Vector2 at = NpcAt();
+                miniNpc.anchoredPosition = (at - me) * miniScale;
+                fullNpc.anchoredPosition = at * fullScale;
             }
 
             if (now >= nextIcons)
@@ -249,7 +306,11 @@ namespace Vision.Player
                 if (pair.full != null) Kill(pair.full.gameObject);
                 icons.Remove(key);
             }
+            miniNpc.SetAsLastSibling();
             miniArrow.SetAsLastSibling();
+            fullNpc.SetAsLastSibling();
+            youRing.SetAsLastSibling();
+            youLabel.SetAsLastSibling();
             fullArrow.SetAsLastSibling();
         }
 

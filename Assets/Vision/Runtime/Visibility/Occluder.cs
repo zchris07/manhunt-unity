@@ -5,8 +5,9 @@ namespace Vision.Visibility
 {
     /// <summary>
     /// Registers this object's ground footprint as occluder segments. Boxes become 4 segments, round
-    /// things (trees, rocks) become an N-gon. The footprint is taken once, on enable, from the
-    /// transform's position, Y rotation and scale; static world geometry should not move afterwards.
+    /// things (trees, rocks) become an N-gon. The footprint is taken on enable from the
+    /// transform's position, Y rotation and scale, and again at Start (so a prop placed after it was spawned is where it
+    /// stands); static world geometry should not move afterwards.
     /// Doors and windows toggle <see cref="Blocking"/>.
     /// </summary>
     public sealed class Occluder : MonoBehaviour
@@ -43,7 +44,21 @@ namespace Vision.Visibility
             handle = VisionWorld.Occluders.Register(Points, true, blocking);
         }
 
-        void OnDisable()
+        // Props are often spawned (and enabled) first and placed afterwards: take the footprint again where they stand.
+        void Start() => Refresh();
+
+        /// <summary>Re-registers the footprint from the transform as it is now (after the object was moved).</summary>
+        public void Refresh()
+        {
+            if (handle >= 0) VisionWorld.Occluders.Unregister(handle);
+            BuildFootprint(Points);
+            handle = VisionWorld.Occluders.Register(Points, true, blocking);
+        }
+
+        void OnDisable() => Release();
+
+        /// <summary>Takes the footprint out of the occluder set.</summary>
+        public void Release()
         {
             VisionWorld.Occluders.Unregister(handle);
             handle = -1;

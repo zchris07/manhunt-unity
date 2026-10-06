@@ -50,7 +50,8 @@ namespace Vision.Player
             if (target == null) return;
             Apply();
             groundY = Mathf.SmoothDamp(groundY, target.position.y, ref groundVelocity, heightSmoothTime);
-            transform.position = Vector3.SmoothDamp(transform.position, Desired(), ref velocity, smoothTime);
+            // Speed mode moves six times as fast: follow tighter so the player stays near the centre.
+            transform.position = Vector3.SmoothDamp(transform.position, Desired(), ref velocity, GameSession.SpeedMode ? smoothTime * 0.3f : smoothTime);
         }
 
         void Apply()
