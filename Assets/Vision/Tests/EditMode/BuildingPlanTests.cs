@@ -20,7 +20,7 @@ namespace Vision.Tests
             foreach (Plan p in Plans())
             {
                 float area = p.Rooms.Sum(r => r.FloorArea);
-                Assert.AreEqual(36f * 36f, area, 0.5f, $"seed {p.Seed}: rooms and hallways cover the building exactly");
+                Assert.AreEqual(p.FootprintArea, area, 0.5f, $"seed {p.Seed}: rooms and hallways cover the building exactly");
                 for (int i = 0; i < p.Rooms.Count; i++)
                     for (int j = i + 1; j < p.Rooms.Count; j++)
                     {
@@ -35,7 +35,7 @@ namespace Vision.Tests
                     Assert.LessOrEqual(hi, Plan.RoomLong + 1e-3f, $"seed {p.Seed}: {r.Name} at most 10 m long");
                     Assert.LessOrEqual(lo, Plan.RoomShort + 1e-3f, $"seed {p.Seed}: {r.Name} at most 8 m wide");
                 }
-                Assert.That(p.Rooms.Count(r => !r.IsHallway), Is.InRange(18, 70), $"seed {p.Seed}: many rooms");
+                Assert.That(p.Rooms.Count(r => !r.IsHallway), Is.InRange(12, 30), $"seed {p.Seed}: fewer rooms than hallways would suggest");
             }
         }
 
@@ -47,7 +47,7 @@ namespace Vision.Tests
             foreach (Plan p in Plans())
             {
                 var halls = p.Rooms.Where(r => r.IsHallway).ToList();
-                Assert.That(halls.Count, Is.InRange(3, 9), $"seed {p.Seed}: a spine and branches");
+                Assert.That(halls.Count, Is.InRange(8, 30), $"seed {p.Seed}: a spine, branches and cross halls");
                 foreach (Plan.Room h in halls)
                 {
                     float w = Mathf.Min(h.Area.width, h.Area.height);
@@ -58,7 +58,9 @@ namespace Vision.Tests
             }
             Assert.Greater(widths.Max() - widths.Min(), 1f, "hallways of different widths");
             Assert.Greater(lengths.Max() - lengths.Min(), 15f, "and very different lengths");
-            Assert.Greater(lengths.Max(), 35f, "a spine runs the building's length");
+            Assert.Greater(lengths.Max(), 30f, "a spine runs the building's length");
+            Assert.Greater(widths.Count(w => w < 1.8f), 10, "narrow hallways");
+            Assert.Greater(widths.Count(w => w > 2.7f), 10, "and wide ones");
         }
 
         [Test]
@@ -194,13 +196,54 @@ namespace Vision.Tests
         {
             foreach (Plan p in Plans())
             {
-                int working = p.Lamps.Count(l => l.Working);
-                Assert.That(working, Is.InRange(6, 14), $"seed {p.Seed}: enough light to find your way, mostly dark");
-                Assert.Greater(p.Lamps.Count(l => !l.Working), 0, "dead fixtures too");
-                foreach (Plan.Lamp l in p.Lamps) Assert.IsTrue(p.Rooms[l.Room].Area.Contains(l.Position));
+                int working = p.Lamps.Count(l => l.Working && l.Kind != Plan.LampKind.Exit);
+                Assert.That(working, Is.InRange(6, 16), $"seed {p.Seed}: enough light to find your way, mostly dark");
+                foreach (Plan.Lamp l in p.Lamps) Assert.IsTrue(p.Rooms[l.Room].Area.Contains(l.Position), $"seed {p.Seed}: a {l.Kind} lamp inside its room");
+                int litSpaces = p.Rooms.Count(r => p.Lamps.Any(l => l.Room == r.Id && l.Working && l.Kind != Plan.LampKind.Exit));
+                Assert.That(litSpaces / (float)p.Rooms.Count, Is.InRange(0.15f, 0.6f), $"seed {p.Seed}: only a fraction of the rooms and hallways are lit");
+                foreach (Plan.Lamp l in p.Lamps)
+                {
+                    Plan.Room r = p.Rooms[l.Room];
+                    if (l.Kind == Plan.LampKind.Desk) Assert.IsTrue(p.Items.Any(i => i.Kind == Plan.Furn.Desk && i.Room == l.Room && i.Footprint.Contains(l.Position)), "a desk lamp stands on a desk");
+                    if (l.Kind == Plan.LampKind.Vending) Assert.IsTrue(p.Items.Any(i => i.Kind == Plan.Furn.Vending && i.Room == l.Room), "a vending glow needs a machine");
+                    if (l.Kind == Plan.LampKind.Furnace) Assert.AreEqual(Plan.RoomType.Boiler, r.Type);
+                    if (l.Kind == Plan.LampKind.Server) Assert.AreEqual(Plan.RoomType.ServerRoom, r.Type);
+                    if (l.Kind == Plan.LampKind.Stage) Assert.AreEqual(Plan.RoomType.StudioSet, r.Type);
+                }
             }
+            Assert.Greater(Plans().Sum(p => p.Lamps.Count(l => !l.Working)), 5, "dead fixtures too");
+            var kinds = Plans().SelectMany(p => p.Lamps.Select(l => l.Kind)).Distinct().ToList();
+            Assert.GreaterOrEqual(kinds.Count, 6, "lights that fit their rooms: " + string.Join(", ", kinds));
             Assert.IsTrue(Plans().Any(p => p.Lamps.Any(l => l.Working && l.Flicker > 0.1f)), "some flicker");
             Assert.AreEqual(9f, Plan.LampRange, "the original's 300-unit lamps");
+        }
+
+        [Test]
+        public void Footprint_IsNotAPerfectRectangle_YetStillAMaze()
+        {
+            var shapes = new HashSet<int>();
+            foreach (Plan p in Plans())
+            {
+                shapes.Add(p.Notches.Count);
+                Assert.GreaterOrEqual(p.Notches.Count, 1, $"seed {p.Seed}: a corner is cut out of the square");
+                foreach (Rect n in p.Notches)
+                {
+                    Assert.IsFalse(p.Rooms.Any(r => r.Area.Overlaps(new Rect(n.x + 0.05f, n.y + 0.05f, n.width - 0.1f, n.height - 0.1f))), $"seed {p.Seed}: no room inside a notch");
+                    Assert.Less(p.RoomAt(n.center), 0, "the notch is outside");
+                }
+                // Every wall to the outside has the outside beyond it, whichever way the notch turns.
+                foreach (Plan.Interface f in p.Interfaces.Where(f => f.Exterior))
+                {
+                    Vector2 mid = (f.P0 + f.P1) * 0.5f;
+                    Assert.Less(p.RoomAt(mid + f.Normal * 0.3f), 0, $"seed {p.Seed}: outside beyond an exterior wall");
+                    Assert.AreEqual(f.A, p.RoomAt(mid - f.Normal * 0.3f), "and the room inside");
+                }
+                float hallShare = p.Rooms.Where(r => r.IsHallway).Sum(r => r.FloorArea) / p.FootprintArea;
+                Assert.That(hallShare, Is.InRange(0.26f, 0.6f), $"seed {p.Seed}: a good share of the floor is hallway");
+                Assert.Greater(p.Rooms.Count(r => r.IsHallway), p.Rooms.Count(r => !r.IsHallway) * 0.4f, $"seed {p.Seed}: hallways are plentiful");
+                Assert.Greater(p.Interfaces.Count(f => f.Open) + p.Openings.Count(o => o.IsPassage && !o.Exterior && p.Rooms[p.Interfaces[o.Interface].A].IsHallway && p.Rooms[p.Interfaces[o.Interface].B].IsHallway), 4, "hallways join up");
+            }
+            Assert.GreaterOrEqual(shapes.Count, 2, "L shapes and ones with two cut corners");
         }
 
         [Test]

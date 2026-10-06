@@ -54,7 +54,7 @@ namespace Vision.World
         {
             Vector2 d = (b - a).normalized, mid = (a + b) * 0.5f;
             Vector2 localZ = new Vector2(-d.y, d.x);
-            return Vector2.Dot(localZ, mid - plan.Bounds.center) > 0f ? 1f : -1f;
+            return plan.RoomAt(mid + localZ * 0.4f) < 0 ? 1f : -1f;
         }
 
         static float Yaw(Vector2 along) => -Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg;
@@ -311,21 +311,53 @@ namespace Vision.World
             go.SetActive(false);
             go.transform.SetParent(root, false);
             go.transform.localPosition = new Vector3(lamp.Position.x, floor, lamp.Position.y);
-            float yaw = Range(0f, 1f) < 0.5f ? 0f : 90f;
-            if (lamp.Fluorescent)
+            Material glow = lamp.Working ? glowMaterial : lowPolyMaterial;
+            float range = BuildingPlan.LampRange, intensity = 0.75f;
+            switch (lamp.Kind)
             {
-                bool hanging = !lamp.Working && Range(0f, 1f) < 0.4f;
-                Piece("Fixture", LowPolyModels.FluorescentHousing(rng, hanging), go.transform, Vector3.up * ceiling, yaw);
-                if (!hanging) Piece("Tubes", LowPolyModels.FluorescentTubes(), go.transform, Vector3.up * ceiling, yaw, lamp.Working ? glowMaterial : lowPolyMaterial);
+                case BuildingPlan.LampKind.Fluorescent:
+                {
+                    float yaw = Range(0f, 1f) < 0.5f ? 0f : 90f;
+                    bool hanging = !lamp.Working && Range(0f, 1f) < 0.4f;
+                    Piece("Fixture", LowPolyModels.FluorescentHousing(rng, hanging), go.transform, Vector3.up * ceiling, yaw);
+                    if (!hanging) Piece("Tubes", LowPolyModels.FluorescentTubes(), go.transform, Vector3.up * ceiling, yaw, glow);
+                    break;
+                }
+                case BuildingPlan.LampKind.Bulb:
+                    Piece("Bulb", LowPolyModels.HangingBulb(rng, 0.5f), go.transform, Vector3.up * ceiling, 0f, glow);
+                    range = 8f;
+                    intensity = 0.7f;
+                    break;
+                case BuildingPlan.LampKind.Desk:
+                    Piece("Desk Lamp", LowPolyModels.DeskLamp(), go.transform, Vector3.up * 0.765f, lamp.Yaw);
+                    Piece("Bulb", LowPolyModels.DeskLampBulb(), go.transform, Vector3.up * 0.765f, lamp.Yaw, glow);
+                    range = 5f;
+                    intensity = 0.6f;
+                    break;
+                case BuildingPlan.LampKind.Exit:
+                    Piece("Exit Sign", LowPolyModels.ExitSign(), go.transform, Vector3.up * lamp.Elevation, lamp.Yaw);
+                    Piece("Exit Face", LowPolyModels.ExitSignGlow(), go.transform, Vector3.up * lamp.Elevation, lamp.Yaw, glow);
+                    range = 3.5f;
+                    intensity = 0.35f;
+                    break;
+                default:
+                    Piece("Glow", LowPolyModels.LampGlow(lamp.Kind, lamp.Size), go.transform, Vector3.up * 0.015f, lamp.Yaw, glow);
+                    (range, intensity) = lamp.Kind switch
+                    {
+                        BuildingPlan.LampKind.Vending => (5f, 0.5f),
+                        BuildingPlan.LampKind.Furnace => (6f, 0.65f),
+                        BuildingPlan.LampKind.Server => (4f, 0.4f),
+                        _ => (9f, 0.8f),
+                    };
+                    break;
             }
-            else Piece("Bulb", LowPolyModels.HangingBulb(rng, 0.5f), go.transform, Vector3.up * ceiling, 0f, lamp.Working ? glowMaterial : lowPolyMaterial);
             if (lamp.Working)
             {
                 var light = go.AddComponent<VisionLight>();
-                light.range = BuildingPlan.LampRange;
-                light.intensity = 0.75f;
+                light.range = range;
+                light.intensity = intensity;
                 light.flickerAmount = lamp.Flicker;
-                light.height = ceiling - 0.7f;
+                light.height = Mathf.Clamp(lamp.Elevation - 0.7f, 0.3f, ceiling - 0.7f);
             }
             go.SetActive(true);
         }

@@ -84,56 +84,159 @@ namespace Vision.World
             PlaceLamps();
         }
 
+        /// <summary>
+        /// Only a fraction of the rooms and hallways are lit, each by something that belongs there: a fluorescent fitting in
+        /// hallways, offices and restrooms, a bare bulb in storage and workshops, a desk lamp, a vending machine's glow, the
+        /// boiler's fire, a server rack's lights, a stage light on the set, and green exit signs over some doors. The rest of the
+        /// building is dark, with a few dead fixtures.
+        /// </summary>
         void PlaceLamps()
         {
-            foreach (Room r in Rooms)
+            var lit = new HashSet<int>();
+            if (GateRoom >= 0 && Chance(0.7f)) lit.Add(GateRoom);
+            var order = new List<Room>(Rooms);
+            Shuffle(order);
+            int want = Mathf.Clamp(Mathf.RoundToInt(Rooms.Count * Range(0.32f, 0.42f)), 6, 15);
+            foreach (Room r in order)
             {
-                Rect a = r.Area;
-                if (r.IsHallway)
-                {
-                    bool alongX = a.width >= a.height;
-                    float len = alongX ? a.width : a.height;
-                    int n = Mathf.Max(1, Mathf.RoundToInt(len / Range(8f, 11f)));
-                    for (int i = 0; i < n; i++)
-                    {
-                        float t = (i + 0.5f) / n;
-                        Vector2 p = alongX ? new Vector2(Mathf.Lerp(a.xMin, a.xMax, t), a.center.y) : new Vector2(a.center.x, Mathf.Lerp(a.yMin, a.yMax, t));
-                        AddLamp(p, r, Chance(0.7f), true);
-                    }
-                    continue;
-                }
-                float chance = r.Type switch
-                {
-                    RoomType.Office => 0.6f,
-                    RoomType.BreakRoom => 0.7f,
-                    RoomType.Restroom => 0.6f,
-                    RoomType.StudioSet => 0.8f,
-                    RoomType.LoadingBay => 0.9f,
-                    RoomType.LockerRoom => 0.6f,
-                    _ => 0.45f,
-                };
-                bool fluorescent = r.Type != RoomType.Storage && r.Type != RoomType.Boiler && r.Type != RoomType.Workshop && r.Type != RoomType.Electrical;
-                if (Chance(chance)) AddLamp(a.center + new Vector2(Range(-0.4f, 0.4f), Range(-0.4f, 0.4f)) * Mathf.Min(a.width, a.height) * 0.3f, r, Chance(0.55f), fluorescent);
-                if (r.FloorArea > 45f && Chance(0.5f))
-                {
-                    bool alongX = a.width >= a.height;
-                    Vector2 p = alongX ? new Vector2(Mathf.Lerp(a.xMin, a.xMax, 0.8f), a.center.y) : new Vector2(a.center.x, Mathf.Lerp(a.yMin, a.yMax, 0.8f));
-                    AddLamp(p, r, Chance(0.5f), fluorescent);
-                }
+                if (lit.Count >= want) break;
+                lit.Add(r.Id);
             }
-            // Creepy but navigable: between 6 and 14 working lamps, the rest dead fixtures.
-            var working = new List<int>();
-            for (int i = 0; i < Lamps.Count; i++) if (Lamps[i].Working) working.Add(i);
-            Shuffle(working);
-            for (int i = 14; i < working.Count; i++) SetWorking(working[i], false);
-            var dead = new List<int>();
-            for (int i = 0; i < Lamps.Count; i++) if (!Lamps[i].Working) dead.Add(i);
-            Shuffle(dead);
-            for (int i = 0, have = Mathf.Min(working.Count, 14); have < 6 && i < dead.Count; i++, have++) SetWorking(dead[i], true);
+            foreach (Room r in Rooms) LightSpace(r, lit.Contains(r.Id));
+            ExitSigns();
+            EnoughLight();
         }
 
-        void AddLamp(Vector2 p, Room r, bool working, bool fluorescent) =>
-            Lamps.Add(new Lamp { Position = p, Room = r.Id, Working = working, Fluorescent = fluorescent, Flicker = working && Chance(0.4f) ? Range(0.12f, 0.35f) : 0.04f });
+        static LampKind CeilingKind(RoomType t) =>
+            t == RoomType.Storage || t == RoomType.Boiler || t == RoomType.Workshop || t == RoomType.Electrical ? LampKind.Bulb : LampKind.Fluorescent;
+
+        bool FindItem(int room, Furn kind, out Item found)
+        {
+            foreach (Item i in Items)
+                if (i.Room == room && i.Kind == kind) { found = i; return true; }
+            found = default;
+            return false;
+        }
+
+        void LightSpace(Room r, bool on)
+        {
+            Rect a = r.Area;
+            LampKind ceiling = CeilingKind(r.Type);
+            Vector2 Centre() => a.center + new Vector2(Range(-0.4f, 0.4f), Range(-0.4f, 0.4f)) * Mathf.Min(a.width, a.height) * 0.3f;
+            if (r.IsHallway)
+            {
+                bool alongX = a.width >= a.height;
+                float len = alongX ? a.width : a.height;
+                int n = Mathf.Max(1, Mathf.RoundToInt(len / Range(8f, 11f)));
+                for (int i = 0; i < n; i++)
+                {
+                    float t = (i + 0.5f) / n;
+                    Vector2 p = alongX ? new Vector2(Mathf.Lerp(a.xMin, a.xMax, t), a.center.y) : new Vector2(a.center.x, Mathf.Lerp(a.yMin, a.yMax, t));
+                    if (!on && !Chance(0.3f)) continue;
+                    AddLamp(p, r, on && Chance(0.75f), LampKind.Fluorescent);
+                }
+                return;
+            }
+            if (!on)
+            {
+                if (r.Type != RoomType.ServerRoom && Chance(0.3f)) AddLamp(Centre(), r, false, ceiling);
+                return;
+            }
+            switch (r.Type)
+            {
+                case RoomType.Office:
+                    if (FindItem(r.Id, Furn.Desk, out Item desk) && Chance(0.55f)) AddAsset(LampKind.Desk, desk, 0.95f, true);
+                    else AddLamp(Centre(), r, true, ceiling);
+                    break;
+                case RoomType.BreakRoom:
+                    AddLamp(Centre(), r, true, ceiling);
+                    if (FindItem(r.Id, Furn.Vending, out Item vend)) AddAsset(LampKind.Vending, vend, 1.2f);
+                    break;
+                case RoomType.Boiler:
+                    if (FindItem(r.Id, Furn.Boiler, out Item boiler)) AddAsset(LampKind.Furnace, boiler, 0.5f);
+                    else AddLamp(Centre(), r, true, ceiling);
+                    break;
+                case RoomType.ServerRoom:
+                    if (FindItem(r.Id, Furn.ServerRack, out Item rack)) AddAsset(LampKind.Server, rack, 1.2f);
+                    break;
+                case RoomType.StudioSet:
+                {
+                    int rigs = 0;
+                    foreach (Item it in Items)
+                        if (it.Room == r.Id && it.Kind == Furn.LightRig && rigs < 2) { AddAsset(LampKind.Stage, it, 1.9f); rigs++; }
+                    if (rigs == 0) AddLamp(Centre(), r, true, ceiling);
+                    break;
+                }
+                default:
+                    AddLamp(Centre(), r, true, ceiling);
+                    break;
+            }
+            if (r.FloorArea > 45f && r.Type != RoomType.ServerRoom && r.Type != RoomType.Boiler && Chance(0.5f))
+            {
+                bool alongX = a.width >= a.height;
+                Vector2 p = alongX ? new Vector2(Mathf.Lerp(a.xMin, a.xMax, 0.8f), a.center.y) : new Vector2(a.center.x, Mathf.Lerp(a.yMin, a.yMax, 0.8f));
+                AddLamp(p, r, Chance(0.6f), ceiling);
+            }
+        }
+
+        /// <summary>A green exit sign over some of the doors to the outside.</summary>
+        void ExitSigns()
+        {
+            foreach (Opening o in Openings)
+            {
+                if (!o.Exterior || (o.Kind != OpeningKind.Door && o.Kind != OpeningKind.Doorway) || !Chance(0.6f)) continue;
+                Interface f = Interfaces[o.Interface];
+                Vector2 inward = -f.Normal;
+                Lamps.Add(new Lamp
+                {
+                    Position = o.Centre + inward * 0.3f, Room = f.A, Working = Chance(0.75f), Kind = LampKind.Exit,
+                    Yaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg, Elevation = 2.25f, Flicker = 0.06f,
+                });
+            }
+        }
+
+        /// <summary>Between 6 and 16 working lights, whatever the rooms came out like: the building is dark but a way through can be found.</summary>
+        void EnoughLight()
+        {
+            int Working() { int n = 0; foreach (Lamp l in Lamps) if (l.Working && l.Kind != LampKind.Exit) n++; return n; }
+            var dead = new List<int>();
+            for (int i = 0; i < Lamps.Count; i++) if (!Lamps[i].Working && Lamps[i].Ceiling) dead.Add(i);
+            Shuffle(dead);
+            for (int i = 0; i < dead.Count && Working() < 6; i++) SetWorking(dead[i], true);
+            var free = new List<Room>();
+            foreach (Room r in Rooms) if (r.Type != RoomType.ServerRoom && r.Type != RoomType.Boiler) free.Add(r);
+            Shuffle(free);
+            for (int i = 0; i < free.Count && Working() < 6; i++)
+            {
+                bool has = false;
+                foreach (Lamp l in Lamps) if (l.Room == free[i].Id && l.Working) has = true;
+                if (!has) AddLamp(free[i].Area.center, free[i], true, free[i].IsHallway ? LampKind.Fluorescent : CeilingKind(free[i].Type));
+            }
+            var working = new List<int>();
+            for (int i = 0; i < Lamps.Count; i++) if (Lamps[i].Working && Lamps[i].Ceiling) working.Add(i);
+            Shuffle(working);
+            for (int i = 0; i < working.Count && Working() > 16; i++) SetWorking(working[i], false);
+        }
+
+        void AddLamp(Vector2 p, Room r, bool working, LampKind kind) =>
+            Lamps.Add(new Lamp { Position = p, Room = r.Id, Working = working, Kind = kind, Elevation = 2.55f, Flicker = working && Chance(0.4f) ? Range(0.12f, 0.35f) : 0.04f });
+
+        /// <summary>A light that is part of something in the room (its own position and yaw).</summary>
+        void AddAsset(LampKind kind, Item item, float height, bool onTop = false)
+        {
+            Vector2 pos = item.Position;
+            if (onTop)
+            {
+                // At the end of the desk: model-local x runs (cos, -sin) in the plan, z (sin, cos).
+                float yaw = item.Yaw * Mathf.Deg2Rad;
+                pos += new Vector2(Mathf.Cos(yaw), -Mathf.Sin(yaw)) * item.Size.x * -0.3f;
+            }
+            Lamps.Add(new Lamp
+            {
+                Position = pos, Room = item.Room, Working = true, Kind = kind, Yaw = item.Yaw, Size = item.Size, Elevation = height,
+                Flicker = kind == LampKind.Furnace ? 0.25f : 0.04f,
+            });
+        }
 
         void SetWorking(int i, bool working)
         {

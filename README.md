@@ -188,25 +188,36 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
 
 ## The central building
 
-`BuildingPlan` generates the 36 x 36 m single-storey building from the seed (the roof is never drawn):
+`BuildingPlan` generates the single-storey building from the seed (the roof is never drawn):
 
-- **Hallways** are cut through the footprint recursively: a 2.4-3 m spine end to end, then narrower
-  branches (1.4-2.4 m), so they differ in width and length.
-- **Rooms** (3 x 3 to 10 x 8 m) split the blocks between them, preferring cuts that keep every room on a
-  hallway. Each gets a door or doorway onto a hallway (some get two), back rooms a door through a
-  neighbour, and a few rooms connect to each other, so everything is reachable with loops.
+- **Footprint**: not a perfect rectangle. One or two corners of the 36 x 36 m square are cut out: an L, a
+  T or U (two corners of one side), an S (opposite corners) or a square with a small loading-dock notch.
+  A hallway runs along every notch edge, the notch is flat open ground, and the walls turn with it.
+- **Hallways** are the backbone: roughly a third of the floor. A spine of 2.6-3.6 m runs end to end, then
+  narrow (1.4-1.75 m), medium and wide (2.7-3.6 m) branches of every length, so the plan twists like a
+  maze. A plain wall sometimes splits a block first so the halls either side don't line up, and some wider
+  hall joins get a wall and a door (a bulkhead) that breaks the sight line instead of an open junction.
+- **Rooms** (3 x 3 to 10 x 8 m) are the blocks between the hallways, kept whole where they fit, so there
+  are fewer of them (about 18-32 rooms to 13-23 hallways) and each sits on a hallway. Each gets a door or
+  doorway onto one (some get two), back rooms a door through a neighbour, and a few rooms connect to each
+  other, so everything is reachable with loops.
 - **Room types**: offices, storage, break room, restrooms, locker room, workshop, electrical and server
   rooms, a studio set for the night shoot (a fake cabin bedroom with lights, a camera and mannequins), the
   loading bay at the gate and a boiler room, each furnished by its own recipe.
 - **Outside**: entrances as in the original (two south, one north, one or two east and west), some open
   with a pallet beside them; windows, a quarter of them boarded; the **north exit gate** with its lever and
   the chain-link **yard** beyond it.
-- **Generators**: two, in rooms and never hallways. With its working space the generator takes at most
-  30% of its room's floor and keeps a walkway to every wall.
+- **Generators**: two, in any room with the space for one, never a hallway: at least about 3.4 x 3.8 m,
+  with the generator and its working space taking at most 40% of the floor and a walkway to every wall.
 - **Fittings**: lockers in the hallways (up to 8), wardrobes, beds and barrels to hide in; pipes, ducts,
   breaker panels, junction boxes and vent grilles; posters, clocks, stains, cobwebs and dead plants.
   Furniture keeps every doorway clear and covers under half of each room.
-- **Lamps** have the original's 9 m radius: 6-14 work (some flicker), the rest are dead fixtures.
+- **Light**: only about a third of the rooms and hallways are lit, each by something that belongs there:
+  fluorescent fittings in hallways, offices, restrooms and the loading bay, bare bulbs in storage, the
+  workshop and electrical rooms, a desk lamp on an office desk, the vending machine's glow in the break
+  room, the boiler's fire, a server rack's status lights, stage lights on the studio set, and green exit
+  signs over some outside doors. Lights keep the original's 9 m radius (smaller for the small ones), 6-16
+  work (some flicker); the rest are dead fixtures.
 
 `SandboxWorld.Building.cs` builds it: cinder-block outer walls, painted inner walls with dark tops so the
 plan reads from above, tiled and concrete floors, hinged doors, windows (glass stops you, not your
@@ -313,11 +324,11 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 117 EditMode tests: visibility polygons, doors, triangle winding and normals, model sizes and
+Runs the 118 EditMode tests: visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and
 paths, the map layout (the original's scale and rules, the lake), the building (rooms tile the footprint,
 hallway widths and lengths, every room reachable with loops, openings in walls, the original's entrances
-and the north gate, generators under 30% of their rooms, furniture clear of doorways, lamps), supplies at
+and the north gate, the notched footprint, hallways plentiful, generators within their rooms' space, furniture clear of doorways, lamps that fit their rooms), supplies at
 the original's counts, health and shield, downing, stacking, healing, generators and the gate, the fog
 of war and the painted map, the menus and testing mode, New map, generation time and the saved prefabs.
 

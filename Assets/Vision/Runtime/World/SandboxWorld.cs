@@ -118,13 +118,13 @@ namespace Vision.World
             f.AddPad(layout.HangingTree, 2.5f, 3f);
             f.SetLake(layout);
 
-            var building = Expand(layout.Building, 0.6f);
+            var building = Expand(layout.Building, 1.4f);   // paths keep a path-width and a bit from the walls, windows and all
             var yard = Expand(layout.Yard, 0.2f);
             var cabins = new List<Rect>();
             foreach (MapLayout.Cabin c in layout.Cabins) cabins.Add(Expand(c.Area, 0.4f));
             bool Blocked(Vector2 p)
             {
-                if (building.Contains(p) || yard.Contains(p) || layout.LakeDepth(p) > -1.5f) return true;
+                if ((building.Contains(p) && !(layout.Plan != null && layout.Plan.InNotch(p, 1.4f))) || yard.Contains(p) || layout.LakeDepth(p) > -1.5f) return true;
                 foreach (Rect r in cabins) if (r.Contains(p)) return true;
                 if (layout.Graveyard.Contains(p) || layout.Playground.Contains(p)) return true;
                 foreach (Vector2 pole in layout.PowerPoles) if ((pole - p).sqrMagnitude < 1.6f * 1.6f) return true;

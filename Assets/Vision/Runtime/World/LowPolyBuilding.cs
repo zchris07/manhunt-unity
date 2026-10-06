@@ -230,6 +230,67 @@ namespace Vision.World
             return b.ToMesh("Tubes");
         }
 
+        /// <summary>A desk lamp (origin on the desk top): a base, an arm and a shade over the bulb. The bulb is <see cref="DeskLampBulb"/>.</summary>
+        public static Mesh DeskLamp()
+        {
+            var b = new LowPolyMeshBuilder();
+            b.AddFrustum(Vector3.zero, new Vector3(0f, 0.03f, 0f), 0.09f, 0.08f, 6, Bldg.Black, 0.03f);
+            b.AddFrustum(new Vector3(0f, 0.03f, 0f), new Vector3(0.04f, 0.32f, 0f), 0.012f, 0.012f, 4, Bldg.SteelDark, 0.03f);
+            b.AddFrustum(new Vector3(0.04f, 0.3f, 0f), new Vector3(0.04f, 0.4f, 0f), 0.11f, 0.05f, 6, Bldg.SteelDark, 0.05f);
+            return b.ToMesh("Desk Lamp");
+        }
+
+        public static Mesh DeskLampBulb()
+        {
+            var b = new LowPolyMeshBuilder();
+            b.AddBlob(new Vector3(0.04f, 0.285f, 0f), Vector3.one * 0.05f, 0, 0.05f, _ => Furn.Lamp);
+            return b.ToMesh("Desk Lamp Bulb");
+        }
+
+        /// <summary>An exit sign's dark housing over a door (origin on the wall line, front +Z, 2.25 up).</summary>
+        public static Mesh ExitSign()
+        {
+            var b = new LowPolyMeshBuilder();
+            b.AddBox(new Vector3(-0.22f, 0f, -0.1f), new Vector3(0.44f, 0.18f, 0.1f), Bldg.Black, 0.03f);
+            return b.ToMesh("Exit Sign");
+        }
+
+        /// <summary>The green face of an exit sign (drawn glowing when it is on).</summary>
+        public static Mesh ExitSignGlow()
+        {
+            var b = new LowPolyMeshBuilder();
+            b.AddBox(new Vector3(-0.19f, 0.03f, -0.005f), new Vector3(0.38f, 0.12f, 0.012f), new Color(0.25f, 0.85f, 0.4f), 0.02f);
+            return b.ToMesh("Exit Sign Glow");
+        }
+
+        static void Panel(LowPolyMeshBuilder b, Vector3 centreBottom, Vector2 size, Color c) =>
+            b.AddBox(new Vector3(centreBottom.x - size.x * 0.5f, centreBottom.y, centreBottom.z), new Vector3(size.x, size.y, 0.015f), c, 0.02f);
+
+        /// <summary>The lit part of a piece of furniture, in the item's own frame (front +Z): a vending machine's window, the
+        /// boiler's fire door, a server rack's status lights, a stage light's lens.</summary>
+        public static Mesh LampGlow(BuildingPlan.LampKind kind, Vector2 size)
+        {
+            var b = new LowPolyMeshBuilder();
+            float hd = size.y * 0.5f, hw = size.x * 0.5f;
+            switch (kind)
+            {
+                case BuildingPlan.LampKind.Vending:
+                    Panel(b, new Vector3(-hw + 0.06f + size.x * 0.325f, 0.5f, hd + 0.005f), new Vector2(size.x * 0.65f, 1.2f), new Color(0.75f, 0.88f, 0.92f));
+                    break;
+                case BuildingPlan.LampKind.Furnace:
+                    Panel(b, new Vector3(-0.2f, 0.3f, 0.585f), new Vector2(0.3f, 0.16f), new Color(1f, 0.55f, 0.15f));
+                    break;
+                case BuildingPlan.LampKind.Server:
+                    for (int i = 0; i < 3; i++)
+                        Panel(b, new Vector3(i % 2 == 0 ? -0.1f : 0.1f, 1.0f + i * 0.28f, hd + 0.005f), new Vector2(0.28f, 0.035f), i == 1 ? new Color(0.9f, 0.25f, 0.2f) : new Color(0.3f, 0.85f, 0.45f));
+                    break;
+                default:
+                    Panel(b, new Vector3(0f, 1.65f, 0.2f), new Vector2(0.22f, 0.2f), new Color(1f, 0.92f, 0.7f));
+                    break;
+            }
+            return b.ToMesh("Lamp Glow");
+        }
+
         // ------------------------------------------------------------------ furniture and fittings
 
         /// <summary>The model for a building item of the given size (model-local width x depth) and variant.</summary>

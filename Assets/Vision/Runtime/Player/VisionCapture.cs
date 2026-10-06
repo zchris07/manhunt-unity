@@ -428,6 +428,15 @@ namespace Vision.Player
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot("75_new_map_revealed");
                 File.AppendAllText(Path.Combine(folder, "perf.txt"), $"new map {world.LastGenerationReport}\n");
+                gameHud.Map.SetOpen(false);
+            }
+
+            // The building's footprint on other seeds: L, T/U and S shapes, from above.
+            foreach (int shapeSeed in new[] { 2, 3, 18, 7 })
+            {
+                world.Regenerate(shapeSeed);
+                yield return new WaitForSeconds(1f);
+                yield return Overview($"76_footprint_seed_{shapeSeed}", world.Layout.Building.center + new Vector2(0f, 2f), 21f);
             }
             Application.Quit();
         }
