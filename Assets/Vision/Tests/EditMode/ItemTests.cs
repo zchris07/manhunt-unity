@@ -47,6 +47,25 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void ThrownItemsAndRoundsBreakWindowsForAnyoneToClimbThrough()
+        {
+            foreach (ItemType item in new[] { ItemType.Bottle, ItemType.Book, ItemType.Piss, ItemType.Pistol })
+            {
+                // A window across the way, 300 units east of the survivor.
+                var rig = new SimRig(2, 1, false, 1, m => m.Windows.Add(new SimMap.WindowDef { A = SimRig.U(300, -80), B = SimRig.U(300, 80) }));
+                SimPlayer s = rig.P(2);
+                rig.Place(s, 0f, 0f);
+                rig.Place(rig.P(1), 0f, 2500f);
+                rig.Place(rig.P(3), -2500f, -2500f);
+                s.Inv.Add(item, 1);
+                Use(rig, s, item);
+                rig.Run(Secs(1.5f));
+                Assert.IsTrue(rig.Sim.WindowsBroken[0], $"a {item} breaks the window");
+                Assert.AreEqual(0, rig.Sim.Thrown.Count, $"the {item} stops there");
+            }
+        }
+
+        [Test]
         public void ABottle_StunsZach_AndImmunityStopsAChainStun()
         {
             SimRig rig = Duel(200f);

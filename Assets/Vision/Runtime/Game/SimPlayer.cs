@@ -129,6 +129,9 @@ namespace Vision.Game
         public float ChargeT = -1f, ChargeHeld;
         public bool Heavy;
         public float SwingDamage = 1f / 3f;
+        /// <summary>The swing's side: 0 forehand (right to left), 1 backhand; quick light swings alternate.</summary>
+        public int SwingSide;
+        public float LastSwingAt = -9f;
         public bool LungeHit, WasLunging;
         public float BurstCd;
         /// <summary>Hemp Battery: 0 none, 1 carried, 2 infinite (testing mode).</summary>

@@ -21,6 +21,10 @@ namespace Vision.Effects
             public Vector3 Pos, Vel;
             public Color Color;
             public float Size, Life, Age, Drag, Gravity;
+            /// <summary>Drawn as a short streak along its motion (sparks), and as a glow.</summary>
+            public bool Streak, Glow;
+            /// <summary>Grows to this many times its size over its life (smoke).</summary>
+            public float Grow;
         }
 
         struct Ring
@@ -37,8 +41,8 @@ namespace Vision.Effects
             // Ribbons queued this frame: their points copied into shared lists (no allocation per ribbon).
             public readonly List<Vector3> RibbonPts = new List<Vector3>();
             public readonly List<Color> RibbonCols = new List<Color>();
-            public readonly List<(int start, int count, float width)> Ribbons = new List<(int, int, float)>();
-            public readonly List<(Vector3 pos, float size, Color color)> Dots = new List<(Vector3, float, Color)>();
+            public readonly List<(int start, int count, float width, bool soft)> Ribbons = new List<(int, int, float, bool)>();
+            public readonly List<(Vector3 pos, float size, Color color, bool glow)> Dots = new List<(Vector3, float, Color, bool)>();
             // Triangles for this frame (three vertices and colours each).
             public readonly List<Vector3> TriV = new List<Vector3>();
             public readonly List<Color> TriC = new List<Color>();
@@ -163,14 +167,26 @@ namespace Vision.Effects
             if (b.Particles.Count > 3000) b.Particles.RemoveRange(0, b.Particles.Count - 3000);
         }
 
+        /// <summary>
+        /// One particle with its own velocity: a spark (a glowing streak along its motion, falling with gravity), an
+        /// ember, a smoke puff that swells as it rises (<paramref name="grow"/>), a chip of debris.
+        /// </summary>
+        public void Emit(Vector3 at, Vector3 velocity, float life, Color color, float size, float gravity = 0f, float drag = 1f, bool streak = false,
+            bool glow = false, float grow = 1f, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        {
+            Batch b = Get(masked, senses, blend);
+            b.Particles.Add(new Particle { Pos = at, Vel = velocity, Color = color, Size = size, Life = life, Drag = drag, Gravity = gravity, Streak = streak, Glow = glow, Grow = grow });
+            if (b.Particles.Count > 3000) b.Particles.RemoveRange(0, b.Particles.Count - 3000);
+        }
+
         /// <summary>A ring on the ground growing from r0 to r1 over its life, fading out.</summary>
         public void RingAt(Vector3 centre, float r0, float r1, float life, Color color, float width = 0.06f, bool senses = false, bool masked = false, Blend blend = Blend.Additive)
         {
             Get(masked, senses, blend).Rings.Add(new Ring { Centre = centre, R0 = r0, R1 = r1, Life = life, Color = color, Width = width });
         }
 
-        /// <summary>A ribbon through points (one frame only: call each frame while it shows).</summary>
-        public void Ribbon(IReadOnlyList<Vector3> pts, IReadOnlyList<Color> cols, float width, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        /// <summary>A ribbon through points (one frame only: call each frame while it shows); soft ones fade to both edges.</summary>
+        public void Ribbon(IReadOnlyList<Vector3> pts, IReadOnlyList<Color> cols, float width, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool soft = false)
         {
             if (pts == null || pts.Count < 2) return;
             Batch b = Get(masked, senses, blend);
@@ -180,13 +196,19 @@ namespace Vision.Effects
                 b.RibbonPts.Add(pts[i]);
                 b.RibbonCols.Add(cols != null && i < cols.Count ? cols[i] : Color.white);
             }
-            b.Ribbons.Add((start, pts.Count, width));
+            b.Ribbons.Add((start, pts.Count, width, soft));
         }
 
         /// <summary>A soft dot for this frame only (call each frame while it shows).</summary>
         public void Dot(Vector3 at, float size, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
         {
-            Get(masked, senses, blend).Dots.Add((at, size, color));
+            Get(masked, senses, blend).Dots.Add((at, size, color, false));
+        }
+
+        /// <summary>A soft glow for this frame only: bright in the middle, falling off smoothly (an orb, a flare, a hot spot).</summary>
+        public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive)
+        {
+            Get(masked, senses, blend).Dots.Add((at, size, color, true));
         }
 
         /// <summary>A flat four-cornered shape for this frame (the Burst's lens is built of these).</summary>
@@ -260,7 +282,15 @@ namespace Vision.Effects
                     float k = p.Age / p.Life;
                     Color c = p.Color;
                     c.a *= 1f - k * k;
-                    Quad(b, p.Pos, right * p.Size, up * p.Size, c);
+                    float size = p.Size * (p.Grow != 1f && p.Grow > 0f ? Mathf.Lerp(1f, p.Grow, k) : 1f);
+                    if (p.Streak && p.Vel.sqrMagnitude > 1e-4f)
+                    {
+                        // A spark: stretched along its motion on screen, a short glowing streak.
+                        Vector3 v = p.Vel * 0.035f;
+                        Vector3 side = Vector3.Cross(v, cam != null ? cam.transform.forward : Vector3.up).normalized * size * 0.5f;
+                        StreakQuad(b, p.Pos, v, side, c);
+                    }
+                    else Quad(b, p.Pos, right * size, up * size, c, p.Glow);
                 }
                 for (int i = b.Rings.Count - 1; i >= 0; i--)
                 {
@@ -274,11 +304,11 @@ namespace Vision.Effects
                     c.a *= 1f - k;
                     RingMesh(b, r.Centre, rad, r.Width, c);
                 }
-                foreach (var (start, count, width) in b.Ribbons) RibbonMesh(b, b.RibbonPts, b.RibbonCols, start, count, width);
+                foreach (var (start, count, width, soft) in b.Ribbons) RibbonMesh(b, b.RibbonPts, b.RibbonCols, start, count, width, soft);
                 b.Ribbons.Clear();
                 b.RibbonPts.Clear();
                 b.RibbonCols.Clear();
-                foreach (var (pos, size, color) in b.Dots) Quad(b, pos, right * size, up * size, color);
+                foreach (var (pos, size, color, glow) in b.Dots) Quad(b, pos, right * size, up * size, color, glow);
                 b.Dots.Clear();
                 for (int i = 0; i < b.TriV.Count; i++)
                 {
@@ -300,14 +330,27 @@ namespace Vision.Effects
             }
         }
 
-        static void Quad(Batch b, Vector3 c, Vector3 r, Vector3 u, Color col)
+        static void Quad(Batch b, Vector3 c, Vector3 r, Vector3 u, Color col, bool glow = false)
         {
             int i = b.V.Count;
             b.V.Add(c - r - u); b.V.Add(c + r - u); b.V.Add(c + r + u); b.V.Add(c - r + u);
             for (int k = 0; k < 4; k++) b.C.Add(col);
-            // uv.x 2-3 marks a soft round dot in the shader.
-            b.U.Add(new Vector2(2f, 0f)); b.U.Add(new Vector2(3f, 0f)); b.U.Add(new Vector2(3f, 1f)); b.U.Add(new Vector2(2f, 1f));
+            // uv.x 2-3 marks a soft round dot in the shader, 6-7 a glow.
+            float x0 = glow ? 6f : 2f;
+            b.U.Add(new Vector2(x0, 0f)); b.U.Add(new Vector2(x0 + 1f, 0f)); b.U.Add(new Vector2(x0 + 1f, 1f)); b.U.Add(new Vector2(x0, 1f));
             b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 1); b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
+        }
+
+        /// <summary>A streak from p back along -v, soft across (the soft-ribbon shading), bright at the head.</summary>
+        static void StreakQuad(Batch b, Vector3 p, Vector3 v, Vector3 side, Color col)
+        {
+            int i = b.V.Count;
+            Color tail = col;
+            tail.a *= 0.15f;
+            b.V.Add(p - v - side); b.V.Add(p - v + side); b.V.Add(p + side); b.V.Add(p - side);
+            b.C.Add(tail); b.C.Add(tail); b.C.Add(col); b.C.Add(col);
+            b.U.Add(new Vector2(4f, 0f)); b.U.Add(new Vector2(4f, 1f)); b.U.Add(new Vector2(4f, 1f)); b.U.Add(new Vector2(4f, 0f));
+            b.T.Add(i); b.T.Add(i + 1); b.T.Add(i + 2); b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 3);
         }
 
         static void RingMesh(Batch b, Vector3 c, float r, float w, Color col)
@@ -333,7 +376,7 @@ namespace Vision.Effects
             }
         }
 
-        static void RibbonMesh(Batch b, List<Vector3> pts, List<Color> cols, int first, int n, float w)
+        static void RibbonMesh(Batch b, List<Vector3> pts, List<Color> cols, int first, int n, float w, bool soft = false)
         {
             int start = b.V.Count;
             for (int k = 0; k < n; k++)
@@ -346,7 +389,8 @@ namespace Vision.Effects
                 b.V.Add(pts[first + k] + side);
                 Color col = cols[first + k];
                 b.C.Add(col); b.C.Add(col);
-                b.U.Add(Vector2.zero); b.U.Add(Vector2.zero);
+                if (soft) { b.U.Add(new Vector2(4f, 0f)); b.U.Add(new Vector2(4f, 1f)); }
+                else { b.U.Add(Vector2.zero); b.U.Add(Vector2.zero); }
             }
             for (int k = 0; k < n - 1; k++)
             {

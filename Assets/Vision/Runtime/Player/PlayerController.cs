@@ -125,6 +125,8 @@ namespace Vision.Player
         }
 
         CharacterView view;
+        /// <summary>The player's own character (its bones, for effects that come out of a hand).</summary>
+        public CharacterView View => view;
 
         /// <summary>The model for the role (survivor or Zach) and the action clips for what the player is doing.</summary>
         void PresentCharacter(SimPlayer p)

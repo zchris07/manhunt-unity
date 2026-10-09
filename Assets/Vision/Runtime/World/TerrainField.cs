@@ -135,7 +135,8 @@ namespace Vision.World
 
         // A baked copy of the finished field on a fine grid: building a 180 m level asks for millions of heights,
         // and the full function (pads, paths, lake) is far too slow for that.
-        float[] bakedHeight, bakedPath;
+        float[] bakedHeight, bakedPath, bakedAlong;
+        int[] bakedWhich;
         float bakeStep, bakeMin;
         int bakeN;
 
@@ -154,8 +155,10 @@ namespace Vision.World
             float min = -ext;
             // Paths first, drawn into the grid in one pass; the heights then read the path terms from it.
             var ph = new float[n * n];
-            if (paths != null) paths.Rasterize(min, step, n, pathFlat + pathBlend + 6f, 1000f, d, ph);
-            else for (int k = 0; k < d.Length; k++) d[k] = 1000f;
+            var which = new int[n * n];
+            var along = new float[n * n];
+            if (paths != null) paths.Rasterize(min, step, n, pathFlat + pathBlend + 6f, 1000f, d, ph, which, along);
+            else for (int k = 0; k < d.Length; k++) { d[k] = 1000f; which[k] = -1; }
             System.Threading.Tasks.Parallel.For(0, n, j =>
             {
                 float z = min + j * step;
@@ -170,6 +173,8 @@ namespace Vision.World
             bakeN = n;
             bakedHeight = h;
             bakedPath = d;
+            bakedWhich = which;
+            bakedAlong = along;
         }
 
         float Sample(float[] grid, float x, float z)
@@ -182,6 +187,34 @@ namespace Vision.World
             float a = grid[k] + (grid[k + 1] - grid[k]) * tx;
             float b = grid[k + bakeN] + (grid[k + bakeN + 1] - grid[k + bakeN]) * tx;
             return a + (b - a) * tz;
+        }
+
+        /// <summary>
+        /// The nearest path at a point: which one (-1 none), how far along it, how far from its centre line, and its
+        /// half-width there.
+        /// </summary>
+        public bool PathAt(float x, float z, out int path, out float along, out float distance, out float halfWidth)
+        {
+            path = -1;
+            along = 0f;
+            halfWidth = paths != null ? paths.HalfWidth : 0f;
+            distance = PathDistance(x, z);
+            if (paths == null || bakedWhich == null || distance > 50f) return false;
+            int i = Mathf.Clamp(Mathf.RoundToInt((x - bakeMin) / bakeStep), 0, bakeN - 1);
+            int j = Mathf.Clamp(Mathf.RoundToInt((z - bakeMin) / bakeStep), 0, bakeN - 1);
+            path = bakedWhich[j * bakeN + i];
+            if (path < 0) return false;
+            along = bakedAlong[j * bakeN + i];
+            halfWidth = paths.HalfWidthAt(path, along);
+            return true;
+        }
+
+        /// <summary>How far a point is outside the nearest path's edge (negative on the path), with each path's own width.</summary>
+        public float PathClearance(float x, float z)
+        {
+            if (paths == null) return 1000f;
+            PathAt(x, z, out _, out _, out float d, out float hw);
+            return d - hw;
         }
 
         /// <summary>Distance to the nearest path centre line (large when there is none).</summary>

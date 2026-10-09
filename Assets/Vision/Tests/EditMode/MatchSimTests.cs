@@ -21,7 +21,7 @@ namespace Vision.Tests
         public static Vector2 U(float x, float y) => Scale.D(new Vector2(x, y));
 
         /// <param name="survivors">Survivors get ids after the hunters (hunters are 1..H).</param>
-        public SimRig(int survivors = 1, int hunters = 1, bool testMode = false, int seed = 1)
+        public SimRig(int survivors = 1, int hunters = 1, bool testMode = false, int seed = 1, Action<SimMap> setup = null)
         {
             Map.HalfExtent = 90f;
             foreach (Vector2 g in new[] { U(600, 0), U(-600, 0), U(0, 600), U(0, -600), U(900, 900) }) Map.Generators.Add(g);
@@ -34,6 +34,7 @@ namespace Vision.Tests
             Map.ExitZone = Geo.ExitZone;
             for (int i = 0; i < 10; i++) Map.SurvivorSpawns.Add(U(-300 + i * 60, -300));
             for (int i = 0; i < 9; i++) Map.HunterSpawns.Add(U(1500, -1500 + i * 60));
+            setup?.Invoke(Map);
             Sim = new MatchSim(Map, Geo, MatchRules.Resolve(survivors, hunters), testMode, seed);
             for (int i = 0; i < hunters; i++) Sim.AddPlayer(1 + i, "Zach " + (i + 1), Role.Hunter);
             for (int i = 0; i < survivors; i++) Sim.AddPlayer(1 + hunters + i, "Survivor " + (i + 1), Role.Survivor);

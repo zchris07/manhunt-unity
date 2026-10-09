@@ -61,22 +61,16 @@ namespace Vision.UI
         void SextonBeam(Sexton s)
         {
             bool on = s != null && s.Beaming && s.BeamLen > 0f;
-            if (on)
+            bool charging = s != null && s.Alive && s.ChargeK > 0f;
+            if (on || charging)
             {
-                Vector3 hands = Along(s.Pos, s.BeamAng, Balance.Sexton.Radius * 1.6f, 0f, 1.15f);
-                Vector3 end = Along(s.Pos, s.BeamAng, Scale.ToUnits(s.BeamLen), 0f, 1.15f);
-                float flicker = 0.85f + 0.15f * Mathf.Sin(Time.time * 60f);
-                foreach (var (w, c) in new[] { (0.5f, new Color(0.35f, 1f, 0.4f, 0.25f)), (0.24f, new Color(0.7f, 1f, 0.72f, 0.6f)), (0.08f, new Color(1f, 1f, 1f, 0.95f)) })
-                {
-                    pts.Clear(); cols.Clear();
-                    pts.Add(hands); pts.Add(end);
-                    cols.Add(c * flicker); cols.Add(c * flicker);
-                    Fx.Ribbon(pts, cols, w * S, false, true);
-                }
-                Fx.Dot(end, 0.5f * S * flicker, new Color(0.7f, 1f, 0.72f, 0.6f), false, true);
-                Fx.Dot(hands, 0.3f * S, new Color(0.9f, 1f, 0.9f, 0.8f), false, true);
-                Audio.Loop("beam.sexton", "repulsor", Units(s.Pos), Balance.Hunter.Beam.AudioVolume, Balance.Hunter.Beam.AudioNear, Balance.Hunter.Beam.AudioRadius, Balance.Hunter.Beam.AudioCurve, true);
+                NpcViews views = world.GetComponent<NpcViews>();
+                NpcViews.View v = views != null ? views.For(s) : null;
+                Vector3 palm = v != null && Palm(v.Go, out Vector3 hp) ? hp : Along(s.Pos, s.BeamAng, Balance.Sexton.Radius * 1.6f, 0f, 1.15f);
+                HempBeam(-s.Id, s.Pos, charging ? s.Facing : s.BeamAng, s.BeamLen, charging, s.ChargeK, palm, 0f);
             }
+            if (on)
+                Audio.Loop("beam.sexton", "repulsor", Units(s.Pos), Balance.Hunter.Beam.AudioVolume, Balance.Hunter.Beam.AudioNear, Balance.Hunter.Beam.AudioRadius, Balance.Hunter.Beam.AudioCurve, true);
             else if (npcBeamOn) Audio.Loop("beam.sexton", null);
             npcBeamOn = on;
             // Three lights along it, as in the original (made again after a New map takes the old ones with the level).

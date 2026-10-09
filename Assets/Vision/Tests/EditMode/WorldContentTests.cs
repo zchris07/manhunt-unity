@@ -184,6 +184,46 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void Paths_WanderAndGrowAWebOfTrails()
+        {
+            var points = new List<Vector2> { new Vector2(0f, -25f), new Vector2(-27f, 21f), new Vector2(25f, 27f), new Vector2(29f, -7f), new Vector2(-21f, -25f), new Vector2(5f, 30f) };
+            TerrainField f = Hills();
+            var web = new PathNetwork.Web { Seed = 4 };
+            PathNetwork net = PathNetwork.Build(points, f.Height, 37f, _ => false, 1f, web);
+            PathNetwork again = PathNetwork.Build(points, f.Height, 37f, _ => false, 1f, new PathNetwork.Web { Seed = 4 });
+            Assert.AreEqual(net.Length, again.Length, 1e-3f, "deterministic");
+            int mains = 0, trails = 0;
+            foreach (PathNetwork.Info i in net.Infos) { if (i.Main) mains++; else trails++; }
+            Assert.GreaterOrEqual(mains, points.Count - 1, "the spanning tree (and maybe loops)");
+            Assert.Greater(trails, 2, "trails branching off into a web");
+            foreach (Vector2 p in points) Assert.Less(net.Distance(p), 0.5f, $"{p} is on a path");
+            // Every trail meets the network at both ends (a T-junction or another trail).
+            for (int i = 0; i < net.Paths.Count; i++)
+            {
+                if (net.Infos[i].Main) continue;
+                List<Vector2> path = net.Paths[i];
+                net.Nearest(path[path.Count - 1], i, out Vector2 q, out _);
+                Assert.Less(Vector2.Distance(q, path[path.Count - 1]), 0.6f, "a trail joins another path");
+            }
+            // They wind: a main path is noticeably longer than the straight line between its ends.
+            float straight = 0f, winding = 0f;
+            for (int i = 0; i < net.Paths.Count; i++)
+            {
+                if (!net.Infos[i].Main) continue;
+                List<Vector2> path = net.Paths[i];
+                straight += Vector2.Distance(path[0], path[path.Count - 1]);
+                for (int k = 1; k < path.Count; k++) winding += Vector2.Distance(path[k - 1], path[k]);
+            }
+            Assert.Greater(winding / straight, 1.08f, "the paths wind");
+            // Trails are narrower than the main paths, and widths vary along a path.
+            for (int i = 0; i < net.Paths.Count; i++)
+                if (!net.Infos[i].Main) Assert.Less(net.HalfWidthAt(i, 3f), net.HalfWidth * 0.8f);
+            float lo = float.MaxValue, hi = 0f;
+            for (float s = 0f; s < 40f; s += 1f) { float w = net.HalfWidthAt(0, s); lo = Mathf.Min(lo, w); hi = Mathf.Max(hi, w); }
+            Assert.Greater(hi - lo, net.HalfWidth * 0.05f, "a path swells and narrows");
+        }
+
+        [Test]
         public void Paths_FlattenTheGroundAcrossThem()
         {
             TerrainField f = Hills();
@@ -236,7 +276,7 @@ namespace Vision.Tests
                     names[kind] = names.TryGetValue(kind, out int c) ? c + 1 : 1;
                     if (t.GetComponent<Occluder>() == null || t.GetComponent<Door>() != null || t.name.Contains("Wall")) continue;
                     Vector3 local = world.transform.InverseTransformPoint(t.position);
-                    Assert.Greater(paths.Distance(new Vector2(local.x, local.z)), paths.HalfWidth, $"{t.name} stands off the path");
+                    Assert.Greater(world.Terrain.PathClearance(local.x, local.z), 0f, $"{t.name} stands off the path");
                 }
                 foreach (string kind in new[] { "Dead", "Pine", "Snapped", "Fallen", "Fir", "Spruce", "Spiky", "Black", "Rock", "Generator", "Campfire", "Lantern", "Power", "Headstone", "Iron", "Swings", "Slide", "Hanging", "Lake", "Fence" })
                     Assert.IsTrue(names.ContainsKey(kind), $"the level has {kind}");

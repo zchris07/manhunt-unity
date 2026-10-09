@@ -300,10 +300,15 @@ namespace Vision.Rendering
 
             if (viewer.seeThroughEnabled)
             {
-                float seeThrough = viewer.seeThroughRange * k;
+                // Night vision and the Hemp Battery: the x-ray fills the whole vision cone and runs on past the edge of the
+                // screen whichever way the player turns, at full strength all the way (no fading with distance).
+                float seeThrough = halfSize * 0.98f;
                 seeThroughW = seeThrough;
-                vc.Compute(ViewQuery.Cone(origin, dir, viewer.seeThroughHalfAngleDeg * Mathf.Deg2Rad, seeThrough, false), polygon);
-                AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength, seeThrough, 0.6f);
+                float seeHalf = Mathf.Max(viewer.coneHalfAngleDeg, viewer.seeThroughHalfAngleDeg) * Mathf.Deg2Rad;
+                vc.Compute(ViewQuery.Cone(origin, dir, seeHalf, seeThrough, false), polygon);
+                beam = new Vector4(Mathf.Cos(dir), Mathf.Sin(dir), seeHalf, viewer.coneEdgeSoftness);
+                AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength, seeThrough, 2f);
+                beam = Vector4.zero;
                 seeThroughPolygon.AddRange(polygon);
                 rays += vc.LastRayCount; polygons++;
             }
@@ -404,7 +409,8 @@ namespace Vision.Rendering
                     * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
             if (Contains(proximityPolygon, p)) b = Mathf.Max(b, DistanceFalloff(d, proximityW, viewer.proximityFalloffStart));
             if (seeThroughPolygon.Count > 0 && Contains(seeThroughPolygon, p))
-                b = Mathf.Max(b, viewer.seeThroughStrength * DistanceFalloff(d, seeThroughW, 0.6f));
+                b = Mathf.Max(b, viewer.seeThroughStrength * DistanceFalloff(d, seeThroughW, 2f)
+                    * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), Mathf.Max(viewer.coneHalfAngleDeg, viewer.seeThroughHalfAngleDeg) * Mathf.Deg2Rad, viewer.coneEdgeSoftness));
             return b;
         }
 

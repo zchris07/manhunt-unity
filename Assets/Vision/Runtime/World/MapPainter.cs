@@ -32,6 +32,12 @@ namespace Vision.World
                 {
                     float x = -ext + (i + 0.5f) * mpp;
                     Color c = world.GroundColor(x, z);
+                    // Paths and trails stand out a little, so the web of them reads on the map.
+                    if (terrain.Paths != null)
+                    {
+                        float clear = terrain.PathClearance(x, z);
+                        if (clear < 0.25f) c = Color.Lerp(c, new Color(0.66f, 0.56f, 0.42f), 0.35f * Mathf.Clamp01((0.25f - clear) / 0.4f));
+                    }
                     if (layout.LakeDepth(new Vector2(x, z)) > 0f && terrain.InWater(x, z)) c = Water;
                     else
                     {

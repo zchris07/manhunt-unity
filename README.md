@@ -170,6 +170,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Hiding**: tall grass, wardrobes, beds, lockers and barrels (in 0.6 s, out 0.5 s). Hidden, the stamina bar shows
   your breath: Space holds it, and running out makes you gasp. Zach searches a spot and drags out whoever is in it.
   **Pallets** beside doorways (Space).
+- **Smooth poses**: an action's clip blends out into the walk and the flashlight from wherever it was (several can fade
+  at once), and the flinch from a hit is a spring integrated in small steps and kept to a believable angle, so a long
+  frame can no longer fling an arm over the head and leave it there.
 - **Pallets, doors and windows**: Space slams a pallet (Zach caught under it is stunned); two machete hits break a
   dropped pallet, two break a closed door (it stays open for good, the panel gone), one smashes a window, which
   anyone can then climb through slowly. **Crouching** (C or Ctrl) lowers the hips and bends the knees.
@@ -180,19 +183,28 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
   golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, cooldown shades, charges and
   meters, his status lines (speed lost to his wounds, recovery, stunned, abilities off) and the generators he has
-  heard being repaired. The machete charges with a red ring at his feet and a rising swell, swings with a swish
-  (heavier when charged) and leaves a smear (pale, or dark blood-red when heavy); the lunge leaves speed lines; the
-  Burst is a purple concave lens racing across the map through walls with fading echoes; Penjamin rolls out soft
-  yellow puffs along a narrow cone (blue for 50 Nic) that show above the dark; the Hemp Battery is a pulsing green
-  disc; the Hemp Beam gathers an orb then fires a white-green beam with the original's repulsor loop. Guns flash and
-  leave pellet tracers. Sounds come from the fetched CC0 packs, picked at random per cue with pitch and volume
-  jitter, placed and panned where they happen.
+  heard being repaired. Charging the machete, he coils like a spring (blade drawn back high over his shoulder, torso
+  wound away, weight on the back foot, trembling) over a red ring at his feet; swings come with a swish (heavier when
+  charged) and a smear (pale, or dark blood-red when heavy), and quick swings go back and forth, forehand then
+  backhand, the smear sweeping the way the blade goes; the lunge leaves speed lines. The Burst is a translucent purple
+  sound wave racing through walls on the rules' concave front: a bright trembling crest, a soft body, pressure bands
+  rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin rolls out soft yellow puffs
+  along a narrow cone (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes. The Hemp
+  Battery is a pulsing green disc. The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
+  outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
+  charges, then a layered beam (white-hot core, green body, wide glow, two twisting energy threads, shimmer flecks)
+  runs to whatever stops it and splashes there with sparks spraying back and falling, embers, smoke and chips, to the
+  original's repulsor loop. Guns flash and leave tracers but make no sound, and the charge is silent. Sounds come from
+  the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; gas traps sit on the ground
   and blink once armed; galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
   fell (with models for the P250, the 0.50 cal, the jar of piss and the golden pump). G drops the item in hand; **Tab**
   opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
-  JARVIS shows the user the whole map; night vision tints the view green. Drinks, bites, throws, glass, books,
-  splashes, traps, pick-ups and reloads all have their sounds.
+  JARVIS shows the user the whole map; night vision tints the view green. Night vision and the Hemp Battery's x-ray
+  fill the whole vision cone and run on past the edge of the screen whichever way you turn. Every attack item but galaxy
+  gas breaks windows: a thrown bottle, book or jar smashes the glass and drops there, rounds go through it, and anyone
+  can climb through the empty frame. Drinks, bites, throws, glass, books, splashes, traps and pick-ups have their
+  sounds.
 - **Sound polish**: footsteps on every character's footfalls (concrete in the building, boards in the cabins, grass
   outside; louder running, softer crouched, heavier for Zach). You hear your own, and others only up close, since the
   original has none. Doors creak open and bang shut whoever moves them (NPCs too), shotguns take a shell before the
@@ -348,8 +360,13 @@ Trees, walls, doors and lantern posts stand upright, sunk to the lowest point un
 crates, wrecks and crows tilt to the slope. Hills are visual: sight and light stay 2D. Any grade can be walked: the
 controller follows the ground, uphill steps shorten and the body leans into the climb.
 
-`PathNetwork` joins the points of interest with a minimum spanning tree and routes each link with A*
-over a grid whose cost rises steeply with slope, then smooths it. The land changes gradually: slow
+`PathNetwork` joins the points of interest as the original does (a minimum spanning tree and up to three extra loops)
+and routes each link with A* over a grid whose cost rises steeply with slope; a seeded noise field tugs the routes
+aside and a gentle meander bends them, so they wind through the woods. Over them grows a web of narrower trails:
+junctions out in the woods tied into the network (some by two trails), and cross-links where two paths pass near each
+other. Each path has its own width, swelling and narrowing along it, and its own look drifting into a second one along
+its length (packed dirt, gravel, leaf litter, moss, clay, rutted mud), worn lighter down the middle, with ruts on the
+main paths, damp patches and puddles, and litter by look (pebbles, leaves, twigs, moss, puddles, stones by the edges). The land changes gradually: slow
 noise fields choose between evergreens (seven forms, including spiky ones) and twelve dead-tree designs,
 and colour the ground from earth and clay to moss and straw, with rock grey on steep slopes, mud in the
 ditches and packed dirt on the paths.

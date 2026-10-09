@@ -175,6 +175,14 @@ namespace Vision.Characters
             .Key(0.95f, P().R(Bone.UpperArmR, -125f, 0f, 20f).R(Bone.ForearmR, -134f).R(Bone.Spine, 26f).R(Bone.Chest, 8f).R(Bone.Head, 24f))
             .Blend(0.3f, 0.35f);
 
+        /// <summary>Penjamin's gas in the eyes: both hands clamped over them, head bowed, rocking and shaking it (loop).</summary>
+        public static readonly ActionClip CoverEyes = new ActionClip("CoverEyes", 1.3f, true)
+            .Key(0f, P().Both(Bone.UpperArmR, -70f, -70f, 22f).Both(Bone.ForearmR, -128f).Both(Bone.HandR, 8f).R(Bone.Spine, 14f).R(Bone.Chest, 6f).R(Bone.Head, 16f, 0f, 0f))
+            .Key(0.35f, P().Both(Bone.UpperArmR, -72f, -70f, 21f).Both(Bone.ForearmR, -130f).Both(Bone.HandR, 10f).R(Bone.Spine, 22f, 0f, 4f).R(Bone.Chest, 9f).R(Bone.Head, 22f, 10f, 3f))
+            .Key(0.7f, P().Both(Bone.UpperArmR, -69f, -70f, 23f).Both(Bone.ForearmR, -127f).Both(Bone.HandR, 8f).R(Bone.Spine, 12f, 0f, -3f).R(Bone.Chest, 5f).R(Bone.Head, 14f, -10f, -3f))
+            .Key(1.0f, P().Both(Bone.UpperArmR, -71f, -70f, 22f).Both(Bone.ForearmR, -129f).Both(Bone.HandR, 9f).R(Bone.Spine, 20f).R(Bone.Chest, 8f).R(Bone.Head, 20f, 4f, 0f))
+            .Blend(0.3f, 0.4f);
+
         /// <summary>The Soundcloud Burst's jump scare: a flinch back, arms up.</summary>
         public static readonly ActionClip Cringe = new ActionClip("Cringe", 1.2f)
             .Key(0f, Stand())
@@ -205,11 +213,23 @@ namespace Vision.Characters
 
         static ActionPose Raised() => P().R(Bone.UpperArmR, -158f, 0f, 45f).R(Bone.ForearmR, -95f).R(Bone.HandR, 25f).R(Bone.Spine, -2f, -26f).R(Bone.Chest, 0f, -10f).R(Bone.UpperArmL, -30f, 0f, -18f).R(Bone.ForearmL, -30f);
 
-        /// <summary>Charging the machete: raised back over the shoulder, trembling as it fills (hold).</summary>
-        public static readonly ActionClip Charge = new ActionClip("Charge", 0.24f, true)
-            .Key(0f, Raised())
-            .Key(0.12f, With(Raised(), p => p.R(Bone.UpperArmR, -161f, 0f, 47f).R(Bone.Spine, -3f, -28f)))
-            .Blend(0.3f, 0.3f);
+        /// <summary>
+        /// Charging the machete: coiled like a spring, the blade drawn back high over the right shoulder, the torso wound
+        /// away from the target while the head stays on it, knees bent and the weight on the back foot, the free arm out
+        /// in front for balance; the whole body trembles with the strain (hold).
+        /// </summary>
+        static ActionPose Coiled(float ux, float uy, float uz, float spineYaw, float drop) => P().Lower(drop)
+            .R(Bone.UpperArmR, ux, uy, uz).R(Bone.ForearmR, -105f).R(Bone.HandR, 34f)
+            .R(Bone.Spine, -5f, spineYaw).R(Bone.Chest, -3f, spineYaw * 0.42f).R(Bone.Head, 6f, -spineYaw * 1.1f)
+            .R(Bone.UpperArmL, -58f, 10f, -24f).R(Bone.ForearmL, -42f).R(Bone.HandL, 12f)
+            .R(Bone.ThighR, -6f).R(Bone.ShinR, 16f).R(Bone.ThighL, -20f).R(Bone.ShinL, 26f);
+
+        public static readonly ActionClip Charge = new ActionClip("Charge", 0.32f, true)
+            .Key(0f, Coiled(-131f, -18f, 20f, 22f, 0.03f))
+            .Key(0.08f, Coiled(-134f, -20f, 22f, 24f, 0.035f))
+            .Key(0.16f, Coiled(-129f, -17f, 19f, 21f, 0.03f))
+            .Key(0.24f, Coiled(-133f, -21f, 23f, 25f, 0.04f))
+            .Blend(0.34f, 0.25f);
 
         /// <summary>A light machete swipe: a short windup, across the body ("hit" at the strike), recover.</summary>
         public static readonly ActionClip Swing = new ActionClip("Swing", 0.5f)
@@ -220,6 +240,19 @@ namespace Vision.Characters
             .Key(0.5f, P().R(Bone.UpperArmR, -40f, -10f, -4f).R(Bone.ForearmR, -30f).R(Bone.Spine, 4f, 8f))
             .Event(0.2f, "hit")
             .Blend(0.04f, 0.18f);
+
+        /// <summary>
+        /// The backhand: in a quick flurry the blade comes back the other way, cocked by the left shoulder, then whipped
+        /// out to his right, the torso unwinding with it ("hit" at the strike).
+        /// </summary>
+        public static readonly ActionClip SwingBack = new ActionClip("SwingBack", 0.46f)
+            .Key(0f, P().R(Bone.UpperArmR, -45f, -55f, -20f).R(Bone.ForearmR, -105f).R(Bone.HandR, -20f).R(Bone.Spine, 6f, -16f).R(Bone.Chest, 2f, -6f).R(Bone.UpperArmL, -12f, 0f, -14f))
+            .Key(0.09f, P().R(Bone.UpperArmR, -50f, -62f, -24f).R(Bone.ForearmR, -112f).R(Bone.HandR, -26f).R(Bone.Spine, 7f, -20f).R(Bone.Chest, 3f, -8f).R(Bone.UpperArmL, -14f, 0f, -16f))
+            .Key(0.2f, P().R(Bone.UpperArmR, -56f, 0f, 30f).R(Bone.ForearmR, -4f).R(Bone.HandR, -24f).R(Bone.Spine, 10f, 10f).R(Bone.Chest, 4f, 4f).R(Bone.UpperArmL, -24f, 0f, -24f))
+            .Key(0.3f, P().R(Bone.UpperArmR, -50f, 22f, 44f).R(Bone.ForearmR, -10f).R(Bone.HandR, -12f).R(Bone.Spine, 8f, 16f).R(Bone.Chest, 3f, 6f).R(Bone.UpperArmL, -22f, 0f, -22f))
+            .Key(0.46f, P().R(Bone.UpperArmR, -42f, 10f, 14f).R(Bone.ForearmR, -30f).R(Bone.Spine, 4f, 4f))
+            .Event(0.18f, "hit")
+            .Blend(0.08f, 0.22f);
 
         /// <summary>A heavy swipe: everything behind it, a long follow-through.</summary>
         public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.7f)
@@ -307,11 +340,22 @@ namespace Vision.Characters
             .Key(0.75f, Stand())
             .Blend(0.08f, 0.2f);
 
-        /// <summary>The Hemp Beam: both arms out, palms forward, braced (hold while it charges and fires).</summary>
+        /// <summary>
+        /// The Hemp Beam, like an armoured hero's repulsor: the right arm thrust straight out, the wrist bent back so the
+        /// palm faces the target, the right shoulder leading and the body braced behind it, the left arm drawn back at the
+        /// side (holding whatever the right hand had) (hold while it charges and fires; it fires from the palm).
+        /// </summary>
+        static ActionPose Repulsor(float shake) => P().Lower(0.06f)
+            .R(Bone.UpperArmR, -88f + shake, -4f, 6f).R(Bone.ForearmR, -3f).R(Bone.HandR, -78f - shake * 2f)
+            .R(Bone.UpperArmL, 14f, 0f, -14f).R(Bone.ForearmL, -24f).R(Bone.HandL, 6f)
+            .R(Bone.Spine, 4f, -10f).R(Bone.Chest, 2f, -6f).R(Bone.Head, 2f, 14f)
+            .R(Bone.ThighR, -6f).R(Bone.ShinR, 16f).R(Bone.ThighL, -22f).R(Bone.ShinL, 24f);
+
         public static readonly ActionClip Beam = new ActionClip("Beam", 0.3f, true)
-            .Key(0f, P().Lower(0.06f).Both(Bone.UpperArmR, -88f, 0f, 4f).Both(Bone.ForearmR, -4f).Both(Bone.HandR, 70f).R(Bone.Spine, 4f).Both(Bone.ThighR, -14f).Both(Bone.ShinR, 22f))
-            .Key(0.15f, P().Lower(0.07f).Both(Bone.UpperArmR, -90f, 0f, 3f).Both(Bone.ForearmR, -3f).Both(Bone.HandR, 72f).R(Bone.Spine, 5f).Both(Bone.ThighR, -15f).Both(Bone.ShinR, 24f))
-            .Blend(0.28f, 0.3f);
+            .Key(0f, Repulsor(0f))
+            .Key(0.1f, Repulsor(-1.5f))
+            .Key(0.2f, Repulsor(1f))
+            .Blend(0.22f, 0.3f);
 
         /// <summary>Through a broken window: hands on the sill, a knee up and over, leaning in (loop while climbing).</summary>
         public static readonly ActionClip Climb = new ActionClip("Climb", 0.9f, true)
@@ -356,7 +400,7 @@ namespace Vision.Characters
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
             Goggles, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
-            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend,
+            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes,
         };
     }
 }

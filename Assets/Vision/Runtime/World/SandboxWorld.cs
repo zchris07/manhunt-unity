@@ -150,7 +150,8 @@ namespace Vision.World
                 return false;
             }
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var net = PathNetwork.Build(layout.PathPoints(), f.Height, halfExtent - 3f, Blocked);
+            // The original's paths (a spanning tree with a few loops) wandering through the woods, and a web of trails.
+            var net = PathNetwork.Build(layout.PathPoints(), f.Height, halfExtent - 3f, Blocked, 1f, new PathNetwork.Web { Seed = unchecked(seed * 7919 + 61) });
             net.HalfWidth = 70f * MapLayout.Unit * 0.5f;
             f.SetPaths(net);
             long tPaths = sw.ElapsedMilliseconds;
@@ -250,7 +251,7 @@ namespace Vision.World
             if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
             if (Layout.Blocked(p) || Layout.LakeDepth(p) > -2f - radius) return false;
             PathNetwork paths = Terrain.Paths;
-            if (paths != null && Terrain.PathDistance(p.x, p.y) < paths.HalfWidth + radius + 0.4f) return false;
+            if (paths != null && Terrain.PathClearance(p.x, p.y) < radius + 0.4f) return false;
             return !blocked.AnyWithin(p, spacing + radius);
         }
 
@@ -313,14 +314,71 @@ namespace Vision.World
             c = Color.Lerp(c, Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.1f, -1.8f, Terrain.Natural(x, z))));
             float lake = Layout.LakeDepth(p);
             if (lake > -3f) c = Color.Lerp(c, lake > 0f ? Ground.LakeBed : Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-3f, 0.5f, lake)));
-            PathNetwork paths = Terrain.Paths;
-            if (paths != null)
+            if (Terrain.Paths != null && Terrain.PathAt(x, z, out int pi, out float along, out float pd, out float hw))
             {
-                float d = Terrain.PathDistance(x, z);
-                float edge = paths.HalfWidth + 0.15f + (n3 - 0.5f) * 0.5f;
-                c = Color.Lerp(c, Ground.Path * (0.92f + 0.16f * n3), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge + 0.25f, edge - 0.25f, d)));
+                float edge = hw + 0.12f + (n3 - 0.5f) * 0.45f;
+                float on = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge + 0.3f, edge - 0.25f, pd));
+                if (on > 0f) c = Color.Lerp(c, PathColor(Terrain.Paths.Infos[pi], x, z, along, Mathf.Clamp01(pd / Mathf.Max(0.1f, hw)), c), on);
             }
             return c;
+        }
+
+        static readonly Color GravelA = new Color(0.47f, 0.45f, 0.41f), GravelB = new Color(0.36f, 0.35f, 0.33f);
+        static readonly Color LeafA = new Color(0.46f, 0.27f, 0.12f), LeafB = new Color(0.55f, 0.40f, 0.16f), LeafDark = new Color(0.30f, 0.21f, 0.13f);
+        static readonly Color ClayPath = new Color(0.55f, 0.40f, 0.29f), MudPath = new Color(0.27f, 0.22f, 0.17f), Puddle = new Color(0.14f, 0.15f, 0.17f);
+
+        /// <summary>
+        /// A path's surface at a point (u: 0 on the centre line, 1 at the edge): its look, blending slowly into its second
+        /// look and back along its length; worn lighter down the middle where feet go, darker at the edges where it meets the
+        /// ground; two faint ruts on the wider paths; damp, darker patches and the odd puddle; and the look's own grain (gravel
+        /// specks, drifts of fallen leaves, moss creeping in from the edges, the clay's warm streaks, mud's wet tracks).
+        /// </summary>
+        Color PathColor(PathNetwork.Info info, float x, float z, float along, float u, Color ground)
+        {
+            Color Look(PathNetwork.Style s)
+            {
+                float fine = Mathf.PerlinNoise(x * 2.7f + 13f, z * 2.7f + 7f), mid = Mathf.PerlinNoise(x * 0.85f + info.Seed, z * 0.85f + 2f);
+                switch (s)
+                {
+                    case PathNetwork.Style.Gravel:
+                        return Color.Lerp(GravelA, GravelB, Mathf.SmoothStep(0f, 1f, fine)) * (0.95f + 0.1f * mid);
+                    case PathNetwork.Style.Leafy:
+                    {
+                        Color earth = Color.Lerp(LeafDark, Ground.Path * 0.9f, 0.5f);
+                        float drift = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.42f, 0.7f, mid + u * 0.25f));
+                        return Color.Lerp(earth, Color.Lerp(LeafA, LeafB, fine), drift);
+                    }
+                    case PathNetwork.Style.Mossy:
+                    {
+                        float moss = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.85f, mid * 0.6f + u * 0.6f));
+                        return Color.Lerp(Ground.Path * 0.92f, Color.Lerp(Ground.Moss, new Color(0.30f, 0.38f, 0.22f), fine), moss);
+                    }
+                    case PathNetwork.Style.Clay:
+                        return Color.Lerp(ClayPath, ClayPath * 0.86f, Mathf.SmoothStep(0f, 1f, Mathf.PerlinNoise(along * 0.6f + info.Seed, u * 3f)));
+                    case PathNetwork.Style.Mud:
+                    {
+                        // Wet tracks along its length.
+                        float track = Mathf.Exp(-Mathf.Pow((u - 0.45f) / 0.16f, 2f));
+                        return Color.Lerp(MudPath * 1.15f, MudPath * 0.8f, track * (0.6f + 0.4f * fine));
+                    }
+                    default:
+                        return Ground.Path * (0.9f + 0.14f * fine);
+                }
+            }
+            // The look drifts into the path's second look and back, slowly, along its length.
+            float mix = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.4f, 0.75f, Mathf.PerlinNoise(along * (info.Main ? 0.025f : 0.05f) + info.Seed, info.Seed * 0.3f)));
+            Color c = Color.Lerp(Look(info.Look), Look(info.Second), mix);
+            // Worn lighter down the middle, darker toward the edge.
+            c *= 1.06f - 0.12f * u * u;
+            // Two faint ruts on the main paths.
+            if (info.Main) c *= 1f - 0.08f * Mathf.Exp(-Mathf.Pow((u - 0.42f) / 0.11f, 2f));
+            // Damp patches, and the odd puddle in the lowest of them.
+            float damp = Mathf.PerlinNoise(along * 0.21f + info.Seed * 2f, u * 1.5f + info.Seed);
+            c = Color.Lerp(c, c * 0.78f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 0.8f, damp)));
+            if (info.Look == PathNetwork.Style.Mud || info.Second == PathNetwork.Style.Mud || info.Main)
+                c = Color.Lerp(c, Puddle, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.82f, 0.9f, damp)) * (1f - u));
+            // The edge frays into the ground around it.
+            return Color.Lerp(c, ground, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.75f, 1.05f, u)) * 0.35f);
         }
 
         void BuildGround()
@@ -358,7 +416,7 @@ namespace Vision.World
                 return builders[ci, cj];
             }
             PathNetwork paths = Terrain.Paths;
-            float OnPath(Vector2 p) => paths != null ? Terrain.PathDistance(p.x, p.y) - paths.HalfWidth : float.MaxValue;
+            float OnPath(Vector2 p) => paths != null ? Terrain.PathClearance(p.x, p.y) : float.MaxValue;
             bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p);
             float lim = halfExtent - 0.8f;
 
@@ -391,6 +449,108 @@ namespace Vision.World
                 Color c = bone ? new Color(0.72f, 0.69f, 0.62f) : LowPolyModels.Palette.Stone;
                 b.AddBlob(new Vector3(p.x, Terrain.Height(p.x, p.y), p.y), radii, 0, 0.2f, _ => b.Jitter(c, 0.2f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
             }
+
+            // Litter along the paths, by their look: pebbles, fallen leaves, twigs, moss, puddles, and stones by the edges.
+            if (paths != null)
+                for (int pi = 0; pi < paths.Paths.Count; pi++)
+                {
+                    List<Vector2> path = paths.Paths[pi];
+                    PathNetwork.Info info = paths.Infos[pi];
+                    float along = 0f, next = Range(0.2f, 0.6f);
+                    for (int k = 0; k < path.Count - 1; k++)
+                    {
+                        Vector2 a = path[k], d = path[k + 1] - a;
+                        float len = d.magnitude;
+                        if (len < 1e-4f) continue;
+                        d /= len;
+                        var side = new Vector2(-d.y, d.x);
+                        while (next <= along + len)
+                        {
+                            float t = (next - along) / len, s = next;
+                            next += Range(0.3f, 0.75f);
+                            float hw = paths.HalfWidthAt(pi, s);
+                            Vector2 p = a + d * (t * len);
+                            if (Bare(p)) continue;
+                            float mix = Mathf.PerlinNoise(s * (info.Main ? 0.025f : 0.05f) + info.Seed, info.Seed * 0.3f);
+                            PathNetwork.Style look = mix > 0.57f ? info.Second : info.Look;
+                            float roll = (float)rng.NextDouble();
+                            LowPolyMeshBuilder b = ChunkAt(p);
+                            Vector3 At(Vector2 q, float lift = 0f) => new Vector3(q.x, Terrain.Height(q.x, q.y) + lift, q.y);
+                            if (info.Main && roll < 0.1f)
+                            {
+                                // A stone at the edge.
+                                Vector2 q = p + side * ((rng.Next(2) == 0 ? 1f : -1f) * hw * Range(0.95f, 1.2f));
+                                float r = Range(0.08f, 0.18f);
+                                b.AddBlob(At(q), new Vector3(r * 1.3f, r * 0.6f, r), 0, 0.2f, _ => b.Jitter(LowPolyModels.Palette.Stone * 0.95f, 0.15f), true, Quaternion.Euler(0f, Range(0f, 180f), 0f));
+                                continue;
+                            }
+                            Vector2 o = p + side * (Range(-0.85f, 0.85f) * hw);
+                            switch (look)
+                            {
+                                case PathNetwork.Style.Gravel:
+                                    for (int g = 0; g < 3; g++)
+                                    {
+                                        Vector2 q = o + new Vector2(Range(-0.2f, 0.2f), Range(-0.2f, 0.2f));
+                                        float r = Range(0.025f, 0.05f);
+                                        b.AddBlob(At(q), new Vector3(r, r * 0.6f, r), 0, 0.25f, _ => b.Jitter(Color.Lerp(GravelA, GravelB, (float)rng.NextDouble()), 0.12f), true);
+                                    }
+                                    break;
+                                case PathNetwork.Style.Leafy:
+                                    for (int g = 0; g < 3; g++)
+                                    {
+                                        Vector2 q = o + new Vector2(Range(-0.25f, 0.25f), Range(-0.25f, 0.25f));
+                                        float ang = Range(0f, Mathf.PI * 2f), r = Range(0.06f, 0.1f);
+                                        var f = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * r;
+                                        var sd = new Vector3(-f.z, 0f, f.x) * 0.55f;
+                                        Vector3 c0 = At(q, 0.012f);
+                                        Color leaf = b.Jitter(Color.Lerp(LeafA, LeafB, (float)rng.NextDouble()), 0.15f);
+                                        b.AddDoubleSided(c0 - f, c0 + sd, c0 + f, leaf);
+                                        b.AddDoubleSided(c0 - f, c0 + f, c0 - sd, leaf * 0.9f);
+                                    }
+                                    break;
+                                case PathNetwork.Style.Mossy:
+                                    if (roll < 0.6f)
+                                    {
+                                        float r = Range(0.07f, 0.13f);
+                                        b.AddBlob(At(o, -0.01f), new Vector3(r, r * 0.35f, r * 0.9f), 0, 0.3f, _ => b.Jitter(new Color(0.30f, 0.38f, 0.21f), 0.12f), true);
+                                    }
+                                    break;
+                                case PathNetwork.Style.Mud:
+                                    if (roll < 0.35f)
+                                    {
+                                        // A puddle: a flat dark pool lying in the ruts.
+                                        float r = Range(0.18f, 0.4f);
+                                        Vector3 c0 = At(o, 0.015f);
+                                        int sides = 7;
+                                        Color water = b.Jitter(Puddle, 0.05f);
+                                        for (int ei = 0; ei < sides; ei++)
+                                        {
+                                            float a0 = ei * Mathf.PI * 2f / sides, a1 = (ei + 1) * Mathf.PI * 2f / sides;
+                                            float r0 = r * (0.8f + 0.2f * Mathf.Sin(a0 * 3f + s)), r1 = r * (0.8f + 0.2f * Mathf.Sin(a1 * 3f + s));
+                                            b.AddDoubleSided(c0, c0 + new Vector3(Mathf.Cos(a0) * r0 * 1.5f, 0f, Mathf.Sin(a0) * r0), c0 + new Vector3(Mathf.Cos(a1) * r1 * 1.5f, 0f, Mathf.Sin(a1) * r1), water);
+                                        }
+                                    }
+                                    break;
+                                default:
+                                    if (roll < 0.35f)
+                                    {
+                                        // A twig.
+                                        float ang = Range(0f, Mathf.PI), l = Range(0.15f, 0.32f);
+                                        var f = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * l * 0.5f;
+                                        Vector3 c0 = At(o, 0.02f);
+                                        b.AddTube(new[] { c0 - f, c0 + f }, new[] { 0.014f, 0.01f }, 3, b.Jitter(new Color(0.30f, 0.23f, 0.16f), 0.1f), 0.05f);
+                                    }
+                                    else if (roll < 0.7f)
+                                    {
+                                        float r = Range(0.03f, 0.06f);
+                                        b.AddBlob(At(o), new Vector3(r, r * 0.6f, r), 0, 0.25f, _ => b.Jitter(LowPolyModels.Palette.Stone, 0.15f), true);
+                                    }
+                                    break;
+                            }
+                        }
+                        along += len;
+                    }
+                }
 
             // Plant life: shrubs, ferns, tall grass, reeds in ditches and by the lake, dead shrubs, flowers, mushrooms.
             int plants = Mathf.RoundToInt(260f * (halfExtent * halfExtent) / 400f);

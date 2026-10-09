@@ -167,7 +167,7 @@ namespace Vision.Tests
         }
 
         /// <summary>Where the right and left hands end up (body space: x right, y up, z forward) in a clip's key pose.</summary>
-        static (Vector3 r, Vector3 l, Vector3 propDir) HandsIn(ActionClip clip, float t, PropKind prop)
+        static (Vector3 r, Vector3 l, Vector3 propDir, Vector3 fingers) HandsIn(ActionClip clip, float t, PropKind prop)
         {
             GameObject go = NewCharacter(out ActionLayer layer, out _);
             var animator = go.GetComponent<HumanoidAnimator>();
@@ -181,7 +181,9 @@ namespace Vision.Tests
                 Vector3 l = root.InverseTransformPoint(layer.bones[(int)Bone.HandL].position);
                 Transform pt = layer.PropTransform();
                 Vector3 d = pt != null ? root.InverseTransformDirection(pt.forward) : Vector3.zero;
-                return (r, l, d);
+                // The fingers point along the hand bone (its -Y).
+                Vector3 f = root.InverseTransformDirection(-layer.bones[(int)Bone.HandR].up);
+                return (r, l, d, f);
             }
             finally { Object.DestroyImmediate(go); }
         }
@@ -218,7 +220,16 @@ namespace Vision.Tests
             var carry = HandsIn(ActionClips.Carry, 0f, PropKind.None);
             Check("carry: left hand up on the shoulder", carry.l.y > 1.45f && carry.l.x < 0f, carry.l);
             var beam = HandsIn(ActionClips.Beam, 0f, PropKind.None);
-            Check("beam: both arms out front", beam.r.z > 0.45f && beam.l.z > 0.45f, beam.r);
+            Check("beam: the right arm thrust out front", beam.r.z > 0.5f && beam.r.y > 1.2f, beam.r);
+            Check("beam: the palm faces forward (fingers up)", beam.fingers.y > 0.5f, beam.fingers);
+            Check("beam: the left arm drawn back at the side", beam.l.z < 0.15f && beam.l.x < -0.1f, beam.l);
+            var eyes = HandsIn(ActionClips.CoverEyes, 0f, PropKind.None);
+            Check("Penjamin: right hand over the eyes", eyes.r.y > 1.45f && eyes.r.y < 1.72f && eyes.r.z > 0.04f && Mathf.Abs(eyes.r.x) < 0.16f, eyes.r);
+            Check("Penjamin: left hand over the eyes", eyes.l.y > 1.45f && eyes.l.y < 1.72f && eyes.l.z > 0.04f && Mathf.Abs(eyes.l.x) < 0.16f, eyes.l);
+            var back = HandsIn(ActionClips.SwingBack, 0.09f, PropKind.Machete);
+            Check("backhand: cocked by the left shoulder", back.r.x < 0.02f && back.r.y > 1.2f, back.r);
+            var backStrike = HandsIn(ActionClips.SwingBack, 0.2f, PropKind.Machete);
+            Check("backhand: whipped out to his right", backStrike.r.x > 0.3f && backStrike.r.z > 0.2f, backStrike.r);
             Assert.IsEmpty(problems, string.Join("; ", problems));
         }
 

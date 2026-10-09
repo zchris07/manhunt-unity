@@ -49,7 +49,10 @@ namespace Vision.Game
             h.SwingT = Balance.Hunter.Attack.SwingTime;
             h.Move.SlowT = Mathf.Max(h.Move.SlowT, Balance.Hunter.Attack.Windup);
             h.Move.SlowMul = Mathf.Min(h.Move.SlowMul, Balance.Hunter.WindupSlowMul);
-            Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = heavy ? 2 : 1, F = -1f });
+            // Swings in quick succession go back and forth; a charged one always comes from over the shoulder.
+            h.SwingSide = !heavy && Time - h.LastSwingAt < Balance.Hunter.Attack.ComboWindow ? 1 - h.SwingSide : 0;
+            h.LastSwingAt = Time;
+            Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = heavy ? 2 : 1, F = -1f, G = h.SwingSide });
         }
 
         static bool Hittable(SimPlayer q) => q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
@@ -137,7 +140,7 @@ namespace Vision.Game
                     Noise(c, 800f, "glass");
                 }
             h.Heavy = false;
-            Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = power, F = hit ? 1f : 0f });
+            Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = power, F = hit ? 1f : 0f, Text = h.SwingSide == 1 ? "back" : null });
             if (hit)
             {
                 h.AttackCd = Balance.Hunter.Attack.HitCooldown;

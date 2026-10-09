@@ -5,39 +5,189 @@ using UnityEngine;
 namespace Vision.World
 {
     /// <summary>
-    /// Footpaths between points of interest, generated from the terrain: the points are joined by a minimum
-    /// spanning tree, each link is routed with A* over a grid whose step cost rises steeply with slope (so
-    /// paths wind along contours instead of straight over hills), then smoothed with Chaikin's corner cutting.
-    /// Each path point keeps a ground height smoothed along the path, which the terrain flattens to across the
-    /// path's width. Deterministic: same terrain and points, same paths.
+    /// Footpaths between points of interest, generated from the terrain as the original does: the points are joined by
+    /// a minimum spanning tree (plus a few loops), each link routed with A* over a grid whose step cost rises steeply
+    /// with slope (so paths wind along contours instead of straight over hills), then smoothed with Chaikin's corner
+    /// cutting. With a <see cref="Web"/> the routes also wander (a seeded noise field tugs them aside, and a gentle
+    /// meander bends them), and a web of narrower trails grows over the main ones: junctions out in the woods tied into
+    /// the network (some by two trails), and cross-links where two paths pass near each other. Every path has its own
+    /// width and look (packed dirt, gravel, leaf litter, moss, clay, rutted mud). Each path point keeps a ground height
+    /// smoothed along the path, which the terrain flattens to across the path's width. Deterministic: same terrain,
+    /// points and seed, same paths.
     /// </summary>
     public sealed class PathNetwork
     {
         public readonly List<List<Vector2>> Paths = new List<List<Vector2>>();
         readonly List<List<float>> heights = new List<List<float>>();
+        readonly List<List<float>> arcs = new List<List<float>>();
+        /// <summary>The main paths' half-width (the widest; narrower trails keep their own in <see cref="Infos"/>).</summary>
         public float HalfWidth = 0.8f;
+
+        /// <summary>How a path looks: packed dirt, gravel, leaf litter, moss, clay, rutted mud.</summary>
+        public enum Style { Dirt, Gravel, Leafy, Mossy, Clay, Mud }
+
+        /// <summary>One path's character: its width (a fraction of <see cref="HalfWidth"/>), its two looks, whether it is a main path.</summary>
+        public struct Info
+        {
+            public float Width;
+            public Style Look, Second;
+            public bool Main;
+            public float Seed;
+        }
+
+        public readonly List<Info> Infos = new List<Info>();
+
+        /// <summary>How the web of trails grows over the main paths.</summary>
+        public sealed class Web
+        {
+            public int Seed;
+            /// <summary>Extra links that close loops in the spanning tree (the original's three).</summary>
+            public int Loops = 3;
+            /// <summary>Junctions out in the woods tied into the network.</summary>
+            public int Junctions = 11;
+            /// <summary>Trails between paths that pass near each other.</summary>
+            public int CrossLinks = 7;
+            /// <summary>How hard the routes are tugged aside by the noise field, and how far they meander (design units).</summary>
+            public float Wander = 1.4f, Meander = 1.6f;
+        }
 
         const float HashCell = 4f;
         readonly Dictionary<Vector2Int, List<(int path, int index)>> hash = new Dictionary<Vector2Int, List<(int, int)>>();
 
+        /// <summary>A path's half-width at a point along it (it swells and narrows a little).</summary>
+        public float HalfWidthAt(int path, float along)
+        {
+            if (path < 0 || path >= Infos.Count) return HalfWidth;
+            Info i = Infos[path];
+            float n = Mathf.PerlinNoise(along * 0.11f + i.Seed, i.Seed * 0.37f) - 0.5f;
+            return HalfWidth * i.Width * (1f + 0.36f * n);
+        }
+
         /// <param name="height">Ground height before the paths flatten it.</param>
         /// <param name="limit">Paths stay within ±limit on both axes.</param>
         /// <param name="blocked">Cells a path must not cross (buildings).</param>
-        public static PathNetwork Build(IReadOnlyList<Vector2> points, Func<float, float, float> height, float limit, Func<Vector2, bool> blocked, float step = 1f)
+        /// <param name="web">How the trails wander and the web grows over them (null: the plain spanning tree).</param>
+        public static PathNetwork Build(IReadOnlyList<Vector2> points, Func<float, float, float> height, float limit, Func<Vector2, bool> blocked, float step = 1f, Web web = null)
         {
             var net = new PathNetwork();
             if (points.Count < 2) return net;
-            foreach ((int a, int b) in SpanningTree(points))
+            System.Random rnd = web != null ? new System.Random(web.Seed) : null;
+            float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+            Style Pick(params Style[] s) => s[rnd.Next(s.Length)];
+            Vector2 noise = web != null ? new Vector2(R(0f, 500f), R(0f, 500f)) : Vector2.zero;
+            float wander = web != null ? web.Wander : 0f;
+
+            List<Vector2> Shape(List<Vector2> route, float meander)
             {
-                List<Vector2> route = Route(points[a], points[b], height, limit, blocked, step);
-                if (route.Count < 2) continue;
-                route = Chaikin(Chaikin(route));
-                net.Add(route, height);
+                if (web == null || route.Count < 3) return Chaikin(Chaikin(route));
+                route = Resample(route, 0.8f);
+                route = Meander(route, meander, R(0f, 1000f), blocked);
+                return Chaikin(Chaikin(Relax(route, 3)));
+            }
+            void Link(Vector2 a, Vector2 b, Info info, float meander)
+            {
+                List<Vector2> route = Route(a, b, height, limit, blocked, step, wander, noise);
+                if (route.Count < 2) return;
+                net.Add(Shape(route, meander), height, info);
+            }
+            Info MainInfo() => web == null ? new Info { Width = 1f, Look = Style.Dirt, Second = Style.Dirt, Main = true }
+                : new Info { Width = R(0.92f, 1.05f), Look = Pick(Style.Dirt, Style.Dirt, Style.Clay), Second = Pick(Style.Gravel, Style.Mud, Style.Leafy, Style.Mossy), Main = true, Seed = R(0f, 100f) };
+            Info TrailInfo() => new Info
+            {
+                Width = R(0.42f, 0.66f), Look = Pick(Style.Dirt, Style.Leafy, Style.Leafy, Style.Mossy, Style.Gravel, Style.Mud),
+                Second = Pick(Style.Leafy, Style.Mossy, Style.Dirt), Seed = R(0f, 100f),
+            };
+
+            // The backbone: a spanning tree over the points of interest, and (like the original) a few loops.
+            List<(int, int)> edges = SpanningTree(points);
+            if (web != null)
+            {
+                var extra = new List<(float d, int a, int b)>();
+                for (int a = 0; a < points.Count; a++)
+                    for (int b = a + 1; b < points.Count; b++)
+                    {
+                        if (edges.Contains((a, b)) || edges.Contains((b, a))) continue;
+                        float d = Vector2.Distance(points[a], points[b]);
+                        if (d < 78f && !blocked(Vector2.Lerp(points[a], points[b], 0.5f))) extra.Add((d, a, b));
+                    }
+                extra.Sort((x, y) => x.d.CompareTo(y.d));
+                int loops = 0;
+                foreach (var (_, a, b) in extra)
+                {
+                    if (loops >= web.Loops) break;
+                    if (rnd.NextDouble() > 0.3) continue;
+                    edges.Add((a, b));
+                    loops++;
+                }
+            }
+            foreach ((int a, int b) in edges) Link(points[a], points[b], MainInfo(), web != null ? web.Meander : 0f);
+            if (web == null) return net;
+
+            // The web: junctions out in the woods, each tied into the network, some by a second trail.
+            int mains = net.Paths.Count;
+            var junctions = new List<Vector2>();
+            for (int tries = 0; tries < 600 && junctions.Count < web.Junctions; tries++)
+            {
+                var p = new Vector2(R(-limit * 0.88f, limit * 0.88f), R(-limit * 0.88f, limit * 0.88f));
+                if (blocked(p)) continue;
+                float d = net.Distance(p);
+                if (d < 9f || d > 34f) continue;
+                if (junctions.Exists(q => Vector2.Distance(q, p) < 18f)) continue;
+                junctions.Add(p);
+            }
+            foreach (Vector2 j in junctions)
+            {
+                if (!net.Nearest(j, -1, out Vector2 q, out int first)) continue;
+                Info info = TrailInfo();
+                Link(j, q, info, web.Meander * 0.7f);
+                if (rnd.NextDouble() < 0.6)
+                {
+                    // A second way out: to another path, or to the next junction along.
+                    Vector2 other = default;
+                    bool found = false;
+                    if (net.Nearest(j, first, out Vector2 q2, out _) && Vector2.Distance(q2, j) < 40f && Vector2.Distance(q2, q) > 10f) { other = q2; found = true; }
+                    else
+                        foreach (Vector2 k in junctions)
+                            if (k != j && Vector2.Distance(k, j) < 36f) { other = k; found = true; break; }
+                    if (found) Link(j, other, info, web.Meander * 0.7f);
+                }
+            }
+
+            // Cross-links: where two paths pass close to each other, a short trail joins them.
+            var candidates = new List<(Vector2 a, Vector2 b)>();
+            for (int i = 0; i < mains; i++)
+            {
+                List<Vector2> path = net.Paths[i];
+                float run = 0f;
+                for (int k = 1; k < path.Count; k++)
+                {
+                    run += Vector2.Distance(path[k - 1], path[k]);
+                    if (run < 14f) continue;
+                    run = 0f;
+                    if (!net.Nearest(path[k], i, out Vector2 q, out _)) continue;
+                    float d = Vector2.Distance(q, path[k]);
+                    if (d < 9f || d > 26f || blocked(Vector2.Lerp(path[k], q, 0.5f))) continue;
+                    candidates.Add((path[k], q));
+                }
+            }
+            for (int i = candidates.Count - 1; i > 0; i--)
+            {
+                int k = rnd.Next(i + 1);
+                (candidates[i], candidates[k]) = (candidates[k], candidates[i]);
+            }
+            var chosen = new List<Vector2>();
+            foreach (var (a, b) in candidates)
+            {
+                if (chosen.Count >= web.CrossLinks) break;
+                Vector2 mid = (a + b) * 0.5f;
+                if (chosen.Exists(m => Vector2.Distance(m, mid) < 22f)) continue;
+                chosen.Add(mid);
+                Link(a, b, TrailInfo(), web.Meander * 0.5f);
             }
             return net;
         }
 
-        void Add(List<Vector2> route, Func<float, float, float> height)
+        void Add(List<Vector2> route, Func<float, float, float> height, Info info)
         {
             var h = new List<float>(route.Count);
             foreach (Vector2 p in route) h.Add(height(p.x, p.y));
@@ -51,6 +201,10 @@ namespace Vision.World
             int id = Paths.Count;
             Paths.Add(route);
             heights.Add(h);
+            Infos.Add(info);
+            var arc = new List<float>(route.Count) { 0f };
+            for (int i = 1; i < route.Count; i++) arc.Add(arc[i - 1] + Vector2.Distance(route[i - 1], route[i]));
+            arcs.Add(arc);
             for (int i = 0; i < route.Count - 1; i++)
             {
                 Vector2 a = route[i], b = route[i + 1];
@@ -67,19 +221,20 @@ namespace Vision.World
 
         static Vector2Int Cell(Vector2 p) => new Vector2Int(Mathf.FloorToInt(p.x / HashCell), Mathf.FloorToInt(p.y / HashCell));
 
-        /// <summary>Distance to the nearest path centre line (large when none is near), and the path's ground height there.</summary>
         /// <summary>
-        /// Draws every path segment into a distance grid (and the path's height at the nearest point): cells within
-        /// <paramref name="reach"/> of a path get their distance, the rest stay at <paramref name="far"/>. One pass over
-        /// the segments instead of a search per point.
+        /// Draws every path segment into a distance grid (and the path's height at the nearest point, which path it is and
+        /// how far along it): cells within <paramref name="reach"/> of a path get their distance, the rest stay at
+        /// <paramref name="far"/>. One pass over the segments instead of a search per point.
         /// </summary>
-        public void Rasterize(float min, float step, int n, float reach, float far, float[] distance, float[] height)
+        public void Rasterize(float min, float step, int n, float reach, float far, float[] distance, float[] height, int[] which = null, float[] along = null)
         {
             for (int k = 0; k < distance.Length; k++) { distance[k] = far; height[k] = 0f; }
+            if (which != null) for (int k = 0; k < which.Length; k++) which[k] = -1;
             for (int p = 0; p < Paths.Count; p++)
             {
                 List<Vector2> path = Paths[p];
                 List<float> hs = heights[p];
+                List<float> arc = arcs[p];
                 for (int s = 0; s < path.Count - 1; s++)
                 {
                     Vector2 a = path[s], b = path[s + 1], ab = b - a;
@@ -100,12 +255,15 @@ namespace Vision.World
                             if (d >= distance[k]) continue;
                             distance[k] = d;
                             height[k] = Mathf.Lerp(hs[s], hs[s + 1], t);
+                            if (which != null) which[k] = p;
+                            if (along != null) along[k] = Mathf.Lerp(arc[s], arc[s + 1], t);
                         }
                     }
                 }
             }
         }
 
+        /// <summary>Distance to the nearest path centre line (large when none is near), and the path's ground height there.</summary>
         public float Distance(float x, float z, out float pathHeight)
         {
             pathHeight = 0f;
@@ -128,6 +286,28 @@ namespace Vision.World
         }
 
         public float Distance(Vector2 p) => Distance(p.x, p.y, out _);
+
+        /// <summary>The nearest point on any path (but <paramref name="exclude"/>), and which path it is on.</summary>
+        public bool Nearest(Vector2 p, int exclude, out Vector2 point, out int path)
+        {
+            point = p;
+            path = -1;
+            float best = float.MaxValue;
+            for (int i = 0; i < Paths.Count; i++)
+            {
+                if (i == exclude) continue;
+                List<Vector2> pts = Paths[i];
+                for (int k = 0; k < pts.Count - 1; k++)
+                {
+                    Vector2 a = pts[k], ab = pts[k + 1] - a;
+                    float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude));
+                    Vector2 q = a + ab * t;
+                    float d = (q - p).sqrMagnitude;
+                    if (d < best) { best = d; point = q; path = i; }
+                }
+            }
+            return path >= 0;
+        }
 
         /// <summary>Total length of all paths.</summary>
         public float Length
@@ -168,8 +348,11 @@ namespace Vision.World
             return edges;
         }
 
-        /// <summary>A* on a grid: cost = step length x (1 + 12 grade²), blocked cells excluded.</summary>
-        static List<Vector2> Route(Vector2 from, Vector2 to, Func<float, float, float> height, float limit, Func<Vector2, bool> blocked, float step)
+        /// <summary>
+        /// A* on a grid: cost = step length x (1 + 12 grade² + a wandering tug from a noise field), blocked cells excluded.
+        /// </summary>
+        static List<Vector2> Route(Vector2 from, Vector2 to, Func<float, float, float> height, float limit, Func<Vector2, bool> blocked, float step,
+            float wander = 0f, Vector2 noise = default)
         {
             int n = Mathf.CeilToInt(2f * limit / step) + 1;
             Vector2Int ToCell(Vector2 p) => new Vector2Int(Mathf.Clamp(Mathf.RoundToInt((p.x + limit) / step), 0, n - 1), Mathf.Clamp(Mathf.RoundToInt((p.y + limit) / step), 0, n - 1));
@@ -208,7 +391,9 @@ namespace Vision.World
                     if (nk != goal && blocked(np)) continue;
                     float len = d < 4 ? step : step * 1.41421356f;
                     float grade = (H(ni, nj) - H(ci, cj)) / len;
-                    float c = cost[cur] + len * (1f + 12f * grade * grade);
+                    // A noise field tugs the route aside: it wanders through the woods rather than running straight.
+                    float tug = wander > 0f ? wander * Mathf.PerlinNoise(np.x * 0.07f + noise.x, np.y * 0.07f + noise.y) : 0f;
+                    float c = cost[cur] + len * (1f + 12f * grade * grade + tug);
                     if (c >= cost[nk]) continue;
                     cost[nk] = c;
                     parent[nk] = cur;
@@ -222,6 +407,65 @@ namespace Vision.World
             route[0] = from;
             route[route.Count - 1] = to;
             return route;
+        }
+
+        /// <summary>Even spacing along a polyline.</summary>
+        static List<Vector2> Resample(List<Vector2> pts, float spacing)
+        {
+            var o = new List<Vector2> { pts[0] };
+            float carry = 0f;
+            for (int i = 0; i < pts.Count - 1; i++)
+            {
+                Vector2 a = pts[i], b = pts[i + 1];
+                float len = Vector2.Distance(a, b);
+                if (len < 1e-5f) continue;
+                float t = spacing - carry;
+                while (t <= len)
+                {
+                    o.Add(Vector2.Lerp(a, b, t / len));
+                    t += spacing;
+                }
+                carry = len - (t - spacing);
+            }
+            if ((o[o.Count - 1] - pts[pts.Count - 1]).sqrMagnitude > 1e-4f) o.Add(pts[pts.Count - 1]);
+            return o;
+        }
+
+        /// <summary>
+        /// A gentle sideways meander along the route (two noise octaves along its length), fading out toward both ends so
+        /// it still meets them; a bend that would run into something stays where it was.
+        /// </summary>
+        static List<Vector2> Meander(List<Vector2> pts, float amp, float seed, Func<Vector2, bool> blocked)
+        {
+            if (amp <= 0f || pts.Count < 3) return pts;
+            float total = 0f;
+            var along = new float[pts.Count];
+            for (int i = 1; i < pts.Count; i++) along[i] = total += Vector2.Distance(pts[i - 1], pts[i]);
+            var o = new List<Vector2>(pts);
+            for (int i = 1; i < pts.Count - 1; i++)
+            {
+                Vector2 d = (pts[i + 1] - pts[i - 1]).normalized;
+                var nrm = new Vector2(-d.y, d.x);
+                float s = along[i];
+                float w = Mathf.Clamp01(s / 6f) * Mathf.Clamp01((total - s) / 6f);
+                float bend = (Mathf.PerlinNoise(s * 0.045f + seed, seed * 0.13f) - 0.5f) * 2f + (Mathf.PerlinNoise(s * 0.13f + seed * 1.7f, 3.1f) - 0.5f) * 0.6f;
+                Vector2 q = pts[i] + nrm * (amp * bend * w);
+                if (!blocked(q)) o[i] = q;
+                else if (!blocked(Vector2.Lerp(pts[i], q, 0.5f))) o[i] = Vector2.Lerp(pts[i], q, 0.5f);
+            }
+            return o;
+        }
+
+        /// <summary>Smooths a polyline's wiggles (each inner point pulled toward its neighbours), keeping the ends.</summary>
+        static List<Vector2> Relax(List<Vector2> pts, int passes)
+        {
+            for (int pass = 0; pass < passes; pass++)
+            {
+                var o = new List<Vector2>(pts);
+                for (int i = 1; i < pts.Count - 1; i++) o[i] = (pts[i - 1] + 2f * pts[i] + pts[i + 1]) * 0.25f;
+                pts = o;
+            }
+            return pts;
         }
 
         static List<Vector2> Chaikin(List<Vector2> pts)

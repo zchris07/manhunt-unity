@@ -14,13 +14,14 @@ namespace Vision.UI
     /// for 50 Nic), the Hemp Battery's pulsing green disc, the Hemp Beam (a charging orb, then a white-green beam with an
     /// impact glow), guns (muzzle flash, pellet tracers), and the sounds of all of it, placed where it happens.
     /// </summary>
+    [DefaultExecutionOrder(100)]
     public sealed partial class MatchEffects : MonoBehaviour
     {
         public SandboxWorld world;
 
         MatchHost host;
 
-        struct Arc { public Vector2 At; public float Angle, Radius, ArcDeg; public bool Heavy; public float Born; }
+        struct Arc { public Vector2 At; public float Angle, Radius, ArcDeg; public bool Heavy, Back; public float Born; }
         struct Wave { public Vector2 At; public float Angle, Born; }
         struct Tracer { public Vector3 From, To; public Color Color; public float Born, Life, Width; }
 
@@ -31,7 +32,6 @@ namespace Vision.UI
         readonly List<int> beamGone = new List<int>();
         readonly List<Vector3> pts = new List<Vector3>(64);
         readonly List<Color> cols = new List<Color>(64);
-        float lastChargeSound = -10f;
         readonly Dictionary<int, float> charging = new Dictionary<int, float>();
 
         AudioManager Audio => AudioManager.Instance;
@@ -91,7 +91,7 @@ namespace Vision.UI
                     else if (e.G <= 0f)
                     {
                         float reach = Balance.Hunter.Attack.Range * (e.B >= 2 ? Balance.Hunter.Attack.ChargeRangeMul : 1f);
-                        arcs.Add(new Arc { At = by.Pos, Angle = by.Facing, Radius = reach, ArcDeg = Balance.Hunter.Attack.ArcDeg * (e.B >= 2 ? Balance.Hunter.Attack.ChargeArcMul : 1f), Heavy = e.B >= 2, Born = Now });
+                        arcs.Add(new Arc { At = by.Pos, Angle = by.Facing, Radius = reach, ArcDeg = Balance.Hunter.Attack.ArcDeg * (e.B >= 2 ? Balance.Hunter.Attack.ChargeArcMul : 1f), Heavy = e.B >= 2, Back = e.Text == "back", Born = Now });
                         if (e.F > 0f) Audio.PlayCue("slash", Units(by.Pos));
                     }
                     break;
@@ -119,8 +119,6 @@ namespace Vision.UI
                     break;
                 case EventKind.Item:
                     if (e.Text != null && e.Text.StartsWith("Picked up")) Audio.PlayCue("pickup");
-                    // The last round spent: the gun clicks empty.
-                    else if (e.Text != null && e.Text.EndsWith(" empty")) Audio.PlayCue("dry");
                     break;
                 case EventKind.Noise:
                     switch (e.Text)
@@ -158,21 +156,15 @@ namespace Vision.UI
             Vector3 muzzle = Ground(e.Pos, 1.1f);
             Color flash = golden ? new Color(1f, 0.76f, 0.23f, 1f) : new Color(1f, 0.82f, 0.23f, 1f);
             Fx.Burst(muzzle, 10, 3f * S, 0.12f, flash, 0.09f * S, false, Vfx.Blend.Additive, 0f, 8f, 0.2f);
-            Vector2 at = Units(e.Pos);
             switch (item)
             {
                 case Vision.Player.ItemType.Pistol:
-                    Audio.PlayCue("pistol", at);
                     AddTracer(e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, new Color(1f, 0.9f, 0.6f, 0.9f), 0.04f);
                     break;
                 case Vision.Player.ItemType.Sniper:
-                    Audio.PlayCue("sniper", at);
-                    Audio.PlayCue("sniper_tail", at);
                     AddTracer(e.Pos, e.F, 6000f, new Color(1f, 0.95f, 0.82f, 1f), 0.05f, 0.35f);
                     break;
                 default:
-                    Audio.PlayCue(golden ? "golden" : "shotgun", at);
-                    if (golden) Audio.PlayCue("golden_bell", at);
                     // Pellets: "hit|angle*1000:distance,..." (original units).
                     string list = e.Text != null && e.Text.Contains("|") ? e.Text.Substring(e.Text.IndexOf('|') + 1) : "";
                     foreach (string p in list.Split(','))
@@ -205,11 +197,12 @@ namespace Vision.UI
             if (sim == null || world == null) return;
             foreach (SimPlayer p in sim.Order)
             {
+                // Anyone Thomas armed can fire the Hemp Beam too.
+                if (p.BeamT > 0f && p.Health != Health.Eliminated) PlayerBeam(p);
                 if (p.Role != Role.Hunter || p.Health == Health.Eliminated) continue;
                 ChargeRing(p);
                 LungeLines(p);
                 HempDisc(p);
-                Beam(p);
             }
             DrawArcs();
             DrawWaves(sim);
@@ -232,7 +225,6 @@ namespace Vision.UI
             if (!charging.ContainsKey(p.Id))
             {
                 charging[p.Id] = Time.time;
-                if (Time.time - lastChargeSound > 0.3f) { Audio.PlayClipAt(SoundBank.ChargeSwell(), Units(p.Pos), 0.55f, 1f, 150f, 900f); lastChargeSound = Time.time; }
             }
             float k = Mathf.Clamp01(p.ChargeT / Balance.Hunter.Attack.ChargeMax);
             bool heavy = p.ChargeT >= Balance.Hunter.Attack.HeavyAt;
@@ -270,58 +262,13 @@ namespace Vision.UI
             Fx.Circle(Ground(p.Pos, 0.05f), r, 0.04f * S, new Color(0x6d / 255f, 1f, 0x6a / 255f, 0.5f), true);
         }
 
-        /// <summary>The Hemp Beam: an orb gathering at his hands, then a white-green beam with a glow where it ends.</summary>
-        void Beam(SimPlayer p)
-        {
-            if (p.BeamT <= 0f) return;
-            bool charging = p.BeamT > Balance.Sexton.Defense.BeamTime;
-            Vector3 hands = Along(p.Pos, p.BeamAng, Balance.HunterRadius * 1.6f, 0f, 1.25f);
-            if (charging)
-            {
-                float k = 1f - (p.BeamT - Balance.Sexton.Defense.BeamTime) / Mathf.Max(0.01f, Balance.Hunter.Beam.Windup);
-                Fx.Dot(hands, (0.08f + 0.22f * k) * S, new Color(0.85f, 1f, 0.85f, 0.9f), false, true);
-                Fx.Dot(hands, (0.2f + 0.45f * k) * S, new Color(0.4f, 1f, 0.45f, 0.35f), false, true);
-                // Sparks spiralling in.
-                for (int i = 0; i < 6; i++)
-                {
-                    float a = Time.time * 9f + i * Mathf.PI / 3f, rad = (0.5f - 0.4f * k) * S;
-                    Fx.Dot(hands + new Vector3(Mathf.Cos(a), Mathf.Sin(a) * 0.5f, Mathf.Sin(a)) * rad, 0.03f * S, new Color(0.9f, 1f, 0.9f, 0.9f), false, true);
-                }
-                return;
-            }
-            float len = p.BeamLen > 0f ? Scale.ToUnits(p.BeamLen) : Balance.Sexton.Defense.BeamRange;
-            Vector3 end = Along(p.Pos, p.BeamAng, len, 0f, 1.25f);
-            float flicker = 0.85f + 0.15f * Mathf.Sin(Time.time * 60f);
-            foreach (var (w, c) in new[] { (0.5f, new Color(0.35f, 1f, 0.4f, 0.25f)), (0.24f, new Color(0.7f, 1f, 0.72f, 0.6f)), (0.08f, new Color(1f, 1f, 1f, 0.95f)) })
-            {
-                pts.Clear(); cols.Clear();
-                pts.Add(hands); pts.Add(end);
-                cols.Add(c * flicker); cols.Add(c * flicker);
-                Fx.Ribbon(pts, cols, w * S, false, true);
-            }
-            Fx.Dot(end, 0.5f * S * flicker, new Color(0.7f, 1f, 0.72f, 0.6f), false, true);
-            Fx.Dot(hands, 0.3f * S, new Color(0.9f, 1f, 0.9f, 0.8f), false, true);
-        }
-
-        readonly Dictionary<int, float> lastReload = new Dictionary<int, float>();
         readonly Dictionary<int, ActionKind> lastAction = new Dictionary<int, ActionKind>();
 
-        /// <summary>A gun being made ready after a shot (racked, or a fresh clip), and a trap being set.</summary>
+        /// <summary>A trap being set.</summary>
         void ReloadSounds(MatchSim sim)
         {
             foreach (SimPlayer p in sim.Order)
             {
-                lastReload.TryGetValue(p.Id, out float before);
-                if (before > 0.35f && p.ReloadT <= 0.35f && p.ReloadT > 0f)
-                {
-                    Vision.Player.Inventory.Slot s = p.Selected;
-                    bool shotgun = p.Role == Role.Hunter || (s != null && s.item == Vision.Player.ItemType.Shotgun);
-                    Audio.PlayCue(shotgun ? "rack" : "reload", Units(p.Pos));
-                }
-                // A shotgun's long reload: a shell goes in before the rack.
-                if (before > 1f && p.ReloadT <= 1f && p.ReloadT > 0f && p.Role == Role.Survivor && p.Selected != null && p.Selected.item == Vision.Player.ItemType.Shotgun && !p.Selected.golden)
-                    Audio.PlayCue("shell", Units(p.Pos));
-                lastReload[p.Id] = p.ReloadT;
                 lastAction.TryGetValue(p.Id, out ActionKind a);
                 if (p.Action == ActionKind.Plant && a != ActionKind.Plant) Audio.PlayCue("trap", Units(p.Pos));
                 lastAction[p.Id] = p.Action;
@@ -380,36 +327,57 @@ namespace Vision.UI
                 float r = Scale.D(a.Radius) * S;
                 // Sweeps across over the first part of its life.
                 float sweep = Mathf.Clamp01(k * 2.5f);
-                Fx.Arc(Ground(a.At, 0.9f), r * 0.55f, r, a.Angle - half, half * 2f * sweep, c, true, Vfx.Blend.Alpha);
+                // A forehand sweeps from his right to his left, a backhand back the other way.
+                float start = a.Back ? a.Angle + half - half * 2f * sweep : a.Angle - half;
+                Fx.Arc(Ground(a.At, 0.9f), r * 0.55f, r, start, half * 2f * sweep, c, true, Vfx.Blend.Alpha);
             }
         }
 
-        /// <summary>The Soundcloud Burst: a purple concave lens of fixed width flying straight on through walls, with echoes.</summary>
+        /// <summary>
+        /// The Soundcloud Burst: a sound wave racing straight on through walls, purple and translucent. Its crest follows
+        /// the concave lens the rules hit with: a thin bright leading edge, a soft violet body, and pressure bands rippling
+        /// behind it like compressions in the air, the whole front trembling along its length and thinning out at its
+        /// tips. Behind it a faint smear of where it just was, gone in a tenth of a second.
+        /// </summary>
         void DrawWaves(MatchSim sim)
         {
             float now = Now;
-            float half = Balance.Hunter.Burst.Width / 2f;
-            const int N = 16;
+            float half = Balance.Hunter.Burst.Width / 2f, speed = Balance.Hunter.Burst.Speed, T = Balance.Hunter.Burst.Thickness;
+            const int N = 32;
             for (int w = waves.Count - 1; w >= 0; w--)
             {
                 Wave wv = waves[w];
-                float front = Balance.Hunter.Burst.Speed * (now - wv.Born);
-                if (front - Balance.Hunter.Burst.Thickness > Balance.World.Size * 1.5f) { waves.RemoveAt(w); continue; }
-                void Lens(float back, float depth, float grow, Color c)
+                float age = now - wv.Born;
+                float front = speed * age;
+                if (front - T > Balance.World.Size * 1.5f) { waves.RemoveAt(w); continue; }
+                float born = Mathf.Clamp01(age / 0.08f);
+                void Front(float back, float widthUnits, Color c, float tremble, float freq, float phase)
                 {
-                    for (int i = 0; i < N; i++)
+                    pts.Clear(); cols.Clear();
+                    for (int i = 0; i <= N; i++)
                     {
-                        float s0 = -half + Balance.Hunter.Burst.Width * i / N, s1 = -half + Balance.Hunter.Burst.Width * (i + 1) / N;
-                        float f0 = front - back + MatchRules.BurstSag(s0) + grow, f1 = front - back + MatchRules.BurstSag(s1) + grow;
-                        float b0 = front - back - depth - MatchRules.BurstSag(s0) - grow, b1 = front - back - depth - MatchRules.BurstSag(s1) - grow;
-                        Fx.Quad(Along(wv.At, wv.Angle, f0, s0, 0.3f), Along(wv.At, wv.Angle, f1, s1, 0.3f), Along(wv.At, wv.Angle, b1, s1, 0.3f), Along(wv.At, wv.Angle, b0, s0, 0.3f), c, false, true);
+                        float sUnits = -half + Balance.Hunter.Burst.Width * i / N;
+                        float u = sUnits / half;
+                        // The crest shivers along its length, two frequencies beating against each other.
+                        float shake = (Mathf.Sin(u * freq + now * 38f + phase) + 0.45f * Mathf.Sin(u * freq * 2.3f - now * 61f + phase * 1.7f)) * tremble;
+                        pts.Add(Along(wv.At, wv.Angle, front - back + MatchRules.BurstSag(sUnits) + shake, sUnits, 0.35f));
+                        float tip = 1f - Mathf.Pow(Mathf.Abs(u), 6f);
+                        Color col = c;
+                        col.a *= tip * born;
+                        cols.Add(col);
                     }
+                    Fx.Ribbon(pts, cols, Scale.D(widthUnits) * S, false, true, Vfx.Blend.Additive, true);
                 }
-                float T = Balance.Hunter.Burst.Thickness;
-                for (int k = 1; k <= 4; k++) Lens(k * 30f, T * 0.6f, 0f, new Color(0x5a / 255f, 0x1a / 255f, 0xb8 / 255f, 0.14f / k));
-                Lens(0f, T, 10f, new Color(0x5a / 255f, 0x2a / 255f, 0xb0 / 255f, 0.25f));
-                Lens(0f, T, 0f, new Color(0x7a / 255f, 0x3a / 255f, 0xe0 / 255f, 0.4f));
-                Lens(0f, T * 0.35f, -4f, new Color(0xa0 / 255f, 0x70 / 255f, 0xf0 / 255f, 0.35f));
+                // The faint smear behind: the front where it was over the last tenth of a second.
+                for (int k = 5; k >= 1; k--)
+                    Front(T * 0.5f + speed * 0.018f * k, T * 1.3f, new Color(0.42f, 0.18f, 0.85f, 0.055f * (1f - k / 6f)), 3f, 9f, k);
+                // Pressure bands rippling behind the crest.
+                for (int b = 3; b >= 1; b--)
+                    Front(T * (0.85f + b * 0.8f), T * 0.32f, new Color(0.55f, 0.28f, 0.95f, 0.22f / b), 2.5f + b, 11f, b * 2.1f);
+                // The body, the crest, and its bright leading edge.
+                Front(T * 0.45f, T * 1.7f, new Color(0.45f, 0.18f, 0.88f, 0.16f), 2f, 8f, 0f);
+                Front(0f, T * 0.6f, new Color(0.6f, 0.32f, 1f, 0.36f), 1.6f, 13f, 0.5f);
+                Front(-T * 0.18f, T * 0.14f, new Color(0.88f, 0.76f, 1f, 0.62f), 1.2f, 17f, 1f);
             }
         }
 

@@ -6,8 +6,7 @@ namespace Vision.Audio
     /// <summary>
     /// The game's sound cues and the files behind them (the fetched CC0 packs in Resources/Audio/Fx, see CREDITS.md):
     /// each cue picks one of its variants at random, with a little pitch and volume jitter so repeats don't sound
-    /// mechanical. Some cues are layered or pitched to build sounds no pack has (a heavy machete swing, the golden
-    /// pump, the 0.50 cal), and the machete's charge swell is synthesised.
+    /// mechanical. Some cues are layered or pitched to build sounds no pack has (a heavy machete swing).
     /// </summary>
     public static class SoundBank
     {
@@ -39,16 +38,6 @@ namespace Vision.Audio
             ["splinter"] = new Cue { Files = Range("impact_impactplank_medium_", 0, 4), Volume = 0.8f, Radius = 1000f },
             ["glass"] = new Cue { Files = new[] { "impact_impactglass_heavy_000", "impact_impactglass_heavy_001", "impact_impactglass_heavy_002", "sfx100_glass_01", "sfx100_glass_02" }, Volume = 1f, Radius = 1300f },
             // Guns.
-            ["pistol"] = new Cue { Files = new[] { "tabasco_cz" }, Volume = 0.9f, Radius = 2600f, PitchJitter = 0.04f },
-            ["shotgun"] = new Cue { Files = new[] { "tabasco_shotty" }, Volume = 1f, Radius = 3000f, PitchJitter = 0.04f },
-            ["golden"] = new Cue { Files = new[] { "tabasco_shotty" }, Volume = 1f, Pitch = 1.08f, Radius = 3000f, PitchJitter = 0.02f },
-            ["golden_bell"] = new Cue { Files = Range("impact_impactbell_heavy_", 0, 4), Volume = 0.45f, Pitch = 1.2f, Radius = 2000f },
-            ["sniper"] = new Cue { Files = new[] { "tabasco_mosin" }, Volume = 1f, Pitch = 0.78f, Radius = 6000f, PitchJitter = 0.02f },
-            ["sniper_tail"] = new Cue { Files = new[] { "sfx100_explosion" }, Volume = 0.35f, Pitch = 0.7f, Radius = 6000f },
-            ["rack"] = new Cue { Files = new[] { "shotgun_rack" }, Volume = 0.7f, Radius = 700f },
-            ["reload"] = new Cue { Files = new[] { "gun_reload", "clip_load" }, Volume = 0.7f, Radius = 700f },
-            ["shell"] = new Cue { Files = new[] { "shotgun_first_shell", "shotgun_subsequent_shells" }, Volume = 0.6f, Radius = 600f },
-            ["dry"] = new Cue { Files = new[] { "rpg_metalclick" }, Volume = 0.6f, Radius = 400f },
             // Things.
             ["door_open"] = new Cue { Files = new[] { "rpg_dooropen_1", "rpg_dooropen_2" }, Volume = 0.7f, Radius = 900f },
             ["door_close"] = new Cue { Files = new[] { "rpg_doorclose_1", "rpg_doorclose_2", "rpg_doorclose_3", "rpg_doorclose_4" }, Volume = 0.7f, Radius = 900f },
@@ -82,32 +71,6 @@ namespace Vision.Audio
             c = Resources.Load<AudioClip>("Audio/Fx/" + file);
             loaded[file] = c;
             return c;
-        }
-
-        static AudioClip chargeSwell;
-
-        /// <summary>The machete's charge: a rising, tightening swell of filtered noise and a low tone (0.9 s, synthesised).</summary>
-        public static AudioClip ChargeSwell()
-        {
-            if (chargeSwell != null) return chargeSwell;
-            const int rate = 44100;
-            int n = Mathf.RoundToInt(rate * 0.9f);
-            var data = new float[n];
-            var rng = new System.Random(17);
-            float lp = 0f, phase = 0f;
-            for (int i = 0; i < n; i++)
-            {
-                float t = (float)i / rate, k = t / 0.9f;
-                float noise = (float)rng.NextDouble() * 2f - 1f;
-                float cut = Mathf.Lerp(0.02f, 0.22f, k * k);
-                lp += (noise - lp) * cut;
-                phase += 2f * Mathf.PI * Mathf.Lerp(55f, 140f, k * k) / rate;
-                float env = Mathf.SmoothStep(0f, 1f, Mathf.Min(1f, t / 0.08f)) * Mathf.Lerp(0.25f, 1f, k);
-                data[i] = Mathf.Clamp((lp * 1.6f + Mathf.Sin(phase) * 0.35f) * env, -1f, 1f) * 0.7f;
-            }
-            chargeSwell = AudioClip.Create("charge swell", n, 1, rate, false);
-            chargeSwell.SetData(data, 0);
-            return chargeSwell;
         }
     }
 }

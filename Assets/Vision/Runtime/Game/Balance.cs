@@ -65,6 +65,8 @@ namespace Vision.Game
                 public const int BarricadeHits = 2, DoorHits = 2;
                 public const float ChargeMax = 0.9f, HeavyAt = 0.85f, ChargeRangeMul = 1.3f, ChargeArcMul = 1.25f, ChargeSlowMul = 0.65f, AutoRelease = 3f;
                 public const float DamageBase = 1f / 3f, DamageFull = 2f / 3f, TapGrace = 0.1f;
+                /// <summary>Light swings this soon after the last one come back the other way (forehand, backhand...).</summary>
+                public const float ComboWindow = 0.9f;
             }
 
             public static class Lunge

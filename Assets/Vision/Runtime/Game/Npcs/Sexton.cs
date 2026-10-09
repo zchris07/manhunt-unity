@@ -36,6 +36,8 @@ namespace Vision.Game
         public override bool Gone => false;
         public bool Defending => State == Mode.Defend;
         public bool Beaming => alive && State == Mode.Defend && DefensePhase == Phase.Beam && StunT <= 0f;
+        /// <summary>How far his beam has charged while he steps in to fire (0-1; 0 when he isn't).</summary>
+        public float ChargeK => alive && State == Mode.Defend && DefensePhase == Phase.Approach ? Mathf.Clamp01(1f - phaseT / Balance.Sexton.Defense.ApproachTime) : 0f;
         public override bool Aggressive => alive && State == Mode.Defend;
         public override NpcFlags Flags => base.Flags | (State == Mode.Flee || (State == Mode.Defend && DefensePhase == Phase.Flee) ? NpcFlags.Fleeing : 0)
             | (State == Mode.Defend ? NpcFlags.Defending : 0) | (State == Mode.Talk ? NpcFlags.Talking : 0);

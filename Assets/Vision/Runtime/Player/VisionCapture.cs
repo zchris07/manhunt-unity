@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Collections;
 using System.IO;
@@ -603,6 +604,61 @@ namespace Vision.Player
                         host.Sim.ClearDummies();
                     }
                 }
+                // The paths: a trail branching off a main path, up close.
+                {
+                    PathNetwork net = world.Terrain.Paths;
+                    int trail = net != null ? net.Infos.FindIndex(i => !i.Main) : -1;
+                    if (trail >= 0)
+                    {
+                        List<Vector2> tp = net.Paths[trail];
+                        Vector2 end = tp[tp.Count - 1], before = tp[Mathf.Max(0, tp.Count - 12)];
+                        yield return Stage(player, V(end + (before - end).normalized * 3.5f), (end - before).normalized, wanderer, away);
+                        yield return new WaitForSeconds(0.4f);
+                        yield return Shot("106_path_junction");
+                    }
+                    if (net != null && net.Paths.Count > 0)
+                    {
+                        List<Vector2> mp = net.Paths[0];
+                        Vector2 mid = mp[mp.Count / 2], next = mp[Mathf.Min(mp.Count - 1, mp.Count / 2 + 6)];
+                        yield return Stage(player, V(mid), (next - mid).normalized, wanderer, away);
+                        yield return new WaitForSeconds(0.4f);
+                        yield return Shot("107_main_path");
+                    }
+                }
+                // A survivor in Penjamin's gas, hands over the eyes (close up).
+                {
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                    gameHud.PlayTestFx(TestFx.Vape);
+                    float o = cameraRig.orthographicSize;
+                    cameraRig.orthographicSize = o * 0.45f;
+                    yield return new WaitForSeconds(1.4f);
+                    yield return Shot("108_penjamin_cover_eyes");
+                    cameraRig.orthographicSize = o;
+                    yield return new WaitForSeconds(3f);
+                }
+                // A bottle through a window: the glass gone, the frame open to climb through.
+                if (world.Windows.Count > 0 && world.Windows[0] != null)
+                {
+                    SimPlayer me11 = host.Local;
+                    WindowPiece win = world.Windows[0];
+                    Vector2 mid = (win.a + win.b) * 0.5f, along = (win.b - win.a).normalized, normal = new Vector2(-along.y, along.x);
+                    Vector2 stand = mid + normal * 3f;
+                    if (world.GroundHeight(stand) > world.GroundHeight(mid + normal * -3f) + 0.5f || world.Layout.Building.Contains(stand)) stand = mid - normal * 3f;
+                    player.Teleport(world.transform.TransformPoint(new Vector3(stand.x, world.GroundHeight(stand) + 0.05f, stand.y)));
+                    player.AimOverride = (mid - stand).normalized;
+                    cameraRig.Snap();
+                    yield return Wait(10);
+                    player.SelectedSlot = me11.Inv.FirstSlotOf(ItemType.Bottle);
+                    yield return Wait(3);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.8f);
+                    gameHud.Refresh();
+                    yield return Shot("109_window_broken_by_bottle");
+                    player.SelectedSlot = -1;
+                    player.AimOverride = null;
+                }
                 // Zach's kit: his HUD, the charge ring, a swing, the Burst, Penjamin, the Hemp Battery and Beam.
                 if (host.SwitchRole())
                 {
@@ -624,8 +680,15 @@ namespace Vision.Player
                     yield return new WaitForSeconds(0.12f);
                     yield return Shot("87_zach_heavy_swing");
                     yield return new WaitForSeconds(0.8f);
+                    // A quick flurry: the second swing comes back the other way.
+                    yield return Press(Btn.Primary, 2);
+                    yield return new WaitForSeconds(0.45f);
+                    yield return Press(Btn.Primary, 2);
+                    yield return new WaitForSeconds(0.17f);
+                    yield return Shot("110_zach_backhand");
+                    yield return new WaitForSeconds(0.8f);
                     yield return Press(Btn.Secondary, 1);
-                    yield return new WaitForSeconds(0.08f);
+                    yield return new WaitForSeconds(0.1f);
                     yield return Shot("88_soundcloud_burst");
                     yield return new WaitForSeconds(1.5f);
                     yield return Press(Btn.Vape);
@@ -635,11 +698,25 @@ namespace Vision.Player
                     yield return Press(Btn.Ability);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot("90_hemp_battery");
+                    // The beam aimed at the nearest tree or wall, to see it splash.
+                    {
+                        Vector2 me12 = z.Pos, aimAt = me12 + Vector2.up * 6f;
+                        float bestD = 9f;
+                        for (int a = 0; a < 24; a++)
+                        {
+                            var dir = new Vector2(Mathf.Cos(a * Mathf.PI / 12f), Mathf.Sin(a * Mathf.PI / 12f));
+                            float hit = host.Sim.Geo.CastSight(me12, dir, 9f);
+                            if (hit > 2.5f && hit < bestD) { bestD = hit; aimAt = me12 + dir * hit; }
+                        }
+                        player.AimOverride = (aimAt - me12).normalized;
+                        yield return Wait(5);
+                    }
                     yield return Press(Btn.Beam);
                     yield return new WaitForSeconds(0.6f);
                     yield return Shot("91_hemp_beam_charging");
                     yield return new WaitForSeconds(1.0f);
                     yield return Shot("92_hemp_beam");
+                    player.AimOverride = Vector2.up;
                     yield return new WaitForSeconds(3.5f);
                     yield return Press(Btn.Ability);
                     host.Sim.ClearDummies();

@@ -68,8 +68,22 @@ Shader "Vision/Fx"
             half4 frag(Varyings i) : SV_Target
             {
                 half4 c = i.color;
-                // uv.x > 1 marks a soft round particle: fade to the edge.
-                if (i.uv.x > 1.5)
+                // uv.x 6-7: a glow, bright in the middle and falling off smoothly (beams' cores, orbs, flares).
+                if (i.uv.x > 5.5)
+                {
+                    float2 d = i.uv - float2(6.5, 0.5);
+                    float r = saturate(1.0 - length(d) * 2.0);
+                    c.a *= r * r * (0.35 + 0.65 * r);
+                }
+                // uv.x 4-5: a soft ribbon, strongest along its middle and fading to nothing at both edges (uv.y across).
+                else if (i.uv.x > 3.5)
+                {
+                    float across = abs(i.uv.y * 2.0 - 1.0);
+                    float edge = saturate(1.0 - across);
+                    c.a *= edge * edge * (3.0 - 2.0 * edge);
+                }
+                // uv.x 2-3: a soft round particle: fade to the edge.
+                else if (i.uv.x > 1.5)
                 {
                     float2 d = i.uv - float2(2.5, 0.5);
                     c.a *= saturate(1.0 - length(d) * 2.0);

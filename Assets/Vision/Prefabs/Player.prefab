@@ -617,6 +617,7 @@ GameObject:
   - component: {fileID: 363634132608494811}
   - component: {fileID: 5050273021259528254}
   - component: {fileID: 504172917322990267}
+  - component: {fileID: 5315670088029194142}
   - component: {fileID: 3346030196746331178}
   - component: {fileID: 1602474456474461470}
   - component: {fileID: 8508204900453197659}
@@ -791,6 +792,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a33f071157f734b439f54cab41aaee84, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Vision.Runtime::Vision.Characters.CharacterView
+--- !u!114 &5315670088029194142
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3290713459606778728}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f7bcc03fabd05343925eaa41893731b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Audio.Footsteps
 --- !u!143 &3346030196746331178
 CharacterController:
   m_ObjectHideFlags: 0

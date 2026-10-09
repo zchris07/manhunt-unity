@@ -64,15 +64,20 @@ namespace Vision.Characters
             }
 
             // Props: Zach's machete; a survivor's selected item, or the flashlight.
-            if (zach) Layer.Hold(p.Pump > 0 ? PropKind.GoldenPump : PropKind.Machete);
+            PropKind right;
+            if (zach) right = p.Pump > 0 ? PropKind.GoldenPump : PropKind.Machete;
             else
             {
                 Inventory.Slot s = p.Selected;
                 PropKind held = s != null ? PropModels.ForItem(s.item, s.golden) : PropKind.None;
                 if (p.Jarvis > 0 && p.JarvisT > 0f) held = PropKind.Tablet;
                 bool hands = p.Health == Game.Health.Healthy || p.Health == Game.Health.Wounded;
-                Layer.Hold(hands ? (held != PropKind.None ? held : PropKind.Flashlight) : PropKind.None);
+                right = hands ? (held != PropKind.None ? held : PropKind.Flashlight) : PropKind.None;
             }
+            // The Hemp Beam fires from the open right palm: whatever was in it goes to the left hand meanwhile.
+            bool beaming = p.BeamT > 0f;
+            Layer.Hold(beaming ? PropKind.None : right);
+            Layer.Hold(beaming ? right : PropKind.None, true);
 
             // One-shots on entering an action.
             if (p.Action != lastAction)
@@ -103,6 +108,8 @@ namespace Vision.Characters
                 case Game.Health.Eliminated: return null;
             }
             if (p.StunT > 0f) return ActionClips.Stunned;
+            // A survivor Thomas armed fires the Hemp Beam from the palm too.
+            if (p.BeamT > 0f) return ActionClips.Beam;
             switch (p.Action)
             {
                 case ActionKind.Repair: return ActionClips.Repair;
@@ -116,7 +123,7 @@ namespace Vision.Characters
                 case ActionKind.Talk: return ActionClips.Talk;
             }
             if (p.Move.Climbing) return ActionClips.Climb;
-            if (p.VapeT > 0f) return ActionClips.Cough;
+            if (p.VapeT > 0f) return ActionClips.CoverEyes;
             if (p.GogglesOn) return ActionClips.Goggles;
             if (p.Jarvis > 0 && p.JarvisT > 0f) return ActionClips.Tablet;
             Inventory.Slot s = p.Selected;
@@ -143,7 +150,7 @@ namespace Vision.Characters
             if (p.ChargeT >= 0f) return ActionClips.Charge;
             if (p.Move.LungeT > 0f) return ActionClips.Lunge;
             if (p.Carrying != 0) return ActionClips.Carry;
-            if (p.VapeT > 0f) return ActionClips.Cough;
+            if (p.VapeT > 0f) return ActionClips.CoverEyes;
             return null;
         }
 
@@ -156,7 +163,12 @@ namespace Vision.Characters
             {
                 case EventKind.Swing:
                     // From a charge the machete is already raised: skip the windup.
-                    if (e.A == self.Id && e.F < 0f) PlayOnce(e.B >= 2 ? ActionClips.SwingHeavy : ActionClips.Swing, 1f, Layer.Current == ActionClips.Charge ? 0.13f : 0f);
+                    if (e.A == self.Id && e.F < 0f)
+                    {
+                        if (e.B >= 2) PlayOnce(ActionClips.SwingHeavy, 1f, Layer.Current == ActionClips.Charge ? 0.13f : 0f);
+                        else if (e.G > 0.5f) PlayOnce(ActionClips.SwingBack);
+                        else PlayOnce(ActionClips.Swing, 1f, Layer.Current == ActionClips.Charge ? 0.13f : 0f);
+                    }
                     break;
                 case EventKind.Throw:
                     if (e.A == self.Id) PlayOnce(ActionClips.Throw);

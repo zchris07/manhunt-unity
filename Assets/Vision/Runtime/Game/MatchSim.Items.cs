@@ -302,7 +302,15 @@ namespace Vision.Game
             var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
             Vector2 s = p.Pos + d * (p.RadiusD + R(2f));
             float range = R(Balance.Items.Pistol.Range);
-            float best = Mathf.Min(range, Geo.CastSight(s, d, range), WindowHit(s, d, range, out _));
+            float best = Mathf.Min(range, Geo.CastSight(s, d, range));
+            // The round goes through glass, breaking it (a survivor can climb through the frame afterwards).
+            for (int guard = 0; guard < 8; guard++)
+            {
+                float t = WindowHit(s, d, best, out int win);
+                if (win < 0) break;
+                BreakWindow(win);
+                Noise(s + d * t, 800f, "glass");
+            }
             SimPlayer hitP = null;
             Npc hitN = null;
             foreach (SimPlayer q in Order)
@@ -454,8 +462,8 @@ namespace Vision.Game
 
         void UpdateItems(float dt)
         {
-            // Bottles, books and jars fly on until they hit a wall, a tree, a closed door, an unbroken window, Zach, another
-            // survivor or an NPC.
+            // Bottles, books and jars fly on until they hit a wall, a tree, a closed door, Zach, another survivor or an NPC;
+            // one that meets a window smashes it and drops there (anyone can climb through the frame after).
             float maxFlight = Map.HalfExtent * 2.9f;
             for (int k = Thrown.Count - 1; k >= 0; k--)
             {
@@ -466,8 +474,20 @@ namespace Vision.Game
                 float damage = piss ? 0f : book ? Balance.Items.Book.Damage : Balance.Items.Bottle.Damage;
                 float zachDamage = piss ? 0f : book ? Balance.Items.Book.ZachDamage : Balance.Items.Bottle.ZachDamage;
                 float step = R(speed) * dt;
-                float free = Mathf.Min(Geo.CastSight(b.Pos, b.Dir, step + R(1f)), WindowHit(b.Pos, b.Dir, step + R(1f), out _));
+                float wallFree = Geo.CastSight(b.Pos, b.Dir, step + R(1f));
+                float glass = WindowHit(b.Pos, b.Dir, step + R(1f), out int window);
+                float free = Mathf.Min(wallFree, glass);
                 float move = Mathf.Min(step, free);
+                if (window >= 0 && glass <= wallFree && glass <= step)
+                {
+                    // Through the glass: it shatters, and the item falls there.
+                    b.Pos += b.Dir * glass;
+                    BreakWindow(window);
+                    Noise(b.Pos, 800f, "glass");
+                    Noise(b.Pos, 900f, b.Item == ItemType.Book ? "book" : b.Item == ItemType.Piss ? "piss" : "glass");
+                    Thrown.RemoveAt(k);
+                    continue;
+                }
                 float best = move + hitRadius;
                 SimPlayer hitP = null;
                 Npc hitN = null;

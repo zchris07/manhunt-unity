@@ -157,8 +157,11 @@ namespace Vision.Characters
         /// <summary>Raised when a clip passes one of its events.</summary>
         public event System.Action<ActionClip, string> EventFired;
 
-        ActionClip current, fading;
-        float time, fadeTime, weight, fadeWeight, speed = 1f;
+        ActionClip current;
+        float time, weight, speed = 1f;
+        // Clips still fading out (several when actions follow each other quickly), each from where it was.
+        struct Fade { public ActionClip Clip; public float Time, Weight; }
+        readonly List<Fade> fades = new List<Fade>(4);
         bool stopping;
         // The reaction spring: pitch (forward/back) and roll (side to side), degrees.
         Vector2 react, reactVel;
@@ -192,9 +195,8 @@ namespace Vision.Characters
             }
             if (current != null && weight > 0.001f)
             {
-                fading = current;
-                fadeTime = time;
-                fadeWeight = weight;
+                if (fades.Count >= 3) fades.RemoveAt(0);
+                fades.Add(new Fade { Clip = current, Time = time, Weight = weight });
             }
             current = clip;
             time = Mathf.Max(0f, startAt);
@@ -274,18 +276,20 @@ namespace Vision.Characters
             if (bones == null || bones.Length < HumanoidSkeleton.BoneCount) Wire();
             if (bones == null || bones.Length < HumanoidSkeleton.BoneCount) return;
             Advance(dt);
-            ApplyClip(fading, fadeTime, fadeWeight);
+            foreach (Fade f in fades) ApplyClip(f.Clip, f.Time, f.Weight);
             ApplyClip(current, time, weight);
             ApplyReaction(dt);
         }
 
         void Advance(float dt)
         {
-            if (fading != null)
+            for (int i = fades.Count - 1; i >= 0; i--)
             {
-                fadeTime += dt;
-                fadeWeight = Mathf.MoveTowards(fadeWeight, 0f, dt / Mathf.Max(0.01f, fading.BlendOut));
-                if (fadeWeight <= 0f) fading = null;
+                Fade f = fades[i];
+                f.Time += dt;
+                f.Weight = Mathf.MoveTowards(f.Weight, 0f, dt / Mathf.Max(0.01f, f.Clip.BlendOut));
+                if (f.Weight <= 0f) fades.RemoveAt(i);
+                else fades[i] = f;
             }
             if (current == null) return;
             float before = time;
@@ -345,11 +349,19 @@ namespace Vision.Characters
 
         void ApplyReaction(float dt)
         {
-            // A stiff, well-damped spring: a quick flinch that settles in about half a second.
-            const float k = 180f, c = 22f;
-            Vector2 acc = -k * react - c * reactVel;
-            reactVel += acc * dt;
-            react += reactVel * dt;
+            // A stiff, well-damped spring: a quick flinch that settles in about half a second. Integrated in small
+            // semi-implicit steps, so a long frame (a hitch while a sound loads) can't blow it up and leave the arms flung
+            // into a pose they never come back from; and kept within a believable flinch.
+            const float k = 180f, c = 22f, step = 1f / 240f, limit = 35f;
+            if (float.IsNaN(react.x) || float.IsNaN(react.y) || float.IsNaN(reactVel.x) || float.IsNaN(reactVel.y)) { react = reactVel = Vector2.zero; }
+            reactVel = Vector2.ClampMagnitude(reactVel, 900f);
+            for (float left = Mathf.Min(dt, 0.25f); left > 1e-6f; left -= step)
+            {
+                float h = Mathf.Min(step, left);
+                reactVel += (-k * react - c * reactVel) * h;
+                react += reactVel * h;
+            }
+            react = Vector2.ClampMagnitude(react, limit);
             if (react.sqrMagnitude < 1e-4f && reactVel.sqrMagnitude < 1e-3f) { react = Vector2.zero; reactVel = Vector2.zero; return; }
             Quaternion q(float s) => Quaternion.Euler(react.x * s, 0f, react.y * s);
             bones[(int)Bone.Spine].localRotation *= q(0.35f);
