@@ -11,6 +11,8 @@ namespace Vision.Game
     public sealed class SimMap
     {
         public float HalfExtent = 90f;
+        /// <summary>The warehouse's footprint (Marc starts inside it).</summary>
+        public Rect Building = new Rect(-18f, -18f, 36f, 36f);
         public readonly List<Vector2> Generators = new List<Vector2>();
         public Vector2 Lever, GatePos;
         public bool HasGate;
@@ -55,6 +57,12 @@ namespace Vision.Game
     /// <summary>The level's geometry as the rules see it (design units on the ground plane).</summary>
     public interface ISimGeometry : IMoveEnv
     {
+        /// <summary>
+        /// The walkable grid for a body of this radius (original units), 25-unit cells. With <paramref name="doorsOpen"/>
+        /// every door counts as passable (NPCs who open doors on the way); otherwise doors stand as they are now.
+        /// </summary>
+        NavGrid Nav(float radiusUnits, bool doorsOpen = true);
+
         /// <summary>True if nothing that blocks sight (walls, closed doors, trees, rocks) lies between a and b.</summary>
         bool LineOfSight(Vector2 a, Vector2 b);
         /// <summary>How far a ray of sight goes from <paramref name="from"/> along <paramref name="dir"/> (up to max).</summary>
@@ -70,10 +78,26 @@ namespace Vision.Game
     public sealed class OpenGeometry : ISimGeometry
     {
         public Rect ExitZone;
+        public float Half = 90f;
+        /// <summary>Optional walls for tests: a body hits these discs (centre, radius).</summary>
+        public readonly List<(Vector2 c, float r)> Pillars = new List<(Vector2, float)>();
+        readonly Dictionary<int, NavGrid> navs = new Dictionary<int, NavGrid>();
+
+        public NavGrid Nav(float radiusUnits, bool doorsOpen = true)
+        {
+            int key = Mathf.RoundToInt(radiusUnits);
+            if (!navs.TryGetValue(key, out NavGrid n))
+                navs[key] = n = new NavGrid(Half, Scale.D(25f), p => Blocked(p, Scale.D(radiusUnits)));
+            return n;
+        }
         public bool LineOfSight(Vector2 a, Vector2 b) => true;
         public float CastSight(Vector2 from, Vector2 dir, float max) => max;
         public float CastBody(Vector2 from, Vector2 dir, float max, float radius) => max;
-        public bool Blocked(Vector2 p, float radius) => false;
+        public bool Blocked(Vector2 p, float radius)
+        {
+            foreach (var (c, r) in Pillars) if (Vector2.Distance(p, c) < r + radius) return true;
+            return false;
+        }
         public bool InExitZone(Vector2 p) => ExitZone.Contains(p);
         public bool InWater(Vector2 p) => false;
         public bool InBrokenWindow(Vector2 p, float radius) => false;

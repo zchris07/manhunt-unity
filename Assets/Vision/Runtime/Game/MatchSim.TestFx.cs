@@ -87,6 +87,62 @@ namespace Vision.Game
             }
         }
 
+        /// <summary>
+        /// Moves a body by a step, sliding along whatever is in the way (the original's moveCircle): the whole step if it is
+        /// clear, else along one axis, else not at all.
+        /// </summary>
+        public Vector2 MoveCircle(Vector2 at, float radiusDesign, Vector2 step)
+        {
+            if (step.sqrMagnitude < 1e-10f) return at;
+            Vector2 to = at + step;
+            if (!Geo.Blocked(to, radiusDesign)) return to;
+            Vector2 x = at + new Vector2(step.x, 0f), y = at + new Vector2(0f, step.y);
+            bool okX = Mathf.Abs(step.x) > 1e-6f && !Geo.Blocked(x, radiusDesign), okY = Mathf.Abs(step.y) > 1e-6f && !Geo.Blocked(y, radiusDesign);
+            if (okX && (!okY || Mathf.Abs(step.x) >= Mathf.Abs(step.y))) return x;
+            if (okY) return y;
+            return at;
+        }
+
+        /// <summary>A small shove away from a point (a punch, a blast): knockback on the player's own movement.</summary>
+        public void Shove(SimPlayer p, Vector2 from, float peak, float duration)
+        {
+            p.Move.KbT = duration;
+            p.Move.KbDur = duration;
+            p.Move.KbPeak = peak;
+            p.Move.KbAng = Mathf.Atan2(p.Pos.y - from.y, p.Pos.x - from.x);
+            p.Move.LungeT = 0f;
+            p.KnockVersion++;
+        }
+
+        /// <summary>A bloody explosion (Njaaron, Soham, Chacko): everyone near is hurt, less the farther away.</summary>
+        public void ExplodeAt(Vector2 at)
+        {
+            Emit(Near(at, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Explosion, Pos = at });
+            Noise(at, 1300f, "smash");
+            float radius = R(Balance.Njaaron.BlastRadius);
+            foreach (SimPlayer p in Order.ToArray())
+            {
+                float d = Vector2.Distance(p.Pos, at);
+                if (d >= radius) continue;
+                float k = 1f - d / radius;
+                if (p.Role == Role.Hunter) HurtHunter(p, Balance.Njaaron.ZachBlast * k, null, "blast");
+                else if (p.Role == Role.Survivor) HurtSurvivor(p, Balance.Njaaron.SurvivorBlast * k, null, "blast");
+            }
+        }
+
+        /// <summary>The survivor's flashlight cone holds a point (its half-angle and reach, for Shane's alert).</summary>
+        public bool InCone(SimPlayer p, Vector2 at, float radiusDesign)
+        {
+            Vector2 d = at - p.Pos;
+            float dist = d.magnitude;
+            float reach = p.ViewReach > 0f ? Scale.D(p.ViewReach) : Scale.D(Balance.Survivor.VisionRange);
+            if (dist > reach + radiusDesign) return false;
+            if (dist < radiusDesign) return true;
+            float half = Balance.Survivor.ConeHalfAngleDeg * Mathf.Deg2Rad * (p.GogglesOn ? Balance.Items.Goggles.ConeMul : 1f);
+            float ang = Mathf.Abs(Mathf.DeltaAngle(p.Facing * Mathf.Rad2Deg, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg)) * Mathf.Deg2Rad;
+            return ang <= half + Mathf.Asin(Mathf.Clamp01(radiusDesign / dist));
+        }
+
         /// <summary>The inventory editor (Tab): swaps two slots of a survivor's inventory.</summary>
         public void MoveSlot(int id, int from, int to)
         {

@@ -461,6 +461,40 @@ namespace Vision.Player
                     player.SelectedSlot = -1;
                     yield return new WaitForSeconds(0.3f);
                 }
+                // The NPCs: all of them in a row, then Marc talking, Shane's alert building and Jaden shooting.
+                {
+                    SimPlayer me9 = host.Local;
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                    var npcs = host.Sim.Npcs;
+                    for (int i = 0; i < npcs.Count; i++)
+                    {
+                        npcs[i].Pos = me9.Pos + new Vector2((i - (npcs.Count - 1) * 0.5f) * 0.85f, 1.9f);
+                        npcs[i].Facing = -Mathf.PI / 2f;
+                    }
+                    yield return new WaitForSeconds(0.25f);
+                    gameHud.Refresh();
+                    yield return Shot("98_npc_lineup");
+                    foreach (Npc n in npcs) n.Pos += new Vector2(0f, 40f);
+                    Marc marc = npcs.Find(n => n is Marc) as Marc;
+                    Shane shane = npcs.Find(n => n.GetType() == typeof(Shane)) as Shane;
+                    Jaden jaden = npcs.Find(n => n is Jaden) as Jaden;
+                    SimPlayer mark = host.SpawnDummy(Role.Survivor);
+                    if (marc != null && shane != null && jaden != null && mark != null)
+                    {
+                        marc.Pos = me9.Pos + new Vector2(-0.5f, 1.4f);
+                        marc.Talk(host.Sim, me9);
+                        shane.Pos = me9.Pos + new Vector2(-2.3f, 1.7f);
+                        shane.Meter[me9.Id] = 0.45f;
+                        host.Sim.Teleport(mark.Id, me9.Pos + new Vector2(0.9f, 3.1f));
+                        jaden.Pos = me9.Pos + new Vector2(2.3f, 1.3f);
+                        jaden.Avenge(host.Sim, mark);
+                        yield return new WaitForSeconds(0.75f);
+                        gameHud.Refresh();
+                        yield return Shot("99_npc_talk_alert_and_pistol");
+                    }
+                    host.Sim.ClearDummies();
+                    host.Sim.RespawnNpcs();
+                }
                 // Testing dummies: a survivor standing, one downed, and a stunned Zach.
                 SimPlayer d1 = host.SpawnDummy(Role.Survivor);
                 SimPlayer z1 = host.SpawnDummy(Role.Hunter);

@@ -21,7 +21,8 @@ namespace Vision.Player
         public const float MiniPx = 250f, FullPx = 860f;
 
         readonly Font font;
-        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniNpc, fullNpc;
+        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniView;
+        readonly List<(RectTransform mini, RectTransform full, Text name)> npcDots = new List<(RectTransform, RectTransform, Text)>();
         readonly Image youRingImage;
         readonly RawImage miniArt, miniFog, fullArt, fullFog;
         readonly GameObject full, revealButton, teleportHint;
@@ -97,13 +98,8 @@ namespace Vision.Player
             fullArrow = Node("You", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
             Image(fullArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
             fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
-            // Testing mode: the wanderer, as the original shows its NPCs.
-            miniNpc = Node("Wanderer", view, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(9f, 9f));
-            Image(miniNpc, new Color(0.71f, 0.54f, 1f)).sprite = dot;
-            fullNpc = Node("Wanderer", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f));
-            Image(fullNpc, new Color(0.71f, 0.54f, 1f)).sprite = dot;
-            Text npcName = Label(Node("Name", fullNpc, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(120f, 18f)), "Wanderer", 14, TextAnchor.LowerCenter, new Color(0.85f, 0.78f, 1f));
-            npcName.gameObject.AddComponent<Shadow>().effectColor = Color.black;
+            // Testing mode: the NPCs, as the original shows them (made as needed, see NpcDot).
+            miniView = view;
             Label(Node("Legend", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(420f, 26f)),
                 "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   <color=#4cff6a>●</color> supply   <color=#8a8aa0>▬</color> gate", 16, TextAnchor.MiddleLeft, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
             RectTransform reveal = Node("Reveal all", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -12f), new Vector2(170f, 34f));
@@ -167,10 +163,19 @@ namespace Vision.Player
             Fog.Apply();
         }
 
-        Vector2 NpcAt()
+        (RectTransform mini, RectTransform full, Text name) NpcDot(int i)
         {
-            Vector3 lp = world.transform.InverseTransformPoint(world.Wanderer.transform.position);
-            return new Vector2(lp.x, lp.z);
+            while (npcDots.Count <= i)
+            {
+                RectTransform mini = Node("NPC", miniView, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(9f, 9f));
+                Image(mini, new Color(0.71f, 0.54f, 1f)).sprite = dot;
+                RectTransform fullDot = Node("NPC", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f));
+                Image(fullDot, new Color(0.71f, 0.54f, 1f)).sprite = dot;
+                Text name = Label(Node("Name", fullDot, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(160f, 18f)), "", 14, TextAnchor.LowerCenter, new Color(0.85f, 0.78f, 1f));
+                name.gameObject.AddComponent<Shadow>().effectColor = Color.black;
+                npcDots.Add((mini, fullDot, name));
+            }
+            return npcDots[i];
         }
 
         /// <summary>Map coordinates of the player.</summary>
@@ -257,15 +262,25 @@ namespace Vision.Player
                 youRingImage.color = new Color(1f, 0.91f, 0.55f, 0.9f - pulse * 0.5f);
             }
 
-            // Testing mode: where the wanderer is.
-            bool npc = GameSession.TestingMode && world.Wanderer != null && world.Wanderer.isActiveAndEnabled;
-            Vector2 npcAt = npc ? NpcAt() : Vector2.zero;
-            miniNpc.gameObject.SetActive(npc && Mathf.Abs(npcAt.x - me.x) < MiniSpan * 0.5f && Mathf.Abs(npcAt.y - me.y) < MiniSpan * 0.5f);
-            fullNpc.gameObject.SetActive(npc);
-            if (npc)
+            // Testing mode: where every NPC is (the dead lie where they fell; the gone aren't shown).
+            Vision.Game.MatchHost host = GameSession.TestingMode ? Vision.Game.MatchHost.For(world) : null;
+            int shown = 0;
+            if (host != null && host.Sim != null)
+                foreach (Vision.Game.Npc n in host.Sim.Npcs)
+                {
+                    if (n.Gone) continue;
+                    var d = NpcDot(shown++);
+                    d.mini.gameObject.SetActive(Mathf.Abs(n.Pos.x - me.x) < MiniSpan * 0.5f && Mathf.Abs(n.Pos.y - me.y) < MiniSpan * 0.5f);
+                    d.full.gameObject.SetActive(true);
+                    d.mini.anchoredPosition = (n.Pos - me) * miniScale;
+                    d.full.anchoredPosition = n.Pos * fullScale;
+                    string label = n.Alive ? n.Name : n.Name + " (dead)";
+                    if (d.name.text != label) d.name.text = label;
+                }
+            for (int i = shown; i < npcDots.Count; i++)
             {
-                miniNpc.anchoredPosition = (npcAt - me) * miniScale;
-                fullNpc.anchoredPosition = npcAt * fullScale;
+                npcDots[i].mini.gameObject.SetActive(false);
+                npcDots[i].full.gameObject.SetActive(false);
             }
 
             if (now >= nextIcons)
@@ -325,9 +340,9 @@ namespace Vision.Player
                 if (pair.full != null) Kill(pair.full.gameObject);
                 icons.Remove(key);
             }
-            miniNpc.SetAsLastSibling();
+            foreach (var d in npcDots) d.mini.SetAsLastSibling();
             miniArrow.SetAsLastSibling();
-            fullNpc.SetAsLastSibling();
+            foreach (var d in npcDots) d.full.SetAsLastSibling();
             youRing.SetAsLastSibling();
             youLabel.SetAsLastSibling();
             fullArrow.SetAsLastSibling();

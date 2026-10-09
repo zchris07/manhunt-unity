@@ -234,6 +234,7 @@ namespace Vision.Player
             kit.Label(Node("Hint", down, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 120f), new Vector2(900f, 40f)), "CRAWL TO SAFETY   ·   R TO GET BACK UP (TESTING)", 18, TextAnchor.MiddleCenter, UiKit.Bone, UiKit.Face.Display, 0.14f);
             downedScreen = down.gameObject;
 
+            BuildNpcTags(root);
             BuildFxPanel(root);
             map = new MapHud(root, kit.Mono);
             BuildResults(root);
@@ -509,6 +510,7 @@ namespace Vision.Player
             downedScreen.SetActive(downed);
             fxPanel.SetActive(host != null && host.Sim != null && host.Sim.TestMode && me.Role != Role.Spectator && !MainMenuOpen);
             if (host != null && host.Sim != null) RefreshHunter(me, host.Sim);
+            RefreshNpcTags(me);
             RefreshMatch(me);
         }
 

@@ -27,6 +27,7 @@ namespace Vision.Game
             }
             if (w.Layout != null)
             {
+                map.Building = w.Layout.Building;
                 Rect yard = w.Layout.Yard;
                 // The yard beyond the gate: walking into it (past the gate's line) escapes.
                 map.ExitZone = new Rect(yard.xMin, yard.yMin + 1.2f, yard.width, yard.height);
@@ -127,6 +128,32 @@ namespace Vision.Game
         {
             Vector3 lo = ToWorld(p, 0.4f), hi = ToWorld(p, 1.4f);
             return Physics.CheckCapsule(lo, hi, radius * scale, mask, QueryTriggerInteraction.Ignore);
+        }
+
+        readonly System.Collections.Generic.Dictionary<(int, bool), NavGrid> navs = new System.Collections.Generic.Dictionary<(int, bool), NavGrid>();
+
+        /// <summary>
+        /// Built once per radius from the level's colliders (doors set open for the door-opening kind), with physics in
+        /// sync with the transforms.
+        /// </summary>
+        public NavGrid Nav(float radiusUnits, bool doorsOpen = true)
+        {
+            var key = (Mathf.RoundToInt(radiusUnits), doorsOpen);
+            if (navs.TryGetValue(key, out NavGrid n)) return n;
+            var restore = new System.Collections.Generic.List<(Collider c, bool was)>();
+            if (doorsOpen)
+                foreach (Door d in world.Doors)
+                    if (d != null && d.blocker != null && !d.blocksMovementWhenOpen)
+                    {
+                        restore.Add((d.blocker, d.blocker.enabled));
+                        d.blocker.enabled = false;
+                    }
+            Physics.SyncTransforms();
+            float r = Scale.D(radiusUnits);
+            n = new NavGrid(world.halfExtent, Scale.D(25f), p => Blocked(p, r));
+            foreach (var (c, was) in restore) c.enabled = was;
+            navs[key] = n;
+            return n;
         }
 
         public bool InExitZone(Vector2 p) => world.Layout != null && new Rect(world.Layout.Yard.xMin, world.Layout.Yard.yMin + 1.2f, world.Layout.Yard.width, world.Layout.Yard.height).Contains(p);

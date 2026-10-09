@@ -70,6 +70,11 @@ namespace Vision.Game
             Vector2 at = world.Player != null ? PlayerPlane() : (map.SurvivorSpawns.Count > 0 ? map.SurvivorSpawns[0] : Vector2.zero);
             SimPlayer p = Sim.AddPlayer(LocalId, LocalName, role, at);
             p.IsLocal = true;
+            // The NPCs, and how testing respawns them.
+            Sim.NpcSpawner = NpcRoster.Spawn;
+            NpcRoster.Spawn(Sim);
+            if (GetComponent<Vision.UI.NpcViews>() == null) gameObject.AddComponent<Vision.UI.NpcViews>().world = world;
+            if (world.Wanderer != null && !Vision.Player.VisionCapture.Requested) world.Wanderer.gameObject.SetActive(false);
             accumulator = 0f;
             if (GetComponent<Vision.Player.PlayerPuppets>() == null) gameObject.AddComponent<Vision.Player.PlayerPuppets>().world = world;
             Apply(true);

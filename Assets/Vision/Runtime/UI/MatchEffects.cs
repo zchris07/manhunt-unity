@@ -152,7 +152,7 @@ namespace Vision.UI
         void Shot(GameEvent e, MatchSim sim)
         {
             var item = (Vision.Player.ItemType)e.B;
-            bool golden = e.G > 0f || (e.Text != null && e.Text.Contains("gold"));
+            bool golden = (item != Vision.Player.ItemType.Pistol && e.G > 0f) || (e.Text != null && e.Text.Contains("gold"));
             Vector3 muzzle = Ground(e.Pos, 1.1f);
             Color flash = golden ? new Color(1f, 0.76f, 0.23f, 1f) : new Color(1f, 0.82f, 0.23f, 1f);
             Fx.Burst(muzzle, 10, 3f * S, 0.12f, flash, 0.09f * S, false, Vfx.Blend.Additive, 0f, 8f, 0.2f);

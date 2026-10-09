@@ -6,6 +6,13 @@ namespace Vision.Game
     /// An NPC as the match rules see it (the original's NpcTarget plus the per-NPC hooks combat, items, gas and the beam
     /// call). Each NPC overrides what applies to it; the defaults do nothing. Positions are design units on the ground plane.
     /// </summary>
+    [System.Flags]
+    public enum NpcFlags
+    {
+        None = 0, Hurt = 1, Stunned = 2, Dead = 4, Fleeing = 8, Chasing = 16, Firing = 32, Armed = 64, Angry = 128, Talking = 256,
+        Punching = 512, Fuse = 1024, Following = 2048, Seated = 4096, Raging = 8192, Defending = 16384,
+    }
+
     public abstract class Npc
     {
         public abstract string Name { get; }
@@ -15,6 +22,12 @@ namespace Vision.Game
         public float Facing = -Mathf.PI / 2f;
         /// <summary>Animation state for the view: 0 idle, 1 walk, 2 run.</summary>
         public int Gait;
+        /// <summary>Walking this tick (the view animates the legs).</summary>
+        public bool Moving;
+        /// <summary>How close the NPC is to being alerted (0-1), shown over its head (Shane, Jaden).</summary>
+        public virtual float AlertLevel => 0f;
+        /// <summary>What the view shows: hurt, stunned, dead, fleeing, chasing, firing, armed, angry...</summary>
+        public virtual NpcFlags Flags => (HurtT > 0f ? NpcFlags.Hurt : 0) | (StunT > 0f ? NpcFlags.Stunned : 0) | (!Alive ? NpcFlags.Dead : 0) | (SayT > 0f ? NpcFlags.Talking : 0);
         public float StunT, GasT, FlinchT, HurtT;
         /// <summary>Penjamin's slow on this NPC.</summary>
         public float VapeSlow, VapeSlowT;

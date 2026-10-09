@@ -173,7 +173,19 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   splashes, traps, pick-ups and reloads all have their sounds.
 - **Results**: the original's end screen (who won and why, the time, the generators, and each player's numbers), and
   a match clock under the compass.
-- The **wanderer** walks a loop near the spawn and takes 20% when it walks into you (the NPCs replace it).
+- **NPCs** (`Game/Npcs`, `NpcViews`, `GameHud.Npcs`): the original's townsfolk, each with their own look and rules.
+  **Shane Jeans** wanders with a faint light; crowd him or keep your flashlight on him and his alert bar fills, then a
+  red "!" and he tails you as a beacon for Zach (to the sound of his footsteps) until Zach comes close, two bottles
+  or a shotgun blast shake him off, or he tires. **Jaden Nguyen** is alerted the same way but draws a pistol, hangs
+  back and shoots until you have lost half your health; three survivor hits kill him and drop his pistol, and Zach
+  who slays him gets a lunge charge and more reach. **Marc Cortez** starts in the building, opens doors and hands out
+  duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
+  wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you; he explodes
+  when he dies. **Soham** says Hi and explodes. **Thomas Bourgeois** hands over a full Hemp Beam. **Monique
+  Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
+  speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
+  NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
+- The old **wanderer** stands in for an entity in the captures only.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
 
 ### Look panel (F4)
@@ -434,8 +446,8 @@ It also runs on the release build without the markers.
 - CI's Unity licence activation has been failing since early October 2026 ("Access token is unavailable",
   then the runner kills Unity); the tests pass locally. The `UNITY_LICENSE`, `UNITY_EMAIL` and
   `UNITY_PASSWORD` secrets need refreshing (and old activations returned on the Unity account).
-- The rules for every item, Zach's kit and the NPCs are ported, but their models, animations and most of their
-  effects and sounds are still to come; until then most of them act invisibly. Online play is not wired up yet.
+- Sexton Science, Chris Zelley, Plasma.TTV and Chacko (and the ambulance and lounge they need) come next; online
+  play is not wired up yet.
 - Media and fonts are credited in `CREDITS.md`; `tools/fetch_sounds.py` re-fetches the sound packs (hash-checked).
 - The polygon pass runs on the main thread. That is fine for this map, but a much larger one will want
   Burst/Jobs.
