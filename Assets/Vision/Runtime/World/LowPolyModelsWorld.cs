@@ -464,11 +464,12 @@ namespace Vision.World
                     b.AddBox(new Vector3(-0.12f, 0.005f, -0.11f), new Vector3(0.24f, 0.01f, 0.03f), new Color(0.12f, 0.12f, 0.12f), 0.05f);
                     break;
                 case Vision.Player.ItemType.Shotgun:
-                    // A pump shotgun lying flat: stock, receiver, barrel and the pump.
-                    b.AddBox(new Vector3(-0.32f, 0.01f, -0.035f), new Vector3(0.2f, 0.035f, 0.07f), new Color(0.40f, 0.26f, 0.14f), 0.06f);
-                    b.AddBox(new Vector3(-0.12f, 0.012f, -0.025f), new Vector3(0.14f, 0.04f, 0.05f), new Color(0.16f, 0.16f, 0.17f), 0.04f);
-                    b.AddFrustum(new Vector3(0.02f, 0.035f, 0f), new Vector3(0.38f, 0.035f, 0f), 0.014f, 0.014f, 6, new Color(0.18f, 0.18f, 0.19f), 0.04f);
-                    b.AddFrustum(new Vector3(0.06f, 0.02f, 0f), new Vector3(0.2f, 0.02f, 0f), 0.022f, 0.022f, 6, new Color(0.36f, 0.24f, 0.13f), 0.05f);
+                    // The original's shotgun lying flat: a wooden stock, the action, side-by-side barrels and the forend.
+                    b.AddBox(new Vector3(-0.34f, 0.01f, -0.035f), new Vector3(0.22f, 0.035f, 0.07f), new Color(0.60f, 0.35f, 0.17f), 0.06f);
+                    b.AddBox(new Vector3(-0.12f, 0.012f, -0.03f), new Vector3(0.1f, 0.04f, 0.06f), new Color(0.24f, 0.25f, 0.27f), 0.04f);
+                    b.AddFrustum(new Vector3(-0.03f, 0.03f, -0.014f), new Vector3(0.4f, 0.03f, -0.014f), 0.013f, 0.013f, 6, new Color(0.35f, 0.38f, 0.44f), 0.04f);
+                    b.AddFrustum(new Vector3(-0.03f, 0.03f, 0.014f), new Vector3(0.4f, 0.03f, 0.014f), 0.013f, 0.013f, 6, new Color(0.42f, 0.45f, 0.51f), 0.04f);
+                    b.AddBox(new Vector3(-0.01f, 0.006f, -0.026f), new Vector3(0.12f, 0.02f, 0.052f), new Color(0.48f, 0.27f, 0.13f), 0.05f);
                     break;
                 case Vision.Player.ItemType.DoctorPepper:
                     b.AddFrustum(Vector3.zero, new Vector3(0f, 0.12f, 0f), 0.033f, 0.033f, 8, new Color(0.45f, 0.06f, 0.10f), 0.04f);
@@ -476,11 +477,21 @@ namespace Vision.World
                     b.AddFrustum(new Vector3(0f, 0.12f, 0f), new Vector3(0f, 0.13f, 0f), 0.033f, 0.026f, 8, new Color(0.62f, 0.62f, 0.62f), 0.03f);
                     break;
                 case Vision.Player.ItemType.Trap:
-                    // Galaxy gas trap: a squat canister with a purple band and a nozzle.
-                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.1f, 0f), 0.065f, 0.06f, 8, new Color(0.22f, 0.22f, 0.25f), 0.05f);
-                    b.AddFrustum(new Vector3(0f, 0.03f, 0f), new Vector3(0f, 0.07f, 0f), 0.067f, 0.067f, 8, new Color(0.48f, 0.26f, 0.70f), 0.06f);
-                    b.AddFrustum(new Vector3(0f, 0.1f, 0f), new Vector3(0f, 0.14f, 0f), 0.015f, 0.01f, 5, new Color(0.6f, 0.6f, 0.62f), 0.04f);
+                {
+                    // Galaxy gas, as the original draws it: a stout whippit tank in a galaxy wrap (deep blue, violet, pink,
+                    // blue bands), a silver shoulder and neck, a black valve and a nozzle.
+                    Color navy = new Color(0.16f, 0.10f, 0.42f), violet = new Color(0.69f, 0.23f, 0.85f), pink = new Color(1f, 0.35f, 0.69f), blue = new Color(0.23f, 0.42f, 1f);
+                    Color silver = new Color(0.79f, 0.82f, 0.86f);
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.035f, 0f), 0.062f, 0.064f, 9, navy, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.035f, 0f), new Vector3(0f, 0.07f, 0f), 0.064f, 0.064f, 9, violet, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.07f, 0f), new Vector3(0f, 0.105f, 0f), 0.064f, 0.064f, 9, pink, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.105f, 0f), new Vector3(0f, 0.14f, 0f), 0.064f, 0.064f, 9, blue, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.14f, 0f), new Vector3(0f, 0.18f, 0f), 0.064f, 0.022f, 9, silver, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.18f, 0f), new Vector3(0f, 0.205f, 0f), 0.02f, 0.02f, 7, silver * 0.85f, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.205f, 0f), new Vector3(0f, 0.22f, 0f), 0.028f, 0.028f, 7, new Color(0.1f, 0.1f, 0.1f), 0.02f);
+                    b.AddBox(new Vector3(0.015f, 0.19f, -0.008f), new Vector3(0.045f, 0.016f, 0.016f), new Color(0.48f, 0.52f, 0.56f), 0.03f);
                     break;
+                }
                 case Vision.Player.ItemType.Confit:
                     // Duck confit: a wide tin with a pale label.
                     b.AddFrustum(Vector3.zero, new Vector3(0f, 0.07f, 0f), 0.075f, 0.075f, 9, new Color(0.62f, 0.60f, 0.56f), 0.04f);
@@ -495,11 +506,18 @@ namespace Vision.World
                     b.AddBox(new Vector3(-0.04f, 0.025f, -0.02f), new Vector3(0.08f, 0.003f, 0.04f), new Color(0.95f, 0.92f, 0.85f), 0.03f);
                     break;
                 default:
-                    // Mini shield: a small blue potion jug with a white cap.
-                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.08f, 0f), 0.045f, 0.05f, 7, new Color(0.30f, 0.60f, 0.95f), 0.05f);
-                    b.AddFrustum(new Vector3(0f, 0.08f, 0f), new Vector3(0f, 0.11f, 0f), 0.05f, 0.02f, 7, new Color(0.30f, 0.60f, 0.95f), 0.05f);
-                    b.AddFrustum(new Vector3(0f, 0.11f, 0f), new Vector3(0f, 0.135f, 0f), 0.021f, 0.021f, 6, new Color(0.88f, 0.88f, 0.90f), 0.03f);
+                {
+                    // Mini shield, Fortnite's small shield potion as the original draws it: a round glass flask, the lower
+                    // part full of glowing blue liquid, a slim neck and a cork stopper.
+                    Color fluid = new Color(0.18f, 0.61f, 1f), fluidTop = new Color(0.50f, 0.82f, 1f), glass = new Color(0.75f, 0.89f, 1f), cork = new Color(0.60f, 0.42f, 0.23f);
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.018f, 0f), 0.034f, 0.06f, 9, fluid, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.018f, 0f), new Vector3(0f, 0.05f, 0f), 0.06f, 0.068f, 9, fluid, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.05f, 0f), new Vector3(0f, 0.08f, 0f), 0.068f, 0.058f, 9, fluidTop, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.08f, 0f), new Vector3(0f, 0.1f, 0f), 0.058f, 0.032f, 9, glass, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.1f, 0f), new Vector3(0f, 0.135f, 0f), 0.016f, 0.016f, 7, glass, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.135f, 0f), new Vector3(0f, 0.16f, 0f), 0.02f, 0.019f, 7, cork, 0.03f);
                     break;
+                }
             }
             return b.ToMesh(item.ToString());
         }

@@ -11,8 +11,13 @@ namespace Vision.Game
     {
         /// <summary>Design units per original unit.</summary>
         public const float Unit = Vision.World.MapLayout.Unit;
+        /// <summary>
+        /// Every character moves at 70% of the speed the pace gives (walking, running, Zach's lunge, knockbacks, the NPCs;
+        /// thrown items, rounds and the Burst keep theirs), slowed by 30% at the user's request.
+        /// </summary>
+        public const float GlobalMove = 0.7f;
         /// <summary>The pace at which the survivor walks 3.2 world units a second (this game's earlier human pace).</summary>
-        public const float HumanPace = 3.2f / (Vision.World.WorldScale.S * Unit * Balance.SurvivorWalk);
+        public const float HumanPace = 3.2f / (Vision.World.WorldScale.S * Unit * Balance.SurvivorWalk * GlobalMove);
         public const float MinPace = 0.3f, MaxPace = 1.25f;
 
         /// <summary>A distance in design units.</summary>
@@ -21,8 +26,8 @@ namespace Vision.Game
         public static Vector2 D(Vector2 units) => units * Unit;
         /// <summary>Back from design units to original units.</summary>
         public static float ToUnits(float design) => design / Unit;
-        /// <summary>A movement speed in design units per second, at the match's pace.</summary>
-        public static float Speed(float unitsPerSecond) => unitsPerSecond * Unit * Pace;
+        /// <summary>A movement speed in design units per second, at the match's pace (and the global 70%).</summary>
+        public static float Speed(float unitsPerSecond) => unitsPerSecond * Unit * Pace * GlobalMove;
         public static float Pace => MatchState.Current != null ? MatchState.Current.Pace : 1f;
     }
 

@@ -113,9 +113,12 @@ namespace Vision.UI
             if (!zach && !sim.TestMode) return;
             Vfx fx = Vfx.Instance;
             foreach (var l in byWho.Values) l.Clear();
+            // Zach's nose reaches the original's 1300 units (the trail is sent to him only that far about him).
+            float nose = Scale.D(Balance.Hunter.ScentRadius);
             foreach (TrailPoint t in sim.Trails)
             {
                 if (!zach && t.Who != me.Id) continue;
+                if (Mathf.Abs(t.Pos.x - me.Pos.x) > nose || Mathf.Abs(t.Pos.y - me.Pos.y) > nose) continue;
                 float age = (sim.Time - t.T) / Balance.Trails.MaxAgeSec;
                 if (age >= 1f || age < 0f) continue;
                 if (t.Kind == 1)

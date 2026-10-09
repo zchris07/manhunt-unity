@@ -243,7 +243,7 @@ namespace Vision.Tests
             rig.Tap(s.Id, Btn.Yes);
             Assert.AreEqual(Njaaron.Mode.Follow, nj.State);
             rig.Place(s, 600, 0);
-            rig.Run(SimRig.Secs(3f));
+            rig.Run(SimRig.Secs(3f / Scale.GlobalMove));
             Assert.Less(Dist(nj, s), 200f, "he keeps up");
             rig.Sim.Teleport(h.Id, s.Pos + SimRig.U(200, 0));
             rig.Run(SimRig.Secs(2.5f));

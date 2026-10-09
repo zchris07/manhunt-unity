@@ -76,6 +76,8 @@ namespace Vision.Rendering
         [Tooltip("How much of the scene's luminance survives in the dark (the ~20% lift).")]
         [Range(0f, 1f)] public float darkLevel = 0.2f;
         [Range(0f, 0.1f)] public float darkFloor = 0.01f;
+        [Tooltip("Scales the unlit ground (1: as set; 0: pitch black, as in Penjamin's gas, eased in and out by the player).")]
+        [Range(0f, 1f)] public float fogScale = 1f;
         [Tooltip("Near-neutral so unlit areas carry almost no colour.")]
         public Color darkTint = new Color(0.99f, 1f, 1.01f);
 
@@ -140,10 +142,10 @@ namespace Vision.Rendering
             Look l = look.Clamped();
             bool fx = l.cameraEffects;
             VisionLight.FlickerEnabled = fx;
-            material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness));
+            material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness * fogScale));
             material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, 0f));
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
-            material.SetVector(DarkId, new Vector4(darkLevel, darkFloor, normalOffset, 0f));
+            material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);
             material.SetColor(SourceTintId, sourceTint);
             material.SetColor(ViewerTintId, viewerTint * exposure);

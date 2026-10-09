@@ -5,7 +5,8 @@ namespace Vision.Characters
     /// <summary>
     /// Animates a <see cref="HumanoidSkeleton"/> procedurally from a velocity and an aim direction.
     /// The legs face the direction of travel (or keep facing the aim and walk backwards when travel is
-    /// more than 100° from it); the spine, neck and head twist toward the aim, up to ±80°. Each frame
+    /// more than 100° from it); the spine and chest twist to face the aim exactly, at once, up to ±100° (the legs are
+    /// dragged round when the aim swings further), so the body always points where the player aims. Each frame
     /// the <see cref="GaitSolver"/> gives pelvis, foot and arm targets and the legs are solved with
     /// analytic two-bone IK, knees bending forward only. Works under a scaled level root: speeds are
     /// converted to design units with the transform scale.
@@ -28,8 +29,8 @@ namespace Vision.Characters
         [Tooltip("Bone transforms indexed by Vision.Characters.Bone.")]
         public Transform[] bones;
         [Tooltip("Degrees per second the legs turn toward the travel direction.")]
-        public float turnSpeed = 420f;
-        public float maxTwist = 80f;
+        public float turnSpeed = 720f;
+        public float maxTwist = 100f;
         [Tooltip("Downed: the body lies forward on the ground and the legs crawl.")]
         public bool Prone;
         [Tooltip("Crouching (0-1): the pelvis drops, the knees bend under it and the back leans forward.")]
@@ -50,6 +51,8 @@ namespace Vision.Characters
         public Vector3 LeftAnkleTarget { get; private set; }
         public Vector3 RightAnkleTarget { get; private set; }
         public float LegsYaw => legsYaw;
+        /// <summary>How far the chest is turned from the legs toward the aim this frame (degrees); half on the spine, half on the chest.</summary>
+        public float Twist { get; private set; }
 
         /// <summary>Called by the controller each frame: world velocity and aim direction on the ground plane (x, z).</summary>
         public void Drive(Vector3 velocity, Vector2 aimDirection)
@@ -87,6 +90,9 @@ namespace Vision.Characters
                 targetYaw = aimYaw;
             }
             legsYaw = Mathf.MoveTowardsAngle(legsYaw, targetYaw, turnSpeed * dt);
+            // The upper body faces the aim at once: if the aim swings past what the waist can turn, the legs come with it.
+            float lag = Mathf.DeltaAngle(legsYaw, aimYaw);
+            if (Mathf.Abs(lag) > maxTwist) legsYaw = aimYaw - Mathf.Sign(lag) * maxTwist;
 
             var forward = new Vector2(Mathf.Sin(legsYaw * Mathf.Deg2Rad), Mathf.Cos(legsYaw * Mathf.Deg2Rad));
             solver.Advance(dt, Vector2.Dot(v, forward));
@@ -111,10 +117,14 @@ namespace Vision.Characters
             float targetLean = Mathf.Clamp(Mathf.Atan(grade) * Mathf.Rad2Deg * 0.5f, -maxSlopeLean, maxSlopeLean) * solver.Moving;
             slopeLean = Mathf.Lerp(slopeLean, targetLean, 1f - Mathf.Exp(-6f * dt));
 
-            Apply(solver.Evaluate(), Mathf.Clamp(Mathf.DeltaAngle(legsYaw, aimYaw), -maxTwist, maxTwist), scale);
+            Twist = Mathf.Clamp(Mathf.DeltaAngle(legsYaw, aimYaw), -maxTwist, maxTwist);
+            Apply(solver.Evaluate(), Twist, scale);
         }
 
         Transform B(Bone b) => bones[(int)b];
+
+        /// <summary>The shares of the twist toward the aim on the spine and the chest (they add up to all of it).</summary>
+        public const float SpineTwist = 0.5f, ChestTwist = 0.5f;
 
         bool Sample(Vector3 world, out float height, out Vector3 normal)
         {
@@ -151,10 +161,11 @@ namespace Vision.Characters
             pelvis.localRotation = Quaternion.Euler(pose.PelvisPitch, pose.PelvisYaw, pose.PelvisRoll);
 
             // The torso leans into a climb; the neck and head take most of it back so the gaze stays level.
-            B(Bone.Spine).localRotation = Quaternion.Euler(pose.SpinePitch - pose.PelvisPitch * 0.7f + slopeLean + 18f * ce, -pose.PelvisYaw + twist * 0.35f, -pose.PelvisRoll * 0.8f);
-            B(Bone.Chest).localRotation = Quaternion.Euler(pose.ChestPitch, pose.ChestYaw + twist * 0.35f, 0f);
-            B(Bone.Neck).localRotation = Quaternion.Euler(pose.HeadPitch * 0.4f - slopeLean * 0.4f, twist * 0.15f, 0f);
-            B(Bone.Head).localRotation = Quaternion.Euler(pose.HeadPitch * 0.6f - slopeLean * 0.4f - 12f * ce, pose.HeadYaw + twist * 0.15f, 0f);
+            // The twist is all in the spine and chest, so the chest (and the arms, the light and anything held) faces the aim.
+            B(Bone.Spine).localRotation = Quaternion.Euler(pose.SpinePitch - pose.PelvisPitch * 0.7f + slopeLean + 18f * ce, -pose.PelvisYaw + twist * SpineTwist, -pose.PelvisRoll * 0.8f);
+            B(Bone.Chest).localRotation = Quaternion.Euler(pose.ChestPitch, pose.ChestYaw + twist * ChestTwist, 0f);
+            B(Bone.Neck).localRotation = Quaternion.Euler(pose.HeadPitch * 0.4f - slopeLean * 0.4f, 0f, 0f);
+            B(Bone.Head).localRotation = Quaternion.Euler(pose.HeadPitch * 0.6f - slopeLean * 0.4f - 12f * ce, pose.HeadYaw, 0f);
 
             LeftAnkleTarget = SolveLeg(pose.Left, Bone.ThighL, -1, scale, offL, nL);
             RightAnkleTarget = SolveLeg(pose.Right, Bone.ThighR, 1, scale, offR, nR);

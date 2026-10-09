@@ -73,6 +73,12 @@ namespace Vision.Player
         uint seq;
         int placeSeen = -1;
         bool hiddenShown;
+        // The see-through light's growth (0-1), and whether the one fading is the Hemp Battery's (it fades out as slowly as in).
+        float xrayK;
+        bool xrayHemp;
+        // Penjamin's darkness (0-1), eased in and out over the original's 0.6 s: the beam narrows and the dark goes black.
+        float darkK;
+        Vision.Rendering.VisionComposite composite;
 
         void Awake()
         {
@@ -313,21 +319,33 @@ namespace Vision.Player
                 viewer.Facing = new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing));
                 float cone = (zach ? Balance.Hunter.ConeHalfAngleDeg : Balance.Survivor.ConeHalfAngleDeg) * Mathf.Sqrt(p.FovMul);
                 if (p.GogglesOn) cone *= Balance.Items.Goggles.ConeMul;
-                if (p.DarkT > 0f) cone *= 1f - Balance.Hunter.Vape.ConeCut;
-                if (p.HideState == 2)
-                {
-                    var spot = world.HidingSpots[p.HideSpot];
-                    cone = spot.kind == HidingSpot.Kind.Grass ? 85f : Balance.Hiding.PeekHalfAngleDeg;
-                }
+                float dt0 = Time.deltaTime;
+                darkK = Mathf.MoveTowards(darkK, !zach && p.DarkT > 0f ? 1f : 0f, dt0 / Balance.Hunter.Vape.DarkEase);
+                float darkE = darkK * darkK * (3f - 2f * darkK);
+                cone *= 1f - Balance.Hunter.Vape.ConeCut * darkE;
+                if (composite == null) composite = FindAnyObjectByType<Vision.Rendering.VisionComposite>();
+                if (composite != null) composite.fogScale = 1f - darkE;
+                // Hidden: peeking out through the slats (or the grass all round) for the original's short reach.
+                bool peeking = p.HideState == 2;
+                bool grass = peeking && world.HidingSpots[p.HideSpot].kind == HidingSpot.Kind.Grass;
+                if (peeking) cone = grass ? Balance.Hiding.GrassPeekHalfAngleDeg : Balance.Hiding.PeekHalfAngleDeg;
                 viewer.coneHalfAngleDeg = Mathf.Clamp(cone, 5f, 90f);
-                viewer.proximityRadius = Scale.D(p.HideState == 2 ? Balance.Hiding.PeekProximity : zach ? Balance.Hunter.Proximity : Balance.Survivor.Proximity) * Mathf.Sqrt(p.FovMul);
+                viewer.reachScreenEdge = !peeking;
+                if (peeking) viewer.coneRange = Scale.D(grass ? Balance.Hiding.GrassPeekRange : Balance.Hiding.PeekRange);
+                viewer.proximityRadius = Scale.D(peeking ? (grass ? Balance.Hiding.GrassPeekProximity : Balance.Hiding.PeekProximity) : zach ? Balance.Hunter.Proximity : Balance.Survivor.Proximity) * Mathf.Sqrt(p.FovMul);
                 viewer.visionMultiplier = Mathf.Clamp(downed ? Balance.Survivor.DownedVisionMul : 1f, 0.1f, 1f);
-                viewer.seeThroughEnabled = p.GogglesOn || (zach && p.HempOn);
+                // Goggles and the Hemp Battery: the see-through light grows in over 0.5 s, out in 1/6 s (the battery's as slowly as in).
+                bool xrayOn = p.GogglesOn || (zach && p.HempOn);
+                if (xrayOn) xrayHemp = zach && p.HempOn;
+                xrayK = xrayOn ? Mathf.Min(1f, xrayK + dt0 / Balance.Xray.FadeIn) : Mathf.Max(0f, xrayK - dt0 / (xrayHemp ? Balance.Xray.FadeIn : Balance.Xray.FadeOut));
+                viewer.seeThroughEnabled = xrayK > 0f;
+                viewer.seeThroughK = xrayK;
+                viewer.seeThroughStrength = Balance.Xray.Brightness;
             }
             if (animator != null)
             {
                 Vector3 moved = cc.enabled ? cc.velocity : Vector3.zero;
-                animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing)));
+                animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
             }
             bool hidden = p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator;
             if (hidden != hiddenShown)

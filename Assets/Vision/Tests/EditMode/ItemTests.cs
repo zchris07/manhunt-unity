@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using Vision.Effects;
@@ -11,6 +12,25 @@ namespace Vision.Tests
     /// <summary>Every item, against the original's tests (abilities.test.ts), and how items show in the world.</summary>
     public class ItemTests
     {
+        [Test]
+        public void EveryItemAndAbility_HasItsIcon_AndTheShieldAndGasLookTheirPart()
+        {
+            foreach (string name in Vision.UI.ItemIcons.All)
+            {
+                Texture2D t = Vision.UI.ItemIcons.Get(name);
+                Assert.IsNotNull(t, $"icon {name}");
+                Assert.GreaterOrEqual(t.width, 120, $"{name}: drawn large enough to stay crisp");
+            }
+            foreach (ItemType item in System.Enum.GetValues(typeof(ItemType)))
+                Assert.IsNotNull(Vision.UI.ItemIcons.For(item, false), $"{item} has an icon");
+            Assert.AreNotSame(Vision.UI.ItemIcons.For(ItemType.Shotgun, true), Vision.UI.ItemIcons.For(ItemType.Shotgun, false), "the golden pump has its own");
+            Assert.AreEqual(Vision.Characters.PropKind.Flask, Vision.Characters.PropModels.ForItem(ItemType.MiniShield, false), "the mini shield is a little flask");
+            Assert.AreEqual(Vision.Characters.PropKind.Tank, Vision.Characters.PropModels.ForItem(ItemType.Trap, false), "galaxy gas is a whippit tank");
+            Mesh flask = Vision.Characters.PropModels.Build(Vision.Characters.PropKind.Flask);
+            Assert.IsTrue(flask.colors.Any(c => c.gamma.b > 0.9f && c.gamma.r < 0.3f), "full of bright blue liquid");
+            Object.DestroyImmediate(flask);
+        }
+
         MatchState saved;
 
         [SetUp]
@@ -92,7 +112,7 @@ namespace Vision.Tests
             Use(rig, s, ItemType.Shotgun);
             Assert.Greater(h.StunT, 0f);
             rig.Run(Secs(0.5f));
-            Assert.Greater(Scale.ToUnits(h.Pos.x - x0), 40f, "shoved back");
+            Assert.Greater(Scale.ToUnits(h.Pos.x - x0), 40f * Scale.GlobalMove, "shoved back (at the global 70% movement)");
             Assert.AreEqual(5f, s.Inv.AmountAt(0), 1e-4f);
             Assert.Greater(s.ReloadT, 1f);
             Use(rig, s, ItemType.Shotgun);

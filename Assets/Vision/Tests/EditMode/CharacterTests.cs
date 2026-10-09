@@ -19,7 +19,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void EveryCharacter_IsLowPoly_AtMost500Triangles_AndFullySkinned()
+        public void EveryCharacter_IsLowPoly_AtMost1000Triangles_AndFullySkinned()
         {
             foreach (CharacterSpec s in Everyone())
             {
@@ -28,7 +28,7 @@ namespace Vision.Tests
                 {
                     int tris = m.triangles.Length / 3;
                     Assert.LessOrEqual(tris, CharacterBuilder.MaxTriangles, s.Name);
-                    Assert.Greater(tris, 380, $"{s.Name}: the refined body, more than the old 250-triangle mannequin");
+                    Assert.Greater(tris, 800, $"{s.Name}: the finer body, near its 1000-triangle budget");
                     Assert.AreEqual(HumanoidSkeleton.BoneCount, m.bindposes.Length);
                     foreach (BoneWeight w in m.boneWeights)
                     {
@@ -57,8 +57,8 @@ namespace Vision.Tests
 
             CharacterSpec z = CharacterSpec.Zach();
             Assert.AreEqual(2.0f, z.Height, 1e-4f, "big: about 2 m");
-            Assert.Greater(z.Shoulders, 1.25f);
-            Assert.Greater(z.Arms, 1.4f);
+            Assert.That(z.Shoulders, Is.InRange(1.05f, 1.2f), "broad, but not a wardrobe");
+            Assert.Greater(z.Arms, 1.3f);
             Mesh zach = CharacterBuilder.Build(z);
             Color white = z.Accent.linear, red = z.Accent2.linear;
             Assert.IsTrue(zach.colors.Any(c => Close(c, white)), "a white hockey mask");
@@ -114,6 +114,9 @@ namespace Vision.Tests
             return go;
         }
 
+        /// <summary>A throw or a light slash whips the arm faster than anything else (a real throwing arm passes 5000 deg/s).</summary>
+        static bool Whip(ActionClip c) => c == ActionClips.Throw || c == ActionClips.Swing || c == ActionClips.SwingBack;
+
         static bool Fast(ActionClip c) => c.Name.StartsWith("Swing") || c.Name.StartsWith("Recoil") || c == ActionClips.Throw || c == ActionClips.Burst || c == ActionClips.Lunge || c == ActionClips.Slam || c == ActionClips.Push || c == ActionClips.Cringe;
 
         [Test]
@@ -132,7 +135,8 @@ namespace Vision.Tests
                     layer.EventFired += OnFire;
                     // Let the gait settle, play the clip once through (or one loop), then stop and blend out.
                     // Clips that always follow another (a recoil follows the aim, the staking follows the carry) start from it.
-                    ActionClip prelude = clip == ActionClips.RecoilLong ? ActionClips.AimLong : clip == ActionClips.RecoilPistol ? ActionClips.AimPistol : clip == ActionClips.StakeBody ? ActionClips.Carry : null;
+                    ActionClip prelude = clip == ActionClips.RecoilLong || clip == ActionClips.RecoilPump ? ActionClips.AimLong : clip == ActionClips.RecoilRifle ? ActionClips.AimRifle
+                        : clip == ActionClips.RecoilPistol ? ActionClips.AimPistol : clip == ActionClips.StakeBody ? ActionClips.Carry : null;
                     if (prelude != null) layer.Play(prelude, 1f, true);
                     else layer.Stop();
                     for (int i = 0; i < 180; i++) { animator.Step(dt); layer.Step(dt); }
@@ -155,7 +159,7 @@ namespace Vision.Tests
                         }
                     }
                     layer.EventFired -= OnFire;
-                    float limit = (Fast(clip) ? 2600f : 1000f) * dt;
+                    float limit = (Whip(clip) ? 3200f : Fast(clip) ? 2600f : 1000f) * dt;
                     if (worst >= limit) problems.Add($"{clip.Name}: {worstBone} moves {worst / dt:0} deg/s");
                     foreach (var (_, name) in clip.Events)
                         if ((fired.TryGetValue(name, out int n) ? n : 0) != 1) problems.Add($"{clip.Name}: \"{name}\" fired {n} times");
@@ -167,7 +171,9 @@ namespace Vision.Tests
         }
 
         /// <summary>Where the right and left hands end up (body space: x right, y up, z forward) in a clip's key pose.</summary>
-        static (Vector3 r, Vector3 l, Vector3 propDir, Vector3 fingers) HandsIn(ActionClip clip, float t, PropKind prop)
+        static (Vector3 r, Vector3 l, Vector3 propDir, Vector3 fingers) HandsIn(ActionClip clip, float t, PropKind prop) => HandsIn(clip, t, prop, out _);
+
+        static (Vector3 r, Vector3 l, Vector3 propDir, Vector3 fingers) HandsIn(ActionClip clip, float t, PropKind prop, out Vector3 muzzle)
         {
             GameObject go = NewCharacter(out ActionLayer layer, out _);
             var animator = go.GetComponent<HumanoidAnimator>();
@@ -183,6 +189,7 @@ namespace Vision.Tests
                 Vector3 d = pt != null ? root.InverseTransformDirection(pt.forward) : Vector3.zero;
                 // The fingers point along the hand bone (its -Y).
                 Vector3 f = root.InverseTransformDirection(-layer.bones[(int)Bone.HandR].up);
+                muzzle = layer.Muzzle(out Vector3 m) ? root.InverseTransformPoint(m) : Vector3.zero;
                 return (r, l, d, f);
             }
             finally { Object.DestroyImmediate(go); }
@@ -197,17 +204,25 @@ namespace Vision.Tests
             Check("lever: hands forward and up", lever.r.z > 0.3f && lever.r.y > 1.3f && lever.l.z > 0.3f, lever.r);
             var push = HandsIn(ActionClips.Push, 0.18f, PropKind.None);
             Check("push: hand out in front", push.r.z > 0.45f && Mathf.Abs(push.r.x) < 0.35f, push.r);
-            var aim = HandsIn(ActionClips.AimLong, 0f, PropKind.Shotgun);
-            Check("long gun: points forward", aim.propDir.z > 0.8f, aim.propDir);
-            Check("long gun: support hand forward", aim.l.z > 0.3f, aim.l);
-            var pistol = HandsIn(ActionClips.AimPistol, 0f, PropKind.Pistol);
-            Check("pistol: points forward", pistol.propDir.z > 0.8f, pistol.propDir);
-            Check("pistol: arm out front", pistol.r.z > 0.45f, pistol.r);
+            var aim = HandsIn(ActionClips.AimLong, 0f, PropKind.Shotgun, out Vector3 shotgunMuzzle);
+            Check("shotgun: points straight ahead", aim.propDir.z > 0.95f, aim.propDir);
+            Check("shotgun: shouldered on the right, not held out to the side", aim.r.x < 0.2f && aim.r.y > 1.25f && aim.r.z < 0.4f, aim.r);
+            Check("shotgun: the support hand out under the forend", aim.l.z > aim.r.z + 0.1f && aim.l.x > -0.05f, aim.l);
+            Check("shotgun: the round leaves from the barrel, well out in front", shotgunMuzzle.z > 0.7f, shotgunMuzzle);
+            var rifle = HandsIn(ActionClips.AimRifle, 0f, PropKind.Sniper, out Vector3 rifleMuzzle);
+            Check("0.50 cal: points straight ahead", rifle.propDir.z > 0.95f, rifle.propDir);
+            Check("0.50 cal: the support hand far out along it", rifle.l.z > rifle.r.z + 0.18f, rifle.l);
+            Check("0.50 cal: the muzzle a long way out", rifleMuzzle.z > 1f, rifleMuzzle);
+            var pistol = HandsIn(ActionClips.AimPistol, 0f, PropKind.Pistol, out Vector3 pistolMuzzle);
+            Check("pistol: points straight ahead", pistol.propDir.z > 0.95f, pistol.propDir);
+            Check("pistol: out in front at chest height", pistol.r.z > 0.35f && pistol.r.y > 1.25f && Mathf.Abs(pistol.r.x) < 0.15f, pistol.r);
+            Check("pistol: both hands on the grip (Weaver), not both arms out", (pistol.l - pistol.r).magnitude < 0.12f, pistol.l - pistol.r);
+            Check("pistol: the muzzle past the hands", pistolMuzzle.z > pistol.r.z + 0.1f, pistolMuzzle);
             var drink = HandsIn(ActionClips.Drink, 0f, PropKind.Can);
             Check("drink: hand at the mouth", Mathf.Abs(drink.r.y - 1.58f) < 0.15f && drink.r.z > 0.02f && Mathf.Abs(drink.r.x) < 0.15f, drink.r);
             var repair = HandsIn(ActionClips.Repair, 0f, PropKind.None);
             Check("repair: hands low in front", repair.r.z > 0.2f && repair.r.y < 0.9f, repair.r);
-            var throwRelease = HandsIn(ActionClips.Throw, 0.2f, PropKind.Bottle);
+            var throwRelease = HandsIn(ActionClips.Throw, 0.1f, PropKind.Bottle);
             Check("throw windup: hand up behind the shoulder", throwRelease.r.y > 1.5f && throwRelease.r.z < 0.15f, throwRelease.r);
             var staked = HandsIn(ActionClips.Staked, 0f, PropKind.None);
             Check("staked: hands overhead", staked.r.y > 1.75f && staked.l.y > 1.75f, staked.r);
@@ -215,8 +230,13 @@ namespace Vision.Tests
             Check("stunned: hands at the head", stunned.r.y > 1.45f && Mathf.Abs(stunned.r.x) < 0.25f, stunned.r);
             var charge = HandsIn(ActionClips.Charge, 0f, PropKind.Machete);
             Check("charge: machete raised over the shoulder", charge.r.y > 1.6f && charge.r.x > 0f, charge.r);
-            var strike = HandsIn(ActionClips.Swing, 0.24f, PropKind.Machete);
-            Check("strike: the hand comes across in front", strike.r.z > 0.3f && strike.r.x < 0.25f, strike.r);
+            var wind = HandsIn(ActionClips.Swing, 0.075f, PropKind.Machete);
+            Check("forehand: drawn back out to his right", wind.r.x > 0.3f && wind.r.z < 0.25f, wind.r);
+            var strike = HandsIn(ActionClips.Swing, 0.15f, PropKind.Machete);
+            Check("forehand: the hand comes across in front at chest height", strike.r.z > 0.35f && strike.r.x < 0.25f && strike.r.y > 1.1f, strike.r);
+            var follow = HandsIn(ActionClips.Swing, 0.24f, PropKind.Machete);
+            Check("forehand: across to his left", follow.r.x < -0.2f, follow.r);
+            Check("forehand: a flat slash (the hand stays level)", Mathf.Abs(follow.r.y - wind.r.y) < 0.2f && Mathf.Abs(strike.r.y - wind.r.y) < 0.2f, new Vector3(wind.r.y, strike.r.y, follow.r.y));
             var carry = HandsIn(ActionClips.Carry, 0f, PropKind.None);
             Check("carry: left hand up on the shoulder", carry.l.y > 1.45f && carry.l.x < 0f, carry.l);
             var beam = HandsIn(ActionClips.Beam, 0f, PropKind.None);
@@ -226,11 +246,51 @@ namespace Vision.Tests
             var eyes = HandsIn(ActionClips.CoverEyes, 0f, PropKind.None);
             Check("Penjamin: right hand over the eyes", eyes.r.y > 1.45f && eyes.r.y < 1.72f && eyes.r.z > 0.04f && Mathf.Abs(eyes.r.x) < 0.16f, eyes.r);
             Check("Penjamin: left hand over the eyes", eyes.l.y > 1.45f && eyes.l.y < 1.72f && eyes.l.z > 0.04f && Mathf.Abs(eyes.l.x) < 0.16f, eyes.l);
-            var back = HandsIn(ActionClips.SwingBack, 0.09f, PropKind.Machete);
-            Check("backhand: cocked by the left shoulder", back.r.x < 0.02f && back.r.y > 1.2f, back.r);
-            var backStrike = HandsIn(ActionClips.SwingBack, 0.2f, PropKind.Machete);
-            Check("backhand: whipped out to his right", backStrike.r.x > 0.3f && backStrike.r.z > 0.2f, backStrike.r);
+            var back = HandsIn(ActionClips.SwingBack, 0.06f, PropKind.Machete);
+            Check("backhand: starts off to his left, where the forehand ended", back.r.x < -0.2f && back.r.y > 1.2f, back.r);
+            var backStrike = HandsIn(ActionClips.SwingBack, 0.195f, PropKind.Machete);
+            Check("backhand: cut back across to his right", backStrike.r.x > 0.3f && backStrike.r.z > 0.2f, backStrike.r);
             Assert.IsEmpty(problems, string.Join("; ", problems));
+        }
+
+        [Test]
+        public void TheBody_FacesTheAim_AtOnce_EvenMidAction_AndTheBeamLeavesTheLegsWalking()
+        {
+            GameObject go = NewCharacter(out ActionLayer layer, out _);
+            var animator = go.GetComponent<HumanoidAnimator>();
+            try
+            {
+                Vector3 ChestForward() => go.transform.InverseTransformDirection(layer.bones[(int)Bone.Chest].forward);
+                animator.Drive(Vector3.zero, new Vector2(0f, 1f));
+                for (int i = 0; i < 60; i++) { animator.Step(1f / 60f); layer.Step(1f / 60f); }
+                // Swing the aim right round behind: on the very next frame the chest faces it.
+                foreach (float deg in new[] { 170f, -95f, 60f })
+                {
+                    var aim = new Vector2(Mathf.Sin(deg * Mathf.Deg2Rad), Mathf.Cos(deg * Mathf.Deg2Rad));
+                    animator.Drive(Vector3.zero, aim);
+                    animator.Step(1f / 60f);
+                    layer.Step(1f / 60f);
+                    Vector3 f = ChestForward();
+                    float err = Vector2.Angle(new Vector2(f.x, f.z), aim);
+                    Assert.Less(err, 3f, $"chest faces an aim of {deg} deg the same frame");
+                }
+                // Mid-action too: the clip's torso turns on top of the aim (the strike faces the aim within its own windup).
+                layer.Play(ActionClips.AimPistol, 1f, true);
+                var walkAim = new Vector2(1f, 0f);
+                animator.Drive(new Vector3(0f, 0f, 1f), walkAim);
+                for (int i = 0; i < 40; i++) { animator.Step(1f / 60f); layer.Step(1f / 60f); }
+                Vector3 c = ChestForward();
+                Assert.Less(Vector2.Angle(new Vector2(c.x, c.z), walkAim), 14f, "aiming a pistol sideways while walking forward, the chest is on the aim");
+            }
+            finally { Object.DestroyImmediate(go); }
+
+            foreach (Bone b in new[] { Bone.ThighL, Bone.ThighR, Bone.ShinL, Bone.ShinR, Bone.FootL, Bone.FootR })
+                Assert.IsFalse(ActionClips.Beam.Owns(b), $"the beam leaves {b} to the walk");
+            Assert.IsFalse(ActionClips.Beam.UsesDrop, "and doesn't crouch the walk");
+            var p = new SimPlayer(1, "S", Role.Survivor, Vector2.zero) { Facing = 0f, BeamT = 1f, BeamAng = 1.2f };
+            Assert.AreEqual(1.2f, p.BodyFacing, 1e-5f, "while beaming the body faces the beam");
+            p.BeamT = 0f;
+            Assert.AreEqual(0f, p.BodyFacing, 1e-5f);
         }
 
         [Test]
@@ -254,6 +314,25 @@ namespace Vision.Tests
                 Assert.AreSame(ActionClips.AimLong, layer.Current);
                 view.OnEvent(new GameEvent { Kind = EventKind.Shot, A = 1, B = (int)ItemType.Shotgun }, p, null);
                 Assert.AreSame(ActionClips.RecoilLong, layer.Current, "the kick");
+                for (int i = 0; i < 100; i++) layer.Step(0.01f);
+                p.Inv.Add(ItemType.Sniper);
+                p.SelSlot = 1;
+                view.Present(p);
+                Assert.AreEqual(PropKind.Sniper, layer.HeldRight);
+                Assert.AreSame(ActionClips.AimRifle, layer.Current, "the 0.50 cal shouldered, cheek on the scope");
+                p.SelSlot = -1;
+                // Night vision: worn over the eyes, the arms left alone (the light stays in hand).
+                p.Inv.Add(ItemType.Goggles);
+                p.SelSlot = 2;
+                p.GogglesOn = true;
+                view.Present(p);
+                Assert.AreEqual(PropKind.Goggles, layer.Worn, "the goggles on the face");
+                Assert.AreEqual(PropKind.Flashlight, layer.HeldRight, "the light still in hand");
+                Assert.IsNull(layer.Current, "no arm raised for the goggles");
+                p.GogglesOn = false;
+                view.Present(p);
+                Assert.AreEqual(PropKind.None, layer.Worn);
+                p.SelSlot = -1;
                 p.Health = Game.Health.Downed;
                 for (int i = 0; i < 100; i++) layer.Step(0.01f);
                 view.Present(p);

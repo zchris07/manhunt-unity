@@ -7,13 +7,17 @@ namespace Vision.Characters
     /// <summary>
     /// Builds a character from a <see cref="CharacterSpec"/>: a flat-shaded, vertex-coloured low-poly body skinned to the
     /// <see cref="HumanoidSkeleton"/> (so the procedural gait and the action clips drive every character alike), at most
-    /// <see cref="MaxTriangles"/> triangles. Ten-sided torso, eight-sided head with a jaw, brow, nose and ears, six-sided
-    /// limbs with knee, elbow and boot rings, mitten hands with a thumb, wedge feet; then hair, hats, glasses, a mask, a
-    /// headset, a hood or bands as the spec asks. Joint rings are weighted half to each bone so joints bend cleanly.
+    /// <see cref="MaxTriangles"/> triangles. A fourteen-sided torso in seven rings (hips, belly, waist, ribs, chest, upper
+    /// chest, shoulders), a ten-sided head with a jaw, brow, nose and ears, eight-sided limbs with deltoid, bicep, elbow,
+    /// forearm, knee and calf rings, mitten hands with a thumb, and shaped feet: a rounded heel, the instep rising to the
+    /// ankle, a waisted arch, the broad ball and a toe box tapering to the big toe, on a flat sole; then hair, hats,
+    /// glasses, a mask, a headset, a hood or bands as the spec asks. Joint rings are weighted half to each bone so joints
+    /// bend cleanly.
     /// </summary>
     public static class CharacterBuilder
     {
-        public const int MaxTriangles = 500;
+        public const int MaxTriangles = 1000;
+        const int TorsoSides = 14, HeadSides = 10, LimbSides = 8;
 
         struct Point
         {
@@ -106,24 +110,32 @@ namespace Vision.Characters
             Color hands = s.Gloves.a > 0f ? s.Gloves : s.Skin;
             float hz = s.Hunch;
 
-            // ---- Torso: hips, waist, chest, shoulders (ten sides), a fan to the base of the neck.
+            // ---- Torso: hips, belly, waist, ribs, chest, upper chest, shoulders (fourteen sides), a fan to the base of the neck.
             m.Pattern = (c, i, paint) =>
             {
                 if (s.Has(Feature.OpenJacket) && jacket && c.z > 0.04f && Mathf.Abs(c.x) < 0.035f * s.Chest && c.y > 0.95f) return s.Shirt;
                 if (s.Has(Feature.Flannel) && i % 2 == 1) return Darker(paint, 0.55f);
                 return paint;
             };
-            int[] hips = m.Ring(new Vector3(0f, 0.88f, 0f), up, 10, 0.165f * s.Hips, 0.10f * s.Hips, 0.11f * s.Hips, 18f, W(Bone.Pelvis));
-            int[] waist = m.Ring(new Vector3(0f, 1.07f, hz * 0.3f), up, 10, 0.140f * s.Waist, 0.095f * s.Waist, 0.085f * s.Waist, 18f, W(Bone.Pelvis, Bone.Spine));
-            int[] chest = m.Ring(new Vector3(0f, 1.30f, -0.005f + hz * 0.7f), up, 10, 0.170f * s.Chest, 0.12f * s.Chest, 0.10f * s.Chest, 18f, W(Bone.Spine, Bone.Chest, 0.7f));
-            int[] shoulders = m.Ring(new Vector3(0f, 1.45f, -0.012f + hz), up, 10, 0.225f * s.Shoulders, 0.08f * s.Chest, 0.09f * s.Chest, 18f, W(Bone.Chest));
+            const float tp = 180f / TorsoSides;   // a face, not a corner, at the front centre
+            float wb = Mathf.Lerp(s.Hips, s.Waist, 0.5f), rb = Mathf.Lerp(s.Waist, s.Chest, 0.5f), uc = Mathf.Lerp(s.Chest, s.Shoulders, 0.5f);
+            int[] hips = m.Ring(new Vector3(0f, 0.88f, 0f), up, TorsoSides, 0.165f * s.Hips, 0.10f * s.Hips, 0.115f * s.Hips, tp, W(Bone.Pelvis));
+            int[] belly = m.Ring(new Vector3(0f, 0.975f, hz * 0.15f), up, TorsoSides, 0.153f * wb, 0.099f * wb, 0.102f * wb, tp, W(Bone.Pelvis, Bone.Spine, 0.3f));
+            int[] waist = m.Ring(new Vector3(0f, 1.07f, hz * 0.3f), up, TorsoSides, 0.140f * s.Waist, 0.095f * s.Waist, 0.085f * s.Waist, tp, W(Bone.Pelvis, Bone.Spine));
+            int[] ribs = m.Ring(new Vector3(0f, 1.19f, -0.003f + hz * 0.5f), up, TorsoSides, 0.158f * rb, 0.11f * rb, 0.094f * rb, tp, W(Bone.Spine, Bone.Chest, 0.4f));
+            int[] chest = m.Ring(new Vector3(0f, 1.30f, -0.005f + hz * 0.7f), up, TorsoSides, 0.170f * s.Chest, 0.12f * s.Chest, 0.10f * s.Chest, tp, W(Bone.Spine, Bone.Chest, 0.7f));
+            int[] upperChest = m.Ring(new Vector3(0f, 1.39f, -0.008f + hz * 0.85f), up, TorsoSides, 0.19f * uc, 0.108f * s.Chest, 0.097f * s.Chest, tp, W(Bone.Chest));
+            int[] shoulders = m.Ring(new Vector3(0f, 1.45f, -0.012f + hz), up, TorsoSides, 0.225f * s.Shoulders, 0.08f * s.Chest, 0.09f * s.Chest, tp, W(Bone.Chest));
             int neckBase = m.Add(new Vector3(0f, 1.505f, -0.015f + hz), W(Bone.Chest));
             m.Paint = s.Has(Feature.TornShirt) ? s.Shirt : outer;
-            m.Join(hips, waist, new Vector3(0f, 0.97f, 0f));
+            m.Join(hips, belly, new Vector3(0f, 0.93f, 0f));
+            m.Join(belly, waist, new Vector3(0f, 1.02f, 0f));
             m.Paint = s.Has(Feature.HiVis) ? s.Accent : s.Has(Feature.Jersey) ? s.Accent : outer;
-            m.Join(waist, chest, new Vector3(0f, 1.18f, hz * 0.5f));
+            m.Join(waist, ribs, new Vector3(0f, 1.13f, hz * 0.4f));
+            m.Join(ribs, chest, new Vector3(0f, 1.24f, hz * 0.6f));
             m.Paint = outer;
-            m.Join(chest, shoulders, new Vector3(0f, 1.37f, hz * 0.8f));
+            m.Join(chest, upperChest, new Vector3(0f, 1.34f, hz * 0.8f));
+            m.Join(upperChest, shoulders, new Vector3(0f, 1.42f, hz * 0.9f));
             m.Fan(shoulders, neckBase, new Vector3(0f, 1.35f, hz));
             m.Pattern = null;
 
@@ -131,9 +143,9 @@ namespace Vision.Characters
             if (s.Has(Feature.TornShirt))
             {
                 m.Paint = s.Shirt;
-                int[] belt = m.Ring(new Vector3(0f, 0.93f, 0f), up, 10, 0.172f * s.Hips, 0.107f * s.Hips, 0.117f * s.Hips, 18f, W(Bone.Pelvis));
-                var tails = new int[10];
-                for (int i = 0; i < 10; i++)
+                int[] belt = m.Ring(new Vector3(0f, 0.93f, 0f), up, TorsoSides, 0.172f * s.Hips, 0.107f * s.Hips, 0.12f * s.Hips, tp, W(Bone.Pelvis));
+                var tails = new int[TorsoSides];
+                for (int i = 0; i < TorsoSides; i++)
                 {
                     Vector3 p = m.P(belt[i]);
                     float drop = i % 2 == 0 ? 0.13f : 0.07f;
@@ -142,22 +154,22 @@ namespace Vision.Characters
                 m.Join(belt, tails, new Vector3(0f, 0.9f, 0f));
             }
 
-            // ---- Neck (six sides, open: buried in the shoulders and the head).
+            // ---- Neck (eight sides, open: buried in the shoulders and the head).
             m.Paint = s.Skin;
             float ng = s.Neck;
-            int[] neckLow = m.Ring(new Vector3(0f, 1.44f, -0.018f + hz), up, 6, 0.054f * ng, 0.054f * ng, 0.054f * ng, 0f, W(Bone.Chest, Bone.Neck));
-            int[] neckHigh = m.Ring(new Vector3(0f, 1.61f, 0f), up, 6, 0.048f * ng, 0.048f * ng, 0.048f * ng, 0f, W(Bone.Neck, Bone.Head));
+            int[] neckLow = m.Ring(new Vector3(0f, 1.44f, -0.018f + hz), up, 8, 0.054f * ng, 0.054f * ng, 0.054f * ng, 22.5f, W(Bone.Chest, Bone.Neck));
+            int[] neckHigh = m.Ring(new Vector3(0f, 1.61f, 0f), up, 8, 0.048f * ng, 0.05f * ng, 0.046f * ng, 22.5f, W(Bone.Neck, Bone.Head));
             m.Join(neckLow, neckHigh, new Vector3(0f, 1.52f, -0.01f));
 
-            // ---- Head (eight sides): chin, jaw, cheekbones, brow, crown, apex; a nose and ears.
+            // ---- Head (ten sides): chin, jaw, cheekbones, brow, crown, apex; a nose and ears.
             float k = s.Head;
             Vector3 hc = new Vector3(0f, 1.69f, 0.005f);
             Vector3 HP(float y) => new Vector3(0f, hc.y + (y - hc.y) * k, 0f);
-            int[] chin = m.Ring(HP(1.585f) + new Vector3(0f, 0f, 0.02f), up, 8, 0.042f * k, 0.058f * k, 0.035f * k, 0f, W(Bone.Head));
-            int[] jaw = m.Ring(HP(1.63f) + new Vector3(0f, 0f, 0.01f), up, 8, 0.068f * k, 0.085f * k, 0.072f * k, 0f, W(Bone.Head));
-            int[] cheek = m.Ring(HP(1.685f) + new Vector3(0f, 0f, 0.005f), up, 8, 0.079f * k, 0.094f * k, 0.09f * k, 0f, W(Bone.Head));
-            int[] brow = m.Ring(HP(1.745f), up, 8, 0.077f * k, 0.094f * k, 0.09f * k, 0f, W(Bone.Head));
-            int[] crown = m.Ring(HP(1.787f) + new Vector3(0f, 0f, -0.006f), up, 8, 0.064f * k, 0.066f * k, 0.078f * k, 0f, W(Bone.Head));
+            int[] chin = m.Ring(HP(1.585f) + new Vector3(0f, 0f, 0.02f), up, HeadSides, 0.042f * k, 0.058f * k, 0.035f * k, 0f, W(Bone.Head));
+            int[] jaw = m.Ring(HP(1.63f) + new Vector3(0f, 0f, 0.01f), up, HeadSides, 0.068f * k, 0.085f * k, 0.072f * k, 0f, W(Bone.Head));
+            int[] cheek = m.Ring(HP(1.685f) + new Vector3(0f, 0f, 0.005f), up, HeadSides, 0.079f * k, 0.094f * k, 0.09f * k, 0f, W(Bone.Head));
+            int[] brow = m.Ring(HP(1.745f), up, HeadSides, 0.077f * k, 0.094f * k, 0.09f * k, 0f, W(Bone.Head));
+            int[] crown = m.Ring(HP(1.787f) + new Vector3(0f, 0f, -0.006f), up, HeadSides, 0.064f * k, 0.066f * k, 0.078f * k, 0f, W(Bone.Head));
             int apex = m.Add(HP(1.81f) + new Vector3(0f, 0f, -0.012f), W(Bone.Head));
             int chinPoint = m.Add(HP(1.572f) + new Vector3(0f, 0f, 0.012f), W(Bone.Head));
             Vector3 headIn = HP(1.69f);
@@ -199,11 +211,11 @@ namespace Vision.Characters
                 m.Paint = s.HairStyle == HairStyle.Cap ? s.Hair : s.Hair;
                 bool curly = s.HairStyle == HairStyle.Curly;
                 // The hairline: low at the back (nape), up at the forehead; then the crown, a little proud of the scalp.
-                var line = new int[8];
-                var top = new int[8];
-                for (int i = 0; i < 8; i++)
+                var line = new int[HeadSides];
+                var top = new int[HeadSides];
+                for (int i = 0; i < HeadSides; i++)
                 {
-                    float a = i * Mathf.PI / 4f;
+                    float a = i * Mathf.PI * 2f / HeadSides;
                     float x = Mathf.Sin(a), z = Mathf.Cos(a);
                     float bump = curly ? (i % 2 == 0 ? 1.14f : 1.0f) : 1.05f;
                     float y = Mathf.Lerp(1.66f, 1.765f, (z + 1f) * 0.5f);
@@ -218,7 +230,7 @@ namespace Vision.Characters
                 if (s.HairStyle == HairStyle.Long)
                 {
                     // Hair down the back to the shoulders.
-                    int l3 = line[3], l4 = line[4], l5 = line[5];
+                    int l3 = line[4], l4 = line[5], l5 = line[6];
                     int d3 = m.Add(m.P(l3) + new Vector3(0.01f, -0.20f, -0.02f), W(Bone.Neck, Bone.Head, 0.4f));
                     int d4 = m.Add(m.P(l4) + new Vector3(0f, -0.22f, -0.03f), W(Bone.Neck, Bone.Head, 0.4f));
                     int d5 = m.Add(m.P(l5) + new Vector3(-0.01f, -0.20f, -0.02f), W(Bone.Neck, Bone.Head, 0.4f));
@@ -229,7 +241,7 @@ namespace Vision.Characters
                 if (s.HairStyle == HairStyle.Cap)
                 {
                     // A backwards cap: the brim sticks out behind.
-                    int b0 = line[3], b1 = line[5];
+                    int b0 = line[4], b1 = line[6];
                     Vector3 back = (m.P(b0) + m.P(b1)) * 0.5f;
                     int t0 = m.Add(m.P(b0) + new Vector3(0f, -0.006f, -0.07f), W(Bone.Head));
                     int t1 = m.Add(m.P(b1) + new Vector3(0f, -0.006f, -0.07f), W(Bone.Head));
@@ -387,30 +399,33 @@ namespace Vision.Characters
                 Bone thigh = left ? Bone.ThighL : Bone.ThighR, shin = thigh + 1, foot = thigh + 2, toe = thigh + 3;
                 float ag = s.Arms, lg = s.Legs;
 
-                // ---- Arm: deltoid cap, shoulder, bicep, elbow, wrist (six sides); a mitten hand with a thumb.
+                // ---- Arm: deltoid cap, shoulder, bicep, elbow, forearm, wrist (eight sides); a mitten hand with a thumb.
                 Vector3 sh = J(upper), el = J(fore), wr = J(hand);
                 Vector3 shOut = sh + new Vector3(side * (0.225f * s.Shoulders - 0.215f), 0f, hz);
                 var knuckle = wr + new Vector3(side * 0.004f, -0.095f, 0.004f);
                 var tip = wr + new Vector3(side * 0.006f, -0.148f, 0.01f);
                 m.Paint = s.Has(Feature.TornShirt) ? s.Shirt : outer;
                 float cg = Mathf.Lerp(1f, ag, 0.55f);
-                int[] cap = m.Ring(new Vector3(side * (0.195f + (0.225f * s.Shoulders - 0.225f)), 1.478f, -0.008f + hz), up, 6, 0.06f * cg, 0.06f * cg, 0.06f * cg, 0f, W(Bone.Chest, upper));
+                int[] cap = m.Ring(new Vector3(side * (0.195f + (0.225f * s.Shoulders - 0.225f)), 1.478f, -0.008f + hz), up, LimbSides, 0.06f * cg, 0.06f * cg, 0.06f * cg, 22.5f, W(Bone.Chest, upper));
                 int capTop = m.Add(new Vector3(side * (0.172f + (0.225f * s.Shoulders - 0.225f)), 1.50f, -0.01f + hz), W(Bone.Chest, upper, 0.3f));
-                int[] a0 = m.Ring(shOut, el - sh, 6, 0.056f * ag, 0.054f * ag, 0.054f * ag, 30f, W(upper, Bone.Chest, 0.3f));
+                int[] a0 = m.Ring(shOut, el - sh, LimbSides, 0.056f * ag, 0.054f * ag, 0.054f * ag, 22.5f, W(upper, Bone.Chest, 0.3f));
                 m.Join(cap, a0, new Vector3(side * 0.19f, 1.45f, -0.005f + hz));
                 m.Fan(cap, capTop, new Vector3(side * 0.19f, 1.45f, -0.005f + hz));
                 Vector3 bicepAt = Vector3.Lerp(sh, el, 0.45f) + new Vector3(side * (0.225f * s.Shoulders - 0.225f) * 0.5f, 0f, hz * 0.5f);
-                int[] a1 = m.Ring(bicepAt, el - sh, 6, 0.054f * ag, 0.056f * ag, 0.05f * ag, 30f, W(upper));
-                int[] a2 = m.Ring(el, wr - sh, 6, 0.043f * ag, 0.044f * ag, 0.043f * ag, 30f, W(upper, fore));
-                int[] a3 = m.Ring(wr, wr - el, 6, 0.031f * ag, 0.033f * ag, 0.033f * ag, 30f, W(fore, hand));
+                int[] a1 = m.Ring(bicepAt, el - sh, LimbSides, 0.054f * ag, 0.056f * ag, 0.05f * ag, 22.5f, W(upper));
+                int[] a2 = m.Ring(el, wr - sh, LimbSides, 0.043f * ag, 0.044f * ag, 0.043f * ag, 22.5f, W(upper, fore));
+                Vector3 foreAt = Vector3.Lerp(el, wr, 0.35f);
+                int[] a2b = m.Ring(foreAt, wr - el, LimbSides, 0.041f * ag, 0.042f * ag, 0.04f * ag, 22.5f, W(fore));
+                int[] a3 = m.Ring(wr, wr - el, LimbSides, 0.031f * ag, 0.033f * ag, 0.033f * ag, 22.5f, W(fore, hand));
                 m.Join(a0, a1, (sh + bicepAt) * 0.5f);
                 m.Join(a1, a2, (bicepAt + el) * 0.5f);
                 // Forearm: sleeve, or bare when the shirt has short sleeves (or Zach's are torn off), with hi-vis cuffs.
                 m.Paint = s.Has(Feature.TornShirt) || !jacket ? s.Skin : s.Jacket;
                 if (s.Has(Feature.HiVis)) m.Paint = s.Accent;
-                m.Join(a2, a3, (el + wr) * 0.5f);
+                m.Join(a2, a2b, (el + foreAt) * 0.5f);
+                m.Join(a2b, a3, (foreAt + wr) * 0.5f);
                 m.Paint = hands;
-                int[] a4 = m.Ring(knuckle, knuckle - wr, 6, 0.021f * ag, 0.05f * ag, 0.046f * ag, 30f, W(hand));
+                int[] a4 = m.Ring(knuckle, knuckle - wr, LimbSides, 0.021f * ag, 0.05f * ag, 0.046f * ag, 22.5f, W(hand));
                 int fingertip = m.Add(tip, W(hand));
                 m.Join(a3, a4, (wr + knuckle) * 0.5f);
                 m.Fan(a4, fingertip, knuckle);
@@ -425,7 +440,7 @@ namespace Vision.Characters
                     m.Tri(t0, t3, t1, inside);
                 }
 
-                // ---- Leg: hip, knee, calf, boot cuff, ankle (six sides); a wedge foot.
+                // ---- Leg: hip, thigh, knee, calf, boot cuff, ankle (eight sides); a shaped foot.
                 Vector3 hip = J(thigh), knee = J(shin);
                 float x = hip.x;
                 var hipTop = new Vector3(x * Mathf.Max(1f, s.Hips * 0.95f), 0.97f, 0f);
@@ -433,35 +448,64 @@ namespace Vision.Characters
                 var cuff = new Vector3(x, 0.17f, -0.004f);
                 var ankle = new Vector3(x, 0.075f, 0f);
                 m.Paint = s.Pants;
-                int[] l0 = m.Ring(hipTop, knee - hipTop, 6, 0.08f * lg, 0.08f * lg, 0.08f * lg, 30f, W(thigh));
-                int[] l1 = m.Ring(knee, ankle - hipTop, 6, 0.054f * lg, 0.056f * lg, 0.05f * lg, 30f, W(thigh, shin));
-                int[] l2 = m.Ring(calf, ankle - knee, 6, 0.052f * lg, 0.046f * lg, 0.058f * lg, 30f, W(shin));
-                int[] l3 = m.Ring(cuff, ankle - knee, 6, 0.046f * lg, 0.046f * lg, 0.046f * lg, 30f, W(shin));
-                int[] l4 = m.Ring(ankle, ankle - knee, 6, 0.04f * lg, 0.043f * lg, 0.043f * lg, 30f, W(shin, foot));
-                m.Join(l0, l1, (hipTop + knee) * 0.5f);
+                var midThigh = Vector3.Lerp(hipTop, knee, 0.5f) + new Vector3(0f, 0f, 0.006f);
+                int[] l0 = m.Ring(hipTop, knee - hipTop, LimbSides, 0.08f * lg, 0.08f * lg, 0.08f * lg, 22.5f, W(thigh));
+                int[] l0b = m.Ring(midThigh, knee - hipTop, LimbSides, 0.068f * lg, 0.072f * lg, 0.066f * lg, 22.5f, W(thigh));
+                int[] l1 = m.Ring(knee, ankle - hipTop, LimbSides, 0.054f * lg, 0.056f * lg, 0.05f * lg, 22.5f, W(thigh, shin));
+                int[] l2 = m.Ring(calf, ankle - knee, LimbSides, 0.052f * lg, 0.046f * lg, 0.058f * lg, 22.5f, W(shin));
+                int[] l3 = m.Ring(cuff, ankle - knee, LimbSides, 0.046f * lg, 0.046f * lg, 0.046f * lg, 22.5f, W(shin));
+                int[] l4 = m.Ring(ankle, ankle - knee, LimbSides, 0.04f * lg, 0.043f * lg, 0.043f * lg, 22.5f, W(shin, foot));
+                m.Join(l0, l0b, (hipTop + midThigh) * 0.5f);
+                m.Join(l0b, l1, (midThigh + knee) * 0.5f);
                 m.Join(l1, l2, (knee + calf) * 0.5f);
                 m.Join(l2, l3, (calf + cuff) * 0.5f);
                 m.Paint = s.Shoes;
                 m.Join(l3, l4, (cuff + ankle) * 0.5f);
 
+                // The foot, lofted heel to toe through rings with a flat sole and a rounded top: the heel's curve, the instep
+                // up to the ankle, the arch, the broad ball and the toe box narrowing to the big toe on the inside.
                 float fw = Mathf.Lerp(1f, lg, 0.5f);
-                int heelL = m.Add(new Vector3(x - 0.044f * fw, 0f, -0.078f), W(foot));
-                int heelR = m.Add(new Vector3(x + 0.044f * fw, 0f, -0.078f), W(foot));
-                int toeL = m.Add(new Vector3(x - 0.054f * fw, 0f, 0.21f), W(toe));
-                int toeR = m.Add(new Vector3(x + 0.054f * fw, 0f, 0.21f), W(toe));
-                int topL = m.Add(new Vector3(x - 0.04f * fw, 0.12f, -0.04f), W(foot));
-                int topR = m.Add(new Vector3(x + 0.04f * fw, 0.12f, -0.04f), W(foot));
-                var footInside = new Vector3(x, 0.04f, 0.02f);
-                m.Paint = Darker(s.Shoes, 0.6f);
-                m.Quad(heelL, heelR, toeR, toeL, footInside);
+                (float z, float w, float h, float dx, BoneWeight wt)[] sections = Foot(foot, toe);
+                var rings = new int[sections.Length][];
+                for (int r = 0; r < sections.Length; r++)
+                {
+                    var (fz, hw, fh, dx, wt) = sections[r];
+                    rings[r] = new int[8];
+                    for (int q = 0; q < 8; q++)
+                    {
+                        float a = (q + 0.5f) * Mathf.PI / 4f;
+                        float px = x + side * dx + Mathf.Cos(a) * hw * fw;
+                        float py = Mathf.Max(0f, fh * 0.5f + Mathf.Sin(a) * fh * 0.5f);
+                        rings[r][q] = m.Add(new Vector3(px, py, fz), wt);
+                    }
+                }
+                m.Pattern = (c, i2, paint) => c.y < 0.012f ? Darker(s.Shoes, 0.55f) : paint;
                 m.Paint = s.Shoes;
-                m.Quad(toeL, toeR, topR, topL, footInside);
-                m.Quad(topL, topR, heelR, heelL, footInside);
-                m.Tri(heelL, toeL, topL, footInside);
-                m.Tri(heelR, toeR, topR, footInside);
+                for (int r = 0; r + 1 < sections.Length; r++)
+                    m.Join(rings[r], rings[r + 1], new Vector3(x + side * sections[r].dx, sections[r + 1].h * 0.4f, (sections[r].z + sections[r + 1].z) * 0.5f));
+                int heelPt = m.Add(new Vector3(x, 0.03f, sections[0].z - 0.012f), sections[0].wt);
+                m.Fan(rings[0], heelPt, new Vector3(x, 0.035f, sections[0].z + 0.03f));
+                int last = sections.Length - 1;
+                int toePt = m.Add(new Vector3(x - side * 0.011f, 0.017f, sections[last].z + 0.034f), W(toe));
+                m.Fan(rings[last], toePt, new Vector3(x - side * 0.008f, 0.02f, sections[last].z - 0.02f));
+                m.Pattern = null;
             }
             return m;
         }
+
+        /// <summary>
+        /// The foot's cross-sections from the back of the heel to the toe box: (z, half width, height, shift toward the
+        /// outside of the foot, weights). The heel and arch ride on the foot bone, the ball bends with the toe bone.
+        /// </summary>
+        static (float z, float w, float h, float dx, BoneWeight wt)[] Foot(Bone foot0, Bone toe0) => new[]
+        {
+            (-0.085f, 0.027f, 0.064f, 0f, W(foot0)),
+            (-0.064f, 0.038f, 0.088f, 0f, W(foot0)),
+            (-0.01f, 0.043f, 0.106f, 0.002f, W(foot0)),
+            (0.06f, 0.046f, 0.08f, 0.004f, W(foot0)),
+            (0.13f, 0.053f, 0.057f, 0.001f, W(foot0, toe0)),
+            (0.186f, 0.045f, 0.042f, -0.005f, W(toe0)),
+        };
 
         /// <summary>Triangle count of a character.</summary>
         public static int Triangles(CharacterSpec spec) => Construct(spec).Triangles.Count / 3;

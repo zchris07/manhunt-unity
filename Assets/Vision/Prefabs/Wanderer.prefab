@@ -232,8 +232,8 @@ MonoBehaviour:
   - {fileID: 1735179981164029831}
   - {fileID: 2777244531290783974}
   - {fileID: 6647849557175492717}
-  turnSpeed: 420
-  maxTwist: 80
+  turnSpeed: 720
+  maxTwist: 100
   Prone: 0
   Crouch: 0
 --- !u!114 &2081168116453899635

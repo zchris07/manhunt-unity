@@ -30,20 +30,27 @@ namespace Vision.Player
         public static readonly ItemType[] All = (ItemType[])Enum.GetValues(typeof(ItemType));
 
         /// <summary>Names, map colours (the original's minimap dots) and map counts (the original's <c>items.counts</c>).</summary>
+        /// <summary>How many of an item the original spreads over the map (its balance table).</summary>
+        public static int MapCount(ItemType t)
+        {
+            foreach (var (item, count) in Game.Balance.Items.Counts) if (item == t) return count;
+            return 0;
+        }
+
         public static ItemInfo Info(ItemType t) => t switch
         {
-            ItemType.Bottle => new ItemInfo("Bottle", Hex(0x4cff6a), false, 20),
-            ItemType.Book => new ItemInfo("The Grapes of Wrath", Hex(0xa86ac8), false, 4),
-            ItemType.Goggles => new ItemInfo("Night vision goggles", Hex(0x5cff9a), false, 3),
-            ItemType.Shotgun => new ItemInfo("Shotgun", Hex(0xff6a4a), true, 4),
-            ItemType.DoctorPepper => new ItemInfo("Doctor Pepper", Hex(0xd8283a), false, 8),
-            ItemType.Trap => new ItemInfo("Galaxy gas trap", Hex(0xd06aff), false, 8),
-            ItemType.Confit => new ItemInfo("Duck confit", Hex(0xffb04a), false, 6),
-            ItemType.MrBeastBar => new ItemInfo("Mr Beast bar", Hex(0x8a5a2a), false, 15),
-            ItemType.MiniShield => new ItemInfo("Mini shield", Hex(0x3aa8ff), false, 20),
-            ItemType.Pistol => new ItemInfo("P250", Hex(0xb0b0b8), true, 0),
-            ItemType.Sniper => new ItemInfo("0.50 cal", Hex(0xff3030), true, 2),
-            _ => new ItemInfo("Jar of piss", Hex(0xe6c820), false, 6),
+            ItemType.Bottle => new ItemInfo("Bottle", Hex(0x4cff6a), false, MapCount(ItemType.Bottle)),
+            ItemType.Book => new ItemInfo("The Grapes of Wrath", Hex(0xa86ac8), false, MapCount(ItemType.Book)),
+            ItemType.Goggles => new ItemInfo("Night vision goggles", Hex(0x5cff9a), false, MapCount(ItemType.Goggles)),
+            ItemType.Shotgun => new ItemInfo("Shotgun", Hex(0xff6a4a), true, MapCount(ItemType.Shotgun)),
+            ItemType.DoctorPepper => new ItemInfo("Doctor Pepper", Hex(0xd8283a), false, MapCount(ItemType.DoctorPepper)),
+            ItemType.Trap => new ItemInfo("Galaxy gas trap", Hex(0xd06aff), false, MapCount(ItemType.Trap)),
+            ItemType.Confit => new ItemInfo("Duck confit", Hex(0xffb04a), false, MapCount(ItemType.Confit)),
+            ItemType.MrBeastBar => new ItemInfo("Mr Beast bar", Hex(0x8a5a2a), false, MapCount(ItemType.MrBeastBar)),
+            ItemType.MiniShield => new ItemInfo("Mini shield", Hex(0x3aa8ff), false, MapCount(ItemType.MiniShield)),
+            ItemType.Pistol => new ItemInfo("P250", Hex(0xb0b0b8), true, MapCount(ItemType.Pistol)),
+            ItemType.Sniper => new ItemInfo("0.50 cal", Hex(0xff3030), true, MapCount(ItemType.Sniper)),
+            _ => new ItemInfo("Jar of piss", Hex(0xe6c820), false, MapCount(ItemType.Piss)),
         };
 
         /// <summary>A slot's display name: a golden shotgun is the golden pump.</summary>

@@ -105,7 +105,7 @@ namespace Vision.World
                     blocked.Add(at + along * t + across * s);
 
             // The supplies beside it, in a row just outside the ring he paces.
-            ItemType[] kit = { ItemType.MiniShield, ItemType.MiniShield, ItemType.MrBeastBar, ItemType.MrBeastBar, ItemType.Confit };
+            ItemType[] kit = Game.Balance.Items.AmbulanceKit;
             float gap = 44f * U;
             Transform supplies = Group("Ambulance kit");
             foreach (float side in new[] { 1f, -1f })

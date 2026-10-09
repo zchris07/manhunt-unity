@@ -95,6 +95,7 @@ namespace Vision.Rendering
         public IReadOnlyList<Vector2> ConePolygon => conePolygon;
         public IReadOnlyList<Vector2> ProximityPolygon => proximityPolygon;
         readonly List<Vector2> seeThroughPolygon = new List<Vector2>(256);
+        readonly List<Vector2> allyDiscs = new List<Vector2>(8);
         readonly List<Vector2> shadowPolygon = new List<Vector2>(8);
 
         // Debug: last polygons as line strips for the overlay.
@@ -298,19 +299,39 @@ namespace Vision.Rendering
             seeThroughPolygon.Clear();
             rays += vc.LastRayCount; polygons++;
 
-            if (viewer.seeThroughEnabled)
+            float xk = SeeThroughEase;
+            if (viewer.seeThroughEnabled && xk > 0f)
             {
                 // Night vision and the Hemp Battery: the x-ray fills the whole vision cone and runs on past the edge of the
-                // screen whichever way the player turns, at full strength all the way (no fading with distance).
-                float seeThrough = halfSize * 0.98f;
+                // screen whichever way the player turns, at full strength all the way (no fading with distance). As it
+                // comes on it grows out of the torch to that reach, brightening as it goes (the original's animation).
+                float seeThrough = halfSize * 0.98f * Mathf.Lerp(Game.Balance.Xray.StartReach, 1f, xk);
                 seeThroughW = seeThrough;
                 float seeHalf = Mathf.Max(viewer.coneHalfAngleDeg, viewer.seeThroughHalfAngleDeg) * Mathf.Deg2Rad;
                 vc.Compute(ViewQuery.Cone(origin, dir, seeHalf, seeThrough, false), polygon);
                 beam = new Vector4(Mathf.Cos(dir), Mathf.Sin(dir), seeHalf, viewer.coneEdgeSoftness);
-                AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength, seeThrough, 2f);
+                AddPolygon(polygon, false, origin, blue * viewer.seeThroughStrength * xk, seeThrough, 2f);
                 beam = Vector4.zero;
                 seeThroughPolygon.AddRange(polygon);
                 rays += vc.LastRayCount; polygons++;
+            }
+
+            // Teammates (a survivor's view): a small bright disc about each one shows them through the fog, walls or not
+            // (the original's ally body light).
+            allyDiscs.Clear();
+            for (int i = 0; i < viewer.allyBodies.Count; i++)
+            {
+                Vector2 c = viewer.allyBodies[i];
+                float r = viewer.allyBodyRadius;
+                polygon.Clear();
+                for (int s = 0; s < 16; s++)
+                {
+                    float a = s * Mathf.PI * 2f / 16f;
+                    polygon.Add(c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r);
+                }
+                AddPolygon(polygon, true, c, blue * viewer.allyBodyIntensity, r, viewer.proximityFalloffStart);
+                allyDiscs.Add(c);
+                polygons++;
             }
 
             ViewerMarker.End();
@@ -408,10 +429,25 @@ namespace Vision.Rendering
                 b = DistanceFalloff(d, coneRangeW, coneStartW)
                     * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
             if (Contains(proximityPolygon, p)) b = Mathf.Max(b, DistanceFalloff(d, proximityW, viewer.proximityFalloffStart));
+            foreach (Vector2 c in allyDiscs)
+            {
+                float da = (p - c).magnitude;
+                if (da < viewer.allyBodyRadius) b = Mathf.Max(b, viewer.allyBodyIntensity * DistanceFalloff(da, viewer.allyBodyRadius, viewer.proximityFalloffStart));
+            }
             if (seeThroughPolygon.Count > 0 && Contains(seeThroughPolygon, p))
-                b = Mathf.Max(b, viewer.seeThroughStrength * DistanceFalloff(d, seeThroughW, 2f)
+                b = Mathf.Max(b, viewer.seeThroughStrength * SeeThroughEase * DistanceFalloff(d, seeThroughW, 2f)
                     * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), Mathf.Max(viewer.coneHalfAngleDeg, viewer.seeThroughHalfAngleDeg) * Mathf.Deg2Rad, viewer.coneEdgeSoftness));
             return b;
+        }
+
+        /// <summary>The see-through light's growth, eased out as the original's (1 - (1 - k)^2).</summary>
+        float SeeThroughEase
+        {
+            get
+            {
+                float k = Mathf.Clamp01(viewer.seeThroughK);
+                return 1f - (1f - k) * (1f - k);
+            }
         }
 
         /// <summary>Distance falloff of a polygon (matches Hidden/Vision/Mask).</summary>

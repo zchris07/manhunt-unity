@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>icons</title>
+<style>body{background:#111;color:#ddd;font:12px monospace} img{background:#222;margin:4px;width:80px;height:80px;object-fit:contain}</style>
+</head><body>
+<div id="out"></div>
+<script src="orig_items.js"></script>
+<script src="abilities.js"></script>
+<script>
+const list = {
+  bottle: itemBottle, goggles: itemGoggles, shotgun: itemShotgun, energy: itemEnergy, book: itemBook,
+  beastBar: itemBeastBar, shield: itemShield, sniper: itemSniper, piss: itemPiss, pistol: itemPistol,
+  trap: itemTrap, goldenPump: itemGoldenPump, confit: itemConfit, tablet: itemTablet, hemp: itemHemp,
+  leaf: itemLeaf, machete: itemMachete, lunge: itemLunge, burst: itemBurst, vape: itemVape, nic: itemNic,
+};
+(async () => {
+  const out = document.getElementById('out');
+  let done = 0;
+  for (const [name, gen] of Object.entries(list)) {
+    const c = gen(0);
+    const url = c.toDataURL('image/png');
+    const img = document.createElement('img');
+    img.src = url;
+    img.title = name;
+    out.appendChild(img);
+    const r = await fetch('/save?name=' + name, { method: 'POST', body: url });
+    if (r.ok) done++;
+  }
+  document.title = 'done ' + done + '/' + Object.keys(list).length;
+})();
+</script>
+</body></html>

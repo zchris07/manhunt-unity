@@ -171,10 +171,18 @@ namespace Vision.Characters
         public float Weight => weight;
         public Vector2 Reaction => react;
 
-        Transform socketR, socketL;
-        MeshFilter propR, propL;
+        Transform socketR, socketL, socketHead;
+        MeshFilter propR, propL, propHead;
         public PropKind HeldRight { get; private set; }
         public PropKind HeldLeft { get; private set; }
+        /// <summary>What is worn on the face (night vision goggles), or None.</summary>
+        public PropKind Worn { get; private set; }
+
+        /// <summary>
+        /// Guns sit in the fist as they do in a real hand: the barrel runs along the forearm (tilted 12° toward the thumb)
+        /// with the sights toward the thumb; everything else is held like a hammer or a torch, along the thumb.
+        /// </summary>
+        public static readonly Quaternion GunSeat = Quaternion.Euler(78f, 0f, 0f);
 
         void Awake() => Wire();
 
@@ -256,9 +264,48 @@ namespace Vision.Characters
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             mf.sharedMesh = PropModels.Get(kind);
+            mf.transform.localRotation = PropModels.Muzzle(kind).HasValue ? GunSeat : Quaternion.identity;
             mf.gameObject.SetActive(kind != PropKind.None);
             if (left) HeldLeft = kind;
             else HeldRight = kind;
+        }
+
+        /// <summary>Puts something on the face (the goggles over the eyes), or takes it off (None).</summary>
+        public void Wear(PropKind kind)
+        {
+            if (Worn == kind) return;
+            if (bones == null || bones.Length <= (int)Bone.Head || bones[(int)Bone.Head] == null) return;
+            if (socketHead == null)
+            {
+                socketHead = new GameObject("Socket Face").transform;
+                socketHead.SetParent(bones[(int)Bone.Head], false);
+                // In front of the eyes (the head joint is at 1.62 m; the eyes at about 1.71 m, the face 9 cm forward).
+                socketHead.localPosition = new Vector3(0f, 0.092f, 0.086f);
+            }
+            if (propHead == null)
+            {
+                var go = new GameObject("Worn");
+                go.transform.SetParent(socketHead, false);
+                go.layer = gameObject.layer;
+                propHead = go.AddComponent<MeshFilter>();
+                var r = go.AddComponent<MeshRenderer>();
+                var skin = GetComponentInChildren<SkinnedMeshRenderer>();
+                if (skin != null) r.sharedMaterial = skin.sharedMaterial;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            propHead.sharedMesh = PropModels.Get(kind);
+            propHead.gameObject.SetActive(kind != PropKind.None);
+            Worn = kind;
+        }
+
+        /// <summary>The end of the barrel of the gun in the right hand (world), or false when it holds no gun.</summary>
+        public bool Muzzle(out Vector3 world)
+        {
+            world = default;
+            Vector3? local = PropModels.Muzzle(HeldRight);
+            if (!local.HasValue || propR == null || !propR.gameObject.activeInHierarchy) return false;
+            world = propR.transform.TransformPoint(local.Value);
+            return true;
         }
 
         public Transform PropTransform(bool left = false)
@@ -333,11 +380,16 @@ namespace Vision.Characters
         {
             if (clip == null || w <= 0f) return;
             float e = Ease(w);
+            // The clip's torso turns on top of the twist toward the aim, so an action never turns the body off the aim.
+            float twist = animator != null ? animator.Twist : 0f;
             foreach (Bone b in clip.Bones)
             {
                 Transform tr = bones[(int)b];
                 if (tr == null) continue;
-                Quaternion target = Quaternion.Euler(clip.Sample(b, t));
+                Vector3 euler = clip.Sample(b, t);
+                if (b == Bone.Spine) euler.y += twist * HumanoidAnimator.SpineTwist;
+                else if (b == Bone.Chest) euler.y += twist * HumanoidAnimator.ChestTwist;
+                Quaternion target = Quaternion.Euler(euler);
                 tr.localRotation = Quaternion.Slerp(tr.localRotation, target, e);
             }
             if (clip.UsesDrop)

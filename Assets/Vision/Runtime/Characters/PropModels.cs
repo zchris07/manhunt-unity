@@ -3,12 +3,14 @@ using UnityEngine;
 
 namespace Vision.Characters
 {
-    public enum PropKind { None, Machete, Shotgun, GoldenPump, Pistol, Sniper, Flashlight, Magnifier, Tablet, Controller, Bottle, Book, Jar, Can, Bar }
+    public enum PropKind { None, Machete, Shotgun, GoldenPump, Pistol, Sniper, Flashlight, Magnifier, Tablet, Controller, Bottle, Book, Jar, Can, Bar, Flask, Tank, Goggles }
 
     /// <summary>
     /// Held props: separate flat-shaded, vertex-coloured meshes of at most <see cref="MaxTriangles"/> triangles, built
     /// in the grip's frame (the hand closes round the origin; the prop points along +Z, its top is +Y), so a socket on the
-    /// hand bone holds them.
+    /// hand bone holds them. They follow the original's item art: a side-by-side double-barrelled shotgun with a wooden
+    /// stock, the mini shield as a small round flask of glowing blue liquid with a stopper (Fortnite's small shield
+    /// potion), galaxy gas as a stout whippit tank in a galaxy wrap with a silver shoulder and a valve.
     /// </summary>
     public static class PropModels
     {
@@ -75,6 +77,31 @@ namespace Vision.Characters
                 Tri(tipTop - t, tipTop + t, tip, edge);
             }
 
+            /// <summary>
+            /// A solid of revolution about the Z axis through an axis point: rings at (z, radius), each band between two
+            /// rings in its own colour, closed at both ends.
+            /// </summary>
+            public void Lathe(Vector3 axisPoint, (float z, float r)[] profile, Color[] bands, int sides, float phase = 0f)
+            {
+                for (int k = 0; k + 1 < profile.Length; k++)
+                {
+                    var (z0, r0) = profile[k];
+                    var (z1, r1) = profile[k + 1];
+                    Color col = bands[Mathf.Min(k, bands.Length - 1)];
+                    for (int i = 0; i < sides; i++)
+                    {
+                        float a = phase + i * Mathf.PI * 2f / sides, b = phase + (i + 1) * Mathf.PI * 2f / sides;
+                        Vector3 d0 = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f), d1 = new Vector3(Mathf.Cos(b), Mathf.Sin(b), 0f);
+                        Vector3 p00 = axisPoint + d0 * r0 + Vector3.forward * z0, p01 = axisPoint + d1 * r0 + Vector3.forward * z0;
+                        Vector3 p10 = axisPoint + d0 * r1 + Vector3.forward * z1, p11 = axisPoint + d1 * r1 + Vector3.forward * z1;
+                        if (r0 > 1e-5f) Tri(p00, p10, p11, col);
+                        if (r1 > 1e-5f || r0 > 1e-5f) Tri(p00, p11, p01, col);
+                        if (k == 0 && r0 > 1e-5f) Tri(axisPoint + Vector3.forward * z0, p01, p00, col);
+                        if (k + 2 == profile.Length && r1 > 1e-5f) Tri(axisPoint + Vector3.forward * z1, p10, p11, col);
+                    }
+                }
+            }
+
             public Mesh Mesh(string name)
             {
                 var m = new Mesh { name = name };
@@ -116,9 +143,17 @@ namespace Vision.Characters
                     b.Blade(new Vector3(0f, -0.006f, 0.1f), 0.46f, 0.07f, 0.004f, H(0x9a9c98), H(0xd8dad6));
                     break;
                 case PropKind.Shotgun:
+                    // The original's shotgun: side-by-side barrels over a wooden forend, a wooden stock.
+                    b.Box(new Vector3(0f, -0.022f, -0.17f), new Vector3(0.018f, 0.04f, 0.13f), wood, Quaternion.Euler(8f, 0f, 0f));
+                    b.Box(new Vector3(0f, 0.012f, 0.03f), new Vector3(0.024f, 0.028f, 0.075f), H(0x3a3c40));
+                    b.Tube(new Vector3(-0.0125f, 0.028f, 0f), 0.09f, 0.62f, 0.012f, 0.012f, 6, H(0x5a6270), true, black);
+                    b.Tube(new Vector3(0.0125f, 0.028f, 0f), 0.09f, 0.62f, 0.012f, 0.012f, 6, H(0x6b7482), true, black);
+                    b.Box(new Vector3(0f, 0.004f, 0.25f), new Vector3(0.022f, 0.016f, 0.09f), H(0x7a4520));
+                    b.Box(new Vector3(0f, -0.03f, 0.0f), new Vector3(0.008f, 0.02f, 0.03f), black);
+                    break;
                 case PropKind.GoldenPump:
                 {
-                    bool gold = kind == PropKind.GoldenPump;
+                    bool gold = true;
                     Color body = gold ? H(0xd8a830) : dark, stock = gold ? H(0xb8862a) : wood;
                     b.Box(new Vector3(0f, -0.02f, -0.16f), new Vector3(0.018f, 0.04f, 0.13f), stock, Quaternion.Euler(8f, 0f, 0f));
                     b.Box(new Vector3(0f, 0.01f, 0.05f), new Vector3(0.02f, 0.03f, 0.1f), body);
@@ -186,9 +221,43 @@ namespace Vision.Characters
                 case PropKind.Bar:
                     b.Box(new Vector3(0f, 0f, 0.04f), new Vector3(0.014f, 0.03f, 0.07f), H(0x6a3a1e));
                     break;
+                case PropKind.Flask:
+                {
+                    // The mini shield: a round glass flask, the bottom two thirds glowing blue liquid, a slim neck, a cork.
+                    Color fluid = H(0x2e9cff), fluidTop = H(0x7fd0ff), glass = H(0xbfe4ff), cork = H(0x9a6a3a);
+                    b.Lathe(new Vector3(0f, 0f, 0f), new[] { (-0.035f, 0.022f), (-0.022f, 0.042f), (0.0f, 0.05f), (0.022f, 0.044f), (0.036f, 0.026f), (0.046f, 0.012f), (0.07f, 0.012f), (0.072f, 0.015f), (0.09f, 0.014f) },
+                        new[] { fluid, fluid, fluidTop, glass, glass, glass, cork, cork }, 7);
+                    break;
+                }
+                case PropKind.Tank:
+                {
+                    // Galaxy gas: a stout whippit tank wrapped in a galaxy label, a silver shoulder, a valve and a nozzle.
+                    Color navy = H(0x2a1a6a), purple = H(0xb03ad8), pink = H(0xff5ab0), blue = H(0x3a6aff), silver = H(0xc9d2dc), valve = H(0x1a1a1a);
+                    b.Lathe(Vector3.zero, new[] { (-0.06f, 0.036f), (-0.055f, 0.042f), (-0.02f, 0.042f), (0.01f, 0.042f), (0.04f, 0.042f), (0.07f, 0.042f), (0.095f, 0.03f), (0.105f, 0.012f), (0.125f, 0.012f) },
+                        new[] { navy, navy, purple, pink, blue, silver, silver, valve }, 6, Mathf.PI / 6f);
+                    b.Box(new Vector3(0.022f, 0f, 0.115f), new Vector3(0.016f, 0.006f, 0.006f), H(0x7a8490));
+                    break;
+                }
+                case PropKind.Goggles:
+                    // Night vision goggles: two tubes with green lenses on a dark frame, worn over the eyes (+Z out).
+                    b.Box(new Vector3(0f, 0f, -0.005f), new Vector3(0.075f, 0.022f, 0.016f), H(0x2a2e36));
+                    b.Tube(new Vector3(-0.033f, 0f, 0f), 0.0f, 0.05f, 0.021f, 0.018f, 6, H(0x1a1a20), true, H(0x5cff6a));
+                    b.Tube(new Vector3(0.033f, 0f, 0f), 0.0f, 0.05f, 0.021f, 0.018f, 6, H(0x1a1a20), true, H(0x5cff6a));
+                    b.Box(new Vector3(0f, 0.004f, -0.06f), new Vector3(0.088f, 0.01f, 0.05f), H(0x141416));
+                    break;
             }
             return b.Mesh(kind.ToString());
         }
+
+        /// <summary>The end of a gun's barrel in the prop's own frame (where the round leaves it), or null for anything else.</summary>
+        public static Vector3? Muzzle(PropKind kind) => kind switch
+        {
+            PropKind.Shotgun => new Vector3(0f, 0.028f, 0.62f),
+            PropKind.GoldenPump => new Vector3(0f, 0.025f, 0.62f),
+            PropKind.Pistol => new Vector3(0f, 0.018f, 0.16f),
+            PropKind.Sniper => new Vector3(0f, 0.02f, 0.95f),
+            _ => (Vector3?)null,
+        };
 
         /// <summary>The prop a survivor holds for an item.</summary>
         public static PropKind ForItem(Vision.Player.ItemType item, bool golden) => item switch
@@ -201,6 +270,9 @@ namespace Vision.Characters
             Vision.Player.ItemType.Piss => PropKind.Jar,
             Vision.Player.ItemType.DoctorPepper => PropKind.Can,
             Vision.Player.ItemType.MrBeastBar => PropKind.Bar,
+            Vision.Player.ItemType.MiniShield => PropKind.Flask,
+            Vision.Player.ItemType.Trap => PropKind.Tank,
+            Vision.Player.ItemType.Goggles => PropKind.Goggles,
             _ => PropKind.None,
         };
     }

@@ -47,7 +47,7 @@ namespace Vision.Tests
             float x0 = h.Pos.x;
             rig.Tap(1, Btn.Lunge, 0f);
             rig.Run(Secs(Balance.Hunter.Lunge.Duration));
-            Assert.Greater(h.Pos.x - x0, Scale.D(Movement.DashDistance(Balance.Hunter.Lunge.Peak, Balance.Hunter.Lunge.Duration)) * 0.8f, "a fast dash");
+            Assert.Greater(h.Pos.x - x0, Scale.D(Movement.DashDistance(Balance.Hunter.Lunge.Peak, Balance.Hunter.Lunge.Duration)) * Scale.GlobalMove * 0.8f, "a fast dash");
             Assert.AreEqual(1, h.Move.LungeCharges);
             rig.Run(2);
             rig.Tap(1, Btn.Lunge, Mathf.PI);
@@ -67,7 +67,7 @@ namespace Vision.Tests
         [Test]
         public void Lunge_OnlyHasToTouchASurvivor()
         {
-            SimRig rig = Duel(220f);
+            SimRig rig = Duel(220f * Scale.GlobalMove);
             rig.Tap(1, Btn.Lunge, 0f);
             rig.Run(Secs(Balance.Hunter.Lunge.Duration));
             Assert.AreEqual(Health.Wounded, rig.P(2).Health);

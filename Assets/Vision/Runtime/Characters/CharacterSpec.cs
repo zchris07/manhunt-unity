@@ -33,7 +33,7 @@ namespace Vision.Characters
     /// <summary>
     /// What a character looks like: body proportions (as multiples of the survivor's), colours by region (the original's
     /// look table: skin, hair, shirt, jacket, trousers, shoes) and a few shape features. Every character is built on the
-    /// same 51-bone rig by <see cref="CharacterBuilder"/>, at most 500 triangles.
+    /// same 51-bone rig by <see cref="CharacterBuilder"/>, at most 1000 triangles.
     /// </summary>
     public sealed class CharacterSpec
     {
@@ -71,7 +71,7 @@ namespace Vision.Characters
         {
             Name = "Zach",
             Height = 2.0f,
-            Shoulders = 1.32f, Chest = 1.35f, Waist = 1.25f, Hips = 1.12f, Arms = 1.5f, Legs = 1.4f, Neck = 1.6f, Head = 1.06f,
+            Shoulders = 1.12f, Chest = 1.3f, Waist = 1.25f, Hips = 1.12f, Arms = 1.38f, Legs = 1.4f, Neck = 1.5f, Head = 1.06f,
             Hunch = 0.035f,
             Skin = H(0xc9b99a), Hair = H(0x6a5e50), Shirt = H(0x3b3f2a), Jacket = H(0x2c3024), Pants = H(0x23262e), Shoes = H(0x1a1614),
             Gloves = H(0x3e3226), Accent = H(0xf2efe6), Accent2 = H(0xb3121b),

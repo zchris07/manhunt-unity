@@ -711,8 +711,8 @@ MonoBehaviour:
   - {fileID: 4522362561424416659}
   - {fileID: 8091009302155625802}
   - {fileID: 2931506249621829996}
-  turnSpeed: 420
-  maxTwist: 80
+  turnSpeed: 720
+  maxTwist: 100
   Prone: 0
   Crouch: 0
 --- !u!114 &5050273021259528254
@@ -855,6 +855,9 @@ MonoBehaviour:
   seeThroughHalfAngleDeg: 22
   seeThroughRange: 8
   seeThroughStrength: 0.7
+  seeThroughK: 1
+  allyBodyRadius: 1.2
+  allyBodyIntensity: 0.55
 --- !u!114 &8508204900453197659
 MonoBehaviour:
   m_ObjectHideFlags: 0

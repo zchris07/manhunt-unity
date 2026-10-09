@@ -148,11 +148,14 @@ namespace Vision.Tests
                 rig.Run(Secs(seconds), p => p.Id == 2 ? new InputCmd { Move = Vector2.right, Buttons = buttons, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
                 return (s.Pos - start).magnitude / seconds;
             }
+            // Every character moves at 70% of the original's speeds (slowed at the user's request).
+            Assert.AreEqual(0.7f, Scale.GlobalMove, 1e-6f);
+            float g = Scale.GlobalMove;
             float walk = Walked(1f, Btn.None);
-            Assert.AreEqual(Scale.D(Balance.Survivor.Walk), walk, Scale.D(Balance.Survivor.Walk) * 0.04f, "the original's walk (144 u/s)");
-            Assert.AreEqual(Scale.D(Balance.Survivor.Run), Walked(1f, Btn.Run), Scale.D(Balance.Survivor.Run) * 0.06f, "and run (228 u/s)");
+            Assert.AreEqual(Scale.D(Balance.Survivor.Walk) * g, walk, Scale.D(Balance.Survivor.Walk) * g * 0.04f, "70% of the original's walk (144 u/s)");
+            Assert.AreEqual(Scale.D(Balance.Survivor.Run) * g, Walked(1f, Btn.Run), Scale.D(Balance.Survivor.Run) * g * 0.06f, "and of its run (228 u/s)");
             Assert.AreEqual(walk * 0.5f, Walked(0.5f, Btn.None), walk * 0.03f, "the pace scales every speed");
-            float human = Scale.D(Balance.Survivor.Walk) * Scale.HumanPace * Vision.World.WorldScale.S;
+            float human = Scale.D(Balance.Survivor.Walk) * Scale.HumanPace * Scale.GlobalMove * Vision.World.WorldScale.S;
             Assert.AreEqual(3.2f, human, 0.01f, "the slider's low end is this game's earlier 3.2 m/s walk");
             Assert.That(Scale.HumanPace, Is.InRange(Scale.MinPace, Scale.MaxPace));
         }
@@ -167,7 +170,7 @@ namespace Vision.Tests
             Assert.Greater(s.Move.StaminaLock, 0f, "then a lockout");
             Vector2 at = s.Pos;
             rig.Run(30, p => p.Id == 2 ? new InputCmd { Move = Vector2.right, Buttons = Btn.Run, AimDist = 100f } : (InputCmd?)null);
-            Assert.AreEqual(Scale.D(Balance.Survivor.Walk), (s.Pos - at).magnitude, Scale.D(Balance.Survivor.Walk) * 0.06f, "dry: walking pace");
+            Assert.AreEqual(Scale.D(Balance.Survivor.Walk) * Scale.GlobalMove, (s.Pos - at).magnitude, Scale.D(Balance.Survivor.Walk) * Scale.GlobalMove * 0.06f, "dry: walking pace");
             rig.Run(Secs(Balance.SprintLockout + Balance.Survivor.StaminaMax / Balance.Survivor.StaminaRefill * 10f + 1f));
             Assert.Greater(s.Move.Stamina, Balance.Survivor.StaminaMax * 0.5f, "standing still refills it");
         }

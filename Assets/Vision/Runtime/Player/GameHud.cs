@@ -40,7 +40,6 @@ namespace Vision.Player
         static readonly Color SlotColor = new Color(8f / 255f, 8f / 255f, 7f / 255f, 0.82f);
         static readonly Color SlotBorder = new Color(217f / 255f, 211f / 255f, 193f / 255f, 0.22f);
         static readonly Color SlotBorderSelected = new Color(217f / 255f, 211f / 255f, 193f / 255f, 0.9f);
-        static readonly Color Golden = new Color(1f, 0.76f, 0.23f);
 
         UiKit kit;
         Canvas canvas;
@@ -63,7 +62,7 @@ namespace Vision.Player
         readonly GameObject[] slotBoxes = new GameObject[Inventory.TestingSlots];
         readonly Image[][] slotFrames = new Image[Inventory.TestingSlots][];
         readonly Image[] slotSelectBars = new Image[Inventory.TestingSlots];
-        readonly Image[] slotIcons = new Image[Inventory.TestingSlots];
+        readonly RawImage[] slotIcons = new RawImage[Inventory.TestingSlots];
         readonly Text[] slotCounts = new Text[Inventory.TestingSlots], slotNames = new Text[Inventory.TestingSlots];
         static readonly string[] SlotKeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
         int shownLimit = -1;
@@ -191,7 +190,10 @@ namespace Vision.Player
                 RectTransform sel = Node("Selected", slot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(76f, 3f));
                 slotSelectBars[i] = UiKit.Box(sel, UiKit.Red);
                 slotBoxes[i] = slot.gameObject;
-                slotIcons[i] = UiKit.Box(Node("Icon", slot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 4f), new Vector2(34f, 34f)), Color.clear);
+                // The item's picture, as the original's (its own art); the slot is empty without one.
+                slotIcons[i] = Node("Icon", slot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 5f), new Vector2(48f, 48f)).gameObject.AddComponent<RawImage>();
+                slotIcons[i].raycastTarget = false;
+                slotIcons[i].enabled = false;
                 RectTransform key = Node("Key Cap", slot, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(5f, -4f), new Vector2(16f, 16f));
                 UiKit.Box(key, UiKit.Bone);
                 kit.Label(Node("Key", key, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f)), SlotKeys[i], 13, TextAnchor.MiddleCenter, UiKit.Hex(0x0a0a08), UiKit.Face.Display, 0f, false);
@@ -463,12 +465,15 @@ namespace Vision.Player
                 foreach (Image e in slotFrames[i]) e.color = selected ? SlotBorderSelected : SlotBorder;
                 slotSelectBars[i].enabled = selected;
                 bool golden = inv.GoldenAt(i);
-                slotIcons[i].color = item.HasValue ? (golden ? Golden : Items.Info(item.Value).color) : Color.clear;
+                Texture2D icon = item.HasValue ? ItemIcons.For(item.Value, golden) : null;
+                slotIcons[i].enabled = icon != null;
+                if (icon != null && slotIcons[i].texture != icon) slotIcons[i].texture = icon;
                 int count = inv.CountAt(i);
                 slotCounts[i].text = !item.HasValue ? "" : inv.Infinite ? "∞" : count > 1 ? count.ToString() : "";
                 slotNames[i].text = item.HasValue ? (golden ? "GOLDEN" : Items.Short(item.Value).ToUpperInvariant()) : "";
             }
 
+            RefreshSurvivorAbilities(me, strip.sizeDelta.x);
             UpdateEditor(me);
 
             // The prompt, with the Space action beside it.

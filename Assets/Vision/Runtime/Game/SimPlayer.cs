@@ -204,6 +204,8 @@ namespace Vision.Game
 
         /// <summary>The facing as a unit vector on the plane.</summary>
         public Vector2 FacingDir => new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing));
+        /// <summary>Where the body faces: the aim, or while the Hemp Beam charges and fires, the beam (which turns slower than the aim).</summary>
+        public float BodyFacing => BeamT > 0f ? BeamAng : Facing;
 
         /// <summary>The selected slot, if it holds anything.</summary>
         public Inventory.Slot Selected

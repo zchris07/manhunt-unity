@@ -445,8 +445,9 @@ namespace Vision.UI
                 {
                     float noise = (float)rng.NextDouble();
                     bool scan = y % 3 == 0;
-                    Color c = noise > 0.5f ? new Color(0.8f, 0.78f, 0.7f, (noise - 0.5f) * 0.12f) : new Color(0f, 0f, 0f, (0.5f - noise) * 0.10f);
-                    if (scan) c = new Color(0f, 0f, 0f, Mathf.Max(c.a, 0.16f));
+                    // Toned down: light grain and faint scanlines.
+                    Color c = noise > 0.5f ? new Color(0.8f, 0.78f, 0.7f, (noise - 0.5f) * 0.06f) : new Color(0f, 0f, 0f, (0.5f - noise) * 0.05f);
+                    if (scan) c = new Color(0f, 0f, 0f, Mathf.Max(c.a, 0.07f));
                     t.SetPixel(x, y, c);
                 }
             t.Apply();

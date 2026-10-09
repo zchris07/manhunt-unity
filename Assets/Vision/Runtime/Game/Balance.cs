@@ -102,7 +102,8 @@ namespace Vision.Game
             public static class Hemp
             {
                 public const float RegenBoost = 0.1f, SprintDrainMul = 0.8f, SprintRefillMul = 1.2f, Duration = 10f, Recover = 40f, Lockout = 5f;
-                public const float ZoomOut = 1.2f, SpeedMul = 1.1f, ZoomRate = 1.5f, Grace = 0.3f;
+                // The zoom out (and back in) takes 0.5 s: the original's is 1/1.5 s, quickened at the user's request.
+                public const float ZoomOut = 1.2f, SpeedMul = 1.1f, ZoomRate = 2f, Grace = 0.3f;
             }
 
             public static class Beam
@@ -195,7 +196,13 @@ namespace Vision.Game
             public static class Barricade { public const float Stun = 3f, SlamRadius = 60f, DropTime = 0.2f; }
         }
 
-        public static class Xray { public const float Range = BeamRange, Brightness = 0.7f, FadeIn = 0.75f, FadeOut = 1f / 6f; }
+        /// <summary>
+        /// See-through light (night vision goggles, the Hemp Battery): it grows out of the torch to its full reach while it
+        /// fades in, over <see cref="FadeIn"/> s (the original's 0.75 s, quickened to 0.5 s at the user's request), and
+        /// fades out in <see cref="FadeOut"/> s, or as slowly as it came for the Hemp Battery; it starts at
+        /// <see cref="StartReach"/> of its reach.
+        /// </summary>
+        public static class Xray { public const float Range = BeamRange, Brightness = 0.7f, FadeIn = 0.5f, FadeOut = 1f / 6f, StartReach = 0.35f; }
 
         public static class Sexton
         {

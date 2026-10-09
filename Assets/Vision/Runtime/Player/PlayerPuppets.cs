@@ -3,6 +3,7 @@ using UnityEngine;
 using Vision.Characters;
 using Vision.Effects;
 using Vision.Game;
+using Vision.Visibility;
 using Vision.World;
 
 namespace Vision.Player
@@ -29,6 +30,8 @@ namespace Vision.Player
             public Renderer[] Renderers;
             public Vector3 Shown;
             public bool Visible = true;
+            /// <summary>A teammate's faint glow (a survivor sees the other survivors' this way).</summary>
+            public VisionLight Glow;
         }
 
         readonly Dictionary<int, Puppet> puppets = new Dictionary<int, Puppet>();
@@ -76,11 +79,26 @@ namespace Vision.Player
                 puppets.Remove(id);
             }
             if (sim == null) return;
+            // A survivor sees their teammates glow faintly: a soft light about each (on the ground they can see) and a
+            // small bright disc that shows them through the fog (the original's ally light).
+            SimPlayer me = null;
+            foreach (SimPlayer q in sim.Order) if (q.IsLocal) { me = q; break; }
+            bool allies = me != null && me.Role == Role.Survivor && me.Health != Game.Health.Escaped && me.Health != Game.Health.Eliminated;
+            VisionViewer viewer = world.Player != null ? world.Player.viewer : null;
+            if (viewer != null)
+            {
+                viewer.allyBodies.Clear();
+                viewer.allyBodyRadius = Scale.D(Balance.Survivor.AllyBody) * world.transform.lossyScale.x;
+                viewer.allyBodyIntensity = Balance.Survivor.AllyBodyIntensity;
+            }
             foreach (SimPlayer p in sim.Order)
             {
                 if (p.IsLocal || p.Role == Role.Spectator) continue;
                 if (!puppets.TryGetValue(p.Id, out Puppet pup)) pup = Create(p);
                 Drive(pup, p, dt);
+                bool glow = allies && p.Role == Role.Survivor && pup.Visible;
+                if (pup.Glow != null && pup.Glow.enabled != glow) pup.Glow.enabled = glow;
+                if (glow && viewer != null) viewer.allyBodies.Add(VisionWorld.ToPlane(pup.Go.transform.position));
             }
         }
 
@@ -111,6 +129,18 @@ namespace Vision.Player
                 Shown = new Vector3(p.Pos.x, 0f, p.Pos.y),
             };
             go.transform.localPosition = Ground(p.Pos);
+            if (p.Role == Role.Survivor)
+            {
+                var glowGo = new GameObject("Ally Glow");
+                glowGo.transform.SetParent(go.transform, false);
+                pup.Glow = glowGo.AddComponent<VisionLight>();
+                pup.Glow.isStatic = false;
+                pup.Glow.range = Scale.D(Balance.Survivor.AllyLightRadius) / Mathf.Max(0.01f, go.transform.localScale.x);
+                pup.Glow.intensity = Balance.Survivor.AllyLightIntensity;
+                pup.Glow.flickerAmount = 0f;
+                pup.Glow.height = 1.2f;
+                pup.Glow.enabled = false;
+            }
             puppets[p.Id] = pup;
             return pup;
         }
@@ -135,6 +165,8 @@ namespace Vision.Player
             if (visible != pup.Visible)
             {
                 pup.Visible = visible;
+                // Everything on the figure, props picked up since it was made included.
+                pup.Renderers = pup.Go.GetComponentsInChildren<Renderer>(true);
                 foreach (Renderer r in pup.Renderers) if (r != null) r.enabled = visible;
             }
             Vector3 target = Ground(p.Pos);
@@ -150,7 +182,7 @@ namespace Vision.Player
             {
                 Vector3 vLocal = dt > 0f ? (now - before) / dt : Vector3.zero;
                 Vector3 vWorld = world.transform.TransformVector(new Vector3(vLocal.x, 0f, vLocal.z));
-                pup.Animator.Drive(vWorld, new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing)));
+                pup.Animator.Drive(vWorld, new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
             }
             bool dazed = p.StunT > 0f || (p.Role == Role.Hunter && p.KnockT > 0f);
             pup.Stars.Dizzy = !dazed && p.VapeT > 0f;

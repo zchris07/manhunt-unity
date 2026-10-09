@@ -74,6 +74,10 @@ namespace Vision.Characters
                 bool hands = p.Health == Game.Health.Healthy || p.Health == Game.Health.Wounded;
                 right = hands ? (held != PropKind.None ? held : PropKind.Flashlight) : PropKind.None;
             }
+            // Night vision goggles go on over the eyes while they are on (the hands stay free: the light in the right).
+            bool goggles = !zach && p.GogglesOn && p.Health != Game.Health.Downed && p.Health != Game.Health.Carried;
+            if (goggles && right == PropKind.Goggles) right = PropKind.Flashlight;
+            Layer.Wear(goggles ? PropKind.Goggles : PropKind.None);
             // The Hemp Beam fires from the open right palm: whatever was in it goes to the left hand meanwhile.
             bool beaming = p.BeamT > 0f;
             Layer.Hold(beaming ? PropKind.None : right);
@@ -124,13 +128,15 @@ namespace Vision.Characters
             }
             if (p.Move.Climbing) return ActionClips.Climb;
             if (p.VapeT > 0f) return ActionClips.CoverEyes;
-            if (p.GogglesOn) return ActionClips.Goggles;
             if (p.Jarvis > 0 && p.JarvisT > 0f) return ActionClips.Tablet;
             Inventory.Slot s = p.Selected;
             if (s != null)
             {
+                // Each gun held the way it is in real life: a pistol in a two-handed Weaver grip, the shotgun and the
+                // 0.50 cal shouldered (the rifle with the cheek down on the scope).
                 if (s.item == ItemType.Pistol) return ActionClips.AimPistol;
-                if (s.item == ItemType.Shotgun || s.item == ItemType.Sniper) return ActionClips.AimLong;
+                if (s.item == ItemType.Shotgun) return ActionClips.AimLong;
+                if (s.item == ItemType.Sniper) return ActionClips.AimRifle;
             }
             return null;
         }
@@ -151,6 +157,8 @@ namespace Vision.Characters
             if (p.Move.LungeT > 0f) return ActionClips.Lunge;
             if (p.Carrying != 0) return ActionClips.Carry;
             if (p.VapeT > 0f) return ActionClips.CoverEyes;
+            // Plasma's golden pump, shouldered until its shots run out.
+            if (p.Pump > 0) return ActionClips.AimLong;
             return null;
         }
 
@@ -174,7 +182,13 @@ namespace Vision.Characters
                     if (e.A == self.Id) PlayOnce(ActionClips.Throw);
                     break;
                 case EventKind.Shot:
-                    if (e.A == self.Id) PlayOnce((Vision.Player.ItemType)e.B == ItemType.Pistol ? ActionClips.RecoilPistol : ActionClips.RecoilLong);
+                    // The kick of each gun: the pistol's snap, the shotgun's shove (Zach's pump racked after it), the 0.50's slam.
+                    if (e.A == self.Id)
+                    {
+                        var gun = (Vision.Player.ItemType)e.B;
+                        PlayOnce(gun == ItemType.Pistol ? ActionClips.RecoilPistol : gun == ItemType.Sniper ? ActionClips.RecoilRifle
+                            : self.Role == Role.Hunter ? ActionClips.RecoilPump : ActionClips.RecoilLong);
+                    }
                     break;
                 case EventKind.Talk:
                     if (e.A == self.Id && e.Text == "burst") PlayOnce(ActionClips.Burst);

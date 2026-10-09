@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Vision.Audio;
+using Vision.Characters;
 using Vision.Effects;
 using Vision.Game;
 using Vision.World;
@@ -148,21 +149,42 @@ namespace Vision.UI
             }
         }
 
-        /// <summary>A gun going off: the flash at the muzzle, tracers for each pellet or the round, and its sound.</summary>
+        /// <summary>
+        /// Where a shot leaves the gun: the end of the barrel of the gun the shooter's model holds (a player or an NPC), or
+        /// a little way out in front of them when the model isn't drawn.
+        /// </summary>
+        Vector3 MuzzleOf(GameEvent e, MatchSim sim)
+        {
+            if (e.A > 0)
+            {
+                SimPlayer p = sim.Get(e.A);
+                GameObject go = p != null ? CharacterOf(p) : null;
+                ActionLayer layer = go != null ? go.GetComponent<ActionLayer>() : null;
+                if (layer != null && layer.Muzzle(out Vector3 m)) return m;
+            }
+            else if (e.A < 0)
+            {
+                var npcs = world.GetComponent<NpcViews>();
+                if (npcs != null && npcs.Muzzle(-e.A, out Vector3 m)) return m;
+            }
+            return Along(e.Pos, e.F, Balance.SurvivorRadius * 2.2f, 0f, 1.1f);
+        }
+
+        /// <summary>A gun going off: the flash at the muzzle, tracers from the barrel for each pellet or the round, and its sound.</summary>
         void Shot(GameEvent e, MatchSim sim)
         {
             var item = (Vision.Player.ItemType)e.B;
             bool golden = (item != Vision.Player.ItemType.Pistol && e.G > 0f) || (e.Text != null && e.Text.Contains("gold"));
-            Vector3 muzzle = Ground(e.Pos, 1.1f);
+            Vector3 muzzle = MuzzleOf(e, sim);
             Color flash = golden ? new Color(1f, 0.76f, 0.23f, 1f) : new Color(1f, 0.82f, 0.23f, 1f);
             Fx.Burst(muzzle, 10, 3f * S, 0.12f, flash, 0.09f * S, false, Vfx.Blend.Additive, 0f, 8f, 0.2f);
             switch (item)
             {
                 case Vision.Player.ItemType.Pistol:
-                    AddTracer(e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, new Color(1f, 0.9f, 0.6f, 0.9f), 0.04f);
+                    AddTracer(muzzle, e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, new Color(1f, 0.9f, 0.6f, 0.9f), 0.04f);
                     break;
                 case Vision.Player.ItemType.Sniper:
-                    AddTracer(e.Pos, e.F, 6000f, new Color(1f, 0.95f, 0.82f, 1f), 0.05f, 0.35f);
+                    AddTracer(muzzle, e.Pos, e.F, 6000f, new Color(1f, 0.95f, 0.82f, 1f), 0.05f, 0.35f);
                     break;
                 default:
                     // Pellets: "hit|angle*1000:distance,..." (original units).
@@ -173,16 +195,17 @@ namespace Vision.UI
                         if (c <= 0) continue;
                         if (!float.TryParse(p.Substring(0, c), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float ang)) continue;
                         if (!float.TryParse(p.Substring(c + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float dist)) continue;
-                        AddTracer(e.Pos, ang / 1000f, dist, golden ? new Color(1f, 0.85f, 0.4f, 0.8f) : new Color(1f, 0.76f, 0.23f, 0.7f), 0.025f);
+                        AddTracer(muzzle, e.Pos, ang / 1000f, dist, golden ? new Color(1f, 0.85f, 0.4f, 0.8f) : new Color(1f, 0.76f, 0.23f, 0.7f), 0.025f);
                         Fx.Burst(Along(e.Pos, ang / 1000f, dist, 0f, 1.0f), 3, 1.4f * S, 0.3f, golden ? new Color(1f, 0.85f, 0.42f, 1f) : new Color(1f, 0.76f, 0.23f, 1f), 0.04f * S);
                     }
                     break;
             }
         }
 
-        void AddTracer(Vector2 from, float angle, float units, Color c, float width, float life = 0.14f)
+        /// <summary>A tracer from the barrel to where the round stopped (<paramref name="units"/> from the shooter's centre along <paramref name="angle"/>).</summary>
+        void AddTracer(Vector3 muzzle, Vector2 from, float angle, float units, Color c, float width, float life = 0.14f)
         {
-            tracers.Add(new Tracer { From = Ground(from, 1.1f), To = Along(from, angle, units, 0f, 1.0f), Color = c, Born = Time.time, Life = life, Width = width });
+            tracers.Add(new Tracer { From = muzzle, To = Along(from, angle, units, 0f, 1.0f), Color = c, Born = Time.time, Life = life, Width = width });
         }
 
         // ---------------------------------------------------------------- per frame

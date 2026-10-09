@@ -34,6 +34,14 @@ namespace Vision.Visibility
         [Range(5f, 90f)] public float seeThroughHalfAngleDeg = 22f;
         public float seeThroughRange = 8f;
         [Range(0f, 1f)] public float seeThroughStrength = 0.7f;
+        [Tooltip("How far the see-through light has grown in (0-1): it grows out of the torch to its full reach and brightness.")]
+        [Range(0f, 1f)] public float seeThroughK = 1f;
+
+        [Header("Teammates (a survivor's view)")]
+        [Tooltip("Ground positions of teammates: each gets a small bright disc of the viewer's own light that shows them through the fog.")]
+        public readonly System.Collections.Generic.List<Vector2> allyBodies = new System.Collections.Generic.List<Vector2>(8);
+        public float allyBodyRadius = 1.2f;
+        [Range(0f, 1f)] public float allyBodyIntensity = 0.55f;
 
         /// <summary>Facing on the ground plane, set by the controller.</summary>
         public Vector2 Facing { get; set; } = Vector2.up;

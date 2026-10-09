@@ -106,7 +106,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   buttons, Special Elite for typewritten labels, IBM Plex Mono for body text, red accents, square corners, thin
   borders, registration marks on cards, film grain and scanlines on the title screen.
 - **Title screen** (`GameHud.Menus`), the original's landing page: the red-outlined kicker, MANHUNT with its red and
-  cyan fringe and 6 s flicker, the blurb, dark pines along the bottom, and the card: your name (2-16 letters or
+  cyan fringe and a faint 6 s flicker (toned down, with lighter grain and scanlines), the blurb, dark pines along the bottom, and the card: your name (2-16 letters or
   numbers, remembered), **Create lobby**, a room code field (`IP:port`) with **Join**, the dashed **Testing mode**
   button, and How to play, Look settings and Quit (see *Online play*).
 - **How to play**: the original's controls tables for survivors, Zach and both.
@@ -131,9 +131,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Other players** (`PlayerPuppets`): dummies (and, online, the other players) are drawn where the match has them,
   walking at the speed they move, lying down when downed, over Zach's shoulder when carried, gone when hidden or out of
   the match, with stun stars when stunned. Once you are out, the camera follows someone still in (click or the arrow
-  keys switch who). The Hemp Battery zooms Zach's view out, eased in and out, as the original. **Pace** scales every movement speed from 30% to
-  125% of the original's: 100% is the original game (a survivor walks 4.3 m/s and runs 6.8 m/s), about
-  37% is this port's earlier 1.6 m/s walk. The choice is saved; online, the host's applies.
+  keys switch who). The Hemp Battery zooms Zach's view out, eased in and out over half a second. Every character
+  moves at **70%** of the original's speeds (walking, running, the lunge, knockbacks, the NPCs; rounds, thrown items and
+  the Burst keep theirs). **Pace** scales that from 30% to 125%: at 100% a survivor walks 3.0 m/s and runs 4.8 m/s (the
+  original's 4.3 and 6.8, slowed by 30%), and about 53% is this port's earlier 1.6 m/s walk. The choice is saved;
+  online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
   map (M) show the level painted from above, under a fog of war that stays black until your own light
   has been there. Supplies, generators and the gate appear once seen; the **YOU** arrow and ring follow
@@ -181,27 +183,42 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
   wisps where they ran and blood where the hurt have been, fading over ten seconds.
 - **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
-  golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, cooldown shades, charges and
+  golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, icons, cooldown shades, charges and
   meters, his status lines (speed lost to his wounds, recovery, stunned, abilities off) and the generators he has
   heard being repaired. Charging the machete, he coils like a spring (blade drawn back high over his shoulder, torso
   wound away, weight on the back foot, trembling) over a red ring at his feet; swings come with a swish (heavier when
-  charged) and a smear (pale, or dark blood-red when heavy), and quick swings go back and forth, forehand then
-  backhand, the smear sweeping the way the blade goes; the lunge leaves speed lines. The Burst is a translucent purple
+  charged) and a smear (pale, or dark blood-red when heavy). Light swings are flat slashes across his body, back and
+  forth in a flurry: the forehand drawn back to his right and cut across to his left, the backhand straight back the
+  way it came, the torso winding and unwinding with each cut and the smear sweeping the way the blade goes; the lunge
+  leaves speed lines. The Burst is a translucent purple
   sound wave racing through walls on the rules' concave front: a bright trembling crest, a soft body, pressure bands
   rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin rolls out soft yellow puffs
-  along a narrow cone (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes. The Hemp
+  along a narrow cone (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes while their
+  light narrows and the dark goes pitch black, easing in and out over the original's 0.6 s. The Hemp
   Battery is a pulsing green disc. The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
   outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
   charges, then a layered beam (white-hot core, green body, wide glow, two twisting energy threads, shimmer flecks)
   runs to whatever stops it and splashes there with sparks spraying back and falling, embers, smoke and chips, to the
-  original's repulsor loop. Guns flash and leave tracers but make no sound, and the charge is silent. Sounds come from
+  original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Guns flash
+  at the end of the barrel and their tracers leave from it (the sim's rounds start just ahead of the shooter), but make
+  no sound, and the charge is silent. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
+- **Teammates**: a survivor sees the other survivors glow faintly, a soft light about each and a small bright disc that
+  shows them through the fog, as in the original.
+- **Item icons** (`ItemIcons`, `tools/icons`): every inventory slot and ability shows the original's own item art,
+  rendered from its canvas drawing code: the bottle, the Grapes of Wrath, night vision goggles, the double-barrelled
+  shotgun and golden pump, Doctor Pepper, galaxy gas as a whippit tank in a galaxy wrap, duck confit, the Mr Beast bar,
+  the mini shield as Fortnite's little flask of blue liquid, the P250, the 0.50 cal, the jar, JARVIS's tablet, the Hemp
+  Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
+  survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; gas traps sit on the ground
   and blink once armed; galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
   fell (with models for the P250, the 0.50 cal, the jar of piss and the golden pump). G drops the item in hand; **Tab**
   opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
-  JARVIS shows the user the whole map; night vision tints the view green. Night vision and the Hemp Battery's x-ray
-  fill the whole vision cone and run on past the edge of the screen whichever way you turn. Every attack item but galaxy
+  JARVIS shows the user the whole map; night vision tints the view green and the goggles go on over the eyes (the hands
+  stay free). Night vision and the Hemp Battery's x-ray fill the whole vision cone and run on past the edge of the
+  screen whichever way you turn; as they come on, the light grows out of the torch to its full reach in half a second
+  (the original's animation, quickened), and the Hemp Battery's zoom out and back in takes half a second too. Every attack item but galaxy
   gas breaks windows: a thrown bottle, book or jar smashes the glass and drops there, rounds go through it, and anyone
   can climb through the empty frame. Drinks, bites, throws, glass, books, splashes, traps and pick-ups have their
   sounds.
@@ -374,26 +391,40 @@ ditches and packed dirt on the paths.
 ## Characters
 
 - **Models** (`CharacterSpec`, `CharacterBuilder`): every character is built on the same 51-bone rig, flat-shaded and
-  vertex-coloured, at most **500 triangles**: a ten-sided torso, an eight-sided head with jaw, brow, nose and ears,
-  six-sided limbs with knee, elbow and boot rings, mitten hands with a thumb, wedge feet. The **survivor** stays grey
-  and identical for everyone (tonal greys: darker trousers, gloves and soles). **Zach** is Jason Voorhees: 2 m, broad
-  and heavy-limbed with a slight hunch, a white hockey mask with red chevrons, eye holes and vents, a torn dark work
+  vertex-coloured, at most **1000 triangles**: a fourteen-sided torso in seven rings (hips to shoulders), a ten-sided
+  head with jaw, brow, nose and ears, eight-sided limbs with deltoid, bicep, elbow, forearm, thigh, knee and calf rings,
+  mitten hands with a thumb, and shaped feet (a rounded heel, the instep rising to the ankle, the arch, the broad ball
+  and a toe box tapering to the big toe, on a flat darker sole). The **survivor** stays grey and identical for everyone
+  (tonal greys: darker trousers, gloves and soles). **Zach** is Jason Voorhees: 2 m, big and heavy-limbed with a slight
+  hunch (broad, but no longer a wardrobe across the shoulders), a white hockey mask with red chevrons, eye holes and vents, a torn dark work
   shirt hanging in tails, bare forearms and gloves. The **NPCs** use the original's look table (skin, hair, shirt,
   jacket, trousers, shoes) with features to fine-tune later: hair styles, a backwards cap, glasses, a headset, hoods,
   hi-vis bands, a star of life, a checked flannel, a jersey band.
-- **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, shotgun, golden pump, P250, 0.50 cal,
-  flashlight, magnifier, tablet, controller, bottle, book, jar, can, bar) held on hand sockets.
+- **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, double-barrelled shotgun, golden pump,
+  P250, 0.50 cal, flashlight, magnifier, tablet, controller, bottle, book, jar, can, bar, the mini shield's flask, the
+  galaxy gas tank, night vision goggles) held on hand sockets, or worn on the face; guns sit in the fist as in a real
+  hand, the barrel along the forearm.
+- **Facing**: the body faces the cursor at once. The legs walk the way the player moves (backwards when that is behind
+  the aim) and the spine and chest take the whole turn toward the aim, the legs dragged round when the aim swings past
+  what the waist can turn; actions turn on top of it, so a swing, a shot or a throw always goes where you aim.
 - **Animation**: the procedural walk and sprint (`GaitSolver`, `HumanoidAnimator`) adapts to slopes and, at the
   original's speeds, strides like a sprinter. On top of it, `ActionLayer` plays keyframed clips (`ActionClips`,
   Catmull-Rom through the keys, eased blends, events such as "release", "hit" and "kick") on the bones each clip owns,
   so the legs keep walking under an upper-body action; hits add a damped flinch from the blow's direction.
   `CharacterView` picks the model, the held prop and the clip from the match: repairing, the lever, healing and
-  reviving, picking up, hiding, drinking, eating, talking, planting a trap, aiming and recoil, goggles, JARVIS,
+  reviving, picking up, hiding, drinking, eating, talking, planting a trap, a quick throw (whipped back behind the head,
+  snapped over the shoulder), each gun held as it is in real life (the pistol in a two-handed Weaver grip, the support
+  arm bent and its hand cupping the grip; the shotgun shouldered with the trigger elbow out and the support hand under
+  the forend, the body bladed; the 0.50 cal leaned into with the cheek down on the scope and the support hand far out)
+  and its kick (the pistol's muzzle flip, the shotgun's shove, the rifle's heavy slam, Zach racking the golden pump),
+  JARVIS,
   stunned, coughing in Penjamin's gas, the scare, staked, carried, crawling; Zach's charge, light and heavy swings,
   lunge, carry, lift, stake, search, kicks, burst, Penjamin, Hemp Battery and beam.
 - **Animation lab** (`CharacterTests`): every clip is played through at 240 Hz and checked for pops (bone speeds under
-  1000 deg/s, 2600 for strikes and throws), single-firing events and a clean end; key poses are checked for where the
-  hands go (in front for the lever, at the mouth when drinking, overhead on a stake, the gun pointing forward).
+  1000 deg/s, 2600 for strikes, 3200 for the throw and the slashes), single-firing events and a clean end; key poses
+  are checked for where the hands go (in front for the lever, at the mouth when drinking, overhead on a stake, both
+  hands on the gun and the barrel straight ahead, the slashes level from one side to the other) and the chest is
+  checked to face a new aim on the very next frame.
   Captures `82_character_lineup` and `83_action_sheet` show every model and every clip.
 
 ## Polygon budget
@@ -461,7 +492,9 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 121 EditMode tests: visibility polygons, doors, triangle winding and normals, model sizes and
+Runs the 210 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+`balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
+copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and
 paths, hidden-segment culling, the map layout (the original's scale and rules, the lake), the building
 (spaces tile the notched footprint on the grid, a maze of corridors with dead ends and loops, every room

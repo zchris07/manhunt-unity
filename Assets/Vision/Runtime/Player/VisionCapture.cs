@@ -462,6 +462,66 @@ namespace Vision.Player
                     player.SelectedSlot = -1;
                     yield return new WaitForSeconds(0.3f);
                 }
+                // Close-ups: how each gun is held, the shotgun's tracers leaving the barrel, the goggles worn and the x-ray
+                // growing out, a quick throw, and the item icons.
+                {
+                    SimPlayer meG = host.Local;
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                    meG.Inv.Clear();
+                    meG.Inv.Add(ItemType.Shotgun, 1);
+                    meG.Inv.Add(ItemType.Pistol, 1);
+                    meG.Inv.Add(ItemType.Sniper, 1);
+                    meG.Inv.Add(ItemType.Goggles, 1);
+                    meG.Inv.Add(ItemType.Bottle, 3);
+                    meG.Inv.Add(ItemType.MiniShield, 2);
+                    meG.Inv.Add(ItemType.Trap, 1);
+                    meG.Inv.Add(ItemType.Book, 1);
+                    float o = cameraRig.orthographicSize;
+                    cameraRig.orthographicSize = o * 0.38f;
+                    player.AimOverride = new Vector2(1f, 0.25f).normalized;
+                    foreach (var (item, name) in new[] { (ItemType.Shotgun, "111_hold_shotgun"), (ItemType.Pistol, "112_hold_pistol"), (ItemType.Sniper, "113_hold_sniper") })
+                    {
+                        player.SelectedSlot = meG.Inv.FirstSlotOf(item);
+                        yield return new WaitForSeconds(0.7f);
+                        gameHud.Refresh();
+                        yield return Shot(name);
+                    }
+                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Shotgun);
+                    yield return new WaitForSeconds(0.5f);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.01f);
+                    yield return Shot("114_shotgun_from_the_barrel");
+                    yield return new WaitForSeconds(0.8f);
+                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Bottle);
+                    yield return new WaitForSeconds(0.4f);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.09f);
+                    yield return Shot("115_quick_throw");
+                    yield return new WaitForSeconds(0.8f);
+                    // Goggles: the x-ray grows out of the torch over half a second; then worn over the eyes.
+                    cameraRig.orthographicSize = o;
+                    // (Night vision stays on while the button is held, as in the original.)
+                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Goggles);
+                    yield return Wait(3);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return new WaitForSeconds(0.17f);
+                    yield return Shot("116_xray_growing");
+                    yield return new WaitForSeconds(0.6f);
+                    gameHud.Refresh();
+                    yield return Shot("117_xray_full_and_icons");
+                    cameraRig.orthographicSize = o * 0.38f;
+                    yield return new WaitForSeconds(0.3f);
+                    yield return Shot("118_goggles_worn");
+                    player.ExtraButtons = Btn.None;
+                    cameraRig.orthographicSize = o;
+                    player.AimOverride = null;
+                    player.SelectedSlot = -1;
+                    yield return new WaitForSeconds(0.4f);
+                }
                 // The NPCs: all of them in a row, then Marc talking, Shane's alert building and Jaden shooting.
                 {
                     SimPlayer me9 = host.Local;
@@ -1100,7 +1160,7 @@ namespace Vision.Player
             var zachClips = new System.Collections.Generic.HashSet<ActionClip>
             {
                 ActionClips.Charge, ActionClips.Swing, ActionClips.SwingHeavy, ActionClips.Lunge, ActionClips.Carry, ActionClips.LiftBody, ActionClips.StakeBody,
-                ActionClips.Search, ActionClips.Kick, ActionClips.Burst, ActionClips.Vape, ActionClips.Hemp, ActionClips.Beam,
+                ActionClips.Search, ActionClips.Kick, ActionClips.Burst, ActionClips.Vape, ActionClips.Hemp, ActionClips.Beam, ActionClips.SwingBack, ActionClips.RecoilPump,
             };
             const int perRow = 10;
             int rows = (clips.Count + perRow - 1) / perRow;
@@ -1111,8 +1171,9 @@ namespace Vision.Player
                 bool zach = zachClips.Contains(clip);
                 GameObject go = Make(zach ? CharacterSpec.Zach() : CharacterSpec.Survivor(), origin + new Vector3(60f, 0f, i * 4f));
                 var layer = go.GetComponent<ActionLayer>();
-                if (zach) layer.Hold(PropKind.Machete);
+                if (zach) layer.Hold(clip == ActionClips.RecoilPump ? PropKind.GoldenPump : PropKind.Machete);
                 else if (clip == ActionClips.AimLong || clip == ActionClips.RecoilLong) layer.Hold(PropKind.Shotgun);
+                else if (clip == ActionClips.AimRifle || clip == ActionClips.RecoilRifle) layer.Hold(PropKind.Sniper);
                 else if (clip == ActionClips.AimPistol || clip == ActionClips.RecoilPistol) layer.Hold(PropKind.Pistol);
                 else if (clip == ActionClips.Drink) layer.Hold(PropKind.Can);
                 else if (clip == ActionClips.Throw) layer.Hold(PropKind.Bottle);

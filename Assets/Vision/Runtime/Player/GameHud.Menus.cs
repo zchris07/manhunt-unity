@@ -451,15 +451,15 @@ namespace Vision.Player
         {
             if (mainMenu == null || !mainMenu.activeSelf) return;
             float t = Time.unscaledTime;
-            // The title's 6 s flicker: a dip at 94%, a stutter at 97%.
+            // The title's 6 s flicker, toned down: a faint dip at 94% and a softer one at 97%, no jump sideways.
             float c = Mathf.Repeat(t, 6f) / 6f;
-            float alpha = c >= 0.94f && c < 0.95f ? 0.6f : c >= 0.97f && c < 0.98f ? 0.75f : 1f;
+            float alpha = c >= 0.94f && c < 0.95f ? 0.88f : c >= 0.97f && c < 0.98f ? 0.93f : 1f;
             title.color = UiKit.A(UiKit.Bone, alpha);
-            title.rectTransform.anchoredPosition = new Vector2(c >= 0.97f && c < 0.98f ? -2f : -4f, -86f);
-            // Grain jumps four times every half second.
+            title.rectTransform.anchoredPosition = new Vector2(-4f, -86f);
+            // The grain moves on gently, about three times a second.
             if (t >= grainStep)
             {
-                grainStep = t + 0.125f;
+                grainStep = t + 0.33f;
                 Rect r = root.rect;
                 grain.uvRect = new Rect(Random.value, Random.value, r.width / 192f, r.height / 192f);
             }

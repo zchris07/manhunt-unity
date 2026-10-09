@@ -65,12 +65,21 @@ namespace Vision.UI
             Sync(Time.deltaTime);
         }
 
+        /// <summary>The end of the barrel of the gun an NPC holds (world), or false when it isn't drawn holding one.</summary>
+        public bool Muzzle(int npcId, out Vector3 world)
+        {
+            world = default;
+            foreach (View v in views.Values)
+                if (v.Npc.Id == npcId && v.Layer != null && v.Go != null && v.Go.activeInHierarchy) return v.Layer.Muzzle(out world);
+            return false;
+        }
+
         void OnEvent(GameEvent e)
         {
             if (e.Kind != EventKind.Shot || e.A >= 0) return;
             foreach (View v in views.Values)
                 if (v.Npc.Id == -e.A && v.Layer != null)
-                    v.Layer.Play(e.B == (int)Vision.Player.ItemType.Pistol ? ActionClips.RecoilPistol : ActionClips.RecoilLong, 1f, true);
+                    v.Layer.Play(e.B == (int)Vision.Player.ItemType.Pistol ? ActionClips.RecoilPistol : e.B == (int)Vision.Player.ItemType.Sniper ? ActionClips.RecoilRifle : ActionClips.RecoilLong, 1f, true);
         }
 
         Vector3 Ground(Vector2 at)
@@ -210,10 +219,10 @@ namespace Vision.UI
                 else if ((f & NpcFlags.Punching) != 0) clip = ActionClips.Push;
                 else if ((f & NpcFlags.Raging) != 0 && !n.Moving) clip = ActionClips.Rage;
                 else if (prop == PropKind.Pistol) clip = ActionClips.AimPistol;
-                else if (prop == PropKind.Sniper) clip = ActionClips.AimLong;
+                else if (prop == PropKind.Sniper) clip = ActionClips.AimRifle;
                 else if ((f & NpcFlags.Talking) != 0 && !n.Moving) clip = ActionClips.Talk;
             }
-            bool oneShot = v.Layer.Current == ActionClips.RecoilPistol || v.Layer.Current == ActionClips.RecoilLong;
+            bool oneShot = v.Layer.Current == ActionClips.RecoilPistol || v.Layer.Current == ActionClips.RecoilLong || v.Layer.Current == ActionClips.RecoilRifle;
             if (!oneShot)
             {
                 if (clip != null) v.Layer.Play(clip);

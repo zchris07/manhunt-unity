@@ -117,42 +117,97 @@ namespace Vision.Characters
 
         // ---------------------------------------------------------------- items
 
-        /// <summary>A throw (bottle, book, jar): wind up over the shoulder, release, follow through.</summary>
-        public static readonly ActionClip Throw = new ActionClip("Throw", 0.6f)
+        /// <summary>
+        /// A throw (bottle, book, jar), quick and snappy: the arm whips back behind the head with the chest turned away
+        /// and the free arm pointing at the target, snaps forward over the shoulder (release), and follows through
+        /// across the body.
+        /// </summary>
+        public static readonly ActionClip Throw = new ActionClip("Throw", 0.4f)
             .Key(0f, Stand())
-            .Key(0.2f, P().R(Bone.UpperArmR, -165f, 0f, 25f).R(Bone.ForearmR, -85f).R(Bone.Spine, -4f, -24f).R(Bone.Chest, 0f, -10f).R(Bone.UpperArmL, -40f, 0f, -10f))
-            .Key(0.32f, P().R(Bone.UpperArmR, -82f, 0f, 2f).R(Bone.ForearmR, -12f).R(Bone.HandR, 20f).R(Bone.Spine, 15f, 18f).R(Bone.Chest, 5f, 10f).R(Bone.UpperArmL, -10f, 0f, -12f))
-            .Key(0.6f, P().R(Bone.UpperArmR, -28f, 0f, 4f).R(Bone.ForearmR, -16f).R(Bone.Spine, 5f, 4f))
-            .Event(0.3f, "release")
-            .Blend(0.06f, 0.18f);
+            .Key(0.05f, P().R(Bone.UpperArmR, -80f, 0f, 22f).R(Bone.ForearmR, -50f).R(Bone.Spine, -2f, -12f).R(Bone.Chest, 0f, -5f).R(Bone.Head, 0f, 14f).R(Bone.UpperArmL, -40f, 0f, -10f).R(Bone.ForearmL, -10f))
+            .Key(0.1f, P().R(Bone.UpperArmR, -150f, 0f, 30f).R(Bone.ForearmR, -88f).R(Bone.HandR, -10f).R(Bone.Spine, -4f, -22f).R(Bone.Chest, 0f, -10f).R(Bone.Head, 0f, 26f).R(Bone.UpperArmL, -62f, 0f, -12f).R(Bone.ForearmL, -10f))
+            .Key(0.165f, P().R(Bone.UpperArmR, -88f, 0f, 4f).R(Bone.ForearmR, -10f).R(Bone.HandR, 25f).R(Bone.Spine, 14f, 18f).R(Bone.Chest, 5f, 10f).R(Bone.Head, 0f, -20f).R(Bone.UpperArmL, -12f, 0f, -14f).R(Bone.ForearmL, -30f))
+            .Key(0.25f, P().R(Bone.UpperArmR, -48f, -24f, -12f).R(Bone.ForearmR, -18f).R(Bone.HandR, 20f).R(Bone.Spine, 16f, 22f).R(Bone.Chest, 5f, 12f).R(Bone.Head, 0f, -24f).R(Bone.UpperArmL, 6f, 0f, -14f).R(Bone.ForearmL, -36f))
+            .Key(0.4f, P().R(Bone.UpperArmR, -24f, -8f, 2f).R(Bone.ForearmR, -18f).R(Bone.Spine, 5f, 6f))
+            .Event(0.16f, "release")
+            .Blend(0.05f, 0.14f);
 
-        /// <summary>A long gun at the shoulder (shotgun, golden pump, 0.50 cal), held while it is selected.</summary>
+        // Guns are held as they are in real life (the props sit in the fist barrel along the forearm, see ActionLayer).
+        // Poses solved for where the hands must be on each gun (scratchpad fk4.py): the trigger hand on the grip, the
+        // support hand on the forend, the barrel straight down the aim. The legs keep walking underneath.
+
+        /// <summary>
+        /// A long gun's hold: the trigger hand on the grip, the trigger elbow out, the stock in the pocket of the right
+        /// shoulder, the support hand under the forend; the body bladed (left shoulder forward), the head turned back to
+        /// the front and down on the stock. Spine yaw, recoil (pitch back, muzzle up) and the rack are offsets on it.
+        /// </summary>
+        static ActionPose Shouldered(float sx, float sy, float cx, float cy, float headX, (float x, float y, float z) ur, float fr, (float x, float y, float z) hr,
+            (float x, float y, float z) ul, float fl, (float x, float y, float z) hl, float raise = 0f, float flip = 0f) => P()
+            .R(Bone.Spine, sx, sy).R(Bone.Chest, cx, cy).R(Bone.Neck, 2f, -(sy + cy) * 0.3f).R(Bone.Head, headX, -(sy + cy) * 0.7f)
+            .R(Bone.UpperArmR, ur.x + raise, ur.y, ur.z).R(Bone.ForearmR, fr).R(Bone.HandR, hr.x + flip, hr.y, hr.z)
+            .R(Bone.UpperArmL, ul.x + raise, ul.y, ul.z).R(Bone.ForearmL, fl).R(Bone.HandL, hl.x, hl.y, hl.z);
+
+        static ActionPose ShotgunHold(float sx = 2f, float sy = 14f, float raise = 0f, float flip = 0f, float pumpBack = 0f) =>
+            Shouldered(sx, sy, 2f, 10f, 8f, (-33.8f, -63.2f, 24.6f), -111.4f, (55.2f, 34.4f, 49.7f), (-50.1f + pumpBack * 0.4f, 8.1f, 8f), -78.4f - pumpBack, (9.9f, -43f, -14f), raise, flip);
+
+        static ActionPose RifleHold(float sx = 6f, float sy = 14f, float raise = 0f, float flip = 0f) =>
+            Shouldered(sx, sy, 3f, 10f, 13f, (-35.4f, -65f, 26.9f), -103.9f, (49.2f, 28.1f, 43.6f), (-62.5f, -5.1f, 14.5f), -54.5f, (3.4f, -27.3f, 2.7f), raise, flip);
+
+        /// <summary>A pistol in a Weaver grip: the gun arm out with a soft elbow, the support arm bent, its hand cupping the grip.</summary>
+        static ActionPose PistolHold(float sx = 2f, float raise = 0f, float flip = 0f, float give = 0f) => P()
+            .R(Bone.Spine, sx, 8f).R(Bone.Chest, 1f, 6f).R(Bone.Neck, 1f, -4f).R(Bone.Head, 3f, -10f)
+            .R(Bone.UpperArmR, -55.5f + raise, -50.1f, 17.3f).R(Bone.ForearmR, -65f - give).R(Bone.HandR, 39f + flip, 16f, 30.1f)
+            .R(Bone.UpperArmL, -37.8f + raise, 15f, 8.4f).R(Bone.ForearmL, -85.2f - give * 0.5f).R(Bone.HandL, 18.4f, -17.9f, 12.1f);
+
+        /// <summary>The shotgun (and the golden pump) at the shoulder, held while it is selected.</summary>
         public static readonly ActionClip AimLong = new ActionClip("AimLong", 1f, true)
-            .Key(0f, P().R(Bone.UpperArmR, -35f, 0f, 25f).R(Bone.ForearmR, -85f).R(Bone.HandR, 112f).R(Bone.UpperArmL, -78f, 0f, -6f).R(Bone.ForearmL, -28f).R(Bone.HandL, 30f).R(Bone.Spine, 4f, 8f).R(Bone.Head, 4f, -6f))
+            .Key(0f, ShotgunHold())
+            .Blend(0.24f, 0.28f);
+
+        /// <summary>The shotgun's kick: the shoulder driven back, the body rocked back, the muzzle up; then back on aim.</summary>
+        public static readonly ActionClip RecoilLong = new ActionClip("RecoilLong", 0.42f)
+            .Key(0f, ShotgunHold())
+            .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
+            .Key(0.14f, ShotgunHold(-3f, 18f, -3f, -2f))
+            .Key(0.42f, ShotgunHold())
+            .Blend(0.03f, 0.12f);
+
+        /// <summary>Zach's golden pump: the kick, then the support hand racks the pump back and forward.</summary>
+        public static readonly ActionClip RecoilPump = new ActionClip("RecoilPump", 0.62f)
+            .Key(0f, ShotgunHold())
+            .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
+            .Key(0.16f, ShotgunHold(-2f, 17f, -2f, 0f))
+            .Key(0.3f, ShotgunHold(0f, 15f, 0f, 0f, 22f))
+            .Key(0.42f, ShotgunHold())
+            .Key(0.62f, ShotgunHold())
+            .Event(0.3f, "rack")
+            .Blend(0.03f, 0.12f);
+
+        /// <summary>The 0.50 cal at the shoulder: leaning into it, the cheek down on the scope, the support hand far out.</summary>
+        public static readonly ActionClip AimRifle = new ActionClip("AimRifle", 1f, true)
+            .Key(0f, RifleHold())
             .Blend(0.3f, 0.3f);
 
-        /// <summary>The kick of a long gun, back to the aim.</summary>
-        public static readonly ActionClip RecoilLong = new ActionClip("RecoilLong", 0.35f)
-            .Key(0f, AimLong.Keys[0].pose)
-            .Key(0.05f, With(AimLong.Keys[0].pose, p => p.R(Bone.UpperArmR, -48f, 0f, 25f).R(Bone.HandR, 122f).R(Bone.UpperArmL, -92f, 0f, -6f).R(Bone.Spine, -8f, 12f).R(Bone.Head, -6f, -6f)))
-            .Key(0.35f, AimLong.Keys[0].pose)
-            .Blend(0.03f, 0.1f);
+        /// <summary>The 0.50 cal's heavy kick: the body shoved back a step's worth, the muzzle climbing; a slow settle.</summary>
+        public static readonly ActionClip RecoilRifle = new ActionClip("RecoilRifle", 0.6f)
+            .Key(0f, RifleHold())
+            .Key(0.05f, RifleHold(-5f, 23f, -9f, -3f))
+            .Key(0.2f, RifleHold(-1f, 19f, -4f, -1f))
+            .Key(0.6f, RifleHold())
+            .Blend(0.03f, 0.15f);
 
-        /// <summary>A pistol held out in both hands.</summary>
+        /// <summary>A pistol held in both hands, Weaver style.</summary>
         public static readonly ActionClip AimPistol = new ActionClip("AimPistol", 1f, true)
-            .Key(0f, P().R(Bone.UpperArmR, -84f, 0f, 4f).R(Bone.ForearmR, -6f).R(Bone.HandR, 90f).R(Bone.UpperArmL, -78f, 0f, 14f).R(Bone.ForearmL, -24f).R(Bone.HandL, 40f).R(Bone.Spine, 2f, 6f))
-            .Blend(0.28f, 0.28f);
+            .Key(0f, PistolHold())
+            .Blend(0.22f, 0.26f);
 
-        public static readonly ActionClip RecoilPistol = new ActionClip("RecoilPistol", 0.25f)
-            .Key(0f, AimPistol.Keys[0].pose)
-            .Key(0.04f, With(AimPistol.Keys[0].pose, p => p.R(Bone.UpperArmR, -100f, 0f, 4f).R(Bone.HandR, 100f).R(Bone.UpperArmL, -92f, 0f, 14f)))
-            .Key(0.25f, AimPistol.Keys[0].pose)
+        /// <summary>The pistol's snap: the muzzle flips up, the elbows give, the arms come back down onto aim.</summary>
+        public static readonly ActionClip RecoilPistol = new ActionClip("RecoilPistol", 0.26f)
+            .Key(0f, PistolHold())
+            .Key(0.035f, PistolHold(-1f, -6f, -10f, 6f))
+            .Key(0.12f, PistolHold(1f, -2f, -3f, 2f))
+            .Key(0.26f, PistolHold())
             .Blend(0.03f, 0.1f);
-
-        /// <summary>Night vision goggles: a hand up at the eyes.</summary>
-        public static readonly ActionClip Goggles = new ActionClip("Goggles", 1f, true)
-            .Key(0f, P().R(Bone.UpperArmL, -110f, 0f, -30f).R(Bone.ForearmL, -120f).R(Bone.HandL, 10f).R(Bone.Head, 2f))
-            .Blend(0.32f, 0.3f);
 
         /// <summary>JARVIS: holding up the tablet, looking at it.</summary>
         public static readonly ActionClip Tablet = new ActionClip("Tablet", 1f, true)
@@ -231,28 +286,47 @@ namespace Vision.Characters
             .Key(0.24f, Coiled(-133f, -21f, 23f, 25f, 0.04f))
             .Blend(0.34f, 0.25f);
 
-        /// <summary>A light machete swipe: a short windup, across the body ("hit" at the strike), recover.</summary>
-        public static readonly ActionClip Swing = new ActionClip("Swing", 0.5f)
+        // The light swipes are flat slashes across the body, back and forth in a flurry: the forehand comes in from his
+        // right and sweeps across to his left; the backhand goes straight back the way it came, left to right. The hand
+        // travels a level arc at chest height in front of him (solved in scratchpad poses_slash3.py), the blade trailing
+        // it with the edge leading, the torso winding up and unwinding with the cut, the free arm swinging against it
+        // for balance and the head staying on the target. Each one's end is where the other begins, so a flurry flows.
+
+        /// <summary>The right arm on the slash arc, with the torso turned by <paramref name="yaw"/> (the chest takes 40%).</summary>
+        static ActionPose Slash(float yaw, (float x, float y, float z) u, float f, (float x, float y, float z) h, (float x, float y, float z) free, float freeF) => P()
+            .R(Bone.Spine, 6f, yaw).R(Bone.Chest, 2f, yaw * 0.42f).R(Bone.Head, 2f, -yaw * 1.2f)
+            .R(Bone.UpperArmR, u.x, u.y, u.z).R(Bone.ForearmR, f).R(Bone.HandR, h.x, h.y, h.z)
+            .R(Bone.UpperArmL, free.x, free.y, free.z).R(Bone.ForearmL, freeF);
+
+        static readonly (float, float, float) Fore = (90f, 30.5f, -56.2f), Back = (90f, -30.3f, 56.7f);
+
+        /// <summary>A light machete slash, forehand: drawn back to his right, cut flat across to his left ("hit" in front).</summary>
+        public static readonly ActionClip Swing = new ActionClip("Swing", 0.44f)
             .Key(0f, Stand())
-            .Key(0.12f, Raised())
-            .Key(0.15f, Raised())
-            .Key(0.24f, P().R(Bone.UpperArmR, -82f, -35f, -22f).R(Bone.ForearmR, -14f).R(Bone.HandR, 30f).R(Bone.Spine, 10f, 30f).R(Bone.Chest, 4f, 12f).R(Bone.UpperArmL, -10f, 0f, -16f))
-            .Key(0.5f, P().R(Bone.UpperArmR, -40f, -10f, -4f).R(Bone.ForearmR, -30f).R(Bone.Spine, 4f, 8f))
-            .Event(0.2f, "hit")
-            .Blend(0.04f, 0.18f);
+            .Key(0.04f, Slash(12f, (-6f, 46f, -30f), -45f, (45f, 15f, -28f), (-30f, 0f, -16f), -20f))
+            .Key(0.075f, Slash(24f, (-9.6f, 91.9f, -60f), -85.5f, Fore, (-58f, 0f, -20f), -30f))
+            .Key(0.113f, Slash(10f, (-26.3f, 68.1f, -60f), -64.2f, Fore, (-45f, 0f, -20f), -28f))
+            .Key(0.15f, Slash(-2f, (-36.8f, 46.2f, -60f), -57f, Fore, (-28f, 0f, -20f), -26f))
+            .Key(0.19f, Slash(-16f, (-38.1f, 20.4f, -60f), -52.1f, Fore, (-6f, 0f, -22f), -24f))
+            .Key(0.24f, Slash(-26f, (-37.5f, -6.5f, -60f), -44.9f, Fore, (8f, 0f, -24f), -22f))
+            .Key(0.44f, P().R(Bone.Spine, 4f, -10f).R(Bone.Chest, 2f, -4f).R(Bone.Head, 0f, 12f).R(Bone.UpperArmR, -30f, -20f, -30f).R(Bone.ForearmR, -40f).R(Bone.HandR, 40f, 10f, -20f))
+            .Event(0.15f, "hit")
+            .Blend(0.05f, 0.2f);
 
         /// <summary>
-        /// The backhand: in a quick flurry the blade comes back the other way, cocked by the left shoulder, then whipped
-        /// out to his right, the torso unwinding with it ("hit" at the strike).
+        /// The backhand, in a quick flurry: from where the forehand finished (the blade off to his left) it cuts straight
+        /// back across to his right ("hit" in front).
         /// </summary>
-        public static readonly ActionClip SwingBack = new ActionClip("SwingBack", 0.46f)
-            .Key(0f, P().R(Bone.UpperArmR, -45f, -55f, -20f).R(Bone.ForearmR, -105f).R(Bone.HandR, -20f).R(Bone.Spine, 6f, -16f).R(Bone.Chest, 2f, -6f).R(Bone.UpperArmL, -12f, 0f, -14f))
-            .Key(0.09f, P().R(Bone.UpperArmR, -50f, -62f, -24f).R(Bone.ForearmR, -112f).R(Bone.HandR, -26f).R(Bone.Spine, 7f, -20f).R(Bone.Chest, 3f, -8f).R(Bone.UpperArmL, -14f, 0f, -16f))
-            .Key(0.2f, P().R(Bone.UpperArmR, -56f, 0f, 30f).R(Bone.ForearmR, -4f).R(Bone.HandR, -24f).R(Bone.Spine, 10f, 10f).R(Bone.Chest, 4f, 4f).R(Bone.UpperArmL, -24f, 0f, -24f))
-            .Key(0.3f, P().R(Bone.UpperArmR, -50f, 22f, 44f).R(Bone.ForearmR, -10f).R(Bone.HandR, -12f).R(Bone.Spine, 8f, 16f).R(Bone.Chest, 3f, 6f).R(Bone.UpperArmL, -22f, 0f, -22f))
-            .Key(0.46f, P().R(Bone.UpperArmR, -42f, 10f, 14f).R(Bone.ForearmR, -30f).R(Bone.Spine, 4f, 4f))
-            .Event(0.18f, "hit")
-            .Blend(0.08f, 0.22f);
+        public static readonly ActionClip SwingBack = new ActionClip("SwingBack", 0.44f)
+            .Key(0f, Slash(-22f, (-70.9f, -70.1f, -15.3f), -21.4f, Back, (8f, 0f, -24f), -22f))
+            .Key(0.06f, Slash(-24f, (-71.5f, -72f, -16f), -23f, Back, (6f, 0f, -24f), -22f))
+            .Key(0.105f, Slash(-10f, (-66.8f, -69.5f, 19.2f), -31.1f, Back, (-20f, 0f, -20f), -26f))
+            .Key(0.15f, Slash(4f, (-67.6f, -50.2f, 21.5f), -33.6f, Back, (-40f, 0f, -18f), -28f))
+            .Key(0.195f, Slash(16f, (-61.2f, 1f, -4.4f), -50.9f, Back, (-52f, 0f, -18f), -30f))
+            .Key(0.245f, Slash(24f, (-42.6f, 46.4f, -25.1f), -77.3f, Back, (-58f, 0f, -20f), -30f))
+            .Key(0.44f, P().R(Bone.Spine, 4f, 10f).R(Bone.Chest, 2f, 4f).R(Bone.Head, 0f, -12f).R(Bone.UpperArmR, -30f, 20f, 10f).R(Bone.ForearmR, -40f).R(Bone.HandR, 40f, -10f, 20f))
+            .Event(0.15f, "hit")
+            .Blend(0.08f, 0.2f);
 
         /// <summary>A heavy swipe: everything behind it, a long follow-through.</summary>
         public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.7f)
@@ -343,13 +417,13 @@ namespace Vision.Characters
         /// <summary>
         /// The Hemp Beam, like an armoured hero's repulsor: the right arm thrust straight out, the wrist bent back so the
         /// palm faces the target, the right shoulder leading and the body braced behind it, the left arm drawn back at the
-        /// side (holding whatever the right hand had) (hold while it charges and fires; it fires from the palm).
+        /// side (holding whatever the right hand had) (hold while it charges and fires; it fires from the palm). Only the
+        /// arms and torso: the legs keep walking underneath while the player moves.
         /// </summary>
-        static ActionPose Repulsor(float shake) => P().Lower(0.06f)
+        static ActionPose Repulsor(float shake) => P()
             .R(Bone.UpperArmR, -88f + shake, -4f, 6f).R(Bone.ForearmR, -3f).R(Bone.HandR, -78f - shake * 2f)
             .R(Bone.UpperArmL, 14f, 0f, -14f).R(Bone.ForearmL, -24f).R(Bone.HandL, 6f)
-            .R(Bone.Spine, 4f, -10f).R(Bone.Chest, 2f, -6f).R(Bone.Head, 2f, 14f)
-            .R(Bone.ThighR, -6f).R(Bone.ShinR, 16f).R(Bone.ThighL, -22f).R(Bone.ShinL, 24f);
+            .R(Bone.Spine, 4f, -10f).R(Bone.Chest, 2f, -6f).R(Bone.Head, 2f, 14f);
 
         public static readonly ActionClip Beam = new ActionClip("Beam", 0.3f, true)
             .Key(0f, Repulsor(0f))
@@ -398,8 +472,8 @@ namespace Vision.Characters
         /// <summary>Every clip, for the animation lab.</summary>
         public static IEnumerable<ActionClip> All => new[]
         {
-            Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
-            Goggles, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
+            Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, AimRifle, RecoilRifle,
+            AimPistol, RecoilPistol, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
             Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes,
         };
     }
