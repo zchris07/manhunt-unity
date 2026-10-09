@@ -97,9 +97,9 @@ namespace Vision.Tests
                 var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true);
                 Assert.IsTrue(texts.Any(t => t.name == "Health Value" && t.text == "60"), "health shows 60");
                 Assert.IsTrue(texts.Any(t => t.name == "Shield Value" && t.text == "0"), "the shield went first");
-                Assert.IsTrue(texts.Any(t => t.name == "Name" && t.text == "Mini shield"), "the mini shields are in a slot");
+                Assert.IsTrue(texts.Any(t => t.name == "Name" && t.text == "MINI SHIELD"), "the mini shields are in a slot");
                 Assert.AreEqual(8, texts.Count(t => t.name == "Key" && t.gameObject.activeInHierarchy), "eight slots");
-                Assert.IsTrue(texts.Any(t => t.name == "Objective" && t.text.Contains($"Generators 0/{host.Sim.Bal.RequiredGenerators}")), "the objective counts the generators");
+                Assert.IsTrue(texts.Any(t => t.name.StartsWith("Objective") && t.text.Contains($"Generators 0/{host.Sim.Bal.RequiredGenerators}")), "the objective counts the generators");
                 Assert.AreEqual("NE", GameHud.Cardinal(44f));
                 Assert.AreEqual("N", GameHud.Cardinal(350f));
             }

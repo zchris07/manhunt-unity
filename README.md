@@ -80,15 +80,31 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 
 ### Menus and testing mode
 
-- **Title screen** (`GameHud`): MANHUNT, the original's kicker ("Crystal Lake · Night shoot") and blurb,
-  **Testing mode** and **Quit**. The level runs behind it.
+- **The look** (`Vision.UI.UiKit`): the original's interface theme, bone text on near-black, Oswald for headings and
+  buttons, Special Elite for typewritten labels, IBM Plex Mono for body text, red accents, square corners, thin
+  borders, registration marks on cards, film grain and scanlines on the title screen.
+- **Title screen** (`GameHud.Menus`), the original's landing page: the red-outlined kicker, MANHUNT with its red and
+  cyan fringe and 6 s flicker, the blurb, dark pines along the bottom, and the card: your name (2-16 letters or
+  numbers, remembered), **Create lobby**, a room code field (`IP:port`) with **Join**, the dashed **Testing mode**
+  button, and How to play, Look settings and Quit. Online play is not wired up yet, so Create lobby and Join say so.
+- **How to play**: the original's controls tables for survivors, Zach and both.
+- **Screen effects** (`ScreenOverlays`, `MatchPresenter`): the original's pictures and timings. The Soundcloud Burst
+  scare (black, the picture covering the screen and shaking, 2.5 s with 0.6 s fades, and a random 2.6 s slice of the
+  song), The Grapes of Wrath flash on Zach (one of four pictures, 0.8 s, shaking) and the Waz-slain flash, notes (an
+  old photo on torn, yellowed paper until clicked away), centre messages (STUNNED, You are down, THE GATE IS OPEN),
+  big announcements (JARVIS ONLINE), camera shakes, stun stars orbiting a stunned head, the vine boom (louder the
+  nearer) and the Penjamin gas loop.
+- **Sound** (`AudioManager`): one-shots, a restartable clip, the gas loop and positional loops with the original's
+  falloff curves, on three volume buses (Master, "Soundcloud Burst", "Sexton's reel") set in the settings and saved.
 - **Testing mode**: the match restarts under testing rules. Survivors get the original's whole testing kit
   in twelve slots (shotgun, golden pump, P250, 0.50 cal, bottles, piss jars and books nine each, goggles,
   mini shield, Mr Beast bar, gas trap, Doctor Pepper), never used up; Zach gets two Hemp Batteries and his
   beam charges. **T** switches between Zach and a survivor where you stand. Nobody wins. The whole map is
   revealed. **Speed mode** (menu or V) keeps the sprint meter full and moves six times as fast (+500%).
-- **Game menu** (Esc) leaves the world running, as the original does: Resume, Speed mode, **Pace**, New
-  map, Look settings, Full screen, Quit to main menu. **Pace** scales every movement speed from 30% to
+- **Settings** (Esc) leave the world running, as the original does: Resume, Speed mode, **Pace**, New
+  map, Look settings, Full screen, How to play, Quit to main menu, the three volume sliders, and the controls for
+  your role. Testing mode adds the original's **TEST EFFECTS** panel (left): every stun and flash played on yourself,
+  and Respawn NPCs. **Pace** scales every movement speed from 30% to
   125% of the original's: 100% is the original game (a survivor walks 4.3 m/s and runs 6.8 m/s), about
   37% is this port's earlier 1.6 m/s walk. The choice is saved; online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
@@ -372,8 +388,9 @@ It also runs on the release build without the markers.
 - CI's Unity licence activation has been failing since early October 2026 ("Access token is unavailable",
   then the runner kills Unity); the tests pass locally. The `UNITY_LICENSE`, `UNITY_EMAIL` and
   `UNITY_PASSWORD` secrets need refreshing (and old activations returned on the Unity account).
-- The rules for every item, Zach's kit and the NPCs are ported, but their models, animations, effects and
-  sounds are still to come; until then most of them act invisibly. Online play is not wired up yet.
+- The rules for every item, Zach's kit and the NPCs are ported, but their models, animations and most of their
+  effects and sounds are still to come; until then most of them act invisibly. Online play is not wired up yet.
+- Media and fonts are credited in `CREDITS.md`; `tools/fetch_sounds.py` re-fetches the sound packs (hash-checked).
 - The polygon pass runs on the main thread. That is fine for this map, but a much larger one will want
   Burst/Jobs.
 - Hills are visual only: a crest does not hide what is behind it.

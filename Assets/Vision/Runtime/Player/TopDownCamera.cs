@@ -23,9 +23,17 @@ namespace Vision.Player
         [Tooltip("Extra smoothing of the camera's height, so climbing or dropping over steep ground never jolts the view.")]
         public float heightSmoothTime = 0.35f;
 
+        [Tooltip("Zoom multiplier on the view size (the Hemp Battery zooms out; Waz changes the field of view).")]
+        public float zoom = 1f;
+
         Camera cam;
-        Vector3 velocity;
+        Vector3 velocity, smoothed;
         float groundY, groundVelocity;
+        float shake;
+
+        /// <summary>Shakes the view by up to <paramref name="pixels"/> screen pixels (the original's shake), decaying at 30 px/s.</summary>
+        public void Shake(float pixels) => shake = Mathf.Max(shake, pixels);
+        public float ShakeAmount => shake;
 
         void Awake()
         {
@@ -41,7 +49,7 @@ namespace Vision.Player
             Apply();
             groundY = target.position.y;
             groundVelocity = 0f;
-            transform.position = Desired();
+            transform.position = smoothed = Desired();
             velocity = Vector3.zero;
         }
 
@@ -53,13 +61,21 @@ namespace Vision.Player
             // Faster paces (and speed mode, six times as fast) follow tighter, so the lag stays the same distance and the
             // player stays near the centre.
             float follow = smoothTime * Mathf.Clamp(Vision.Game.Scale.HumanPace / Mathf.Max(0.01f, Vision.Game.Scale.Pace), 0.3f, 1f);
-            transform.position = Vector3.SmoothDamp(transform.position, Desired(), ref velocity, GameSession.SpeedMode ? follow * 0.3f : follow);
+            smoothed = Vector3.SmoothDamp(smoothed, Desired(), ref velocity, GameSession.SpeedMode ? follow * 0.3f : follow);
+            shake = Mathf.Max(0f, shake - Time.unscaledDeltaTime * 30f);
+            Vector3 jolt = Vector3.zero;
+            if (shake > 0.3f && Screen.height > 0)
+            {
+                float unitsPerPixel = cam.orthographicSize * 2f / Screen.height;
+                jolt = (transform.right * (Random.value - 0.5f) + transform.up * (Random.value - 0.5f)) * shake * unitsPerPixel;
+            }
+            transform.position = smoothed + jolt;
         }
 
         void Apply()
         {
             if (cam == null) cam = GetComponent<Camera>();   // the level may snap the camera before this Awake runs
-            cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight);
+            cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight) * Mathf.Clamp(zoom, 0.3f, 3f);
             transform.rotation = Quaternion.Euler(pitch, 0f, 0f);
         }
 

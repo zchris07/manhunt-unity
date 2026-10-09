@@ -23,3 +23,4 @@
 .idea/
 .vscode/
 crashlytics-buildid.txt
+tools/.sound_cache/

@@ -384,8 +384,36 @@ namespace Vision.Player
                 gameHud.ShowMainMenu();
                 yield return Wait(5);
                 yield return Shot("74_main_menu");
+                gameHud.OpenHowToPlay();
+                yield return Wait(5);
+                yield return Shot("74b_how_to_play");
                 gameHud.StartTesting(false);
                 GameSession.SpeedMode = false;
+
+                // The original's screen effects, played on yourself from the TEST EFFECTS panel.
+                yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                gameHud.PlayTestFx(TestFx.Scare);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot("77_burst_scare");
+                yield return new WaitForSeconds(1.6f);
+                gameHud.PlayTestFx(TestFx.Book);
+                yield return new WaitForSeconds(0.35f);
+                yield return Shot("78_book_flash");
+                yield return new WaitForSeconds(0.8f);
+                gameHud.Overlays.ShowNote(0);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot("79_note");
+                gameHud.Overlays.HideNote();
+                if (host.SwitchRole())
+                {
+                    gameHud.PlayTestFx(TestFx.Stun);
+                    float o = cameraRig.orthographicSize;
+                    cameraRig.orthographicSize = o * 0.45f;
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot("80_stun_stars");
+                    cameraRig.orthographicSize = o;
+                    host.SwitchRole();
+                }
                 gameHud.visible = false;
             }
 

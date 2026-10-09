@@ -109,10 +109,10 @@ namespace Vision.Tests
             var hud = hudGo.AddComponent<GameHud>();
             hud.world = world;
             hud.Refresh();
-            var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true).Select(t => t.text).ToList();
-            foreach (string label in new[] { "MANHUNT", GameHud.Kicker.ToUpperInvariant(), "Testing mode", "Quit", "Resume", "New map", "Quit to main menu", "Look settings (F4)" })
-                Assert.Contains(label, texts, $"has \"{label}\"");
-            Assert.IsTrue(texts.Any(t => t.StartsWith("Speed mode")), "a speed mode toggle");
+            var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true).Select(t => t.text.ToUpperInvariant()).ToList();
+            foreach (string label in new[] { "MANHUNT", GameHud.Kicker, "Testing mode", "Create lobby", "Join", "How to play", "Quit", "Resume", "New map", "Quit to main menu", "Look settings (F4)", "Master volume", "Soundcloud Burst", "Sexton's reel" })
+                Assert.Contains(label.ToUpperInvariant(), texts, $"has \"{label}\"");
+            Assert.IsTrue(texts.Any(t => t.StartsWith("SPEED MODE")), "a speed mode toggle");
             Assert.IsTrue(hudGo.GetComponentsInChildren<UnityEngine.UI.Slider>(true).Any(sl => sl.minValue <= Scale.HumanPace && sl.maxValue >= 1f), "a pace slider from this game's walk to the original's speeds");
 
             hud.ShowMainMenu();
@@ -136,7 +136,7 @@ namespace Vision.Tests
             hud.ToggleSpeedMode();
             Assert.IsTrue(GameSession.SpeedMode);
             hud.Refresh();
-            Assert.IsTrue(hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true).Any(t => t.text == $"Seed {world.seed}"), "the menu shows the seed");
+            Assert.IsTrue(hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true).Any(t => t.text == $"SEED {world.seed}"), "the menu shows the seed");
             hud.SetMenu(false);
             Assert.IsFalse(GameHud.MenuOpen);
             hud.ShowMainMenu();
