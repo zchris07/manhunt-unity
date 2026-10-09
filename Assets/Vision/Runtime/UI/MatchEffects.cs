@@ -101,7 +101,6 @@ namespace Vision.UI
                 case EventKind.Talk:
                     if (by == null) break;
                     if (e.Text == "burst") waves.Add(new Wave { At = e.Pos, Angle = e.F, Born = Now });
-                    else if (e.Text == "door") Audio.PlayCue("door_open", Units(e.Pos));
                     else if (e.Text == "slam") Audio.PlayCue("slam", Units(e.Pos));
                     else if (e.Text == "search") Audio.PlayCue("hide", Units(e.Pos));
                     else if (e.Text == "drink") Audio.PlayCue("drink", Units(e.Pos));
@@ -120,6 +119,8 @@ namespace Vision.UI
                     break;
                 case EventKind.Item:
                     if (e.Text != null && e.Text.StartsWith("Picked up")) Audio.PlayCue("pickup");
+                    // The last round spent: the gun clicks empty.
+                    else if (e.Text != null && e.Text.EndsWith(" empty")) Audio.PlayCue("dry");
                     break;
                 case EventKind.Noise:
                     switch (e.Text)
@@ -215,6 +216,7 @@ namespace Vision.UI
             DrawVapes(sim);
             DrawTracers();
             DrawNpcs(sim);
+            DoorSounds(sim);
             BeamSounds(sim);
             ReloadSounds(sim);
         }
@@ -316,10 +318,33 @@ namespace Vision.UI
                     bool shotgun = p.Role == Role.Hunter || (s != null && s.item == Vision.Player.ItemType.Shotgun);
                     Audio.PlayCue(shotgun ? "rack" : "reload", Units(p.Pos));
                 }
+                // A shotgun's long reload: a shell goes in before the rack.
+                if (before > 1f && p.ReloadT <= 1f && p.ReloadT > 0f && p.Role == Role.Survivor && p.Selected != null && p.Selected.item == Vision.Player.ItemType.Shotgun && !p.Selected.golden)
+                    Audio.PlayCue("shell", Units(p.Pos));
                 lastReload[p.Id] = p.ReloadT;
                 lastAction.TryGetValue(p.Id, out ActionKind a);
                 if (p.Action == ActionKind.Plant && a != ActionKind.Plant) Audio.PlayCue("trap", Units(p.Pos));
                 lastAction[p.Id] = p.Action;
+            }
+        }
+
+        bool[] lastDoors;
+
+        /// <summary>Doors creak open and bang shut wherever they are and whoever moved them (a player or an NPC).</summary>
+        void DoorSounds(MatchSim sim)
+        {
+            if (lastDoors == null || lastDoors.Length != sim.Doors.Length)
+            {
+                lastDoors = (bool[])sim.Doors.Clone();
+                return;
+            }
+            for (int i = 0; i < lastDoors.Length; i++)
+            {
+                if (lastDoors[i] == sim.Doors[i]) continue;
+                lastDoors[i] = sim.Doors[i];
+                if (sim.DoorBroken[i]) continue;
+                Vector2 at = (sim.Map.Doors[i].A + sim.Map.Doors[i].B) * 0.5f;
+                Audio.PlayCue(sim.Doors[i] ? "door_open" : "door_close", Units(at));
             }
         }
 

@@ -235,6 +235,7 @@ namespace Vision.World
             layer.animator = animator;
             layer.bones = bones;
             root.AddComponent<CharacterView>();
+            root.AddComponent<Vision.Audio.Footsteps>();
             return root;
         }
 

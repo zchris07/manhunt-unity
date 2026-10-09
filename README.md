@@ -171,6 +171,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
   JARVIS shows the user the whole map; night vision tints the view green. Drinks, bites, throws, glass, books,
   splashes, traps, pick-ups and reloads all have their sounds.
+- **Sound polish**: footsteps on every character's footfalls (concrete in the building, boards in the cabins, grass
+  outside; louder running, softer crouched, heavier for Zach). You hear your own, and others only up close, since the
+  original has none. Doors creak open and bang shut whoever moves them (NPCs too), shotguns take a shell before the
+  rack, guns click empty, notes rustle. The original's robot announcements ("Jarvis online", and "Hemp battery
+  activated" the first time ever) are the Windows voice, baked and pitched down. "SHANE JEANS HAS BEEN ALERTED"
+  flashes as in the original. Characters climb through broken windows and bow over the notes they read.
 - **Results**: the original's end screen (who won and why, the time, the generators, and each player's numbers), and
   a match clock under the compass.
 - **NPCs** (`Game/Npcs`, `NpcViews`, `GameHud.Npcs`): the original's townsfolk, each with their own look and rules.

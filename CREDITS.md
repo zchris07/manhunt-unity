@@ -30,3 +30,8 @@ All CC0 (public domain) unless noted. Credit is not required for CC0; it is reco
 | `rpg_` | RPG Audio | Kenney | CC0 | kenney.nl/assets/rpg-audio |
 | `impact_` | Impact Sounds | Kenney | CC0 | kenney.nl/assets/impact-sounds |
 | `sfx100_` | 100 CC0 SFX | rubberduck | CC0 | opengameart.org/content/100-cc0-sfx |
+
+## Voice lines (`Assets/Vision/Resources/Audio/Voice`)
+
+"Jarvis online" and "Hemp battery activated" were generated once with the Windows speech synthesizer (Microsoft David
+Desktop, `System.Speech`), standing in for the original's browser speech synthesis; they play pitched down.

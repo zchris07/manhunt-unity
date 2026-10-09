@@ -119,6 +119,7 @@ namespace Vision.Game
 
             float speed;
             bool inWindow = env != null && env.InBrokenWindow(at, radius + Scale.D(4f));
+            s.Climbing = inWindow;
             if (role == Role.Hunter)
             {
                 if ((pressed & Btn.Lunge) != 0 && !ctx.AbilitiesLocked && s.LungeCharges > 0 && s.LungeT <= 0f && !ctx.Carrying && s.Mode == MoveMode.Normal)

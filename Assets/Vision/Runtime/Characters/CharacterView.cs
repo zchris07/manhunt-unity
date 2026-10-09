@@ -115,6 +115,7 @@ namespace Vision.Characters
                 case ActionKind.Drink: return ActionClips.Drink;
                 case ActionKind.Talk: return ActionClips.Talk;
             }
+            if (p.Move.Climbing) return ActionClips.Climb;
             if (p.VapeT > 0f) return ActionClips.Cough;
             if (p.GogglesOn) return ActionClips.Goggles;
             if (p.Jarvis > 0 && p.JarvisT > 0f) return ActionClips.Tablet;
@@ -138,6 +139,7 @@ namespace Vision.Characters
                 case ActionKind.Talk: return ActionClips.Talk;
             }
             if (p.BeamT > 0f) return ActionClips.Beam;
+            if (p.Move.Climbing) return ActionClips.Climb;
             if (p.ChargeT >= 0f) return ActionClips.Charge;
             if (p.Move.LungeT > 0f) return ActionClips.Lunge;
             if (p.Carrying != 0) return ActionClips.Carry;
@@ -175,6 +177,10 @@ namespace Vision.Characters
                     break;
                 case EventKind.Hemp:
                     if (e.A == self.Id) PlayOnce(ActionClips.Hemp);
+                    break;
+                case EventKind.Note:
+                    // Only the reader is told (A is the note), so it's the local player reading.
+                    if (self.IsLocal) PlayOnce(ActionClips.ReadNote);
                     break;
                 case EventKind.Hit:
                     if (e.A == self.Id)

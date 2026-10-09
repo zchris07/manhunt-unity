@@ -25,6 +25,8 @@ namespace Vision.UI
         Material starMaterial;
 
         public AudioManager Audio => AudioManager.Instance;
+        /// <summary>The Hemp Battery is announced once ever on a machine, as in the original.</summary>
+        public const string HempAnnouncedKey = "manhunt.hempAnnounced";
 
         float zoomK;
 
@@ -240,6 +242,7 @@ namespace Vision.UI
                 case EventKind.Talk:
                     // Zach fired a Soundcloud Burst: only he hears it go out.
                     if (e.Text == "burst" && e.A == me) Audio.PlayClip("burst", Balance.Hunter.Burst.ZachVolume);
+                    else if (e.Text == "shane_alerted") overlays?.Center("SHANE JEANS HAS BEEN ALERTED", 3f);
                     break;
                 case EventKind.Book:
                     overlays?.FlashImage(ScreenOverlays.Picture($"book-{Mathf.Clamp(e.A, 0, Balance.Items.Book.Images - 1) + 1}"), Balance.Items.FlashTime, Balance.Items.FlashTime * Balance.Items.FlashFade, true);
@@ -257,6 +260,7 @@ namespace Vision.UI
                     Shake(22f * Near(e.Pos, 900f));
                     break;
                 case EventKind.Note:
+                    Audio.PlayCue("note", null, 0.8f);
                     overlays?.ShowNote(e.A);
                     break;
                 case EventKind.Hit:
@@ -305,9 +309,16 @@ namespace Vision.UI
                     break;
                 case EventKind.Jarvis:
                     overlays?.Big("JARVIS ONLINE");
+                    Audio.Announce("voice.jarvis");
                     break;
                 case EventKind.Hemp:
-                    if (e.A == me) overlays?.Big("HEMP BATTERY ACTIVATED");
+                    // Only the very first time it's used (ever): the text and the voice, never again.
+                    if (PlayerPrefs.GetInt(HempAnnouncedKey, 0) == 0)
+                    {
+                        if (e.A == me) overlays?.Big("HEMP BATTERY ACTIVATED");
+                        Audio.Announce("voice.hemp");
+                        PlayerPrefs.SetInt(HempAnnouncedKey, 1);
+                    }
                     break;
             }
         }

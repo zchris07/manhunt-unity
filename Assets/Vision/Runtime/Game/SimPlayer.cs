@@ -31,6 +31,8 @@ namespace Vision.Game
         public float BoostT, HempT;
         public Btn PrevButtons;
         public bool Sprinting;
+        /// <summary>Climbing through a broken window this step (slowed; the view plays the climb).</summary>
+        public bool Climbing;
 
         public MoveState(Role role) => Stamina = MaxStaminaBase(role);
 

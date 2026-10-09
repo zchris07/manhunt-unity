@@ -35,6 +35,9 @@ namespace Vision.Audio
             ["boom"] = new SoundDef("vine-boom"),
             ["penjamin"] = new SoundDef("penjamin", 4f),
             ["repulsor"] = new SoundDef("repulsor"),
+            // The original's robot announcements (browser speech pitched down), baked once with the Windows voice.
+            ["voice.jarvis"] = new SoundDef("Voice/jarvis-online"),
+            ["voice.hemp"] = new SoundDef("Voice/hemp-battery"),
         };
 
         public struct Volumes
@@ -248,6 +251,25 @@ namespace Vision.Audio
             clipEnd = clipStart + Mathf.Min(want, c.length - from);
             clipSource.volume = 0f;
             clipSource.Play();
+            Played++;
+            LastPlayed = id;
+            return true;
+        }
+
+        AudioSource voiceSource;
+
+        /// <summary>A robot voice announcement (the original's speech synthesis: a low, slow male voice), cutting off any before it.</summary>
+        public bool Announce(string id)
+        {
+            AudioClip c = Clip(id);
+            if (c == null) return false;
+            if (voiceSource == null) voiceSource = NewSource("Voice");
+            voiceSource.Stop();
+            voiceSource.clip = c;
+            voiceSource.loop = false;
+            voiceSource.pitch = 0.78f;
+            voiceSource.volume = Mathf.Min(1f, Volume.Master * 1.1f);
+            voiceSource.Play();
             Played++;
             LastPlayed = id;
             return true;

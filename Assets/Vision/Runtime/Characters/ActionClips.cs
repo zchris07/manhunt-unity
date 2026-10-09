@@ -313,6 +313,22 @@ namespace Vision.Characters
             .Key(0.15f, P().Lower(0.07f).Both(Bone.UpperArmR, -90f, 0f, 3f).Both(Bone.ForearmR, -3f).Both(Bone.HandR, 72f).R(Bone.Spine, 5f).Both(Bone.ThighR, -15f).Both(Bone.ShinR, 24f))
             .Blend(0.28f, 0.3f);
 
+        /// <summary>Through a broken window: hands on the sill, a knee up and over, leaning in (loop while climbing).</summary>
+        public static readonly ActionClip Climb = new ActionClip("Climb", 0.9f, true)
+            .Key(0f, P().Lower(0.08f).R(Bone.Spine, 22f).R(Bone.Chest, 8f).R(Bone.Head, -6f).Both(Bone.UpperArmR, -72f, 0f, 6f).Both(Bone.ForearmR, -28f).Both(Bone.HandR, 30f)
+                .R(Bone.ThighR, -92f).R(Bone.ShinR, 96f).R(Bone.ThighL, -8f).R(Bone.ShinL, 18f))
+            .Key(0.45f, P().Lower(0.12f).R(Bone.Spine, 28f).R(Bone.Chest, 10f).R(Bone.Head, -8f).Both(Bone.UpperArmR, -64f, 0f, 8f).Both(Bone.ForearmR, -40f).Both(Bone.HandR, 35f)
+                .R(Bone.ThighR, -70f).R(Bone.ShinR, 80f).R(Bone.ThighL, -30f).R(Bone.ShinL, 60f))
+            .Blend(0.2f, 0.25f);
+
+        /// <summary>Reading one of the Four Notes: holding the photo at the chest, head bowed over it.</summary>
+        public static readonly ActionClip ReadNote = new ActionClip("ReadNote", 1.6f)
+            .Key(0f, Stand())
+            .Key(0.35f, P().R(Bone.Head, 26f).R(Bone.Spine, 6f).Both(Bone.UpperArmR, -42f, 0f, -6f).Both(Bone.ForearmR, -78f).Both(Bone.HandR, 20f))
+            .Key(1.25f, P().R(Bone.Head, 28f).R(Bone.Spine, 7f).Both(Bone.UpperArmR, -44f, 0f, -7f).Both(Bone.ForearmR, -80f).Both(Bone.HandR, 22f))
+            .Key(1.6f, Stand())
+            .Blend(0.15f, 0.2f);
+
         // ---------------------------------------------------------------- NPCs
 
         /// <summary>Chacko on the couch: sat back, a controller in both hands, thumbs busy (loop).</summary>
@@ -340,7 +356,7 @@ namespace Vision.Characters
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
             Goggles, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
-            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Sit, Rage, Ascend,
+            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend,
         };
     }
 }
