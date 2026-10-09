@@ -71,6 +71,7 @@ namespace Vision.Game
             SimPlayer p = Sim.AddPlayer(LocalId, LocalName, role, at);
             p.IsLocal = true;
             accumulator = 0f;
+            if (GetComponent<Vision.Player.PlayerPuppets>() == null) gameObject.AddComponent<Vision.Player.PlayerPuppets>().world = world;
             Apply(true);
             Began?.Invoke();
         }
@@ -88,6 +89,18 @@ namespace Vision.Game
             bool ok = Sim.SwitchRole(LocalId);
             if (ok) Local.IsLocal = true;
             return ok;
+        }
+
+        /// <summary>Testing: an inert survivor or Zach a couple of metres in front of you.</summary>
+        public SimPlayer SpawnDummy(Role role)
+        {
+            SimPlayer me = Local;
+            if (Sim == null || me == null) return null;
+            Vector2 at = me.Pos + me.FacingDir * 2.2f;
+            if (Geometry != null && Geometry.Blocked(at, 0.4f)) at = me.Pos - me.FacingDir * 2.2f;
+            SimPlayer d = Sim.AddDummy(role, at);
+            if (d != null) d.Facing = me.Facing + Mathf.PI;
+            return d;
         }
 
         /// <summary>Testing mode changed: the match restarts on the same level under the new rules.</summary>
@@ -108,6 +121,7 @@ namespace Vision.Game
             while (accumulator >= MatchSim.TickDt && guard++ < 8)
             {
                 accumulator -= MatchSim.TickDt;
+                Sim.StepDummies();
                 Sim.Step();
                 Dispatch();
             }
@@ -119,6 +133,7 @@ namespace Vision.Game
         {
             for (int i = 0; i < ticks; i++)
             {
+                Sim.StepDummies();
                 Sim.Step();
                 Dispatch();
             }

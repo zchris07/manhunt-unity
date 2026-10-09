@@ -312,7 +312,7 @@ namespace Vision.Player
                 Vector3 moved = cc.enabled ? cc.velocity : Vector3.zero;
                 animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing)));
             }
-            bool hidden = p.HideState == 2;
+            bool hidden = p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator;
             if (hidden != hiddenShown)
             {
                 hiddenShown = hidden;

@@ -55,6 +55,8 @@ namespace Vision.Game
         public bool Connected = true;
         public float DisconnectedAt;
         public bool IsLocal;
+        /// <summary>Testing: an inert stand-in (no one plays it; the host moves it only when the rules push it).</summary>
+        public bool IsDummy;
 
         public Vector2 Pos;
         public float Facing = Mathf.PI / 2f;

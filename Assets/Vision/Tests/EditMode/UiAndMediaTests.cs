@@ -142,6 +142,38 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void OtherPlayers_AreDrawn_LyingDownWhenDowned_GoneOnceOut()
+        {
+            SandboxWorld world = NewWorld();
+            MatchState.Current.TestingMode = true;
+            MatchHost host = MatchHost.For(world);
+            host.Begin();
+            var puppets = world.GetComponent<PlayerPuppets>();
+            Assert.NotNull(puppets, "the match draws the other players");
+            SimPlayer d = host.SpawnDummy(Role.Survivor);
+            SimPlayer z = host.SpawnDummy(Role.Hunter);
+            puppets.Sync(0.1f);
+            Assert.AreEqual(2, puppets.All.Count, "a figure each, none for yourself");
+            PlayerPuppets.Puppet pd = puppets.For(d.Id), pz = puppets.For(z.Id);
+            Assert.Greater(pz.Go.transform.localScale.x, pd.Go.transform.localScale.x, "Zach is bigger");
+            Vector3 l = pd.Go.transform.localPosition;
+            Assert.Less(Vector2.Distance(new Vector2(l.x, l.z), d.Pos), 0.01f, "where the match has it");
+            d.Hp = 0f;
+            d.Health = Health.Downed;
+            puppets.Sync(0.1f);
+            Assert.IsTrue(pd.Animator.Prone, "lying down");
+            z.StunT = 2f;
+            puppets.Sync(0.1f);
+            Assert.IsTrue(pz.Stars.Showing, "stun stars");
+            d.Health = Health.Escaped;
+            puppets.Sync(0.1f);
+            Assert.IsFalse(pd.Visible, "gone once out");
+            host.Sim.ClearDummies();
+            puppets.Sync(0.1f);
+            Assert.AreEqual(0, puppets.All.Count);
+        }
+
+        [Test]
         public void MatchEvents_BecomePicturesAndSounds()
         {
             SandboxWorld world = NewWorld();

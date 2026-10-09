@@ -25,11 +25,17 @@ namespace Vision.UI
 
         public AudioManager Audio => AudioManager.Instance;
 
+        float zoomK;
+
+        /// <summary>Who the camera follows while you are out of the match (escaped, sacrificed or spectating), or 0.</summary>
+        public int Spectating { get; private set; }
+
         void Update()
         {
             Bind();
             SimPlayer me = host != null ? host.Local : null;
             if (me == null) return;
+            UpdateCamera(me);
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;
             // Penjamin: the gas sound loops while a survivor is in the cloud.
@@ -41,6 +47,41 @@ namespace Vision.UI
                 stars.Dizzy = !dazed && me.VapeT > 0f;
                 stars.Show(dazed || stars.Dizzy);
             }
+        }
+
+        /// <summary>
+        /// The camera: the Hemp Battery zooms Zach out (eased in and out), Waz's field of view widens or narrows it, and once
+        /// you are out of the match it follows someone still in it (click or the arrow keys switch who).
+        /// </summary>
+        void UpdateCamera(SimPlayer me)
+        {
+            if (cameraRig == null || player == null) return;
+            float dt = Time.deltaTime;
+            zoomK = Mathf.MoveTowards(zoomK, me.Role == Role.Hunter && me.HempOn ? 1f : 0f, dt * Balance.Hunter.Hemp.ZoomRate);
+            float e = zoomK * zoomK * (3f - 2f * zoomK);
+            float fov = me.FovMul > 0f ? me.FovMul : 1f;
+            cameraRig.zoom = (1f + (Balance.Hunter.Hemp.ZoomOut - 1f) * e) / fov;
+
+            bool out_ = me.Role == Role.Spectator || me.Health == Health.Escaped || me.Health == Health.Eliminated;
+            Transform target = player.transform;
+            Spectating = 0;
+            if (out_)
+            {
+                var kb = UnityEngine.InputSystem.Keyboard.current;
+                var mouse = UnityEngine.InputSystem.Mouse.current;
+                bool next = (kb != null && kb.rightArrowKey.wasPressedThisFrame) || (mouse != null && mouse.leftButton.wasPressedThisFrame && !GameHud.MenuOpen);
+                bool prev = kb != null && kb.leftArrowKey.wasPressedThisFrame;
+                if (next || prev) host.Sim.CycleSpectate(me, next ? 1 : -1);
+                if (host.Sim.Get(me.Spectating) == null) me.Spectating = host.Sim.DefaultSpectateTarget(me.Id);
+                var puppets = world.GetComponent<PlayerPuppets>();
+                PlayerPuppets.Puppet pup = puppets != null ? puppets.For(me.Spectating) : null;
+                if (pup != null && pup.Go != null)
+                {
+                    target = pup.Go.transform;
+                    Spectating = me.Spectating;
+                }
+            }
+            if (cameraRig.target != target) cameraRig.target = target;
         }
 
         void Bind()

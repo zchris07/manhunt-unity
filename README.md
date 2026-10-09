@@ -104,7 +104,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Settings** (Esc) leave the world running, as the original does: Resume, Speed mode, **Pace**, New
   map, Look settings, Full screen, How to play, Quit to main menu, the three volume sliders, and the controls for
   your role. Testing mode adds the original's **TEST EFFECTS** panel (left): every stun and flash played on yourself,
-  and Respawn NPCs. **Pace** scales every movement speed from 30% to
+  Respawn NPCs, and **dummies**: inert survivors and Zachs spawned in front of you to down, carry, stake, cut down,
+  revive, heal, shoot or stun.
+- **Other players** (`PlayerPuppets`): dummies (and, online, the other players) are drawn where the match has them,
+  walking at the speed they move, lying down when downed, over Zach's shoulder when carried, gone when hidden or out of
+  the match, with stun stars when stunned. Once you are out, the camera follows someone still in (click or the arrow
+  keys switch who). The Hemp Battery zooms Zach's view out, eased in and out, as the original. **Pace** scales every movement speed from 30% to
   125% of the original's: 100% is the original game (a survivor walks 4.3 m/s and runs 6.8 m/s), about
   37% is this port's earlier 1.6 m/s walk. The choice is saved; online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full

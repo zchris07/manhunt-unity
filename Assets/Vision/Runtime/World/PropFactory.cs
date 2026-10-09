@@ -207,7 +207,7 @@ namespace Vision.World
         /// A rigged, skinned mannequin: Body (yaw pivot) holding the 51-bone skeleton and the skinned
         /// mesh, animated by <see cref="HumanoidAnimator"/>. Returns the root.
         /// </summary>
-        static GameObject CreateCharacter(string name, Material material, Mesh mesh)
+        public static GameObject CreateCharacter(string name, Material material, Mesh mesh)
         {
             var root = new GameObject(name);
             var body = new GameObject("Body").transform;

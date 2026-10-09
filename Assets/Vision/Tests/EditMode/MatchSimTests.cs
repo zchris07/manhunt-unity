@@ -56,6 +56,7 @@ namespace Vision.Tests
                     Vector2 delta = Movement.Step(p.Move, p.Pos, cmd, Sim.MoveContextFor(p, false), Geo, MatchSim.TickDt, out Gait gait);
                     Sim.SetPose(p.Id, p.Pos + delta, cmd.AimDist > 0f ? cmd.Aim : p.Facing, gait);
                 }
+                Sim.StepDummies();
                 Sim.Step();
                 Sim.Events.Clear();
             }
@@ -411,6 +412,67 @@ namespace Vision.Tests
             int total = 0;
             foreach (ItemType t in Items.All) total += Items.Info(t).mapCount;
             Assert.AreEqual(96, total, "the original's 96 supplies on the map");
+        }
+
+        // ---------------------------------------------------------------- testing dummies
+
+        [Test]
+        public void Dummies_CanBeDownedCarriedStaked_HealedAndRevived()
+        {
+            var rig = new SimRig(1, 1, testMode: true);
+            SimPlayer zach = rig.P(1), me = rig.P(2);
+            rig.Place(zach, 0f, 0f);
+            rig.Place(me, 2000f, 2000f);
+            zach.Facing = 0f;
+            SimPlayer dummy = rig.Sim.AddDummy(Role.Survivor, SimRig.U(60f, 0f));
+            Assert.NotNull(dummy);
+            Assert.IsTrue(dummy.IsDummy);
+            Assert.GreaterOrEqual(dummy.Id, MatchSim.FirstDummyId);
+            Assert.IsNull(new SimRig(1, 1).Sim.AddDummy(Role.Survivor, Vector2.zero), "testing mode only");
+            for (int i = 0; i < 3; i++)
+            {
+                rig.Place(dummy, Scale.ToUnits(zach.Pos.x) + 60f, Scale.ToUnits(zach.Pos.y));
+                rig.Tap(1, Btn.Primary);
+                rig.Run(Secs(Balance.Hunter.Attack.SwingTime) + 4);
+            }
+            Assert.AreEqual(Health.Downed, dummy.Health, "three swipes down a dummy");
+            rig.Run(2);
+            Assert.AreEqual(Prompt.PickUp, zach.Prompt);
+            rig.Tap(1, Btn.Interact);
+            rig.Run(Secs(Balance.Hunter.PickupTime) + 2);
+            Assert.AreEqual(Health.Carried, dummy.Health);
+            Vector2 stake = rig.Map.Stakes[0];
+            rig.Place(zach, Scale.ToUnits(stake.x) + 30f, Scale.ToUnits(stake.y));
+            rig.Run(2);
+            rig.Tap(1, Btn.Interact);
+            rig.Run(Secs(Balance.Hunter.StakeTime) + 2);
+            Assert.AreEqual(Health.Staked, dummy.Health, "and staked");
+
+            // A survivor cuts it down, then heals it.
+            rig.Place(zach, 2500f, -2500f);
+            rig.Place(me, Scale.ToUnits(stake.x) - 40f, Scale.ToUnits(stake.y));
+            rig.Run(2);
+            Assert.AreEqual(Prompt.Unstake, me.Prompt);
+            rig.Hold(2, Btn.Interact, Secs(Balance.Survivor.UnstakeTime) + 3);
+            Assert.AreNotEqual(Health.Staked, dummy.Health, "cut down");
+            if (dummy.Health == Health.Downed)
+            {
+                rig.Hold(2, Btn.Interact, Secs(Balance.Survivor.ReviveTime) + 3);
+                Assert.AreEqual(Health.Wounded, dummy.Health, "revived");
+            }
+            rig.Place(me, Scale.ToUnits(dummy.Pos.x) - 40f, Scale.ToUnits(dummy.Pos.y));
+            rig.Run(3);
+            Assert.AreEqual(Prompt.Heal, me.Prompt);
+            rig.Hold(2, Btn.Interact, Secs(Balance.Survivor.HealTime) + 3);
+            Assert.AreEqual(Health.Healthy, dummy.Health, "and healed");
+
+            // The rules push dummies about too (a shotgun blast's knockback).
+            Vector2 before = dummy.Pos;
+            rig.Sim.PlayTestFx(dummy.Id, TestFx.Blast);
+            rig.Run(15);
+            Assert.Greater((dummy.Pos - before).magnitude, 0.3f, "knocked back");
+            rig.Sim.ClearDummies();
+            Assert.IsNull(rig.Sim.Get(dummy.Id));
         }
 
         // ---------------------------------------------------------------- determinism

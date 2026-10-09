@@ -414,6 +414,22 @@ namespace Vision.Player
                     cameraRig.orthographicSize = o;
                     host.SwitchRole();
                 }
+                // Testing dummies: a survivor standing, one downed, and a stunned Zach.
+                SimPlayer d1 = host.SpawnDummy(Role.Survivor);
+                SimPlayer z1 = host.SpawnDummy(Role.Hunter);
+                if (d1 != null && z1 != null)
+                {
+                    SimPlayer me2 = host.Local;
+                    host.Sim.Teleport(d1.Id, me2.Pos + new Vector2(-1.2f, 2f));
+                    host.Sim.Teleport(z1.Id, me2.Pos + new Vector2(1.4f, 2.4f));
+                    SimPlayer d2 = host.SpawnDummy(Role.Survivor);
+                    host.Sim.Teleport(d2.Id, me2.Pos + new Vector2(0.2f, 3.4f));
+                    host.Sim.HurtSurvivor(d2, 1f, null, "capture");
+                    host.Sim.PlayTestFx(z1.Id, TestFx.Stun);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot("81_testing_dummies");
+                    host.Sim.ClearDummies();
+                }
                 gameHud.visible = false;
             }
 

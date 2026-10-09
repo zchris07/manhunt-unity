@@ -297,6 +297,12 @@ namespace Vision.Player
                 y -= 32f;
             }
             kit.Button(panel, "Respawn NPCs", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.Sim?.RespawnNpcs(), 12);
+            y -= 32f;
+            kit.Button(panel, "Spawn survivor dummy", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.SpawnDummy(Role.Survivor), 12);
+            y -= 32f;
+            kit.Button(panel, "Spawn Zach dummy", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.SpawnDummy(Role.Hunter), 12);
+            y -= 32f;
+            kit.Button(panel, "Clear dummies", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.Sim?.ClearDummies(), 12);
             fxPanel = panel.gameObject;
             fxPanel.SetActive(false);
         }

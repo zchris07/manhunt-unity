@@ -87,6 +87,57 @@ namespace Vision.Game
             }
         }
 
+        /// <summary>Dummies take ids from here up (players are 1-99).</summary>
+        public const int FirstDummyId = 100;
+
+        /// <summary>
+        /// Testing: an inert player to practise on (a survivor to down, carry, stake, heal or revive; a Zach to stun). It
+        /// stands where it is put and never acts.
+        /// </summary>
+        public SimPlayer AddDummy(Role role, Vector2 at)
+        {
+            if (!TestMode || role == Role.Spectator) return null;
+            int id = FirstDummyId;
+            while (Players.ContainsKey(id)) id++;
+            SimPlayer p = AddPlayer(id, role == Role.Hunter ? "Dummy Zach" : $"Dummy {id - FirstDummyId + 1}", role, at);
+            p.IsDummy = true;
+            return p;
+        }
+
+        public void ClearDummies()
+        {
+            foreach (SimPlayer p in Order.ToArray())
+                if (p.IsDummy)
+                {
+                    foreach (SimPlayer q in Order)
+                    {
+                        if (q.Carrying == p.Id) q.Carrying = 0;
+                        if (q.CarriedBy == p.Id) { q.CarriedBy = 0; RestoreSurvivor(q, Balance.Survivor.ReviveHp); }
+                    }
+                    if (p.StakeId >= 0 && p.StakeId < Stakes.Length && Stakes[p.StakeId] == p.Id) Stakes[p.StakeId] = 0;
+                    if (p.HideSpot >= 0 && p.HideSpot < Hiding.Length && Hiding[p.HideSpot] == p.Id) Hiding[p.HideSpot] = 0;
+                    Players.Remove(p.Id);
+                    Order.Remove(p);
+                }
+        }
+
+        /// <summary>
+        /// Moves the players nobody plays (dummies) as their client would: no input, so they only move when the rules push
+        /// them (knockback). Runs before each tick.
+        /// </summary>
+        public void StepDummies()
+        {
+            foreach (SimPlayer p in Order)
+            {
+                if (!p.IsDummy || p.Health == Health.Carried || p.Health == Health.Staked || p.HideState != 0) continue;
+                p.Move.Mode = MoveModeFor(p);
+                var cmd = new InputCmd { Aim = p.Facing };
+                Vector2 d = Movement.Step(p.Move, p.Pos, cmd, MoveContextFor(p, false), Geo, TickDt, out Gait gait);
+                if (d.sqrMagnitude > 0f && !Geo.Blocked(p.Pos + d, p.RadiusD * 0.8f)) p.Pos += d;
+                p.Gait = gait;
+            }
+        }
+
         /// <summary>Testing: every NPC back to its start.</summary>
         public void RespawnNpcs()
         {
