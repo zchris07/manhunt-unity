@@ -103,11 +103,29 @@ namespace Vision.UI
                     else if (e.Text == "door") Audio.PlayCue("door_open", Units(e.Pos));
                     else if (e.Text == "slam") Audio.PlayCue("slam", Units(e.Pos));
                     else if (e.Text == "search") Audio.PlayCue("hide", Units(e.Pos));
+                    else if (e.Text == "drink") Audio.PlayCue("drink", Units(e.Pos));
+                    else if (e.Text == "eat") Audio.PlayCue("eat", Units(e.Pos));
+                    break;
+                case EventKind.Throw:
+                    Audio.PlayCue("throw", Units(e.Pos));
+                    break;
+                case EventKind.Gas:
+                    if (string.IsNullOrEmpty(e.Text))
+                    {
+                        // A gas trap bursting.
+                        Audio.PlayCue("gas", Units(e.Pos));
+                        Fx.Burst(Ground(e.Pos, 0.4f), 30, 2.4f * S, 0.8f, new Color(0.7f, 0.4f, 1f, 1f), 0.08f * S, true, Vfx.Blend.Additive, 0f, 2f, 0.5f, new Color(1f, 0.45f, 0.8f, 1f));
+                    }
+                    break;
+                case EventKind.Item:
+                    if (e.Text != null && e.Text.StartsWith("Picked up")) Audio.PlayCue("pickup");
                     break;
                 case EventKind.Noise:
                     switch (e.Text)
                     {
-                        case "glass": Audio.PlayCue("glass", Units(e.Pos)); break;
+                        case "glass": Audio.PlayCue(e.F >= 900f ? "bottle_break" : "glass", Units(e.Pos)); break;
+                        case "book": Audio.PlayCue("book_hit", Units(e.Pos)); break;
+                        case "piss": Audio.PlayCue("splash", Units(e.Pos)); break;
                         case "smash": Audio.PlayCue("splinter", Units(e.Pos)); break;
                         case "door_smash": Audio.PlayCue("smash", Units(e.Pos)); break;
                         case "gen_kick":
@@ -196,6 +214,7 @@ namespace Vision.UI
             DrawVapes(sim);
             DrawTracers();
             BeamSounds(sim);
+            ReloadSounds(sim);
         }
 
         /// <summary>The machete's charge: a ring at his feet, dark red filling to bright red, pulsing once it's heavy.</summary>
@@ -278,6 +297,28 @@ namespace Vision.UI
             }
             Fx.Dot(end, 0.5f * S * flicker, new Color(0.7f, 1f, 0.72f, 0.6f), false, true);
             Fx.Dot(hands, 0.3f * S, new Color(0.9f, 1f, 0.9f, 0.8f), false, true);
+        }
+
+        readonly Dictionary<int, float> lastReload = new Dictionary<int, float>();
+        readonly Dictionary<int, ActionKind> lastAction = new Dictionary<int, ActionKind>();
+
+        /// <summary>A gun being made ready after a shot (racked, or a fresh clip), and a trap being set.</summary>
+        void ReloadSounds(MatchSim sim)
+        {
+            foreach (SimPlayer p in sim.Order)
+            {
+                lastReload.TryGetValue(p.Id, out float before);
+                if (before > 0.35f && p.ReloadT <= 0.35f && p.ReloadT > 0f)
+                {
+                    Vision.Player.Inventory.Slot s = p.Selected;
+                    bool shotgun = p.Role == Role.Hunter || (s != null && s.item == Vision.Player.ItemType.Shotgun);
+                    Audio.PlayCue(shotgun ? "rack" : "reload", Units(p.Pos));
+                }
+                lastReload[p.Id] = p.ReloadT;
+                lastAction.TryGetValue(p.Id, out ActionKind a);
+                if (p.Action == ActionKind.Plant && a != ActionKind.Plant) Audio.PlayCue("trap", Units(p.Pos));
+                lastAction[p.Id] = p.Action;
+            }
         }
 
         void BeamSounds(MatchSim sim)

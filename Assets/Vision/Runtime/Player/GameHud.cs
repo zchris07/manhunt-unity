@@ -57,6 +57,7 @@ namespace Vision.Player
         public ScreenOverlays Overlays { get; private set; }
         public MatchPresenter Presenter { get; private set; }
         public MatchEffects Effects { get; private set; }
+        public ItemViews ItemsInPlay { get; private set; }
 
         RectTransform strip;
         readonly GameObject[] slotBoxes = new GameObject[Inventory.TestingSlots];
@@ -76,6 +77,7 @@ namespace Vision.Player
         {
             escOpen = false;
             modalOpen = false;
+            editorOpen = false;
             MainMenuOpen = false;
             // The pace the player chose last time (captures keep the original's).
             if (!VisionCapture.Requested) MatchState.Current.SetPace(MatchState.SavedPace(), false);
@@ -198,6 +200,7 @@ namespace Vision.Player
             }
 
             BuildHunterHud(root);
+            BuildInventoryEditor();
 
             // Interaction prompt above the inventory.
             RectTransform promptRt = Node("Prompt", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 128f), new Vector2(560f, 42f));
@@ -250,6 +253,8 @@ namespace Vision.Player
             Presenter.overlays = Overlays;
             Effects = GetComponent<MatchEffects>() ?? gameObject.AddComponent<MatchEffects>();
             Effects.world = world;
+            ItemsInPlay = GetComponent<ItemViews>() ?? gameObject.AddComponent<ItemViews>();
+            ItemsInPlay.world = world;
         }
 
         RectTransform Bar(RectTransform parent, string name, Vector2 pos, Texture2D fillTex, out Text value, out RawImage fillImage, out Text label, out GameObject row)
@@ -334,6 +339,7 @@ namespace Vision.Player
             if (world == null || world.Player == null) return;
             if (Presenter != null && Presenter.world == null) Presenter.world = world;
             if (Effects != null && Effects.world == null) Effects.world = world;
+            if (ItemsInPlay != null && ItemsInPlay.world == null) ItemsInPlay.world = world;
             if (player != world.Player)
             {
                 if (player != null) player.Notice -= Notify;
@@ -357,6 +363,10 @@ namespace Vision.Player
                     break;
                 case EventKind.Hit:
                     if (host != null && e.A == host.LocalId) flash = 1f;
+                    break;
+                case EventKind.Jarvis:
+                    // JARVIS shows the user the whole map.
+                    if (host != null && e.A == host.LocalId) map.RevealAll();
                     break;
             }
         }
@@ -456,6 +466,8 @@ namespace Vision.Player
                 slotNames[i].text = item.HasValue ? (golden ? "GOLDEN" : Items.Short(item.Value).ToUpperInvariant()) : "";
             }
 
+            UpdateEditor(me);
+
             // The prompt, with the Space action beside it.
             string p = player.InteractPrompt;
             string space = player.SpacePrompt;
@@ -493,7 +505,7 @@ namespace Vision.Player
 
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime * 2.5f);
             float hurt = zach ? 0f : Mathf.Clamp01(1f - me.Hp / 0.45f);
-            vignette.color = new Color(0.55f, 0.02f, 0.02f, Mathf.Clamp01(hurt * 0.85f + flash * 0.5f));
+            vignette.color = me.GogglesOn ? new Color(0.25f, 0.9f, 0.35f, 0.1f) : new Color(0.55f, 0.02f, 0.02f, Mathf.Clamp01(hurt * 0.85f + flash * 0.5f));
             downedScreen.SetActive(downed);
             fxPanel.SetActive(host != null && host.Sim != null && host.Sim.TestMode && me.Role != Role.Spectator && !MainMenuOpen);
             if (host != null && host.Sim != null) RefreshHunter(me, host.Sim);

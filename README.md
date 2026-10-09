@@ -165,6 +165,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   disc; the Hemp Beam gathers an orb then fires a white-green beam with the original's repulsor loop. Guns flash and
   leave pellet tracers. Sounds come from the fetched CC0 packs, picked at random per cue with pitch and volume
   jitter, placed and panned where they happen.
+- **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; gas traps sit on the ground
+  and blink once armed; galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
+  fell (with models for the P250, the 0.50 cal, the jar of piss and the golden pump). G drops the item in hand; **Tab**
+  opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
+  JARVIS shows the user the whole map; night vision tints the view green. Drinks, bites, throws, glass, books,
+  splashes, traps, pick-ups and reloads all have their sounds.
 - **Results**: the original's end screen (who won and why, the time, the generators, and each player's numbers), and
   a match clock under the compass.
 - The **wanderer** walks a loop near the spawn and takes 20% when it walks into you (the NPCs replace it).

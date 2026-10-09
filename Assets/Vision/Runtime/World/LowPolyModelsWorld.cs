@@ -404,11 +404,38 @@ namespace Vision.World
         // ------------------------------------------------------------------ supplies
 
         /// <summary>The original's supplies, lying on the ground (they are drawn 1.6x larger so they read from above).</summary>
-        public static Mesh Item(System.Random rng, Vision.Player.ItemType item)
+        public static Mesh Item(System.Random rng, Vision.Player.ItemType item) => Item(rng, item, false);
+
+        /// <param name="golden">Plasma's golden pump: the shotgun in gold.</param>
+        public static Mesh Item(System.Random rng, Vision.Player.ItemType item, bool golden)
         {
             var b = new LowPolyMeshBuilder(rng);
             switch (item)
             {
+                case Vision.Player.ItemType.Pistol:
+                    // A P250 on its side: the slide, the frame and the grip.
+                    b.AddBox(new Vector3(-0.09f, 0.022f, -0.016f), new Vector3(0.18f, 0.032f, 0.032f), new Color(0.13f, 0.13f, 0.14f), 0.04f);
+                    b.AddBox(new Vector3(-0.08f, 0f, -0.014f), new Vector3(0.12f, 0.024f, 0.028f), new Color(0.10f, 0.10f, 0.11f), 0.04f);
+                    b.AddBox(new Vector3(-0.08f, 0f, -0.012f), new Vector3(0.05f, 0.022f, 0.09f), new Color(0.08f, 0.08f, 0.09f), 0.04f);
+                    break;
+                case Vision.Player.ItemType.Sniper:
+                    // The 0.50 cal lying flat: stock, receiver, a long barrel, the scope.
+                    b.AddBox(new Vector3(-0.5f, 0.01f, -0.04f), new Vector3(0.26f, 0.04f, 0.08f), new Color(0.22f, 0.24f, 0.18f), 0.05f);
+                    b.AddBox(new Vector3(-0.24f, 0.012f, -0.03f), new Vector3(0.26f, 0.045f, 0.06f), new Color(0.20f, 0.22f, 0.17f), 0.05f);
+                    b.AddFrustum(new Vector3(0.02f, 0.035f, 0f), new Vector3(0.62f, 0.035f, 0f), 0.017f, 0.014f, 6, new Color(0.14f, 0.14f, 0.15f), 0.04f);
+                    b.AddFrustum(new Vector3(-0.2f, 0.085f, 0f), new Vector3(0.02f, 0.085f, 0f), 0.024f, 0.024f, 6, new Color(0.08f, 0.08f, 0.09f), 0.04f);
+                    break;
+                case Vision.Player.ItemType.Piss:
+                    // A jar of piss: yellow behind the glass, a tin lid.
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.11f, 0f), 0.045f, 0.045f, 7, new Color(0.80f, 0.70f, 0.18f), 0.05f);
+                    b.AddFrustum(new Vector3(0f, 0.11f, 0f), new Vector3(0f, 0.13f, 0f), 0.04f, 0.04f, 7, new Color(0.55f, 0.55f, 0.56f), 0.03f);
+                    break;
+                case Vision.Player.ItemType.Shotgun when golden:
+                    b.AddBox(new Vector3(-0.32f, 0.01f, -0.035f), new Vector3(0.2f, 0.035f, 0.07f), new Color(0.72f, 0.52f, 0.16f), 0.05f);
+                    b.AddBox(new Vector3(-0.12f, 0.012f, -0.025f), new Vector3(0.14f, 0.04f, 0.05f), new Color(0.85f, 0.66f, 0.20f), 0.04f);
+                    b.AddFrustum(new Vector3(0.02f, 0.035f, 0f), new Vector3(0.38f, 0.035f, 0f), 0.014f, 0.014f, 6, new Color(0.92f, 0.76f, 0.30f), 0.04f);
+                    b.AddFrustum(new Vector3(0.06f, 0.02f, 0f), new Vector3(0.2f, 0.02f, 0f), 0.022f, 0.022f, 6, new Color(0.72f, 0.52f, 0.16f), 0.05f);
+                    break;
                 case Vision.Player.ItemType.Bottle:
                 {
                     // An empty glass bottle on its side.

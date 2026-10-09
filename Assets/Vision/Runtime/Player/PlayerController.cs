@@ -212,7 +212,9 @@ namespace Vision.Player
             if (SprintOverride ?? Held(sprint)) b |= Btn.Run;
             if (Held(crouch)) b |= Btn.Crouch;
             if (Held(interact)) b |= Btn.Interact;
-            if (Held(fire)) b |= Btn.Primary;
+            // Not while arranging the inventory, or when the click is on the HUD (a slot, a button).
+            bool overUi = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+            if (Held(fire) && !GameHud.EditorOpen && !overUi) b |= Btn.Primary;
             if (Held(burst)) b |= Btn.Secondary;
             if (Held(ability)) b |= Btn.Ability;
             if (Held(lunge)) b |= Btn.Lunge;

@@ -414,6 +414,53 @@ namespace Vision.Player
                     cameraRig.orthographicSize = o;
                     host.SwitchRole();
                 }
+                // Items in use: a thrown bottle, a shotgun blast, galaxy gas, a dropped item, the editor, night vision.
+                {
+                    SimPlayer me8 = host.Local;
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                    IEnumerator UseItem(ItemType item, int frames = 2)
+                    {
+                        player.SelectedSlot = me8.Inv.FirstSlotOf(item);
+                        yield return Wait(3);
+                        player.ExtraButtons = Btn.Primary;
+                        yield return Wait(frames);
+                        player.ExtraButtons = Btn.None;
+                    }
+                    yield return UseItem(ItemType.Bottle);
+                    yield return new WaitForSeconds(0.12f);
+                    gameHud.Refresh();
+                    yield return Shot("93_bottle_throw");
+                    yield return new WaitForSeconds(1f);
+                    yield return UseItem(ItemType.Shotgun);
+                    yield return new WaitForSeconds(0.03f);
+                    yield return Shot("94_shotgun");
+                    yield return new WaitForSeconds(1f);
+                    gameHud.PlayTestFx(TestFx.Gas);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot("95_galaxy_gas");
+                    yield return new WaitForSeconds(6f);
+                    player.SelectedSlot = me8.Inv.FirstSlotOf(ItemType.Book);
+                    yield return Wait(3);
+                    player.ExtraButtons = Btn.Drop;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.3f);
+                    gameHud.ToggleEditor(true);
+                    gameHud.ClickSlot(0);
+                    gameHud.Refresh();
+                    yield return Wait(3);
+                    yield return Shot("96_drop_and_inventory_editor");
+                    gameHud.ToggleEditor(false);
+                    player.SelectedSlot = me8.Inv.FirstSlotOf(ItemType.Goggles);
+                    yield return Wait(3);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return new WaitForSeconds(0.5f);
+                    gameHud.Refresh();
+                    yield return Shot("97_night_vision");
+                    player.ExtraButtons = Btn.None;
+                    player.SelectedSlot = -1;
+                    yield return new WaitForSeconds(0.3f);
+                }
                 // Testing dummies: a survivor standing, one downed, and a stunned Zach.
                 SimPlayer d1 = host.SpawnDummy(Role.Survivor);
                 SimPlayer z1 = host.SpawnDummy(Role.Hunter);

@@ -67,6 +67,14 @@ namespace Vision.Characters
             .Key(0.8f, P().R(Bone.UpperArmR, -82f, -60f, -5f).R(Bone.ForearmR, -128f).R(Bone.HandR, 30f).R(Bone.Head, -18f).R(Bone.Neck, -6f))
             .Blend(0.32f, 0.3f);
 
+        /// <summary>A swig (Doctor Pepper): the can up, head back, down again.</summary>
+        public static readonly ActionClip Swig = new ActionClip("Swig", 1.0f)
+            .Key(0f, Stand())
+            .Key(0.35f, Drink.Keys[0].pose)
+            .Key(0.65f, Drink.Keys[1].pose)
+            .Key(1.0f, Stand())
+            .Blend(0.15f, 0.2f);
+
         /// <summary>Eating (duck confit, a Mr Beast bar): quick bites (one-shot).</summary>
         public static readonly ActionClip Eat = new ActionClip("Eat", 1.05f)
             .Key(0f, Stand())
@@ -308,7 +316,7 @@ namespace Vision.Characters
         /// <summary>Every clip, for the animation lab.</summary>
         public static IEnumerable<ActionClip> All => new[]
         {
-            Repair, Lever, Tend, PickUp, Crouch, Drink, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
+            Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
             Goggles, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
             Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam,
         };

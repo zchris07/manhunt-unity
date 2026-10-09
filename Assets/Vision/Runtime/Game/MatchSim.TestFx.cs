@@ -87,6 +87,16 @@ namespace Vision.Game
             }
         }
 
+        /// <summary>The inventory editor (Tab): swaps two slots of a survivor's inventory.</summary>
+        public void MoveSlot(int id, int from, int to)
+        {
+            SimPlayer p = Get(id);
+            if (p == null || p.Role != Role.Survivor) return;
+            int lim = p.Inv.Limit;
+            if (from < 0 || to < 0 || from >= lim || to >= lim || from == to) return;
+            p.Inv.Move(from, to);
+        }
+
         /// <summary>Dummies take ids from here up (players are 1-99).</summary>
         public const int FirstDummyId = 100;
 

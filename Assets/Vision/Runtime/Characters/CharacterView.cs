@@ -167,6 +167,8 @@ namespace Vision.Characters
                     else if (e.A == self.Id && e.Text == "search") PlayOnce(ActionClips.SearchOnce);
                     else if (e.A == self.Id && e.Text == "slam") PlayOnce(ActionClips.Slam);
                     else if (e.A == self.Id && e.Text == "door") PlayOnce(ActionClips.Push);
+                    else if (e.A == self.Id && e.Text == "drink") PlayOnce(ActionClips.Swig);
+                    else if (e.A == self.Id && e.Text == "eat") PlayOnce(ActionClips.Eat);
                     break;
                 case EventKind.Gas:
                     if (e.A == self.Id && e.Text != null && (e.Text == "vape" || e.Text == "nic")) PlayOnce(ActionClips.Vape);
