@@ -112,13 +112,14 @@ namespace Vision.Game
             p.PromptTarget = target;
         }
 
-        Prompt NpcAwaiting(SimPlayer p)
+        Prompt NpcAwaiting(SimPlayer p, out int index)
         {
-            foreach (Npc n in Npcs)
+            for (index = 0; index < Npcs.Count; index++)
             {
-                Prompt a = n.Awaiting(this, p);
+                Prompt a = Npcs[index].Awaiting(this, p);
                 if (a != Prompt.None) return a;
             }
+            index = -1;
             return Prompt.None;
         }
 
@@ -132,10 +133,10 @@ namespace Vision.Game
             if (!p.CanAct) return;
             Vector2 at = p.Pos;
             // Njaaron waiting for an answer, or Sexton waiting for you to keep listening, comes first.
-            Prompt waiting = NpcAwaiting(p);
+            Prompt waiting = NpcAwaiting(p, out int waitingNpc);
             if (waiting != Prompt.None)
             {
-                Set(p, waiting, 0);
+                Set(p, waiting, waitingNpc);
                 return;
             }
             // Teammates: staked first, then downed, then wounded.
@@ -206,10 +207,10 @@ namespace Vision.Game
         void HunterPrompts(SimPlayer p)
         {
             Vector2 at = p.Pos;
-            Prompt waiting = NpcAwaiting(p);
+            Prompt waiting = NpcAwaiting(p, out int waitingNpc);
             if (waiting != Prompt.None)
             {
-                Set(p, waiting, 0);
+                Set(p, waiting, waitingNpc);
                 return;
             }
             if (p.Carrying != 0)

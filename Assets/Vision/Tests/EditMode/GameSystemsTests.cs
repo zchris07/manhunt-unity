@@ -72,9 +72,11 @@ namespace Vision.Tests
                 var world = root.AddComponent<SandboxWorld>();
                 world.lowPolyMaterial = world.entityMaterial = world.glowMaterial = mat;
                 world.Generate();
-                Assert.AreEqual(96, world.Pickups.Count, "the original's 96 supplies");
+                // The original's 96, and the kit in a row beside Chris Zelley's ambulance on top.
+                ItemType[] kit = { ItemType.MiniShield, ItemType.MiniShield, ItemType.MrBeastBar, ItemType.MrBeastBar, ItemType.Confit };
+                Assert.AreEqual(96 + kit.Length, world.Pickups.Count, "the original's 96 supplies and the ambulance kit");
                 foreach (ItemType t in Items.All)
-                    Assert.AreEqual(Items.Info(t).mapCount, world.Pickups.Count(p => p.item == t), $"{t} at the original's count");
+                    Assert.AreEqual(Items.Info(t).mapCount + kit.Count(k => k == t), world.Pickups.Count(p => p.item == t), $"{t} at the original's count");
                 Rect building = world.Layout.Building;
                 int indoors = world.Pickups.Count(p =>
                 {

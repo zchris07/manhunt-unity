@@ -89,7 +89,7 @@ namespace Vision.UI
         /// <summary>A point of the level in world space, just above the ground (design units in).</summary>
         Vector3 Ground(Vector2 at, float up = 0.04f)
         {
-            float h = world.Terrain != null ? world.Terrain.Height(at.x, at.y) : 0f;
+            float h = world.GroundHeight(at);
             return world.transform.TransformPoint(new Vector3(at.x, h + up, at.y));
         }
 

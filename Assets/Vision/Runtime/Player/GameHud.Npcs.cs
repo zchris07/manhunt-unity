@@ -71,7 +71,7 @@ namespace Vision.Player
                 {
                     if (n.Gone || !n.Alive) continue;
                     if (!testing && !Sees(sim, me, n.Pos)) continue;
-                    float hgt = world.Terrain != null ? world.Terrain.Height(n.Pos.x, n.Pos.y) : 0f;
+                    float hgt = world.GroundHeight(n.Pos);
                     Vector3 wp = world.transform.TransformPoint(new Vector3(n.Pos.x, hgt + 2.05f, n.Pos.y));
                     Vector3 sp = cam.WorldToScreenPoint(wp);
                     if (sp.z < 0f || sp.x < -100f || sp.y < -100f || sp.x > Screen.width + 100f || sp.y > Screen.height + 100f) continue;

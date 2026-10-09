@@ -313,12 +313,34 @@ namespace Vision.Characters
             .Key(0.15f, P().Lower(0.07f).Both(Bone.UpperArmR, -90f, 0f, 3f).Both(Bone.ForearmR, -3f).Both(Bone.HandR, 72f).R(Bone.Spine, 5f).Both(Bone.ThighR, -15f).Both(Bone.ShinR, 24f))
             .Blend(0.28f, 0.3f);
 
+        // ---------------------------------------------------------------- NPCs
+
+        /// <summary>Chacko on the couch: sat back, a controller in both hands, thumbs busy (loop).</summary>
+        public static readonly ActionClip Sit = new ActionClip("Sit", 0.8f, true)
+            .Key(0f, P().Lower(0.45f).Both(Bone.ThighR, -88f).Both(Bone.ShinR, 86f).R(Bone.Spine, -10f).R(Bone.Chest, -4f).R(Bone.Head, 9f)
+                .Both(Bone.UpperArmR, -28f, 0f, -6f).Both(Bone.ForearmR, -95f).Both(Bone.HandR, 15f))
+            .Key(0.4f, P().Lower(0.45f).Both(Bone.ThighR, -88f).Both(Bone.ShinR, 86f).R(Bone.Spine, -9f).R(Bone.Chest, -3f).R(Bone.Head, 11f)
+                .Both(Bone.UpperArmR, -30f, 0f, -7f).Both(Bone.ForearmR, -99f).R(Bone.HandR, 22f).R(Bone.HandL, 10f))
+            .Blend(0.3f, 0.3f);
+
+        /// <summary>Plasma's GAMER RAGE: hunched, fists out and up, roaring at the sky and back (loop).</summary>
+        public static readonly ActionClip Rage = new ActionClip("Rage", 0.6f, true)
+            .Key(0f, P().Lower(0.08f).R(Bone.Spine, 8f).R(Bone.Chest, -10f).R(Bone.Head, -18f).Both(Bone.UpperArmR, -25f, 0f, 35f).Both(Bone.ForearmR, -110f).Both(Bone.ThighR, -12f).Both(Bone.ShinR, 20f))
+            .Key(0.3f, P().Lower(0.1f).R(Bone.Spine, 10f).R(Bone.Chest, -6f).R(Bone.Head, -10f).Both(Bone.UpperArmR, -32f, 0f, 28f).Both(Bone.ForearmR, -118f).Both(Bone.ThighR, -14f).Both(Bone.ShinR, 24f))
+            .Blend(0.3f, 0.3f);
+
+        /// <summary>Chris Zelley's work done: arms spread, face to the sky, as he rises (loop).</summary>
+        public static readonly ActionClip Ascend = new ActionClip("Ascend", 1.2f, true)
+            .Key(0f, P().R(Bone.Chest, -6f).R(Bone.Head, -20f).Both(Bone.UpperArmR, -10f, 0f, 70f).Both(Bone.ForearmR, -10f).Both(Bone.HandR, -10f))
+            .Key(0.6f, P().R(Bone.Chest, -8f).R(Bone.Head, -24f).Both(Bone.UpperArmR, -12f, 0f, 78f).Both(Bone.ForearmR, -6f).Both(Bone.HandR, -15f))
+            .Blend(0.4f, 0.3f);
+
         /// <summary>Every clip, for the animation lab.</summary>
         public static IEnumerable<ActionClip> All => new[]
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
             Goggles, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
-            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam,
+            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Sit, Rage, Ascend,
         };
     }
 }

@@ -495,6 +495,79 @@ namespace Vision.Player
                     host.Sim.ClearDummies();
                     host.Sim.RespawnNpcs();
                 }
+                // The story NPCs: Chris at his ambulance, Chacko in the lounge, Sexton's Hemp Beam, Plasma's beast, Chris ascending.
+                {
+                    SimPlayer me10 = host.Local;
+                    var npcs = host.Sim.Npcs;
+                    Chris chris = npcs.Find(n => n is Chris) as Chris;
+                    Sexton sexton = npcs.Find(n => n is Sexton) as Sexton;
+                    Plasma plasma = npcs.Find(n => n is Plasma) as Plasma;
+                    if (world.Ambulance != null)
+                    {
+                        Vector2 across = new Vector2(-Mathf.Sin(world.AmbulanceAngle), Mathf.Cos(world.AmbulanceAngle));
+                        Vector2 spot = world.AmbulanceCentre + across * 4.6f;
+                        if (chris != null) chris.Pos = world.AmbulanceCentre + across * 3.2f + new Vector2(Mathf.Cos(world.AmbulanceAngle), Mathf.Sin(world.AmbulanceAngle)) * 1.5f;
+                        yield return Stage(player, V(spot - Vector2.up * 1.2f), Vector2.up, wanderer, away);
+                        yield return new WaitForSeconds(0.6f);
+                        gameHud.Refresh();
+                        yield return Shot("100_ambulance_and_chris");
+                    }
+                    if (world.Layout.Plan != null && world.Layout.Plan.LoungeRoom >= 0)
+                    {
+                        Vector2 seat = world.Layout.Plan.LoungeSeat, tv = world.Layout.Plan.LoungeTv;
+                        Vector2 mid = seat + (tv - seat).normalized * Mathf.Min(1.1f, Vector2.Distance(seat, tv) * 0.6f);
+                        player.Teleport(world.transform.TransformPoint(new Vector3(mid.x, world.BuildingFloor + 0.05f, mid.y)));
+                        player.AimOverride = (seat - mid).normalized;
+                        cameraRig.Snap();
+                        yield return new WaitForSeconds(0.8f);
+                        gameHud.Refresh();
+                        yield return Shot("101_lounge_chacko");
+                    }
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                    SimPlayer foe = host.SpawnDummy(Role.Survivor);
+                    if (sexton != null && foe != null)
+                    {
+                        sexton.Pos = me10.Pos + new Vector2(-1.8f, 2.6f);
+                        host.Sim.Teleport(foe.Id, me10.Pos + new Vector2(1.6f, 2.2f));
+                        sexton.ItemHit(host.Sim, foe, "bottle");
+                        float waited = 0f;
+                        while (!sexton.Beaming && waited < 4f) { waited += Time.deltaTime; yield return null; }
+                        yield return new WaitForSeconds(0.4f);
+                        gameHud.Refresh();
+                        yield return Shot("102_sexton_hemp_beam");
+                        sexton.Pos += new Vector2(0f, 60f);
+                    }
+                    if (plasma != null && foe != null)
+                    {
+                        plasma.Pos = me10.Pos + new Vector2(-1.2f, 1.7f);
+                        host.Sim.Teleport(foe.Id, me10.Pos + new Vector2(1.0f, 1.3f));
+                        plasma.ItemHit(host.Sim, foe, "bottle");
+                        yield return new WaitForSeconds(Balance.Plasma.TransformTime + 0.5f);
+                        gameHud.Refresh();
+                        yield return Shot("103_plasma_beast");
+                        plasma.Pos += new Vector2(0f, 60f);
+                    }
+                    if (chris != null)
+                    {
+                        chris.Pos = me10.Pos + new Vector2(0.4f, 1.0f);
+                        chris.State = Chris.Mode.Ascend;
+                        chris.AscendT = 0.6f;
+                        yield return new WaitForSeconds(0.9f);
+                        gameHud.Refresh();
+                        yield return Shot("104_chris_ascends");
+                    }
+                    host.Sim.ClearDummies();
+                    host.Sim.RespawnNpcs();
+                    // Zach sees every stake in play on his map.
+                    if (host.SwitchRole())
+                    {
+                        gameHud.Map.SetOpen(true);
+                        yield return new WaitForSeconds(0.5f);
+                        yield return Shot("105_zach_map_stakes");
+                        gameHud.Map.SetOpen(false);
+                        host.SwitchRole();
+                    }
+                }
                 // Testing dummies: a survivor standing, one downed, and a stunned Zach.
                 SimPlayer d1 = host.SpawnDummy(Role.Survivor);
                 SimPlayer z1 = host.SpawnDummy(Role.Hunter);

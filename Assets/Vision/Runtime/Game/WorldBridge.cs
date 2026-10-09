@@ -47,6 +47,17 @@ namespace Vision.Game
                 if (used) map.Stakes.Add(Local(w.Stakes[i].position));
             }
             foreach (Transform n in w.Notes) map.Notes.Add(Local(n.position));
+            if (w.Ambulance != null)
+            {
+                map.AmbulanceAt = w.AmbulanceCentre;
+                map.AmbulanceAngle = w.AmbulanceAngle;
+                map.AmbulanceSize = new Vector2(World.LowPolyModels.AmbulanceSize.z, World.LowPolyModels.AmbulanceSize.x);
+            }
+            if (w.Layout != null && w.Layout.Plan != null && w.Layout.Plan.LoungeRoom >= 0)
+            {
+                map.LoungeSeat = w.Layout.Plan.LoungeSeat;
+                map.LoungeTv = w.Layout.Plan.LoungeTv;
+            }
 
             if (w.Layout != null)
             {

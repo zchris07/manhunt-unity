@@ -10,7 +10,8 @@ namespace Vision.Game
     {
         public static readonly Func<MatchSim, Npc>[] Makers =
         {
-            s => new Marc(s), s => new Jaden(s), s => new Njaaron(s), s => new Monique(s), s => new Thomas(s), s => new Soham(s), s => new Waz(s), s => new Shane(s),
+            s => new Sexton(s), s => new Chris(s), s => new Marc(s), s => new Plasma(s), s => new Jaden(s), s => new Njaaron(s), s => new Monique(s),
+            s => new Thomas(s), s => new Soham(s), s => new Chacko(s), s => new Waz(s), s => new Shane(s),
         };
 
         /// <summary>Puts every NPC on the map (again, for testing's Respawn NPCs).</summary>

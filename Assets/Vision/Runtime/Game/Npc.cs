@@ -11,6 +11,7 @@ namespace Vision.Game
     {
         None = 0, Hurt = 1, Stunned = 2, Dead = 4, Fleeing = 8, Chasing = 16, Firing = 32, Armed = 64, Angry = 128, Talking = 256,
         Punching = 512, Fuse = 1024, Following = 2048, Seated = 4096, Raging = 8192, Defending = 16384,
+        Working = 32768, Ascending = 65536, Transforming = 131072, Beast = 262144,
     }
 
     public abstract class Npc

@@ -246,6 +246,7 @@ namespace Vision.World
             BF.Rack or BF.ServerRack or BF.Forklift => 2.1f,
             BF.Boiler or BF.SetFlat => 2.4f,
             BF.Fridge => 1.8f,
+            BF.Tv => 1.28f,
             BF.CrateStack => 1.55f,
             BF.Barrel or BF.Counter or BF.Sink or BF.Workbench => 0.92f,
             BF.Bench => 0.45f,
@@ -353,6 +354,7 @@ namespace Vision.World
                         BuildingPlan.LampKind.Vending => (5f, 0.5f),
                         BuildingPlan.LampKind.Furnace => (6f, 0.65f),
                         BuildingPlan.LampKind.Server => (4f, 0.4f),
+                        BuildingPlan.LampKind.Tv => (210f * MapLayout.Unit, 0.5f),
                         _ => (9f, 0.8f),
                     };
                     break;

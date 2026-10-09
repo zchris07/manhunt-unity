@@ -14,7 +14,7 @@ namespace Vision.UI
     /// for 50 Nic), the Hemp Battery's pulsing green disc, the Hemp Beam (a charging orb, then a white-green beam with an
     /// impact glow), guns (muzzle flash, pellet tracers), and the sounds of all of it, placed where it happens.
     /// </summary>
-    public sealed class MatchEffects : MonoBehaviour
+    public sealed partial class MatchEffects : MonoBehaviour
     {
         public SandboxWorld world;
 
@@ -41,7 +41,7 @@ namespace Vision.UI
 
         Vector3 Ground(Vector2 at, float up = 0.04f)
         {
-            float h = world.Terrain != null ? world.Terrain.Height(at.x, at.y) : 0f;
+            float h = world.GroundHeight(at);
             return world.transform.TransformPoint(new Vector3(at.x, h + up, at.y));
         }
 
@@ -76,6 +76,7 @@ namespace Vision.UI
             Bind();
             MatchSim sim = host != null ? host.Sim : null;
             if (sim == null) return;
+            if (NpcEvent(e)) return;
             SimPlayer by = sim.Get(e.A);
             switch (e.Kind)
             {
@@ -213,6 +214,7 @@ namespace Vision.UI
             DrawWaves(sim);
             DrawVapes(sim);
             DrawTracers();
+            DrawNpcs(sim);
             BeamSounds(sim);
             ReloadSounds(sim);
         }

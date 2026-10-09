@@ -26,6 +26,12 @@ namespace Vision.Game
         public readonly List<Vector2> Stakes = new List<Vector2>();
         public readonly List<Vector2> Notes = new List<Vector2>();
         public readonly List<Vector2> SurvivorSpawns = new List<Vector2>();
+        /// <summary>Chris Zelley's ambulance: its centre, the direction its length runs (radians), and its length and width.</summary>
+        public Vector2 AmbulanceAt = new Vector2(0f, -27f);
+        public float AmbulanceAngle;
+        public Vector2 AmbulanceSize = new Vector2(300f, 150f) * Scale.Unit;
+        /// <summary>The lounge: Chacko's seat on the couch, and the TV he watches.</summary>
+        public Vector2 LoungeSeat, LoungeTv = new Vector2(0f, 2f);
         public readonly List<Vector2> HunterSpawns = new List<Vector2>();
 
         public struct LootDef { public Vector2 Pos; public ItemType Item; public bool Golden; }

@@ -83,7 +83,7 @@ namespace Vision.World
         }
 
         /// <summary>What gives the light: a ceiling fitting, or something in the room that would glow.</summary>
-        public enum LampKind { Fluorescent, Bulb, Desk, Exit, Vending, Furnace, Server, Stage }
+        public enum LampKind { Fluorescent, Bulb, Desk, Exit, Vending, Furnace, Server, Stage, Tv }
 
         public struct Lamp
         {

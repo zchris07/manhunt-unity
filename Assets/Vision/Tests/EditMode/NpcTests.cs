@@ -248,7 +248,7 @@ namespace Vision.Tests
             rig.Sim.Teleport(h.Id, s.Pos + SimRig.U(200, 0));
             rig.Run(SimRig.Secs(2.5f));
             Assert.AreEqual(Njaaron.Mode.Defend, nj.State);
-            Assert.Less(h.Hp, Balance.Hunter.Health.Max, "he punches Zach");
+            Assert.Less(h.Hp, 1f, "he punches Zach");
 
             // No: he fights whoever said it.
             var rig2 = new SimRig();
@@ -281,7 +281,7 @@ namespace Vision.Tests
             for (int i = 0; i < Balance.Njaaron.Hp; i++) nj3.Slash(rig3.Sim, h3, 1);
             Assert.IsFalse(nj3.Alive);
             Assert.IsTrue(rig3.Sim.Events.Exists(e => e.Kind == EventKind.Explosion));
-            Assert.Less(h3.Hp, Balance.Hunter.Health.Max, "caught in the blast");
+            Assert.Less(h3.Hp, 1f, "caught in the blast");
         }
 
         [Test]

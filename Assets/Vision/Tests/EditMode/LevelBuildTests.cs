@@ -66,6 +66,16 @@ namespace Vision.Tests
             Assert.Greater(wallsInside, 40, "the building's walls and tall furniture block sight");
             Assert.AreEqual(world.Layout.GrassPatches.Count, System.Linq.Enumerable.Count(world.GetComponentsInChildren<HidingSpot>(), h => h.kind == HidingSpot.Kind.Grass));
             Assert.Greater(world.GetComponentsInChildren<Occluder>().Length, 60, "walls, trunks, rocks, crates, doors");
+            // The story NPCs' places: the ambulance off the paths, the Four Notes far apart, the lounge in the building.
+            Assert.NotNull(world.Ambulance, "Chris Zelley's ambulance");
+            Assert.NotNull(world.Ambulance.GetComponent<BoxCollider>());
+            Assert.IsFalse(world.Layout.Building.Contains(world.AmbulanceCentre));
+            Assert.AreEqual(4, world.Notes.Count, "the Four Notes");
+            for (int i = 0; i < world.Notes.Count; i++)
+                for (int j = i + 1; j < world.Notes.Count; j++)
+                    Assert.GreaterOrEqual(Vector3.Distance(world.Notes[i].position, world.Notes[j].position) / world.transform.lossyScale.x, 900f * MapLayout.Unit - 0.01f, "notes far apart");
+            Assert.GreaterOrEqual(world.Layout.Plan.LoungeRoom, 0, "the lounge");
+            Assert.IsTrue(world.Layout.Plan.Bounds.Contains(world.Layout.Plan.LoungeSeat));
         }
 
         [Test]

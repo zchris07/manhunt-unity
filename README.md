@@ -133,7 +133,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   carries the downed to a stake; a teammate can cut them down, and the second staking (or a minute on the
   stake) eliminates.
 - **Stamina**: eight seconds of sprint (Zach six); running dry locks it for 1.5 s while it refills.
-- **Supplies** (`Pickup`, `Inventory`): the original's twelve kinds at its counts (96 in all). Eight
+- **Supplies** (`Pickup`, `Inventory`): the original's twelve kinds at its counts (96 in all, and five more beside the ambulance). Eight
   slots; identical items stack; each gun takes its own slot and keeps its rounds; a full inventory drops
   the last slot's item for the new one. Select a slot, left click to use it. Duck confit heals to full,
   a Mr Beast bar gives 20%, a mini shield is drunk over 2 s for 25% shield.
@@ -185,6 +185,18 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
+  **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
+  hands you JARVIS and walks off. Hit him as a survivor and he defends himself with Hemp Beams; Zach slays him in three
+  and takes his beam. **Chris Zelley** paces round his ambulance until a survivor enlists him; then the first survivor
+  left downed or staked too long gets a sprinting paramedic, a revive, and a halo and wings as he ascends. **Plasma.TTV**
+  says "ggs" and hands out golden pumps; attack him and GAMER RAGE turns him into a purple beast who punches you down
+  (only the beast can die, and drops his pump). **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
+  survivors, 50 Nic for Zach; kill him as a survivor and Jaden, Plasma and Shane hunt you; as Zach, he explodes. Every
+  NPC carries a faint light, as in the original.
+- **The ambulance, the lounge and the Four Notes** (`SandboxWorld.Story`): Chris's ambulance parks in the woods off the
+  paths with a row of supplies beside it and a flashing light bar; the building's biggest room without a generator is
+  the lounge, a couch facing a flickering TV; the Four Notes lie beside the paths, far apart. Zach's map shows every stake
+  in play.
 - The old **wanderer** stands in for an entity in the captures only.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
 
@@ -446,8 +458,7 @@ It also runs on the release build without the markers.
 - CI's Unity licence activation has been failing since early October 2026 ("Access token is unavailable",
   then the runner kills Unity); the tests pass locally. The `UNITY_LICENSE`, `UNITY_EMAIL` and
   `UNITY_PASSWORD` secrets need refreshing (and old activations returned on the Unity account).
-- Sexton Science, Chris Zelley, Plasma.TTV and Chacko (and the ambulance and lounge they need) come next; online
-  play is not wired up yet.
+- Online play is not wired up yet (M12).
 - Media and fonts are credited in `CREDITS.md`; `tools/fetch_sounds.py` re-fetches the sound packs (hash-checked).
 - The polygon pass runs on the main thread. That is fine for this map, but a much larger one will want
   Burst/Jobs.

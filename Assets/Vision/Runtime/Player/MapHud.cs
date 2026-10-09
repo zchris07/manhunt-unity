@@ -82,7 +82,7 @@ namespace Vision.Player
             Image(shade, new Color(0f, 0f, 0f, 0.7f));
             RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(FullPx + 40f, FullPx + 90f));
             Image(panel, new Color(0.05f, 0.05f, 0.055f, 0.96f));
-            title = Label(Node("Title", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(FullPx, 34f)), "MAP", 28, TextAnchor.MiddleCenter, new Color(0.86f, 0.85f, 0.80f));
+            title = Label(Node("Title", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -12f), new Vector2(300f, 34f)), "MAP", 28, TextAnchor.MiddleLeft, new Color(0.86f, 0.85f, 0.80f));
             fullMap = Node("Map", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(FullPx, FullPx));
             fullArt = Raw(Stretch(Node("Art", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             fullArt.raycastTarget = true;
@@ -100,8 +100,8 @@ namespace Vision.Player
             fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
             // Testing mode: the NPCs, as the original shows them (made as needed, see NpcDot).
             miniView = view;
-            Label(Node("Legend", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(420f, 26f)),
-                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   <color=#4cff6a>●</color> supply   <color=#8a8aa0>▬</color> gate", 16, TextAnchor.MiddleLeft, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
+            Label(Node("Legend", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -16f), new Vector2(580f, 26f)),
+                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   <color=#4cff6a>●</color> supply   <color=#8a8aa0>▬</color> gate   <color=#ff3a5a>■</color> stake", 16, TextAnchor.MiddleRight, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
             RectTransform reveal = Node("Reveal all", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -12f), new Vector2(170f, 34f));
             Image(reveal, new Color(0.16f, 0.16f, 0.17f, 1f)).raycastTarget = true;
             reveal.gameObject.AddComponent<Button>().onClick.AddListener(RevealAll);
@@ -293,10 +293,10 @@ namespace Vision.Player
         void UpdateIcons(float miniScale, float fullScale)
         {
             var alive = new HashSet<Object>();
-            void Show(Object key, Vector2 at, Color color, Vector2 size, bool round)
+            void Show(Object key, Vector2 at, Color color, Vector2 size, bool round, bool always = false)
             {
                 alive.Add(key);
-                if (!seen.Contains(key))
+                if (!seen.Contains(key) && !always)
                 {
                     if (!Fog.Seen(at)) return;
                     seen.Add(key);
@@ -330,6 +330,15 @@ namespace Vision.Player
                 Color c = world.Gate.IsOpen ? new Color(0.3f, 1f, 0.42f) : ExitGate.Powered ? new Color(1f, 0.82f, 0.23f) : new Color(0.54f, 0.54f, 0.63f);
                 Show(world.Gate, at, c, new Vector2(16f, 6f), false);
             }
+            // Zach knows where every stake in play stands.
+            Vision.Game.MatchHost host = Vision.Game.MatchHost.For(world);
+            if (host != null && host.Local != null && host.Local.Role == Vision.Game.Role.Hunter)
+                foreach (Transform t in world.Stakes)
+                {
+                    if (t == null || !t.gameObject.activeSelf) continue;
+                    Vector3 lp = world.transform.InverseTransformPoint(t.position);
+                    Show(t, new Vector2(lp.x, lp.z), new Color(1f, 0.23f, 0.35f), new Vector2(8f, 8f), false, true);
+                }
             // Taken supplies disappear.
             var gone = new List<Object>();
             foreach (var key in icons.Keys) if (key == null || !alive.Contains(key)) gone.Add(key);

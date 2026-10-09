@@ -20,6 +20,8 @@ namespace Vision.World
             BreakerPanel, JunctionBox, Poster, Clock, Extinguisher, VentGrille, Mirror, ToolBoard, Whiteboard,
             // Loose on the floor, and overhead runs
             Papers, Bottles, Stain, Debris, Cobweb, DeadPlant, Pipes, Duct,
+            // The lounge's TV on its stand.
+            Tv,
         }
 
         public struct Item
@@ -55,13 +57,26 @@ namespace Vision.World
 
         readonly List<Vector2> hallLockers = new List<Vector2>();
 
+        /// <summary>The lounge (the original's): the biggest room without a generator, with a couch facing a TV.</summary>
+        public int LoungeRoom = -1;
+        /// <summary>Where Chacko sits on the couch, and the TV he watches.</summary>
+        public Vector2 LoungeSeat, LoungeTv;
+
         void Furnish()
         {
+            float best = 0f;
+            foreach (Room room in Rooms)
+                if (!room.HasGenerator && !room.IsHallway && room.Id != GateRoom && room.FloorArea > best)
+                {
+                    best = room.FloorArea;
+                    LoungeRoom = room.Id;
+                }
             foreach (Room room in Rooms)
             {
                 var f = new Filler(this, room);
                 if (room.HasGenerator) f.Generator();
-                switch (room.Type)
+                if (room.Id == LoungeRoom) f.Lounge(out LoungeSeat, out LoungeTv);
+                else switch (room.Type)
                 {
                     case RoomType.Hallway: f.Hallway(); break;
                     case RoomType.Office: f.Office(); break;
@@ -135,6 +150,13 @@ namespace Vision.World
                     if (!on && !Chance(0.3f)) continue;
                     AddLamp(p, r, on && Chance(0.75f), LampKind.Fluorescent);
                 }
+                return;
+            }
+            // The lounge: the TV is always on, a cold blue-green glow over the room.
+            if (r.Id == LoungeRoom && FindItem(r.Id, Furn.Tv, out Item tv))
+            {
+                AddAsset(LampKind.Tv, tv, 0.9f);
+                if (on) AddLamp(Centre(), r, Chance(0.5f), ceiling);
                 return;
             }
             if (!on)
@@ -234,7 +256,7 @@ namespace Vision.World
             Lamps.Add(new Lamp
             {
                 Position = pos, Room = item.Room, Working = true, Kind = kind, Yaw = item.Yaw, Size = item.Size, Elevation = height,
-                Flicker = kind == LampKind.Furnace ? 0.25f : 0.04f,
+                Flicker = kind == LampKind.Furnace ? 0.25f : kind == LampKind.Tv ? 0.24f : 0.04f,
             });
         }
 
@@ -540,6 +562,36 @@ namespace Vision.World
                 for (int i = p.rng.Next(1, 3); i > 0; i--) Wall(Furn.Boxes, 0.7f, 0.5f, variant: p.rng.Next(3));
                 if (p.Chance(0.4f)) Loose(Furn.Pallet, 1.1f);
                 if (p.Chance(0.25f)) Free(Furn.Mannequin, 0.5f, 0.4f, 0.4f, false);
+            }
+
+            /// <summary>The lounge: a couch backed against a wall, a TV on a low stand facing it, a poster and some mess.</summary>
+            public void Lounge(out Vector2 seat, out Vector2 tv)
+            {
+                seat = room.Area.center;
+                tv = seat + Vector2.up * 2f;
+                // Backed against the north wall if it fits (Chacko then faces the camera), else a side wall, else any.
+                if (!Wall(Furn.Sofa, 1.9f, 0.85f, side: 2) && !Wall(Furn.Sofa, 1.9f, 0.85f, side: 1) && !Wall(Furn.Sofa, 1.9f, 0.85f, side: 3) && !Wall(Furn.Sofa, 1.9f, 0.85f))
+                {
+                    if (!Free(Furn.Sofa, 1.9f, 0.85f, 0.6f)) return;
+                }
+                Item sofa = p.Items[p.Items.Count - 1];
+                var front = new Vector2(Mathf.Sin(sofa.Yaw * Mathf.Deg2Rad), Mathf.Cos(sofa.Yaw * Mathf.Deg2Rad));
+                seat = sofa.Position + front * 0.12f;
+                float extent = Mathf.Abs(front.x) > 0.5f ? inner.width : inner.height;
+                tv = sofa.Position + front * Mathf.Min(2.6f, extent - 0.9f);
+                for (float dist = Mathf.Min(2.6f, extent - 0.9f); dist >= 1.4f; dist -= 0.3f)
+                {
+                    Vector2 c = sofa.Position + front * dist;
+                    bool turned = Mathf.Abs(front.x) > 0.5f;
+                    var r = new Rect(c - (turned ? new Vector2(0.45f, 1.3f) : new Vector2(1.3f, 0.45f)) * 0.5f, turned ? new Vector2(0.45f, 1.3f) : new Vector2(1.3f, 0.45f));
+                    if (!Fits(r, true, 0f)) continue;
+                    Add(Furn.Tv, c, sofa.Yaw + 180f, new Vector2(1.3f, 0.45f), true, false);
+                    tv = c;
+                    break;
+                }
+                if (p.Chance(0.6f)) Mount(Furn.Poster, 0.6f, 1.45f);
+                Loose(Furn.Bottles, 0.4f, p.rng.Next(1, 4));
+                Loose(Furn.Papers, 0.5f, p.rng.Next(0, 2));
             }
 
             public void BreakRoom()

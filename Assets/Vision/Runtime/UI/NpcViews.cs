@@ -4,6 +4,7 @@ using Vision.Audio;
 using Vision.Characters;
 using Vision.Effects;
 using Vision.Game;
+using Vision.Visibility;
 using Vision.World;
 
 namespace Vision.UI
@@ -12,7 +13,10 @@ namespace Vision.UI
     /// Draws the match's NPCs: each in their own look (<see cref="CharacterSpec.Npc"/>), walking or running as they move,
     /// holding what they hold (Jaden's pistol when he's after someone, Monique's 0.50 cal when she's armed, Waz's
     /// magnifier), talking with their hands, punching, aiming and recoiling, stunned with stars, lying where they fell.
-    /// The exploded are gone. Shane's chase comes with his footsteps. Like any entity, they show only in the viewer's light.
+    /// The exploded are gone. Shane's chase comes with his footsteps. Like any entity, they show only in the viewer's light,
+    /// but each carries a faint light of its own, as in the original. Chacko sits on the lounge couch with his controller,
+    /// Plasma.TTV swells into a purple beast when he rages, Sexton braces for his Hemp Beam, and Chris Zelley kneels to work
+    /// and then rises into the sky.
     /// </summary>
     [DefaultExecutionOrder(-40)]
     public sealed class NpcViews : MonoBehaviour
@@ -30,6 +34,8 @@ namespace Vision.UI
             public Renderer[] Renderers;
             public bool Visible = true;
             public float StepT;
+            public VisionLight Light;
+            public bool Beast;
         }
 
         readonly Dictionary<Npc, View> views = new Dictionary<Npc, View>();
@@ -69,7 +75,7 @@ namespace Vision.UI
 
         Vector3 Ground(Vector2 at)
         {
-            float h = world.Terrain != null ? world.Terrain.Height(at.x, at.y) : 0f;
+            float h = world.GroundHeight(at);
             return new Vector3(at.x, h, at.y);
         }
 
@@ -120,9 +126,31 @@ namespace Vision.UI
                 Renderers = go.GetComponentsInChildren<Renderer>(),
             };
             go.transform.localPosition = Ground(n.Pos);
+            (float radius, float intensity) = LightOf(n);
+            var lightGo = new GameObject("Light");
+            lightGo.transform.SetParent(go.transform, false);
+            v.Light = lightGo.AddComponent<VisionLight>();
+            v.Light.isStatic = false;
+            v.Light.range = Scale.D(radius) / Mathf.Max(0.01f, go.transform.localScale.x);
+            v.Light.intensity = intensity;
+            v.Light.height = 1.4f;
+            v.Light.flickerAmount = 0.04f;
             views[n] = v;
             return v;
         }
+
+        /// <summary>The faint light each NPC carries (the original's numbers).</summary>
+        static (float radius, float intensity) LightOf(Npc n) => n switch
+        {
+            Jaden _ => (Balance.Jaden.LightRadius, Balance.Jaden.LightIntensity),
+            Shane _ => (Balance.Shane.LightRadius, Balance.Shane.LightIntensity),
+            Marc _ => (Balance.Marc.LightRadius, Balance.Marc.LightIntensity),
+            Sexton _ => (Balance.Sexton.LightRadius, Balance.Sexton.LightIntensity),
+            Chris _ => (Balance.Chris.LightRadius, Balance.Chris.LightIntensity),
+            Plasma _ => (Balance.Plasma.LightRadius, Balance.Plasma.LightIntensity),
+            Chacko _ => (Balance.Chacko.LightRadius, Balance.Chacko.LightIntensity),
+            _ => (Balance.NpcLightRadius, Balance.NpcLightIntensity),
+        };
 
         void Drive(View v, MatchSim sim, float dt)
         {
@@ -133,31 +161,54 @@ namespace Vision.UI
                 v.Visible = visible;
                 foreach (Renderer r in v.Renderers) if (r != null) r.enabled = visible;
             }
+            if (v.Light != null && v.Light.enabled != (visible && n.Alive)) v.Light.enabled = visible && n.Alive;
             if (!visible) return;
             Vector3 target = Ground(n.Pos);
+            // Chris Zelley rising into the sky.
+            if (n is Chris c && c.State == Chris.Mode.Ascend) target.y += Mathf.SmoothStep(0f, 1f, c.AscendT / Balance.Chris.AscendTime) * 4f;
+            // Plasma.TTV: the beast once he's more than halfway changed.
+            if (n is Plasma pl)
+            {
+                bool beast = pl.BeastAmount > 0.5f;
+                if (beast != v.Beast)
+                {
+                    v.Beast = beast;
+                    v.Character.SetSpec(CharacterSpec.Npc(beast ? "Plasma beast" : n.Name));
+                }
+            }
             Vector3 before = v.Go.transform.localPosition;
             Vector3 now = (target - before).sqrMagnitude > 9f ? target : Vector3.Lerp(before, target, 1f - Mathf.Exp(-dt * 18f));
             v.Go.transform.localPosition = now;
             NpcFlags f = n.Flags;
             bool dead = !n.Alive;
-            v.Animator.Prone = dead;
+            v.Animator.Prone = dead && !(n is Chacko);
             Vector3 vLocal = dt > 0f ? (now - before) / dt : Vector3.zero;
             v.Animator.Drive(world.transform.TransformVector(new Vector3(vLocal.x, 0f, vLocal.z)), new Vector2(Mathf.Cos(n.Facing), Mathf.Sin(n.Facing)));
 
             // What they hold.
+            ActionClip clip0 = null;
             PropKind prop = PropKind.None;
-            if (n is Jaden && (f & NpcFlags.Armed) != 0) prop = PropKind.Pistol;
+            if (n is Chacko) prop = PropKind.Controller;
+            else if (n is Sexton sx && sx.State == Sexton.Mode.Talk) prop = PropKind.Tablet;
+            else if (n is Jaden && (f & NpcFlags.Armed) != 0) prop = PropKind.Pistol;
             else if (n is Monique && (f & NpcFlags.Armed) != 0) prop = PropKind.Sniper;
             else if (n is Waz) prop = PropKind.Magnifier;
             if (dead) prop = PropKind.None;
+            if (dead && n is Chacko) clip0 = ActionClips.Sit;
             v.Layer.Hold(prop);
 
             // What they're doing.
-            ActionClip clip = null;
+            ActionClip clip = clip0;
             if (!dead)
             {
                 if ((f & NpcFlags.Stunned) != 0) clip = ActionClips.Stunned;
+                else if ((f & NpcFlags.Seated) != 0) clip = ActionClips.Sit;
+                else if ((f & NpcFlags.Ascending) != 0) clip = ActionClips.Ascend;
+                else if ((f & NpcFlags.Working) != 0) clip = ActionClips.Repair;
+                else if ((f & NpcFlags.Transforming) != 0) clip = ActionClips.Rage;
+                else if (n is Sexton sb && (sb.Beaming || sb.DefensePhase == Sexton.Phase.Approach && sb.Defending)) clip = ActionClips.Beam;
                 else if ((f & NpcFlags.Punching) != 0) clip = ActionClips.Push;
+                else if ((f & NpcFlags.Raging) != 0 && !n.Moving) clip = ActionClips.Rage;
                 else if (prop == PropKind.Pistol) clip = ActionClips.AimPistol;
                 else if (prop == PropKind.Sniper) clip = ActionClips.AimLong;
                 else if ((f & NpcFlags.Talking) != 0 && !n.Moving) clip = ActionClips.Talk;

@@ -94,6 +94,11 @@ namespace Vision.Characters
                     return new CharacterSpec { Name = name, Skin = H(0xc68a5e), Hair = H(0x1e1612), Shirt = H(0xe8e4dc), Jacket = H(0x9a2a24), Pants = H(0x3c4a6a), Shoes = H(0x4a3424), HairStyle = HairStyle.Short, Features = Feature.Flannel | Feature.OpenJacket };
                 case "Plasma.TTV":
                     return new CharacterSpec { Name = name, Skin = H(0xe8c0a0), Hair = H(0x2a1e1a), Shirt = H(0x2a2a30), Jacket = H(0x1c1c22), Pants = H(0x26262c), Shoes = H(0xe8e8ec), HairStyle = HairStyle.Curly, Features = Feature.Headset | Feature.Hood, Accent = H(0xff4fb0), Accent2 = H(0x3af0ff) };
+                case "Plasma beast":
+                    // GAMER RAGE: the same man, hulking, purple, his clothes torn.
+                    return new CharacterSpec { Name = name, Height = 2.05f, Shoulders = 1.45f, Chest = 1.4f, Waist = 1.2f, Hips = 1.1f, Arms = 1.6f, Legs = 1.35f, Neck = 1.6f, Head = 1.05f, Hunch = 0.05f,
+                        Skin = H(0x7a3ab0), Hair = H(0x2a1e1a), Shirt = H(0x2a2a30), Jacket = H(0x1c1c22), Pants = H(0x26262c), Shoes = H(0xe8e8ec), HairStyle = HairStyle.Curly,
+                        Features = Feature.Headset | Feature.TornShirt, Accent = H(0xff4fb0), Accent2 = H(0x3af0ff) };
                 case "Jaden Nguyen":
                     return new CharacterSpec { Name = name, Skin = H(0xd8b08a), Hair = H(0x1e1e22), Shirt = H(0xeeeeee), Jacket = H(0x4e5a36), Pants = H(0x2a2a30), Shoes = H(0xe8e8e8), HairStyle = HairStyle.Cap, Features = Feature.OpenJacket };
                 case "Waz":

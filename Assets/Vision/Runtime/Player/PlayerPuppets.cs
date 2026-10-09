@@ -125,7 +125,7 @@ namespace Vision.Player
 
         Vector3 Ground(Vector2 at)
         {
-            float h = world.Terrain != null ? world.Terrain.Height(at.x, at.y) : 0f;
+            float h = world.GroundHeight(at);
             return new Vector3(at.x, h, at.y);
         }
 

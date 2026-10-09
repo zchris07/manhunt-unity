@@ -178,6 +178,7 @@ namespace Vision.World
             Windows.Clear();
             Stakes.Clear();
             Notes.Clear();
+            Ambulance = null;
             Crows.Clear();
             Pickups.Clear();
             Generators.Clear();
@@ -212,10 +213,10 @@ namespace Vision.World
             Step("power", BuildPowerLine);
             Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); });
             Step("lights", () => { BuildGenerators(); BuildLights(); });
-            Step("stakes", BuildStakes);
+            Step("stakes", () => { BuildStakes(); BuildAmbulance(); });
             Step("trees", BuildTrees);
             Step("rocks", BuildRocks);
-            Step("supplies", BuildPickups);
+            Step("supplies", () => { BuildPickups(); BuildNotes(); });
             Step("ground", BuildGround);   // last, so plants and grass grow around everything placed
             Step("entities", () => { BuildCrows(); BuildWanderer(); BuildPlayer(); });
             LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees";
