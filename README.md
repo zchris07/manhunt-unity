@@ -3,7 +3,7 @@
 Unity port of the 2D browser game **Manhunt** (github.com/zchris07/manhunt, `main`), the blueprint for its
 map, objectives, items and rules: a top-down 2.5D horror game on an orthographic, 60°
 pitch camera over a flat-shaded low-poly world, lit by a 3D port of the 2D visibility-polygon
-illumination system. It opens on the title screen; **Testing mode** is the only way in so far.
+illumination system. It opens on the title screen: **Create lobby** or **Join** to play online, or **Testing mode** alone.
 
 The map is the original's at **3 cm per original unit**: a 180 x 180 m forest (6000 units) with the
 procedural 36 m central building (1200 units) in the middle, its north exit gate and fenced yard, the
@@ -78,6 +78,28 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 
 M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions asset.
 
+### Online play
+
+- **Create lobby** opens a lobby on TCP port 7777 and shows its room code, this machine's `IP:port` (Copy puts it on the
+  clipboard). Others type it in **Room code** and **Join**. On a LAN that is all; over the internet the host forwards port
+  7777 on their router (or everyone joins one VPN). The first time a lobby opens, Windows asks whether to let the game
+  through its firewall: allow it on private networks for others to reach you.
+- **The lobby** is the original's: the players (the host crowned, everyone's readiness and ping), your role preference
+  (Survivor, Zach or Either) and Ready, and the host's settings: hunters and survivors (1-9 each), a map seed (blank for
+  random), testing mode, a preview of the night with its auto-balance, **Shuffle roles** and **Start the night**; a chat
+  beside them. The host can fix anyone's role by clicking it (auto, Zach, survivor, spectator); otherwise roles are split
+  as in the original (hunter slots by preference, survivors up to the cap, the rest spectate). A match needs a Zach and a
+  survivor unless testing mode is on, and then anyone may manage the lobby.
+- **The night**: everyone builds the host's map from its seed (its fingerprint is checked, so different versions can't
+  mix), and plays at the host's pace. The host runs the rules for everyone; each player moves their own avatar and sends
+  their input and position 30 times a second; the host sends each player only what changed (20 snapshots a second,
+  about 15 KB/s each), with the events meant for them. Zach is never told where a hidden survivor is. Spectators and the
+  eliminated watch the others (left click or the arrow keys). A player whose connection drops has 30 s to come back to
+  their place. When the night ends everyone sees the results; the host's **Back to lobby** brings them all back.
+- `Vision.Net`: `Wire` (framing and the message types), `Transport` (a TCP connection with its own reader and writer
+  threads, the listener), `FieldPlan` and `Snapshot` (the state codec: each section field by field, sent when changed),
+  `Lobby`, `NetServer`, `NetClient`, and `NetSession`, which joins them to the game.
+
 ### Menus and testing mode
 
 - **The look** (`Vision.UI.UiKit`): the original's interface theme, bone text on near-black, Oswald for headings and
@@ -86,7 +108,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Title screen** (`GameHud.Menus`), the original's landing page: the red-outlined kicker, MANHUNT with its red and
   cyan fringe and 6 s flicker, the blurb, dark pines along the bottom, and the card: your name (2-16 letters or
   numbers, remembered), **Create lobby**, a room code field (`IP:port`) with **Join**, the dashed **Testing mode**
-  button, and How to play, Look settings and Quit. Online play is not wired up yet, so Create lobby and Join say so.
+  button, and How to play, Look settings and Quit (see *Online play*).
 - **How to play**: the original's controls tables for survivors, Zach and both.
 - **Screen effects** (`ScreenOverlays`, `MatchPresenter`): the original's pictures and timings. The Soundcloud Burst
   scare (black, the picture covering the screen and shaking, 2.5 s with 0.6 s fades, and a random 2.6 s slice of the
@@ -464,7 +486,8 @@ It also runs on the release build without the markers.
 - CI's Unity licence activation has been failing since early October 2026 ("Access token is unavailable",
   then the runner kills Unity); the tests pass locally. The `UNITY_LICENSE`, `UNITY_EMAIL` and
   `UNITY_PASSWORD` secrets need refreshing (and old activations returned on the Unity account).
-- Online play is not wired up yet (M12).
+- Online play has no host migration: if the host leaves, the match ends for everyone. A dropped player can rejoin only
+  from the same running game (within 30 s), not after restarting it.
 - Media and fonts are credited in `CREDITS.md`; `tools/fetch_sounds.py` re-fetches the sound packs (hash-checked).
 - The polygon pass runs on the main thread. That is fine for this map, but a much larger one will want
   Burst/Jobs.

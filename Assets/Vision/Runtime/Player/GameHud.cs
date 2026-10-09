@@ -26,7 +26,7 @@ namespace Vision.Player
         public bool visible = true;
 
         /// <summary>True while a menu is open (the title screen, the settings or a modal): the player ignores aim and movement.</summary>
-        public static bool MenuOpen => escOpen || MainMenuOpen || modalOpen;
+        public static bool MenuOpen => escOpen || MainMenuOpen || modalOpen || lobbyOpen;
         /// <summary>The title screen is showing.</summary>
         public static bool MainMenuOpen { get; private set; }
         static bool escOpen, modalOpen;
@@ -240,6 +240,7 @@ namespace Vision.Player
             BuildResults(root);
             BuildMenu(root);
             BuildMainMenu(root);
+            BuildLobby(root);
             BuildHowToPlay(root);
 
             RectTransform gen = UiKit.Fill("Generating", root);
@@ -308,13 +309,13 @@ namespace Vision.Player
                 kit.Button(panel, label, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => PlayTestFx(f), 12);
                 y -= 32f;
             }
-            kit.Button(panel, "Respawn NPCs", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.Sim?.RespawnNpcs(), 12);
+            kit.Button(panel, "Respawn NPCs", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.RespawnNpcs(), 12);
             y -= 32f;
             kit.Button(panel, "Spawn survivor dummy", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.SpawnDummy(Role.Survivor), 12);
             y -= 32f;
             kit.Button(panel, "Spawn Zach dummy", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.SpawnDummy(Role.Hunter), 12);
             y -= 32f;
-            kit.Button(panel, "Clear dummies", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.Sim?.ClearDummies(), 12);
+            kit.Button(panel, "Clear dummies", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, y), new Vector2(230f, 28f), UiKit.ButtonStyle.Normal, () => MatchHost.For(world)?.ClearDummies(), 12);
             fxPanel = panel.gameObject;
             fxPanel.SetActive(false);
         }
@@ -323,7 +324,7 @@ namespace Vision.Player
         {
             MatchHost h = MatchHost.For(world);
             if (h == null || h.Sim == null) return;
-            h.Sim.PlayTestFx(h.LocalId, fx);
+            h.PlayTestFx(fx);
         }
 
         // ---------------------------------------------------------------- behaviour
@@ -375,6 +376,7 @@ namespace Vision.Player
         void Update()
         {
             Bind();
+            UpdateOnline();
             canvas.enabled = visible;
             Keyboard kb = Keyboard.current;
             SyncMap();

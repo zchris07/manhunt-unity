@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using Vision.Net;
 using Vision.Audio;
 using Vision.Game;
 using Vision.UI;
@@ -167,20 +168,68 @@ namespace Vision.Player
 
         void OnCreate()
         {
-            if (ValidName() == null) return;
-            ShowLandingError("Online play isn't ready yet: Testing mode works now.", true);
+            string name = ValidName();
+            if (name != null) CreateLobby(name);
+        }
+
+        /// <summary>Opens a lobby on this machine as <paramref name="name"/> (also used by the network smoke test).</summary>
+        public void CreateLobby(string name)
+        {
+            EnsureBuilt();
+            try
+            {
+                NetSession s = NetSession.HostLobby(world, name);
+                played = true;
+                OpenLobby(s);
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                ShowLandingError($"Port {Wire.DefaultPort} is in use: is another lobby open on this machine?", false);
+            }
         }
 
         void OnJoin()
         {
-            if (ValidName() == null) return;
-            ShowLandingError(string.IsNullOrWhiteSpace(roomField.text) ? "Type the host's IP:port to join." : "Online play isn't ready yet: Testing mode works now.", true);
+            string name = ValidName();
+            if (name == null) return;
+            if (string.IsNullOrWhiteSpace(roomField.text))
+            {
+                ShowLandingError("Type the host's IP:port to join.", false);
+                return;
+            }
+            JoinLobby(name, roomField.text);
+        }
+
+        /// <summary>Joins the lobby at "IP:port" as <paramref name="name"/> (also used by the network smoke test).</summary>
+        public void JoinLobby(string name, string address)
+        {
+            EnsureBuilt();
+            try
+            {
+                joining = NetSession.Join(world, address, name);
+                played = true;
+                ShowLandingError($"Connecting to {joining.Client.Address}...", true);
+            }
+            catch (System.ArgumentException e)
+            {
+                ShowLandingError(e.Message, false);
+            }
         }
 
         /// <summary>Shows the title screen (the level keeps running behind it).</summary>
         public void ShowMainMenu()
         {
             EnsureBuilt();
+            // Leaving online play (from the Esc menu, the results, or the lobby's Leave).
+            if (session != null || joining != null)
+            {
+                NetSession s = session ?? joining;
+                session = null;
+                joining = null;
+                lobbyOpen = false;
+                if (lobbyScreen != null) lobbyScreen.SetActive(false);
+                s.Leave();
+            }
             SetMenu(false);
             CloseModal();
             map?.SetOpen(false);
@@ -262,7 +311,7 @@ namespace Vision.Player
             paceLabel = kit.Label(Node("Pace Value", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(32f + 120f, y), new Vector2(bw - 120f, 20f)), "", 15, TextAnchor.MiddleRight, UiKit.Bone, UiKit.Face.Mono, 0f, false);
             paceSlider = kit.Slider(panel, "Pace Slider", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(32f, y - 32f), bw, Scale.MinPace, Scale.MaxPace, MatchState.Current.Pace, v => MatchState.Current.SetPace(v, true));
             y -= 70f;
-            kit.Button(panel, "New map", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(32f, y), new Vector2(bw, 48f), UiKit.ButtonStyle.Normal, NewMap, 20);
+            newMapButton = kit.Button(panel, "New map", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(32f, y), new Vector2(bw, 48f), UiKit.ButtonStyle.Normal, NewMap, 20).gameObject;
             y -= 60f;
             kit.Button(panel, "Look settings (F4)", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(32f, y), new Vector2(bw, 48f), UiKit.ButtonStyle.Normal, () =>
             {
@@ -316,12 +365,15 @@ namespace Vision.Player
             AudioManager.Instance.SetVolumes(cur);
         }
 
+        GameObject newMapButton;
+
         public void SetMenu(bool open)
         {
             EnsureBuilt();
-            if (MainMenuOpen) open = false;
+            if (MainMenuOpen || lobbyOpen) open = false;
             escOpen = open;
             menu.SetActive(open);
+            if (newMapButton != null) newMapButton.SetActive(session == null);
             if (open)
             {
                 AudioManager.Volumes v = AudioManager.Instance.Volume;

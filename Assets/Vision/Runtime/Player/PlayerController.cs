@@ -155,7 +155,7 @@ namespace Vision.Player
                 RoleChanged?.Invoke(p.Role);
             }
             // Testing: downed survivors can stand back up with R.
-            if (!menu && h.Sim.TestMode && p.Health == Game.Health.Downed && Pressed(beam))
+            if (!menu && h.Sim.TestMode && !h.Remote && p.Health == Game.Health.Downed && Pressed(beam))
             {
                 MatchSim.RestoreSurvivor(p, Balance.Survivor.ReviveHp);
                 Notice?.Invoke("Back on your feet");
@@ -291,7 +291,7 @@ namespace Vision.Player
                 Vector3 hit = r.origin + r.direction * ((at.y - r.origin.y) / r.direction.y);
                 far = Mathf.Max(far, new Vector2(hit.x - at.x, hit.z - at.z).magnitude);
             }
-            p.ViewReach = Scale.ToUnits(far / Mathf.Max(1e-3f, world.transform.lossyScale.x));
+            Host.ReportViewReach(Scale.ToUnits(far / Mathf.Max(1e-3f, world.transform.lossyScale.x)));
         }
 
         float AimDistance()
@@ -501,7 +501,7 @@ namespace Vision.Player
             cc.enabled = true;
             if (!tellMatch || Host == null || Host.Sim == null || Me == null) return;
             Vector3 l = world.transform.InverseTransformPoint(position);
-            Host.Sim.Teleport(Me.Id, new Vector2(l.x, l.z));
+            Host.Teleport(new Vector2(l.x, l.z));
             placeSeen = Me.PlaceVersion;
         }
     }

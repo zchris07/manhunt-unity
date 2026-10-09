@@ -75,7 +75,7 @@ namespace Vision.UI
                 var mouse = UnityEngine.InputSystem.Mouse.current;
                 bool next = (kb != null && kb.rightArrowKey.wasPressedThisFrame) || (mouse != null && mouse.leftButton.wasPressedThisFrame && !GameHud.MenuOpen);
                 bool prev = kb != null && kb.leftArrowKey.wasPressedThisFrame;
-                if (next || prev) host.Sim.CycleSpectate(me, next ? 1 : -1);
+                if (next || prev) host.CycleSpectate(next ? 1 : -1);
                 if (host.Sim.Get(me.Spectating) == null) me.Spectating = host.Sim.DefaultSpectateTarget(me.Id);
                 var puppets = world.GetComponent<PlayerPuppets>();
                 PlayerPuppets.Puppet pup = puppets != null ? puppets.For(me.Spectating) : null;

@@ -60,7 +60,7 @@ namespace Vision.Player
             if (editorPick != slot)
             {
                 MatchHost h = MatchHost.For(world);
-                h?.Sim?.MoveSlot(h.LocalId, editorPick, slot);
+                h?.MoveSlot(editorPick, slot);
                 if (player.SelectedSlot == editorPick) player.SelectedSlot = slot;
                 else if (player.SelectedSlot == slot) player.SelectedSlot = editorPick;
             }

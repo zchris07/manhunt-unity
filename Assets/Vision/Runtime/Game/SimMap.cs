@@ -51,6 +51,34 @@ namespace Vision.Game
 
         public struct WindowDef { public Vector2 A, B; }
 
+        /// <summary>
+        /// A fingerprint of everything the rules use (positions to 1 cm), so a client can tell its level is the host's.
+        /// </summary>
+        public int Hash()
+        {
+            unchecked
+            {
+                int h = 17;
+                void V(Vector2 v) { h = h * 31 + Mathf.RoundToInt(v.x * 100f); h = h * 31 + Mathf.RoundToInt(v.y * 100f); }
+                void L(List<Vector2> l) { h = h * 31 + l.Count; foreach (Vector2 v in l) V(v); }
+                h = h * 31 + Mathf.RoundToInt(HalfExtent * 100f);
+                L(Generators); L(Stakes); L(Notes); L(SurvivorSpawns); L(HunterSpawns);
+                V(Lever); V(GatePos); V(AmbulanceAt); V(LoungeSeat); V(LoungeTv);
+                h = h * 31 + Mathf.RoundToInt(AmbulanceAngle * 1000f);
+                h = h * 31 + Loot.Count;
+                foreach (LootDef l in Loot) { V(l.Pos); h = h * 31 + (int)l.Item; }
+                h = h * 31 + HidingSpots.Count;
+                foreach (HideDef d in HidingSpots) V(d.Pos);
+                h = h * 31 + Doors.Count;
+                foreach (DoorDef d in Doors) { V(d.A); V(d.B); }
+                h = h * 31 + Barricades.Count;
+                foreach (BarricadeDef b in Barricades) V(b.Pos);
+                h = h * 31 + Windows.Count;
+                foreach (WindowDef w in Windows) { V(w.A); V(w.B); }
+                return h;
+            }
+        }
+
         /// <summary>Distance from p to the segment a-b.</summary>
         public static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
         {

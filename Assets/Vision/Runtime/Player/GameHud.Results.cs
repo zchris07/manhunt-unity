@@ -43,8 +43,14 @@ namespace Vision.Player
             resultsLine = kit.Label(Node("Line", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -116f), new Vector2(w - 60f, 26f)), "", 17, TextAnchor.MiddleCenter, UiKit.Muted, UiKit.Face.Mono, 0f, false);
             resultsTable = Node("Table", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(32f, -160f), new Vector2(w - 64f, 360f));
             kit.Button(panel, "Leave", new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(32f, 28f), new Vector2(200f, 48f), UiKit.ButtonStyle.Normal, ShowMainMenu, 20);
-            kit.Button(panel, "Play again", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-32f, 28f), new Vector2(240f, 48f), UiKit.ButtonStyle.Primary, () =>
+            againButton = kit.Button(panel, "Play again", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-32f, 28f), new Vector2(240f, 48f), UiKit.ButtonStyle.Primary, () =>
             {
+                // Online, the host takes everyone back to the lobby; alone, the night starts over.
+                if (session != null)
+                {
+                    if (session.CanManage) session.ToLobby();
+                    return;
+                }
                 results.SetActive(false);
                 shownResult = null;
                 MatchHost.For(world)?.Restart();
@@ -66,8 +72,15 @@ namespace Vision.Player
         }
 
         /// <summary>Shows the results for a finished match (the original's columns, per role).</summary>
+        Button againButton;
+
         public void ShowResults(MatchResult r)
         {
+            if (againButton != null)
+            {
+                againButton.GetComponentInChildren<Text>().text = session == null ? "Play again" : session.CanManage ? "Back to lobby" : "Waiting for host";
+                againButton.interactable = session == null || session.CanManage;
+            }
             EnsureBuilt();
             if (r == null) return;
             shownResult = r;

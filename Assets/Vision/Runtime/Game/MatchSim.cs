@@ -182,6 +182,28 @@ namespace Vision.Game
 
         public SimPlayer Get(int id) => Players.TryGetValue(id, out SimPlayer p) ? p : null;
 
+        /// <summary>Takes a player out without the rules noticing (a client's copy following the host's roster).</summary>
+        public void DropPlayer(int id)
+        {
+            if (!Players.TryGetValue(id, out SimPlayer p)) return;
+            Players.Remove(id);
+            Order.Remove(p);
+            inputs.Remove(id);
+            pendingPressed.Remove(id);
+        }
+
+        /// <summary>
+        /// A client: the local player's latest input with every button pressed since the last call (so a tap between sends
+        /// still reaches the host), for sending.
+        /// </summary>
+        public bool TakeInput(int id, out InputCmd cmd)
+        {
+            if (!inputs.TryGetValue(id, out cmd)) return false;
+            if (pendingPressed.TryGetValue(id, out Btn pressed)) cmd.Buttons |= pressed;
+            pendingPressed[id] = Btn.None;
+            return true;
+        }
+
         Vector2 SpawnFor(Role role)
         {
             int n = 0;
