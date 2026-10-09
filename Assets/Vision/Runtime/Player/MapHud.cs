@@ -17,7 +17,8 @@ namespace Vision.Player
     {
         /// <summary>Metres the minimap shows across (the original's 950-unit radius at 3 cm).</summary>
         public const float MiniSpan = 57f;
-        const float MiniPx = 250f, FullPx = 860f;
+        /// <summary>Pixel sizes of the minimap view and the full map.</summary>
+        public const float MiniPx = 250f, FullPx = 860f;
 
         readonly Font font;
         readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniNpc, fullNpc;
@@ -31,8 +32,10 @@ namespace Vision.Player
 
         SandboxWorld world;
         Texture2D art;
-        float nextReveal, nextIcons, lastYaw = float.NaN;
-        Vector2 lastMe = new Vector2(float.NaN, float.NaN);
+        float nextReveal, nextIcons, lastYaw;
+        Vector2 lastMe;
+        // The markers are written whenever this is set (a new level, the map opening) or the player moved or turned.
+        bool markerDirty = true;
         VisionMaskRenderer mask;
 
         public FogOfWar Fog { get; private set; }
@@ -87,8 +90,10 @@ namespace Vision.Player
             youRing = Node("You Ring", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(48f, 48f));
             youRingImage = Image(youRing, new Color(1f, 0.91f, 0.55f, 0.8f));
             youRingImage.sprite = ring;
-            youLabel = Label(Node("You Label", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(80f, 20f)), "YOU", 16, TextAnchor.LowerCenter, new Color(1f, 0.91f, 0.55f)).rectTransform;
-            youLabel.gameObject.AddComponent<Shadow>().effectColor = Color.black;
+            youLabel = Label(Node("You Label", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(90f, 24f)), "YOU", 20, TextAnchor.LowerCenter, new Color(1f, 0.91f, 0.55f)).rectTransform;
+            var labelOutline = youLabel.gameObject.AddComponent<Outline>();
+            labelOutline.effectColor = Color.black;
+            labelOutline.effectDistance = new Vector2(1.5f, -1.5f);
             fullArrow = Node("You", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
             Image(fullArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
             fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
@@ -134,14 +139,26 @@ namespace Vision.Player
             seen.Clear();
             float px = MiniPx * 2f * w.halfExtent / MiniSpan;
             miniContent.sizeDelta = new Vector2(px, px);
+            markerDirty = true;
+            if (GameSession.TestingMode) Fog.RevealAll();
         }
 
         public SandboxWorld World => world;
+        /// <summary>The player's marker on the full map (arrow), its pulsing ring and label, and the scrolling minimap content.</summary>
+        public RectTransform YouArrow => fullArrow;
+        public RectTransform YouRing => youRing;
+        public RectTransform YouLabel => youLabel;
+        public RectTransform MiniContent => miniContent;
         /// <summary>The level the maps were painted from (a New map makes a new one).</summary>
         public MapLayout BoundLayout { get; private set; }
 
-        public void Toggle() => full.SetActive(!full.activeSelf);
-        public void SetOpen(bool open) => full.SetActive(open);
+        public void Toggle() => SetOpen(!full.activeSelf);
+
+        public void SetOpen(bool open)
+        {
+            full.SetActive(open);
+            markerDirty = true;
+        }
 
         public void RevealAll()
         {
@@ -207,23 +224,25 @@ namespace Vision.Player
             if (now >= nextReveal)
             {
                 nextReveal = now + 0.12f;
-                RevealFromVision();
+                // Testing mode shows the whole map; otherwise the fog opens where the player has looked.
+                if (GameSession.TestingMode) { if (!Fog.AllRevealed) Fog.RevealAll(); }
+                else RevealFromVision();
                 Fog.Apply();
             }
             if (full.activeSelf)
             {
-                revealButton.SetActive(GameSession.TestingMode);
+                revealButton.SetActive(false);
                 teleportHint.SetActive(GameSession.TestingMode);
-                revealLabel.text = Fog.AllRevealed ? "All revealed" : "Reveal all";
                 title.text = GameSession.TestingMode ? $"MAP   ·   seed {world.seed}" : "MAP";
             }
 
             Vector2 me = PlayerOnMap(out Vector2 facing);
             float miniScale = MiniPx / MiniSpan, fullScale = FullPx / (2f * world.halfExtent);
             float yaw = -Mathf.Atan2(facing.x, facing.y) * Mathf.Rad2Deg;
-            // Only touch the UI when something moved (every change re-batches the canvas).
-            if ((me - lastMe).sqrMagnitude > 0.0004f || Mathf.Abs(Mathf.DeltaAngle(yaw, lastYaw)) > 0.5f)
+            // Only touch the UI when something moved (every change re-batches the canvas), or the map was rebuilt or opened.
+            if (markerDirty || (me - lastMe).sqrMagnitude > 0.0004f || Mathf.Abs(Mathf.DeltaAngle(yaw, lastYaw)) > 0.5f)
             {
+                markerDirty = false;
                 lastMe = me;
                 lastYaw = yaw;
                 miniContent.anchoredPosition = -me * miniScale;
@@ -240,13 +259,13 @@ namespace Vision.Player
 
             // Testing mode: where the wanderer is.
             bool npc = GameSession.TestingMode && world.Wanderer != null && world.Wanderer.isActiveAndEnabled;
-            miniNpc.gameObject.SetActive(npc && Mathf.Abs(NpcAt().x - me.x) < MiniSpan * 0.5f && Mathf.Abs(NpcAt().y - me.y) < MiniSpan * 0.5f);
+            Vector2 npcAt = npc ? NpcAt() : Vector2.zero;
+            miniNpc.gameObject.SetActive(npc && Mathf.Abs(npcAt.x - me.x) < MiniSpan * 0.5f && Mathf.Abs(npcAt.y - me.y) < MiniSpan * 0.5f);
             fullNpc.gameObject.SetActive(npc);
             if (npc)
             {
-                Vector2 at = NpcAt();
-                miniNpc.anchoredPosition = (at - me) * miniScale;
-                fullNpc.anchoredPosition = at * fullScale;
+                miniNpc.anchoredPosition = (npcAt - me) * miniScale;
+                fullNpc.anchoredPosition = npcAt * fullScale;
             }
 
             if (now >= nextIcons)

@@ -43,8 +43,18 @@ namespace Vision.World
         public Wanderer Wanderer;
         public List<Door> Doors = new List<Door>();
         public List<Transform> Crows = new List<Transform>();
+        /// <summary>Scarecrow stakes and the Four Notes, in build order.</summary>
+        public readonly List<Transform> Stakes = new List<Transform>();
+        public readonly List<Transform> Notes = new List<Transform>();
         public List<Pickup> Pickups = new List<Pickup>();
         public List<Transform> Generators = new List<Transform>();
+        /// <summary>Hiding spots, pallets and windows in build order (their index is their id in the match).</summary>
+        public readonly List<HidingSpot> HidingSpots = new List<HidingSpot>();
+        public readonly List<Barricade> BarricadeList = new List<Barricade>();
+        public readonly List<WindowPiece> Windows = new List<WindowPiece>();
+
+        /// <summary>Layers: the terrain, and characters (sight and body checks ignore both).</summary>
+        public const int GroundLayer = 8, CharacterLayer = 9;
         /// <summary>For the painted map: each tree's spot, its crown radius and whether it is dead; each rock's spot and radius.</summary>
         public readonly List<(Vector2 p, float r, bool dead)> MapTrees = new List<(Vector2, float, bool)>();
         public readonly List<(Vector2 p, float r)> MapRocks = new List<(Vector2, float)>();
@@ -163,6 +173,11 @@ namespace Vision.World
                 else DestroyImmediate(child);
             }
             Doors.Clear();
+            HidingSpots.Clear();
+            BarricadeList.Clear();
+            Windows.Clear();
+            Stakes.Clear();
+            Notes.Clear();
             Crows.Clear();
             Pickups.Clear();
             Generators.Clear();
@@ -420,12 +435,14 @@ namespace Vision.World
                 hs.kind = HidingSpot.Kind.Grass;
                 hs.reach = g.Radius;
                 hs.exit = Vector3.zero;
+                HidingSpots.Add(hs);
             }
 
             for (int cj = 0; cj < chunks; cj++)
                 for (int ci = 0; ci < chunks; ci++)
                 {
                     var go = MakeStatic("Ground", builders[ci, cj].ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
+                    go.layer = GroundLayer;
                     go.AddComponent<MeshCollider>().sharedMesh = grid.CollisionMesh(ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
                         cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), "Ground Collider");
                     go.SetActive(true);
@@ -569,6 +586,8 @@ namespace Vision.World
             door.hinge = hinge;
             door.blocker = blocker;
             door.blocksMovementWhenOpen = shutter;
+            door.a = start;
+            door.b = start + along * width;
             Doors.Add(door);
             root.SetActive(true);
         }
@@ -578,10 +597,11 @@ namespace Vision.World
         {
             float width = Vector2.Distance(a, b);
             Mesh sill = LowPolyModels.PlankWall(rng, width, 0.9f, 0.3f);
-            Wall("Window Sill", a, b, 0.9f, 0.3f, sill, false, true, baseY);
+            GameObject sillGo = Wall("Window Sill", a, b, 0.9f, 0.3f, sill, false, true, baseY);
             Vector2 d = (b - a).normalized;
             GameObject pane = Piece("Window", LowPolyModels.WindowPane(width), staticRoot, new Vector3(a.x, baseY, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-            AddBox(pane, new Vector3(width * 0.5f, 1.5f, 0f), new Vector3(width, 1.2f, 0.1f));
+            BoxCollider glass = AddBox(pane, new Vector3(width * 0.5f, 1.5f, 0f), new Vector3(width, 1.2f, 0.1f));
+            RegisterWindow(a, b, pane, glass, sillGo.GetComponent<Collider>(), null, null);
         }
 
         // ---------------------------------------------------------------- cabins
@@ -634,13 +654,34 @@ namespace Vision.World
             Wall("Plank Wall", a, b, 2.4f, 0.3f, m, true, true, baseY);
         }
 
-        static void AddHiding(GameObject go, HidingSpot.Kind kind, float reach, Vector3 exit)
+        void AddHiding(GameObject go, HidingSpot.Kind kind, float reach, Vector3 exit)
         {
             var hs = go.AddComponent<HidingSpot>();
             hs.kind = kind;
             hs.reach = reach;
             hs.exit = exit;
+            HidingSpots.Add(hs);
         }
+
+        /// <summary>A window the match can smash (its glass, sill collider and any boards).</summary>
+        void RegisterWindow(Vector2 a, Vector2 b, GameObject pane, Collider glass, Collider sill, GameObject boards, Occluder boardsOccluder)
+        {
+            var w = pane.AddComponent<WindowPiece>();
+            w.a = a;
+            w.b = b;
+            w.pane = pane;
+            w.glass = glass;
+            w.sill = sill;
+            w.boards = boards;
+            w.boardsOccluder = boardsOccluder;
+            Windows.Add(w);
+        }
+
+        /// <summary>
+        /// A random stream for gameplay entities placed after the level (NPC spawns, stakes, notes): each feature has its own,
+        /// so adding one never shifts what the level's shared stream places.
+        /// </summary>
+        public System.Random FeatureRng(int feature) => new System.Random(unchecked(seed * 7919 + feature * 104729));
 
         /// <summary>
         /// A bare bulb hanging from a ceiling <paramref name="ceiling"/> above <paramref name="floor"/>: a 9 m light, as the

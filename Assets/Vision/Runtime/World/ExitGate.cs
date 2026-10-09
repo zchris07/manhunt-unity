@@ -25,7 +25,23 @@ namespace Vision.World
         public float LeverProgress { get; private set; }
 
         /// <summary>The lever works once every generator is running.</summary>
-        public static bool Powered => GeneratorObjective.AllRunning;
+        public static bool Powered => MatchPowered || GeneratorObjective.AllRunning;
+        /// <summary>Set by the match: every required generator is running.</summary>
+        public static bool MatchPowered;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() => MatchPowered = false;
+
+        /// <summary>The match's state for the gate: lever progress (0-1) and whether it is open.</summary>
+        public void SetState(float lever, bool open)
+        {
+            if (open) Open();
+            else
+            {
+                LeverProgress = lever;
+                if (leverHandle != null) leverHandle.localRotation = Quaternion.Euler(LeverProgress * 110f, 0f, 0f);
+            }
+        }
 
         /// <summary>Pulls the lever for <paramref name="dt"/> seconds; true the moment the gate opens.</summary>
         public bool PullLever(float dt)

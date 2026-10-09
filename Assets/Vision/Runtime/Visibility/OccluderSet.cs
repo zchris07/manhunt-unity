@@ -133,6 +133,36 @@ namespace Vision.Visibility
             }
         }
 
+        readonly List<int> castIds = new List<int>(256);
+
+        /// <summary>
+        /// Distance from <paramref name="origin"/> along the unit direction <paramref name="dir"/> to the first active segment,
+        /// or <paramref name="max"/> if nothing is in the way (plane coordinates).
+        /// </summary>
+        public float Raycast(Vector2 origin, Vector2 dir, float max)
+        {
+            Vector2 end = origin + dir * max;
+            Query(Mathf.Min(origin.x, end.x), Mathf.Min(origin.y, end.y), Mathf.Max(origin.x, end.x), Mathf.Max(origin.y, end.y), castIds);
+            float best = max;
+            float[] seg = packed;
+            for (int i = 0; i < castIds.Count; i++)
+            {
+                int o = castIds[i] * 4;
+                float t = VisibilityComputer.RaySegment(origin.x, origin.y, dir.x, dir.y, seg[o], seg[o + 1], seg[o + 2], seg[o + 3]);
+                if (t < best) best = t;
+            }
+            return best;
+        }
+
+        /// <summary>True if any active segment crosses the segment from a to b.</summary>
+        public bool Blocks(Vector2 a, Vector2 b)
+        {
+            Vector2 d = b - a;
+            float len = d.magnitude;
+            if (len < 1e-5f) return false;
+            return Raycast(a, d / len, len) < len - 1e-4f;
+        }
+
         void Rebuild()
         {
             dirty = false;

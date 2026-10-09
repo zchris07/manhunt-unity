@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using UnityEngine;
 using Vision.Characters;
+using Vision.Game;
 using Vision.Rendering;
 using Vision.World;
 
@@ -271,8 +272,10 @@ namespace Vision.Player
             yield return Overview("28b_survey_spawn", L.Spawn + new Vector2(0f, 14f), 22f);
 
             // 10. The HUD: prompt at a supply, a filled inventory, hurt, paused, downed.
-            if (gameHud != null && player.GetComponent<PlayerStats>() is PlayerStats ps)
+            MatchHost host = MatchHost.For(world);
+            if (gameHud != null && host != null && host.Local != null)
             {
+                SimPlayer me = host.Local;
                 gameHud.visible = true;
                 Pickup near = world.Pickups.Count > 0 ? world.Pickups[0] : null;
                 if (near != null)
@@ -283,54 +286,57 @@ namespace Vision.Player
                 yield return Wait(10);
                 gameHud.Refresh();
                 yield return Shot("50_hud_prompt");
-                ps.inventory.Add(ItemType.Bottle, 3);
-                ps.inventory.Add(ItemType.Goggles, 1);
-                ps.inventory.Add(ItemType.Shotgun, 1);
-                ps.inventory.Add(ItemType.DoctorPepper, 2);
-                ps.inventory.Add(ItemType.Trap, 1);
-                ps.inventory.Add(ItemType.Confit, 1);
-                ps.inventory.Add(ItemType.MrBeastBar, 4);
-                ps.inventory.Add(ItemType.MiniShield, 2);
-                ps.vitals.AddShield(0.5f);
-                ps.vitals.Tick(2f, true);
+                me.Inv.Add(ItemType.Bottle, 3);
+                me.Inv.Add(ItemType.Goggles, 1);
+                me.Inv.Add(ItemType.Shotgun, 1);
+                me.Inv.Add(ItemType.DoctorPepper, 2);
+                me.Inv.Add(ItemType.Trap, 1);
+                me.Inv.Add(ItemType.Confit, 1);
+                me.Inv.Add(ItemType.MrBeastBar, 4);
+                me.Inv.Add(ItemType.MiniShield, 2);
+                me.Shield = 0.5f;
+                player.SelectedSlot = 2;
                 gameHud.Notify("Picked up Mini shield");
                 gameHud.Notify("Mini shield: +25% shield");
                 yield return Wait(5);
                 yield return Shot("51_hud_inventory");
-                ps.vitals.TakeDamage(1.35f);
+                host.Sim.HurtSurvivor(me, 1.35f, null, "capture");
                 yield return Wait(20);
                 yield return Shot("52_hud_low_health");
                 gameHud.SetMenu(true);
                 yield return Wait(5);
                 yield return Shot("53_hud_pause_menu");
                 gameHud.SetMenu(false);
-                ps.vitals.TakeDamage(1f);
+                host.Sim.HurtSurvivor(me, 1f, null, "capture");
                 yield return new WaitForSeconds(1.2f);
                 yield return Shot("54_hud_downed");
-                ps.vitals.Reset();
-                ps.inventory.Clear();
+                MatchSim.RestoreSurvivor(me, 1f);
+                me.Shield = 0f;
+                me.Inv.Clear();
+                player.SelectedSlot = -1;
+                host.Begin();
                 yield return new WaitForSeconds(1f);
 
                 // The objective: a woods generator half started, then running; the gate lever without and with power;
                 // the gate rolled open.
-                if (L.WoodsGenerators.Count > 0 && GeneratorObjective.All.Count > 0)
+                if (L.WoodsGenerators.Count > 0 && host.Sim.Gens.Length > 0)
                 {
                     Vector2 g = L.WoodsGenerators[0];
-                    GeneratorObjective gen = null;
+                    int gen = 0;
                     float bestD = float.MaxValue;
-                    foreach (GeneratorObjective o in GeneratorObjective.All)
+                    for (int i = 0; i < host.Sim.Map.Generators.Count; i++)
                     {
-                        Vector3 lp = world.transform.InverseTransformPoint(o.transform.position);
-                        float d = (new Vector2(lp.x, lp.z) - g).sqrMagnitude;
-                        if (d < bestD) { bestD = d; gen = o; }
+                        float d = (host.Sim.Map.Generators[i] - g).sqrMagnitude;
+                        if (d < bestD) { bestD = d; gen = i; }
                     }
                     yield return Stage(player, V(g + new Vector2(0f, -1.7f)), Vector2.up, wanderer, away);
-                    gen.progress = 0.4f;
+                    host.Sim.Gens[gen].Progress = 0.4f;
                     yield return Wait(10);
                     gameHud.Refresh();
                     yield return Shot("55_hud_generator_repair");
-                    gen.Repair(GeneratorObjective.RepairTime);
-                    gameHud.Notify("Generator running (1/5)");
+                    host.Sim.Gens[gen].Progress = 1f;
+                    host.Sim.Gens[gen].Repaired = true;
+                    gameHud.Notify($"Generator running (1/{host.Sim.Bal.RequiredGenerators})");
                     yield return Wait(10);
                     gameHud.Refresh();
                     yield return Shot("56_generator_running");
@@ -341,11 +347,12 @@ namespace Vision.Player
                     yield return Wait(10);
                     gameHud.Refresh();
                     yield return Shot("57_gate_lever_no_power");
-                    foreach (GeneratorObjective o in GeneratorObjective.All) o.Repair(GeneratorObjective.RepairTime);
+                    foreach (GenState o in host.Sim.Gens) { o.Progress = 1f; o.Repaired = true; }
                     yield return Wait(5);
                     gameHud.Refresh();
                     yield return Shot("57b_gate_lever_powered");
-                    world.Gate.Open();
+                    host.Sim.Gate.Progress = 1f;
+                    host.Sim.Gate.Open = true;
                     yield return new WaitForSeconds(3f);
                     gameHud.Refresh();
                     yield return Stage(player, V(new Vector2(L.Plan.GateX, L.Plan.Bounds.yMax - 2.5f)), Vector2.up, wanderer, away);

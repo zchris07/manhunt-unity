@@ -58,6 +58,13 @@ namespace Vision.World
             return true;
         }
 
+        /// <summary>The match's state for this generator (progress 0-1; repaired: running).</summary>
+        public void SetState(float value, bool repaired)
+        {
+            progress = repaired ? 1f : Mathf.Min(value, 0.999f);
+            if (glow != null) glow.enabled = repaired;
+        }
+
         void Update()
         {
             if (!Running || body == null) return;

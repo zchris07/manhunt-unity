@@ -9,6 +9,8 @@ namespace Vision.World
     {
         public ItemType item;
         public int count = 1;
+        /// <summary>A shotgun that is Plasma's golden pump.</summary>
+        public bool golden;
 
         public static readonly List<Pickup> All = new List<Pickup>();
 
@@ -17,6 +19,12 @@ namespace Vision.World
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => All.Clear();
+
+        /// <summary>The match's state: taken loot disappears.</summary>
+        public void SetTaken(bool taken)
+        {
+            if (gameObject.activeSelf == taken) gameObject.SetActive(!taken);
+        }
 
         public string Label => count > 1 ? $"{Items.Info(item).name} x{count}" : Items.Info(item).name;
 

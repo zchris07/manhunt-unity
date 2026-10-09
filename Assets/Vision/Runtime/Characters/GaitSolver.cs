@@ -40,7 +40,9 @@ namespace Vision.Characters
     /// ground clearance (and a heel kick when running). Pelvis height is the highest the grounded legs
     /// can reach, which produces the natural bob (high at mid-stance when walking); running adds
     /// knee compression in stance and flight phases with no foot down.
-    /// Walking at 1.6 m/s: ~1.0 s stride, 60% stance. Running at 2.6 m/s: ~0.75 s stride, 42% stance.
+    /// Walking at 1.6 m/s: ~1.0 s stride, 60% stance. Running at 2.6 m/s: ~0.75 s stride, 42% stance. Faster, as a sprinter:
+    /// quicker strides (down to 0.44 s) and a shorter stance (down to 28%), so the foot's ground contact stays under a metre
+    /// at the original game's 4-8 m/s. Above <see cref="MaxSpeed"/> (speed mode) the legs keep that pace and the body slides.
     /// Speeds are design units (metres at a 1.8 m body height); negative speed walks backwards.
     /// </summary>
     public sealed class GaitSolver
@@ -52,7 +54,9 @@ namespace Vision.Characters
 
         public float Phase { get; private set; }
         public float Speed { get; private set; }
-        public float Acceleration = 6f;
+        public float Acceleration = 14f;
+        /// <summary>The fastest the legs animate (m/s); faster movement (speed mode) reuses this stride.</summary>
+        public const float MaxSpeed = 8f;
         /// <summary>
         /// Shortens the stride (0.45-1) at the same speed by quickening the steps, as people do on steep ground, so
         /// both feet can still reach the slope.
@@ -71,12 +75,12 @@ namespace Vision.Characters
             {
                 float v = Mathf.Abs(Speed);
                 float walk = Mathf.Clamp(1.22f - 0.14f * v, 0.9f, 1.3f);
-                float run = Mathf.Clamp(0.86f - 0.04f * v, 0.6f, 0.8f);
+                float run = v <= 2.6f ? Mathf.Clamp(0.86f - 0.04f * v, 0.6f, 0.8f) : Mathf.Max(0.44f, 0.756f - 0.075f * (v - 2.6f));
                 return Mathf.Lerp(walk, run, RunBlend) * Mathf.Clamp(StrideScale, 0.45f, 1f);
             }
         }
 
-        public float StanceFraction => Mathf.Lerp(0.60f, 0.42f, RunBlend);
+        public float StanceFraction => Mathf.Lerp(0.60f, 0.42f - Mathf.Clamp((Mathf.Abs(Speed) - 2.6f) * 0.035f, 0f, 0.15f), RunBlend);
 
         public void Reset(float phase = 0f, float speed = 0f)
         {
@@ -88,7 +92,7 @@ namespace Vision.Characters
         /// <summary>Moves time forward with the requested speed (approached with limited acceleration).</summary>
         public void Advance(float dt, float targetSpeed)
         {
-            Speed = Mathf.MoveTowards(Speed, targetSpeed, Acceleration * dt);
+            Speed = Mathf.MoveTowards(Speed, Mathf.Clamp(targetSpeed, -MaxSpeed, MaxSpeed), Acceleration * dt);
             time += dt;
             if (Moving > 0f) Phase = Mathf.Repeat(Phase + dt / CycleTime, 1f);
         }
@@ -164,6 +168,9 @@ namespace Vision.Characters
                 pose.LeftHip = pelvis + rot * new Vector3(-HumanoidSkeleton.HipHalfWidth, 0f, 0f);
                 pose.RightHip = pelvis + rot * new Vector3(HumanoidSkeleton.HipHalfWidth, 0f, 0f);
             }
+            // A fast stride drops the pelvis; the swinging foot then folds in under it (more knee) rather than over-reach.
+            pose.Left = ClampSwing(pose.Left, pose.LeftHip);
+            pose.Right = ClampSwing(pose.Right, pose.RightHip);
 
             // Upper body: lean, chest counter-rotation, steady head.
             float lean = Mathf.Lerp(3f, 14f, s);
@@ -184,6 +191,16 @@ namespace Vision.Characters
             pose.ArmAbduction = Mathf.Lerp(6f, 4f, s);
             pose.FingerCurl = Mathf.Lerp(0.3f, 0.75f, s);
             return pose;
+        }
+
+        static LegPose ClampSwing(LegPose leg, Vector3 hip)
+        {
+            if (leg.Grounded) return leg;
+            Vector3 d = leg.Ankle - hip;
+            if (d.sqrMagnitude <= Reach * Reach) return leg;
+            leg.Ankle = hip + d.normalized * Reach;
+            leg.Contact = leg.Ankle;
+            return leg;
         }
 
         static float MaxHeight(LegPose leg, Vector3 hip, Vector3 pelvis)

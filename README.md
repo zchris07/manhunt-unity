@@ -1,7 +1,7 @@
 # Manhunt (Unity)
 
-Single-player Unity port of the 2D browser game **Manhunt** (github.com/zchris07/manhunt, `main`), the
-blueprint for its map, objectives, items and rules: a top-down 2.5D horror game on an orthographic, 60°
+Unity port of the 2D browser game **Manhunt** (github.com/zchris07/manhunt, `main`), the blueprint for its
+map, objectives, items and rules: a top-down 2.5D horror game on an orthographic, 60°
 pitch camera over a flat-shaded low-poly world, lit by a 3D port of the 2D visibility-polygon
 illumination system. It opens on the title screen; **Testing mode** is the only way in so far.
 
@@ -10,10 +10,10 @@ procedural 36 m central building (1200 units) in the middle, its north exit gate
 survivors' spawn in the south, clearings joined by footpaths, three cabins, a lake with a dock, fences,
 logs, tall grass to hide in, power lines, a graveyard, an abandoned playground and a hanging tree, and
 about 2,350 evergreens and dead trees. Every map is generated at runtime from a seed (about 3.8 s);
-**New map** in the game menu builds another. Start all five generators, then pull the lever to open the
-gate. The level is authored in design units (a person is 1.8 m) and its root is scaled by `WorldScale.S`
+**New map** in the game menu builds another. Survivors repair the generators, then open the gate and
+escape; Zach Branch hunts them. The rules are the original's, ported line for line (see *The match*). The level is authored in design units (a person is 1.8 m) and its root is scaled by `WorldScale.S`
 = 2, so the camera sits twice as close. Characters are 222-triangle mannequins animated by a procedural
-walk and sprint that adapts to any slope.
+walk and sprint that adapts to any slope and, at the original's speeds, strides like a sprinter.
 
 Unity **6000.6.3f1**, URP 17 (Render Graph), Input System, Windows desktop.
 
@@ -53,68 +53,75 @@ The `com.unity.pipeline` package lets the `unity` CLI drive an open Editor (`uni
 ## Controls
 
 Input goes through the project-wide actions asset `Assets/InputSystem_Actions.inputactions` (`Player`
-map), so bindings can be changed there or rebound at runtime.
+map), so bindings can be changed there or rebound at runtime. The keys follow the original's.
 
 | Keyboard and mouse | Gamepad | Action |
 |---|---|---|
 | WASD or arrows | Left stick | Move (crawl while downed) |
-| Shift | Left stick press | Run |
-| Mouse | Right stick | Aim the flashlight cone (whichever moved last) |
-| E | X / Square | Pick up a supply, open or close a door, hide or leave a hiding spot, drop a pallet; **hold** on a generator or the gate lever |
-| F | Y / Triangle | Toggle the see-through cone |
-| 1-8 | – | Use the item in that inventory slot |
+| Shift | Left stick press | Run (Zach: sprint) |
+| C or Ctrl | B / Circle | Crouch |
+| Mouse | Right stick | Aim the light cone (whichever moved last) |
+| E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
+| 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode) |
+| Left mouse | Right trigger | Use the selected item (survivors); swing the machete, hold to charge a heavy swing (Zach) |
+| Right mouse | Left trigger | Zach: lunge |
+| Space | A / Cross | Slam a pallet down |
+| G | D-pad down | Drop the selected item |
+| F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam |
+| Y / N | D-pad up | Answer yes or no |
+| T | – | Testing: switch between Zach and a survivor where you stand |
 | M | – | Full map (the minimap is always on) |
 | V | – | Speed mode (testing): full sprint, +500% speed |
-| R | – | Get back up when downed (testing) |
-| Esc | Start | Game menu (does not pause): Resume, Speed mode, New map, Look settings, Full screen, Quit to main menu |
-| F1 | – | Draw the visibility polygons |
-| F2 | – | Cycle view: final, mask RGB, lit amount, raw scene, character shadows |
-| F3 | – | Show the stats overlay (off by default) |
-| F4 | – | Open or close the look panel (sliders, below) |
-| F5 | – | Toggle all camera effects |
+| R | – | Get back up when downed (testing, survivors) |
+| Esc | Start | Game menu (does not pause) |
+| F1-F5 | – | Visibility polygons, debug views, stats, look panel, camera effects |
 
-The number keys, M, V, R, Esc and F1-F5 read the keyboard directly and are not part of the actions asset.
+M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions asset.
 
 ### Menus and testing mode
 
 - **Title screen** (`GameHud`): MANHUNT, the original's kicker ("Crystal Lake · Night shoot") and blurb,
   **Testing mode** and **Quit**. The level runs behind it.
-- **Testing mode** (`GameSession`): the original's testing kit (bottle and book nine each, goggles,
-  shotgun, mini shield, Mr Beast bar, gas trap, and a Doctor Pepper for the pistol this game lacks),
-  never used up, and no win condition. **Speed mode** (menu or V) keeps the sprint meter full and makes
-  movement six times as fast (+500%).
-- **Game menu** (Esc) leaves the world running, as the original does. **New map** regenerates everything
-  from a new random seed; the menu and the full map show the seed. **Quit to main menu** returns to the
-  title screen; Testing mode from there starts on a fresh map.
+- **Testing mode**: the match restarts under testing rules. Survivors get the original's whole testing kit
+  in twelve slots (shotgun, golden pump, P250, 0.50 cal, bottles, piss jars and books nine each, goggles,
+  mini shield, Mr Beast bar, gas trap, Doctor Pepper), never used up; Zach gets two Hemp Batteries and his
+  beam charges. **T** switches between Zach and a survivor where you stand. Nobody wins. The whole map is
+  revealed. **Speed mode** (menu or V) keeps the sprint meter full and moves six times as fast (+500%).
+- **Game menu** (Esc) leaves the world running, as the original does: Resume, Speed mode, **Pace**, New
+  map, Look settings, Full screen, Quit to main menu. **Pace** scales every movement speed from 30% to
+  125% of the original's: 100% is the original game (a survivor walks 4.3 m/s and runs 6.8 m/s), about
+  37% is this port's earlier 1.6 m/s walk. The choice is saved; online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
   map (M) show the level painted from above, under a fog of war that stays black until your own light
-  has been there. Supplies, generators (yellow, green running) and the gate (grey, yellow powered, green
-  open) appear once seen, with an arrow for where you face. Testing mode adds **Reveal all** and
-  click-to-teleport on the full map.
+  has been there. Supplies, generators and the gate appear once seen; the **YOU** arrow and ring follow
+  you on both. Testing mode shows everything, and a click on the full map teleports you there.
 
 ### HUD and game systems
 
-- **Health and shield** (`Vitals`, `PlayerStats`), bottom left, as in the original. Health runs 0-100% and
-  never regenerates; the blue shield bar takes damage first. At 0 you are **downed**: you lie prone and
-  crawl at 32/120 of walking pace and see 0.6 as far (testing: R gets back up with a third of the bar).
-- **Stamina**: sprinting drains 18 a second; it refills at 12 a second after a 0.8 s pause. Running dry
-  locks sprint until a quarter is back.
-- **Supplies** (`Pickup`, `Inventory`): the original's nine, at its counts (86 in all): bottle 20,
-  The Grapes of Wrath 4, night vision goggles 3, shotgun 2, Doctor Pepper 8, galaxy gas trap 8, duck
-  confit 6, Mr Beast bar 15, mini shield 20. They are placed by its rules (spots in the building's rooms,
-  the cabins, around the clearings and beside the paths, at least 4.8 m apart). Eight slots; identical
-  items stack without limit; each shotgun takes its own slot. Duck confit heals to full, a Mr Beast bar
-  gives 20%, and a mini shield is drunk over 2 s (moving spills it) for 25% shield. The others are only
-  collected so far.
-- **Generators and the gate** (`GeneratorObjective`, `ExitGate`): five generators, two in the building
-  and three in the woods. Hold E for the original's 70 s to start one; running, it shakes and glows. With
-  all five running, hold E at the lever beside the north gate for 20 s and the roll-up door opens onto
-  the yard. The objective (top left) counts them: "Generators n/5".
-- **Hiding**: tall grass, wardrobes, beds, lockers and barrels (E to hide, E to leave). **Pallets** stand
-  beside some doorways; E drops one across the gap.
-- The **wanderer** walks a loop near the spawn and takes 20% when it walks into you.
-- `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference, so it keeps its proportions
-  at any resolution.
+- **The match** (`Vision.Game`): the original's host simulation, ported from its TypeScript into plain C#
+  (no MonoBehaviours): `Balance` (every number of `balance.ts`), `MatchRules` (scaling to the player
+  count, the win check), `MatchSim` (players, prompts, interactions, combat, items, abilities, objectives,
+  senses), `Movement` (stamina, lunge, knockback, crouch, crawl, wading). `MatchHost` runs it at the
+  original's 30 ticks a second, feeds it the local input, and puts its state on the level (generators,
+  gate, doors, pallets, supplies, windows). Each player moves themselves and reports where they are; the
+  rules move a player only by placing them. This is the seam online play plugs into.
+- **No clock**: the night ends when no survivor is left standing (survivors win if at least half
+  escaped) or every hunter has left.
+- **Health and shield**, bottom left. A survivor's health never regenerates; the blue shield takes damage
+  first. Zach's machete takes a third (two thirds charged); at zero you are **downed** and crawl. Zach
+  carries the downed to a stake; a teammate can cut them down, and the second staking (or a minute on the
+  stake) eliminates.
+- **Stamina**: eight seconds of sprint (Zach six); running dry locks it for 1.5 s while it refills.
+- **Supplies** (`Pickup`, `Inventory`): the original's twelve kinds at its counts (96 in all). Eight
+  slots; identical items stack; each gun takes its own slot and keeps its rounds; a full inventory drops
+  the last slot's item for the new one. Select a slot, left click to use it. Duck confit heals to full,
+  a Mr Beast bar gives 20%, a mini shield is drunk over 2 s for 25% shield.
+- **Generators and the gate**: hold E for the original's repair time (70 s, scaled to the player count;
+  +25% for each extra survivor on it). With enough running, hold E at the lever for 20 s and the gate
+  opens onto the yard; walking out escapes.
+- **Hiding**: tall grass, wardrobes, beds, lockers and barrels. **Pallets** beside doorways (Space).
+- The **wanderer** walks a loop near the spawn and takes 20% when it walks into you (the NPCs replace it).
+- `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
 
 ### Look panel (F4)
 
@@ -127,7 +134,7 @@ persist between runs. The defaults are the tuned look.
 | Contrast | 0-2 | 1.00 | Global contrast, pivoting on mid-grey |
 | Saturation | 0-2 | 1.00 | Global saturation of every colour (0 = greyscale) |
 | Lit brightness | 0-2 | 1.00 | Multiplier on everything lit (flashlight, campfires, lanterns) |
-| Unlit brightness | 0-2 | 1.00 | Multiplier on the unlit ground and objects |
+| Unlit brightness | 0-5 | 1.00 | Multiplier on the unlit ground and objects |
 | Beam intensity | 0.5-2 | 1.15 | Strength of the flashlight beam only |
 | Beam edge falloff | 1-6 | 2.50 | Exponent of the beam's fade toward the screen edge |
 | Blur start / end (m) | 0-30 | 5 / 13 | Distance from the player where the distance blur begins and is full |
@@ -365,9 +372,8 @@ It also runs on the release build without the markers.
 - CI's Unity licence activation has been failing since early October 2026 ("Access token is unavailable",
   then the runner kills Unity); the tests pass locally. The `UNITY_LICENSE`, `UNITY_EMAIL` and
   `UNITY_PASSWORD` secrets need refreshing (and old activations returned on the Unity account).
-- Bottles, books, goggles, the shotgun, Doctor Pepper and gas traps are collected but not usable yet.
-- There is no hunter: the wanderer only walks its loop. Nothing ends a match (testing mode has no win
-  condition).
+- The rules for every item, Zach's kit and the NPCs are ported, but their models, animations, effects and
+  sounds are still to come; until then most of them act invisibly. Online play is not wired up yet.
 - The polygon pass runs on the main thread. That is fine for this map, but a much larger one will want
   Burst/Jobs.
 - Hills are visual only: a crest does not hide what is behind it.

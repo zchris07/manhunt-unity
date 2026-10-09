@@ -17,6 +17,8 @@ namespace Vision.World
         public bool blocksMovementWhenOpen;
         public float openAngle = 100f;
         public float swingSpeed = 360f;
+        /// <summary>The closed panel's ends (design units on the level's ground plane), for the match rules.</summary>
+        public Vector2 a, b;
 
         bool open;
         float angle;

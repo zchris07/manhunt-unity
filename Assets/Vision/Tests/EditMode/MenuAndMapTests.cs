@@ -1,6 +1,7 @@
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using Vision.Game;
 using Vision.Player;
 using Vision.World;
 
@@ -79,29 +80,6 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void TestingKit_IsTheOriginals_AndNeverRunsOut()
-        {
-            var go = new GameObject("p");
-            try
-            {
-                var stats = go.AddComponent<PlayerStats>();
-                stats.inventory.Add(ItemType.Confit, 3);
-                GameSession.ApplyTestKit(stats);
-                Assert.AreEqual(9, stats.inventory.Count(ItemType.Bottle));
-                Assert.AreEqual(9, stats.inventory.Count(ItemType.Book));
-                Assert.AreEqual(0, stats.inventory.Count(ItemType.Confit), "the kit replaces what you had");
-                for (int i = 0; i < Inventory.Slots; i++) Assert.NotNull(stats.inventory.ItemAt(i), "all eight slots filled");
-                stats.vitals.TakeDamage(0.5f);
-                int beast = Enumerable.Range(0, Inventory.Slots).First(i => stats.inventory.ItemAt(i) == ItemType.MrBeastBar);
-                for (int k = 0; k < 5; k++) stats.UseSlot(beast);
-                Assert.AreEqual(1, stats.inventory.Count(ItemType.MrBeastBar), "never used up");
-                Assert.AreEqual(1f, stats.vitals.Health, 1e-4f);
-                Assert.AreEqual(6f, GameSession.SpeedMultiplier, "speed mode: +500%");
-            }
-            finally { Object.DestroyImmediate(go); }
-        }
-
-        [Test]
         public void NewMap_ChangesTheSeed_AndRebuildsTheLevel()
         {
             SandboxWorld world = NewWorld();
@@ -135,6 +113,7 @@ namespace Vision.Tests
             foreach (string label in new[] { "MANHUNT", GameHud.Kicker.ToUpperInvariant(), "Testing mode", "Quit", "Resume", "New map", "Quit to main menu", "Look settings (F4)" })
                 Assert.Contains(label, texts, $"has \"{label}\"");
             Assert.IsTrue(texts.Any(t => t.StartsWith("Speed mode")), "a speed mode toggle");
+            Assert.IsTrue(hudGo.GetComponentsInChildren<UnityEngine.UI.Slider>(true).Any(sl => sl.minValue <= Scale.HumanPace && sl.maxValue >= 1f), "a pace slider from this game's walk to the original's speeds");
 
             hud.ShowMainMenu();
             Assert.IsTrue(GameHud.MainMenuOpen);
@@ -145,9 +124,11 @@ namespace Vision.Tests
             hud.StartTesting(false);
             Assert.IsFalse(GameHud.MainMenuOpen);
             Assert.IsTrue(GameSession.TestingMode);
-            var stats = world.Player.GetComponent<PlayerStats>();
-            Assert.IsTrue(stats.inventory.Infinite, "the testing kit");
-            Assert.AreEqual(9, stats.inventory.Count(ItemType.Bottle));
+            SimPlayer me = world.Player.Me;
+            Assert.NotNull(me, "the match restarted under testing rules");
+            Assert.IsTrue(me.Inv.Infinite, "the testing kit");
+            Assert.AreEqual(9, me.Inv.Count(ItemType.Bottle));
+            Assert.IsTrue(MatchHost.For(world).Sim.TestMode);
 
             hud.SetMenu(true);
             Assert.IsTrue(GameHud.MenuOpen);
@@ -177,6 +158,53 @@ namespace Vision.Tests
             hud.SyncMap();
             Assert.AreSame(world.Layout, hud.Map.BoundLayout, "and a new map replaces it");
             Assert.AreEqual(0, hud.Map.Fog.SeenCount, "under fresh fog");
+        }
+
+        [Test]
+        public void YouMarker_FollowsThePlayer_OnBothMaps()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.Refresh();
+            hud.SyncMap();
+            MapHud map = hud.Map;
+            float full = MapHud.FullPx / (2f * world.halfExtent), mini = MapHud.MiniPx / MapHud.MiniSpan;
+
+            void CheckAt(Vector2 at, string when)
+            {
+                world.Player.Teleport(world.transform.TransformPoint(new Vector3(at.x, 0f, at.y)));
+                map.Update(true);
+                Assert.That(Vector2.Distance(map.YouArrow.anchoredPosition, at * full), Is.LessThan(0.6f), $"{when}: the arrow is where the player is");
+                Assert.That(Vector2.Distance(map.YouRing.anchoredPosition, at * full), Is.LessThan(0.6f), $"{when}: and so is the ring");
+                Assert.That(map.YouLabel.anchoredPosition.y, Is.GreaterThan(at.y * full + 20f), $"{when}: the label sits above it");
+                Assert.That(Vector2.Distance(map.MiniContent.anchoredPosition, -at * mini), Is.LessThan(0.6f), $"{when}: the minimap is centred on the player");
+            }
+
+            CheckAt(new Vector2(30f, -40f), "first frame");
+            CheckAt(new Vector2(-55f, 62f), "after a teleport");
+            map.Bind(world);
+            CheckAt(new Vector2(-55.5f, 62f), "after the map is rebuilt");
+            world.Regenerate(world.seed + 7);
+            hud.SyncMap();
+            CheckAt(new Vector2(12f, 70f), "after a new map");
+        }
+
+        [Test]
+        public void TestingMode_RevealsTheWholeMap()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.Refresh();
+            hud.SyncMap();
+            Assert.AreEqual(0, hud.Map.Fog.SeenCount, "a normal match starts under fog");
+            hud.StartTesting(false);
+            hud.Map.Update(true);
+            Assert.IsTrue(hud.Map.Fog.AllRevealed, "testing mode shows everything");
+            world.Regenerate(world.seed + 1);
+            hud.SyncMap();
+            Assert.IsTrue(hud.Map.Fog.AllRevealed, "and again after a new map");
         }
 
         [Test]

@@ -32,6 +32,9 @@ namespace Vision.Tests
         [TestCase(2.6f)]
         [TestCase(-1.2f)]
         [TestCase(0.8f)]
+        [TestCase(4.32f)]
+        [TestCase(6.84f)]
+        [TestCase(8f)]
         public void FeetDoNotSkate(float speed)
         {
             // While a foot is down, the part of it touching the ground stays put on the ground: the heel
@@ -59,6 +62,9 @@ namespace Vision.Tests
         [TestCase(1.6f)]
         [TestCase(2.6f)]
         [TestCase(-1.2f)]
+        [TestCase(4.32f)]
+        [TestCase(6.84f)]
+        [TestCase(8f)]
         public void FeetStayAboveGround_AndLegsCanReach(float speed)
         {
             foreach (var (pose, _) in Run(speed, 3f))
@@ -114,6 +120,22 @@ namespace Vision.Tests
             Assert.That(run, Is.InRange(0.65f, 0.85f));
             Assert.Greater(slowStance, 0.55f);
             Assert.Less(runStance, 0.5f);
+        }
+
+        [TestCase(4.32f)]
+        [TestCase(6.84f)]
+        [TestCase(8f)]
+        public void AtTheOriginalsSpeeds_StridesQuicken_AndGroundContactStaysUnderAMetre(float v)
+        {
+            var s = new GaitSolver();
+            s.Reset(0f, 2.6f);
+            float run = s.CycleTime;
+            s.Reset(0f, v);
+            Assert.Less(s.CycleTime, run, "quicker strides when faster");
+            Assert.GreaterOrEqual(s.CycleTime, 0.44f);
+            Assert.Less(v * s.CycleTime * s.StanceFraction, 1.0f, "the foot is down for under a metre of travel");
+            s.Advance(1f, 40f);
+            Assert.LessOrEqual(s.Speed, GaitSolver.MaxSpeed, "speed mode reuses the fastest stride");
         }
 
         [Test]

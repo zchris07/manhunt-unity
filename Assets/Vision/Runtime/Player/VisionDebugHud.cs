@@ -116,7 +116,7 @@ namespace Vision.Player
             l.contrast = Slider("Contrast", l.contrast, 0f, 2f, ref y);
             l.saturation = Slider("Saturation", l.saturation, 0f, 2f, ref y);
             l.litBrightness = Slider("Lit brightness", l.litBrightness, 0f, 2f, ref y);
-            l.unlitBrightness = Slider("Unlit brightness", l.unlitBrightness, 0f, 2f, ref y);
+            l.unlitBrightness = Slider("Unlit brightness", l.unlitBrightness, 0f, 5f, ref y);
             l.beamIntensity = Slider("Beam intensity", l.beamIntensity, 0.5f, 2f, ref y);
             l.blurStart = Slider("Blur start (m)", l.blurStart, 0f, 30f, ref y);
             l.blurEnd = Slider("Blur end (m)", l.blurEnd, 0f, 30f, ref y);

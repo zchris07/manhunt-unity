@@ -258,7 +258,6 @@ namespace Vision.World
             cc.slopeLimit = 89f;
             cc.stepOffset = 0.45f;
             var viewer = root.AddComponent<VisionViewer>();
-            root.AddComponent<PlayerStats>();
             var controller = root.AddComponent<PlayerController>();
             controller.viewer = viewer;
             controller.animator = root.GetComponent<HumanoidAnimator>();

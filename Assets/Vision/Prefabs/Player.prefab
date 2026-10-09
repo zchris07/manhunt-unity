@@ -617,7 +617,6 @@ GameObject:
   - component: {fileID: 363634132608494811}
   - component: {fileID: 3346030196746331178}
   - component: {fileID: 1602474456474461470}
-  - component: {fileID: 7813235367947827526}
   - component: {fileID: 8508204900453197659}
   - component: {fileID: 6872515166966265059}
   m_Layer: 0
@@ -763,43 +762,6 @@ MonoBehaviour:
   seeThroughHalfAngleDeg: 22
   seeThroughRange: 8
   seeThroughStrength: 0.7
---- !u!114 &7813235367947827526
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3290713459606778728}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 496cbc641d652b244aba222f29364209, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Vision.Runtime::Vision.Player.PlayerStats
-  vitals:
-    maxStamina: 100
-    sprintDrain: 18
-    regen: 12
-    regenDelay: 0.8
-    recoverFraction: 0.25
-  inventory:
-    slots:
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    - item: 0
-      count: 0
-    Infinite: 0
 --- !u!114 &8508204900453197659
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -816,9 +778,6 @@ MonoBehaviour:
   viewer: {fileID: 1602474456474461470}
   animator: {fileID: 363634132608494811}
   world: {fileID: 0}
-  walkSpeed: 3.2
-  runSpeed: 5.2
-  interactRange: 2
   stickAimDeadzone: 0.35
 --- !u!114 &6872515166966265059
 MonoBehaviour:

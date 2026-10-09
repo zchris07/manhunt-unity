@@ -29,7 +29,7 @@ namespace Vision.Rendering
             [Tooltip("Multiplier on everything lit (flashlight, campfires, lanterns).")]
             [Range(0f, 2f)] public float litBrightness;
             [Tooltip("Multiplier on the unlit ground and objects.")]
-            [Range(0f, 2f)] public float unlitBrightness;
+            [Range(0f, 5f)] public float unlitBrightness;
             [Tooltip("Strength of the flashlight beam (only the viewer's own light).")]
             [Range(0.5f, 2f)] public float beamIntensity;
             [Tooltip("Distance from the player (world units) where the distance blur starts.")]
@@ -54,7 +54,7 @@ namespace Vision.Rendering
                 l.contrast = Mathf.Clamp(l.contrast, 0f, 2f);
                 l.saturation = Mathf.Clamp(l.saturation, 0f, 2f);
                 l.litBrightness = Mathf.Clamp(l.litBrightness, 0f, 2f);
-                l.unlitBrightness = Mathf.Clamp(l.unlitBrightness, 0f, 2f);
+                l.unlitBrightness = Mathf.Clamp(l.unlitBrightness, 0f, 5f);
                 l.beamIntensity = Mathf.Clamp(l.beamIntensity, 0.5f, 2f);
                 l.blurStart = Mathf.Clamp(l.blurStart, 0f, 30f);
                 l.blurEnd = Mathf.Clamp(l.blurEnd, l.blurStart + 0.01f, 30.01f);

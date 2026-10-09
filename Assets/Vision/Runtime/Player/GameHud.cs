@@ -5,6 +5,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Vision.Game;
 using Vision.World;
 
 namespace Vision.Player
@@ -49,23 +50,33 @@ namespace Vision.Player
         Image staminaImage;
         Text healthValue, shieldValue, staminaValue, prompt, objective, compass, notices;
         GameObject promptBox, holdBar, downedScreen, menu, mainMenu, generating;
-        Text fullScreenLabel, speedLabel, seedLabel, menuTitle, modeLine;
+        Text fullScreenLabel, speedLabel, seedLabel, menuTitle, modeLine, paceLabel;
+        Slider paceSlider;
+        RectTransform strip;
+        readonly GameObject[] slotBoxes = new GameObject[Inventory.TestingSlots];
+        readonly Image[] slotFrames = new Image[Inventory.TestingSlots];
+        int shownLimit = -1;
         MapHud map;
         bool needsMapBind;
         /// <summary>The minimap and full map.</summary>
         public MapHud Map => map;
-        readonly Image[] slotIcons = new Image[Inventory.Slots];
-        readonly Text[] slotCounts = new Text[Inventory.Slots], slotNames = new Text[Inventory.Slots];
+        readonly Image[] slotIcons = new Image[Inventory.TestingSlots];
+        readonly Text[] slotCounts = new Text[Inventory.TestingSlots], slotNames = new Text[Inventory.TestingSlots];
+        static readonly string[] SlotKeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
+        static readonly Color SlotColor = new Color(0.12f, 0.12f, 0.13f, 0.9f);
+        static readonly Color SlotSelected = new Color(0.42f, 0.14f, 0.11f, 0.95f);
         RawImage vignette;
         readonly List<(string text, float until)> noticeList = new List<(string, float)>();
         float flash;
         PlayerController player;
-        PlayerStats stats;
+        MatchHost host;
 
         void Awake()
         {
             escOpen = false;
             MainMenuOpen = false;
+            // The pace the player chose last time (captures keep the original's).
+            if (!VisionCapture.Requested) MatchState.Current.SetPace(MatchState.SavedPace(), false);
             EnsureBuilt();
         }
 
@@ -83,7 +94,6 @@ namespace Vision.Player
         {
             if (w != world) return;
             needsMapBind = true;
-            if (GameSession.TestingMode && w.Player != null) GameSession.ApplyTestKit(w.Player.GetComponent<PlayerStats>());
         }
 
         void EnsureBuilt()
@@ -180,14 +190,16 @@ namespace Vision.Player
             staminaFill = Bar(vitalsBox, "Stamina", new Vector2(14f, -88f), StaminaColor, out staminaValue, out staminaImage);
 
             // Inventory, bottom centre.
-            RectTransform strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(Inventory.Slots * 78f + 10f, 92f));
+            // Eight slots, twelve in testing mode; the selected one is outlined in red (left mouse uses it).
+            strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 28f), new Vector2(Inventory.Slots * 78f + 10f, 92f));
             Box(strip, Panel);
-            for (int i = 0; i < Inventory.Slots; i++)
+            for (int i = 0; i < Inventory.TestingSlots; i++)
             {
                 RectTransform slot = Node($"Slot {i + 1}", strip, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(10f + i * 78f, 0f), new Vector2(70f, 74f));
-                Box(slot, new Color(0.12f, 0.12f, 0.13f, 0.9f));
+                slotFrames[i] = Box(slot, SlotColor);
+                slotBoxes[i] = slot.gameObject;
                 slotIcons[i] = Box(Node("Icon", slot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 6f), new Vector2(34f, 34f)), Color.clear);
-                Label(Node("Key", slot, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(5f, -3f), new Vector2(20f, 18f)), (i + 1).ToString(), 15, TextAnchor.UpperLeft, Muted);
+                Label(Node("Key", slot, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(5f, -3f), new Vector2(20f, 18f)), SlotKeys[i], 15, TextAnchor.UpperLeft, Muted);
                 slotCounts[i] = Label(Node("Count", slot, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-5f, -3f), new Vector2(30f, 18f)), "", 15, TextAnchor.UpperRight, Text);
                 slotNames[i] = Label(Node("Name", slot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 3f), new Vector2(68f, 16f)), "", 12, TextAnchor.LowerCenter, Muted);
             }
@@ -272,8 +284,9 @@ namespace Vision.Player
             GameSession.TestingMode = true;
             if (fromMenu && played) { NewMap(); return; }
             played = true;
-            if (world != null && world.Player != null) GameSession.ApplyTestKit(world.Player.GetComponent<PlayerStats>());
-            Notify("Testing mode: every item, never used up");
+            // The match restarts under testing rules: every item and ability, never used up, T switches roles.
+            MatchHost.For(world)?.Restart();
+            Notify("Testing mode: every item, never used up · T switches to Zach");
         }
 
         /// <summary>Regenerates the whole map with a new random seed.</summary>
@@ -323,13 +336,14 @@ namespace Vision.Player
             RectTransform shade = Stretch(Node("Menu", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
             var img = Box(shade, new Color(0f, 0f, 0f, 0.45f));
             img.raycastTarget = true;
-            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(480f, 640f));
+            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 790f));
             Box(panel, new Color(0.06f, 0.06f, 0.065f, 0.95f));
             menuTitle = Label(Node("Title", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -22f), new Vector2(420f, 50f)), "Testing mode", 38, TextAnchor.MiddleCenter, Text);
             seedLabel = Label(Node("Seed", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -70f), new Vector2(420f, 24f)), "", 18, TextAnchor.MiddleCenter, Muted);
             float y = -110f;
             MenuButton(panel, "Resume", ref y, () => SetMenu(false));
             speedLabel = MenuButton(panel, "", ref y, ToggleSpeedMode);
+            paceSlider = MenuSlider(panel, ref y, Scale.MinPace, Scale.MaxPace, MatchState.Current.Pace, v => MatchState.Current.SetPace(v, true), out paceLabel);
             MenuButton(panel, "New map", ref y, NewMap);
             MenuButton(panel, "Look settings (F4)", ref y, () =>
             {
@@ -337,9 +351,12 @@ namespace Vision.Player
             });
             fullScreenLabel = MenuButton(panel, "", ref y, ToggleFullScreen);
             MenuButton(panel, "Quit to main menu", ref y, ShowMainMenu);
-            Label(Node("Controls", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(440f, 150f)),
-                "WASD move   Shift sprint   Mouse aim   E interact (hold on generators and the lever)\nF see-through cone   1-8 use item   M map   V speed mode   R get up\nEsc menu   F3 stats   F4 look   F5 camera effects",
-                15, TextAnchor.LowerCenter, Muted);
+            Label(Node("Controls", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 18f), new Vector2(480f, 150f)),
+                "WASD move   Shift sprint   C/Ctrl crouch   Mouse aim   E interact (hold to repair)\n" +
+                "1-0 - = or wheel select   Left mouse use / swing   Right mouse lunge   G drop   Space barricade\n" +
+                "Zach: F burst   Q Penjamin / Hemp   R Hemp beam   ·   T switch role   R get up (testing)\n" +
+                "M map   V speed mode   Esc menu   F3 stats   F4 look   F5 camera effects",
+                14, TextAnchor.LowerCenter, Muted);
             menu = shade.gameObject;
             menu.SetActive(false);
         }
@@ -357,6 +374,42 @@ namespace Vision.Player
             button.onClick.AddListener(action);
             y -= 66f;
             return Label(Stretch(Node("Text", rt, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)), text, 24, TextAnchor.MiddleCenter, Text);
+        }
+
+        /// <summary>A labelled slider row (the pace: from today's walk to the original's speeds).</summary>
+        Slider MenuSlider(RectTransform panel, ref float y, float min, float max, float value, UnityEngine.Events.UnityAction<float> changed, out Text label)
+        {
+            RectTransform row = Node("Pace", panel, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, y), new Vector2(320f, 52f));
+            label = Label(Node("Label", row, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), Vector2.zero, new Vector2(320f, 24f)), "", 20, TextAnchor.MiddleCenter, Text);
+            RectTransform track = Node("Track", row, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 8f), new Vector2(300f, 12f));
+            Box(track, new Color(0.15f, 0.15f, 0.16f, 0.95f));
+            RectTransform fillArea = Stretch(Node("Fill Area", track, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            RectTransform fill = Stretch(Node("Fill", fillArea, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            Box(fill, HealthColor);
+            RectTransform handleArea = Stretch(Node("Handle Area", track, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
+            RectTransform handle = Node("Handle", handleArea, new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(18f, 26f));
+            Image handleImage = Box(handle, new Color(0.86f, 0.85f, 0.80f));
+            handleImage.raycastTarget = true;
+            Image trackImage = track.GetComponent<Image>();
+            trackImage.raycastTarget = true;
+            var slider = track.gameObject.AddComponent<Slider>();
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.SetValueWithoutNotify(value);
+            slider.onValueChanged.AddListener(changed);
+            y -= 66f;
+            return slider;
+        }
+
+        /// <summary>The pace line: a multiple of the original's speeds, with today's walk and the original's marked.</summary>
+        public static string PaceText(float pace)
+        {
+            string tag = Mathf.Abs(pace - 1f) < 0.02f ? "  (original)" : Mathf.Abs(pace - Scale.HumanPace) < 0.02f ? "  (walking pace)" : "";
+            return $"Pace: {Mathf.RoundToInt(pace * 100f)}% of the original{tag}";
         }
 
         static Texture2D RadialTexture()
@@ -401,12 +454,34 @@ namespace Vision.Player
 
         void Bind()
         {
-            if (world == null || world.Player == null || player == world.Player) return;
-            if (player != null) player.Notice -= Notify;
-            player = world.Player;
-            stats = player.GetComponent<PlayerStats>();
-            player.Notice += Notify;
-            if (stats != null) stats.vitals.Damaged += _ => flash = 1f;
+            if (world == null || world.Player == null) return;
+            if (player != world.Player)
+            {
+                if (player != null) player.Notice -= Notify;
+                player = world.Player;
+                player.Notice += Notify;
+            }
+            MatchHost h = player.Host;
+            if (h == host) return;
+            if (host != null) host.EventRaised -= OnMatchEvent;
+            host = h;
+            if (host != null) host.EventRaised += OnMatchEvent;
+        }
+
+        void OnMatchEvent(GameEvent e)
+        {
+            switch (e.Kind)
+            {
+                case EventKind.Feed:
+                    if (!string.IsNullOrEmpty(e.Text)) Notify(e.Text);
+                    break;
+                case EventKind.Hit:
+                    if (host != null && e.A == host.LocalId) flash = 1f;
+                    break;
+                case EventKind.Result:
+                    if (!string.IsNullOrEmpty(e.Text)) Notify(e.Text);
+                    break;
+            }
         }
 
         void Update()
@@ -424,7 +499,7 @@ namespace Vision.Player
                 if (kb != null && !escOpen && kb.vKey.wasPressedThisFrame) ToggleSpeedMode();
             }
             map.Update(visible);
-            if (stats == null) return;
+            if (player == null || player.Me == null) return;
             Refresh();
         }
 
@@ -448,44 +523,61 @@ namespace Vision.Player
         {
             EnsureBuilt();
             Bind();
-            if (stats == null) return;
-            Vitals v = stats.vitals;
-            healthFill.anchorMax = new Vector2(Mathf.Clamp01(v.Health), 1f);
-            shieldFill.anchorMax = new Vector2(Mathf.Clamp01(v.Shield), 1f);
-            staminaFill.anchorMax = new Vector2(Mathf.Clamp01(v.Stamina / v.maxStamina), 1f);
-            staminaImage.color = v.Exhausted ? ExhaustedColor : StaminaColor;
-            healthValue.text = Mathf.CeilToInt(v.Health * 100f - 0.01f).ToString();
-            shieldValue.text = Mathf.CeilToInt(v.Shield * 100f - 0.01f).ToString();
-            staminaValue.text = Mathf.CeilToInt(v.Stamina).ToString();
-
-            Inventory inv = stats.inventory;
-            for (int i = 0; i < Inventory.Slots; i++)
-            {
-                ItemType? item = inv.ItemAt(i);
-                slotIcons[i].color = item.HasValue ? Items.Info(item.Value).color : Color.clear;
-                slotCounts[i].text = item.HasValue && inv.CountAt(i) > 1 ? inv.CountAt(i).ToString() : "";
-                slotNames[i].text = item.HasValue ? Items.Short(item.Value) : "";
-            }
-
-            string p = player.InteractPrompt;
-            promptBox.SetActive(!string.IsNullOrEmpty(p) && !v.IsDowned && !MenuOpen && !map.FullOpen);
-            prompt.text = string.IsNullOrEmpty(p) ? "" : $"[E]  {p}";
-            holdBar.SetActive(player.HoldProgress >= 0f);
-            holdFill.anchorMax = new Vector2(Mathf.Clamp01(player.HoldProgress), 1f);
-            if (stats.DrinkLeft > 0f)
-            {
-                promptBox.SetActive(true);
-                prompt.text = "Drinking a mini shield...";
-                holdBar.SetActive(true);
-                holdFill.anchorMax = new Vector2(1f - stats.DrinkLeft / PlayerStats.ShieldDrinkTime, 1f);
-            }
-
-            objective.supportRichText = true;
-            objective.text = ObjectiveText(world);
             modeLine.text = !GameSession.TestingMode ? "" : GameSession.SpeedMode ? "TESTING MODE   ·   speed mode on (V)" : "TESTING MODE";
             if (world != null) seedLabel.text = $"Seed {world.seed}";
             speedLabel.text = GameSession.SpeedMode ? "Speed mode: on (V)" : "Speed mode: off (V)";
             menuTitle.text = GameSession.TestingMode ? "Testing mode" : "Menu";
+            if (paceLabel != null) paceLabel.text = PaceText(MatchState.Current.Pace);
+            if (fullScreenLabel != null) fullScreenLabel.text = Screen.fullScreenMode == FullScreenMode.Windowed ? "Full screen: off" : "Full screen: on";
+            SimPlayer me = player != null ? player.Me : null;
+            if (me == null) return;
+            bool zach = me.Role == Role.Hunter;
+            bool downed = me.Health == Game.Health.Downed;
+            float maxStamina = MoveState.MaxStamina(me.Role, me.Move.BoostT);
+            healthFill.anchorMax = new Vector2(Mathf.Clamp01(me.Hp), 1f);
+            shieldFill.anchorMax = new Vector2(Mathf.Clamp01(me.Shield), 1f);
+            staminaFill.anchorMax = new Vector2(Mathf.Clamp01(me.Move.Stamina / maxStamina), 1f);
+            staminaImage.color = me.Move.StaminaLock > 0f || me.Move.SprintBlocked ? ExhaustedColor : StaminaColor;
+            healthValue.text = zach ? Mathf.CeilToInt(me.Hp * Balance.Hunter.Health.Max - 0.01f).ToString() : Mathf.CeilToInt(me.Hp * 100f - 0.01f).ToString();
+            shieldValue.text = Mathf.CeilToInt(me.Shield * 100f - 0.01f).ToString();
+            staminaValue.text = Mathf.CeilToInt(me.Move.Stamina).ToString();
+
+            Inventory inv = me.Inv;
+            int limit = inv.Limit;
+            if (limit != shownLimit)
+            {
+                shownLimit = limit;
+                strip.sizeDelta = new Vector2(limit * 78f + 10f, 92f);
+                for (int i = 0; i < Inventory.TestingSlots; i++) slotBoxes[i].SetActive(i < limit);
+            }
+            for (int i = 0; i < limit; i++)
+            {
+                ItemType? item = inv.ItemAt(i);
+                slotFrames[i].color = i == player.SelectedSlot ? SlotSelected : SlotColor;
+                slotIcons[i].color = item.HasValue ? (inv.GoldenAt(i) ? new Color(1f, 0.76f, 0.23f) : Items.Info(item.Value).color) : Color.clear;
+                int count = inv.CountAt(i);
+                slotCounts[i].text = !item.HasValue ? "" : inv.Infinite ? "∞" : count > 1 ? count.ToString() : "";
+                slotNames[i].text = item.HasValue ? (inv.GoldenAt(i) ? "Golden" : Items.Short(item.Value)) : "";
+            }
+
+            string p = player.InteractPrompt;
+            string space = player.SpacePrompt;
+            bool showPrompt = (!string.IsNullOrEmpty(p) || !string.IsNullOrEmpty(space)) && !MenuOpen && !map.FullOpen;
+            promptBox.SetActive(showPrompt);
+            prompt.text = !string.IsNullOrEmpty(p) && !string.IsNullOrEmpty(space) ? $"{p}   ·   {space}" : !string.IsNullOrEmpty(p) ? p : space ?? "";
+            holdBar.SetActive(showPrompt && player.HoldProgress >= 0f);
+            holdFill.anchorMax = new Vector2(Mathf.Clamp01(player.HoldProgress), 1f);
+            if (player.HoldProgress >= 0f && !showPrompt && me.ActionDur > 0f)
+            {
+                promptBox.SetActive(true);
+                prompt.text = Texts.ActionLabel(me.Action);
+                holdBar.SetActive(true);
+            }
+
+            objective.supportRichText = true;
+            objective.text = host != null && host.Sim != null ? ObjectiveText(host.Sim, me) : ObjectiveText(world);
+            if (paceLabel != null) paceLabel.text = PaceText(MatchState.Current.Pace);
+            if (paceSlider != null && !Mathf.Approximately(paceSlider.value, MatchState.Current.Pace)) paceSlider.SetValueWithoutNotify(MatchState.Current.Pace);
 
             Vector2 f = player.viewer != null ? player.viewer.Facing : Vector2.up;
             float heading = Mathf.Repeat(Mathf.Atan2(f.x, f.y) * Mathf.Rad2Deg, 360f);
@@ -498,9 +590,9 @@ namespace Vision.Player
             notices.text = sb.ToString();
 
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime * 2.5f);
-            float hurt = Mathf.Clamp01(1f - v.Health / 0.45f);
+            float hurt = zach ? 0f : Mathf.Clamp01(1f - me.Hp / 0.45f);
             vignette.color = new Color(0.55f, 0.02f, 0.02f, Mathf.Clamp01(hurt * 0.85f + flash * 0.5f));
-            downedScreen.SetActive(v.IsDowned);
+            downedScreen.SetActive(downed);
             if (fullScreenLabel != null) fullScreenLabel.text = Screen.fullScreenMode == FullScreenMode.Windowed ? "Full screen: off" : "Full screen: on";
         }
 
@@ -513,6 +605,21 @@ namespace Vision.Player
             if (total > 0 && running >= total)
                 return $"Pull the lever at the north gate\n<color=#9c9b91>Generators {running}/{total}</color>";
             return $"Start the generators\n<color=#9c9b91>Generators {running}/{total}</color>";
+        }
+
+        /// <summary>The objective line from the match: survivors repair, then open the gate, then escape; Zach hunts.</summary>
+        public static string ObjectiveText(MatchSim sim, SimPlayer me)
+        {
+            int running = 0;
+            foreach (GenState g in sim.Gens) if (g.Repaired) running++;
+            int need = sim.Bal.RequiredGenerators;
+            string gens = $"<color=#9c9b91>Generators {Mathf.Min(running, need)}/{need}</color>";
+            if (sim.Result != null) return $"{sim.Result.Reason}\n<color=#9c9b91>{(sim.Result.Winner == Winner.Hunters ? "Zach wins" : "Survivors win")}</color>";
+            if (me.Role == Role.Hunter) return $"Hunt them down: carry the downed to a stake\n{gens}";
+            if (me.Role == Role.Spectator) return "Spectating";
+            if (sim.Gate.Open) return "The gate is open: get out through the yard\n<color=#9c9b91>North side of the building</color>";
+            if (sim.Gate.Powered) return $"Hold E at the gate lever to open it\n{gens}";
+            return $"Repair the generators\n{gens}";
         }
 
         public static string Cardinal(float heading)

@@ -130,20 +130,23 @@ namespace Vision.World
                 {
                     // A sill wall (stops you, not your sight), the dirty pane, a header; boarded windows block sight too.
                     Mesh sill = LowPolyModels.InteriorWall(rng, width, 0.9f, t, LowPolyModels.Bldg.Block);
-                    Wall("Window Sill", o.A, o.B, 0.9f, t, sill, false, true, floor - 0.02f);
+                    GameObject sillGo = Wall("Window Sill", o.A, o.B, 0.9f, t, sill, false, true, floor - 0.02f);
                     GameObject pane = Piece("Window", LowPolyModels.WindowPane(width), root, new Vector3(o.A.x, floor, o.A.y), Yaw(along));
-                    AddBox(pane, new Vector3(width * 0.5f, 1.5f, 0f), new Vector3(width, 1.2f, 0.1f));
+                    BoxCollider glass = AddBox(pane, new Vector3(width * 0.5f, 1.5f, 0f), new Vector3(width, 1.2f, 0.1f));
                     Header(mid, along, width, 2.05f, t, paint, root, floor);
+                    GameObject boards = null;
+                    Occluder occ = null;
                     if (o.Kind == BuildingPlan.OpeningKind.BoardedWindow)
                     {
                         Vector2 outside = f.Exterior ? f.Normal : Vector2.zero;
-                        GameObject boards = Piece("Boarded Window", LowPolyModels.Boards(rng, width), root,
+                        boards = Piece("Boarded Window", LowPolyModels.Boards(rng, width), root,
                             new Vector3(o.A.x + outside.x * (t * 0.5f - 0.05f), floor, o.A.y + outside.y * (t * 0.5f - 0.05f)), Yaw(along));
-                        var occ = boards.AddComponent<Occluder>();
+                        occ = boards.AddComponent<Occluder>();
                         occ.shape = Occluder.Shape.Box;
                         occ.size = new Vector2(width, 0.1f);
                         occ.offset = new Vector2(width * 0.5f, 0f);
                     }
+                    RegisterWindow(o.A, o.B, pane, glass, sillGo.GetComponent<Collider>(), boards, occ);
                     break;
                 }
             }
@@ -173,6 +176,9 @@ namespace Vision.World
             BoxCollider blocker = AddBox(go, new Vector3(length * 0.5f, 0.6f, side * 0.24f), new Vector3(length, 1.2f, 0.25f));
             blocker.enabled = false;
             var barricade = go.AddComponent<Barricade>();
+            barricade.a = bar.A;
+            barricade.b = bar.B;
+            BarricadeList.Add(barricade);
             barricade.hinge = hinge;
             barricade.blocker = blocker;
             go.SetActive(true);

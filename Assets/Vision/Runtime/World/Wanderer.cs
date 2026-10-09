@@ -1,5 +1,6 @@
 using UnityEngine;
 using Vision.Characters;
+using Vision.Game;
 
 namespace Vision.World
 {
@@ -15,7 +16,7 @@ namespace Vision.World
         public float touchReach = 0.6f;
         public float touchCooldown = 1f;
 
-        Vision.Player.PlayerStats target;
+        Vision.Player.PlayerController target;
         float nextTouch;
 
         int next;
@@ -46,12 +47,13 @@ namespace Vision.World
         void Touch()
         {
             if (touchDamage <= 0f || Time.time < nextTouch) return;
-            if (target == null) target = FindAnyObjectByType<Vision.Player.PlayerStats>();
-            if (target == null) return;
+            if (target == null) target = FindAnyObjectByType<Vision.Player.PlayerController>();
+            SimPlayer me = target != null ? target.Me : null;
+            if (me == null || me.Role != Role.Survivor) return;
             Vector3 d = target.transform.position - transform.position;
             d.y = 0f;
             if (d.magnitude > touchReach * transform.lossyScale.x) return;
-            target.vitals.TakeDamage(touchDamage);
+            target.Host.Sim.HurtSurvivor(me, touchDamage, null, "touch");
             nextTouch = Time.time + touchCooldown;
         }
 

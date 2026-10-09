@@ -1,6 +1,7 @@
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using Vision.Game;
 using Vision.Player;
 using Vision.World;
 
@@ -8,139 +9,6 @@ namespace Vision.Tests
 {
     public class GameSystemsTests
     {
-        [Test]
-        public void Sprinting_DrainsStamina_ThenItRefillsAfterAPause()
-        {
-            var v = new Vitals();
-            v.Tick(1f, true);
-            Assert.AreEqual(100f - v.sprintDrain, v.Stamina, 1e-3f);
-            float drained = v.Stamina;
-            v.Tick(v.regenDelay * 0.5f, false);
-            Assert.AreEqual(drained, v.Stamina, 1e-3f, "no refill during the pause");
-            v.Tick(v.regenDelay, false);
-            v.Tick(1f, false);
-            Assert.Greater(v.Stamina, drained, "refills after the pause");
-            for (int i = 0; i < 100; i++) v.Tick(1f, false);
-            Assert.AreEqual(v.maxStamina, v.Stamina, 1e-3f, "never above the maximum");
-        }
-
-        [Test]
-        public void RunningDry_LocksSprintUntilAQuarterIsBack()
-        {
-            var v = new Vitals();
-            for (int i = 0; i < 20 && !v.Exhausted; i++) v.Tick(1f, true);
-            Assert.IsTrue(v.Exhausted);
-            Assert.IsFalse(v.CanSprint);
-            v.Tick(v.regenDelay, false);
-            while (v.Stamina < v.maxStamina * v.recoverFraction - 1f) { v.Tick(0.1f, false); Assert.IsFalse(v.CanSprint, "still locked"); }
-            v.Tick(0.5f, false);
-            Assert.IsTrue(v.CanSprint, "sprint returns above a quarter");
-        }
-
-        [Test]
-        public void Damage_TakesTheShieldFirst_ThenHealth_ThenDowns()
-        {
-            var v = new Vitals();
-            int damaged = 0, downed = 0;
-            v.Damaged += _ => damaged++;
-            v.Downed += () => downed++;
-            Assert.AreEqual(1f, v.Health);
-            Assert.AreEqual(0f, v.Shield);
-            v.AddShield(0.25f);
-            v.AddShield(0.25f);
-            Assert.AreEqual(0.5f, v.Shield, 1e-5f);
-            v.TakeDamage(0.3f);
-            Assert.AreEqual(0.2f, v.Shield, 1e-5f, "the shield takes it");
-            Assert.AreEqual(1f, v.Health, 1e-5f);
-            v.TakeDamage(0.5f);
-            Assert.AreEqual(0f, v.Shield, 1e-5f);
-            Assert.AreEqual(0.7f, v.Health, 1e-5f, "the rest comes off health");
-            v.Heal(1f);
-            Assert.AreEqual(1f, v.Health, "clamped at full");
-            for (int i = 0; i < 4; i++) v.AddShield(0.25f);
-            v.AddShield(0.25f);
-            Assert.AreEqual(1f, v.Shield, "shield up to 100%");
-            v.TakeDamage(3f);
-            Assert.IsTrue(v.IsDowned);
-            Assert.AreEqual(0f, v.Health);
-            Assert.IsFalse(v.CanSprint, "no sprinting while downed");
-            v.Heal(0.5f);
-            v.AddShield(0.5f);
-            Assert.AreEqual(0f, v.Health, "nothing heals the downed");
-            Assert.AreEqual(1, downed);
-            v.StandUp();
-            Assert.IsFalse(v.IsDowned);
-            Assert.AreEqual(Vitals.ReviveHealth, v.Health, 1e-5f, "back up with a third of the bar");
-            Assert.AreEqual(3, damaged);
-        }
-
-        [Test]
-        public void Health_NeverRegenerates()
-        {
-            var v = new Vitals();
-            v.TakeDamage(0.4f);
-            for (int i = 0; i < 600; i++) v.Tick(1f, false);
-            Assert.AreEqual(0.6f, v.Health, 1e-5f);
-        }
-
-        [Test]
-        public void Inventory_EightSlots_UnlimitedStacks_WeaponsAlone()
-        {
-            var inv = new Inventory();
-            Assert.AreEqual(8, Inventory.Slots);
-            Assert.AreEqual(50, inv.Add(ItemType.Bottle, 50));
-            Assert.AreEqual(50, inv.CountAt(0), "one unlimited stack");
-            Assert.IsNull(inv.ItemAt(1));
-            Assert.AreEqual(2, inv.Add(ItemType.Shotgun, 2));
-            Assert.AreEqual(ItemType.Shotgun, inv.ItemAt(1));
-            Assert.AreEqual(ItemType.Shotgun, inv.ItemAt(2), "each shotgun takes a slot");
-            Assert.AreEqual(1, inv.CountAt(1));
-            foreach (ItemType t in new[] { ItemType.Book, ItemType.Goggles, ItemType.Confit, ItemType.MrBeastBar, ItemType.Trap }) inv.Add(t, 1);
-            Assert.AreEqual(0, inv.Add(ItemType.MiniShield), "eight slots, all taken");
-            Assert.AreEqual(3, inv.Add(ItemType.MrBeastBar, 3), "but a stack always takes more");
-            Assert.IsTrue(inv.Remove(0));
-            Assert.AreEqual(49, inv.Count(ItemType.Bottle));
-            inv.Infinite = true;
-            Assert.IsTrue(inv.Remove(0));
-            Assert.AreEqual(49, inv.Count(ItemType.Bottle), "testing mode never runs out");
-        }
-
-        [Test]
-        public void Supplies_HealAsTheOriginal()
-        {
-            var go = new GameObject("p");
-            var stats = go.AddComponent<PlayerStats>();
-            try
-            {
-                stats.inventory.Add(ItemType.Confit, 1);
-                stats.inventory.Add(ItemType.MrBeastBar, 2);
-                stats.inventory.Add(ItemType.MiniShield, 2);
-                stats.inventory.Add(ItemType.Bottle, 1);
-                Assert.AreEqual(PlayerStats.UseResult.AlreadyFull, stats.UseSlot(0), "confit at full health does nothing");
-                Assert.AreEqual(1, stats.inventory.CountAt(0), "and is kept");
-                stats.vitals.TakeDamage(0.7f);
-                Assert.AreEqual(PlayerStats.UseResult.Used, stats.UseSlot(1));
-                Assert.AreEqual(0.5f, stats.vitals.Health, 1e-5f, "Mr Beast bar: +20%");
-                Assert.AreEqual(PlayerStats.UseResult.Used, stats.UseSlot(0));
-                Assert.AreEqual(1f, stats.vitals.Health, 1e-5f, "confit: full");
-                Assert.IsNull(stats.inventory.ItemAt(0));
-
-                Assert.AreEqual(PlayerStats.UseResult.Drinking, stats.UseSlot(2));
-                Assert.IsFalse(stats.Tick(1f, false));
-                Assert.IsFalse(stats.Tick(0.5f, true), "moving spills it");
-                Assert.AreEqual(0f, stats.vitals.Shield);
-                Assert.AreEqual(2, stats.inventory.CountAt(2), "and keeps the bottle");
-                stats.UseSlot(2);
-                Assert.IsFalse(stats.Tick(1.5f, false));
-                Assert.IsTrue(stats.Tick(0.6f, false), "two seconds standing still");
-                Assert.AreEqual(0.25f, stats.vitals.Shield, 1e-5f, "+25% shield");
-                Assert.AreEqual(1, stats.inventory.CountAt(2));
-
-                Assert.AreEqual(PlayerStats.UseResult.NotYet, stats.UseSlot(3), "bottles are only collected for now");
-            }
-            finally { Object.DestroyImmediate(go); }
-        }
-
         [Test]
         public void Pickup_MovesWhatFitsIntoTheInventory()
         {
@@ -204,7 +72,7 @@ namespace Vision.Tests
                 var world = root.AddComponent<SandboxWorld>();
                 world.lowPolyMaterial = world.entityMaterial = world.glowMaterial = mat;
                 world.Generate();
-                Assert.AreEqual(86, world.Pickups.Count, "the original's 86 supplies");
+                Assert.AreEqual(96, world.Pickups.Count, "the original's 96 supplies");
                 foreach (ItemType t in Items.All)
                     Assert.AreEqual(Items.Info(t).mapCount, world.Pickups.Count(p => p.item == t), $"{t} at the original's count");
                 Rect building = world.Layout.Building;
@@ -218,18 +86,20 @@ namespace Vision.Tests
 
                 var hud = hudGo.AddComponent<GameHud>();
                 hud.world = world;
-                var stats = world.Player.GetComponent<PlayerStats>();
-                Assert.NotNull(stats, "the player has health, shield, stamina and an inventory");
-                stats.vitals.AddShield(0.25f);
-                stats.vitals.TakeDamage(0.65f);
-                stats.inventory.Add(ItemType.MiniShield, 2);
+                MatchHost host = MatchHost.For(world);
+                host.Begin();
+                SimPlayer me = world.Player.Me;
+                Assert.NotNull(me, "the player is in the match, with health, shield, stamina and an inventory");
+                me.Shield = 0.25f;
+                host.Sim.HurtSurvivor(me, 0.65f, null, "test");
+                me.Inv.Add(ItemType.MiniShield, 2);
                 hud.Refresh();
                 var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true);
                 Assert.IsTrue(texts.Any(t => t.name == "Health Value" && t.text == "60"), "health shows 60");
                 Assert.IsTrue(texts.Any(t => t.name == "Shield Value" && t.text == "0"), "the shield went first");
                 Assert.IsTrue(texts.Any(t => t.name == "Name" && t.text == "Mini shield"), "the mini shields are in a slot");
-                Assert.AreEqual(8, texts.Count(t => t.name == "Key"), "eight slots");
-                Assert.IsTrue(texts.Any(t => t.name == "Objective" && t.text.Contains("Generators 0/5")), "the objective counts the generators");
+                Assert.AreEqual(8, texts.Count(t => t.name == "Key" && t.gameObject.activeInHierarchy), "eight slots");
+                Assert.IsTrue(texts.Any(t => t.name == "Objective" && t.text.Contains($"Generators 0/{host.Sim.Bal.RequiredGenerators}")), "the objective counts the generators");
                 Assert.AreEqual("NE", GameHud.Cardinal(44f));
                 Assert.AreEqual("N", GameHud.Cardinal(350f));
             }

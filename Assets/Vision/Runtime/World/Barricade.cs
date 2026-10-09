@@ -14,6 +14,8 @@ namespace Vision.World
         public float fallSpeed = 420f;
         /// <summary>Upright and lying-across angles about the hinge's z axis.</summary>
         public float upAngle = 90f, downAngle = 6f;
+        /// <summary>The gap it falls across (design units on the level's ground plane).</summary>
+        public Vector2 a, b;
 
         public static readonly List<Barricade> All = new List<Barricade>();
 
@@ -26,6 +28,20 @@ namespace Vision.World
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetStatics() => All.Clear();
+
+        public bool IsBroken { get; private set; }
+
+        /// <summary>The match's state for this pallet: 0 up, 1 down across the gap, 2 smashed.</summary>
+        public void SetState(int state)
+        {
+            if (state >= 1) Drop();
+            if (state == 2 && !IsBroken)
+            {
+                IsBroken = true;
+                if (blocker != null) blocker.enabled = false;
+                if (hinge != null) hinge.gameObject.SetActive(false);
+            }
+        }
 
         public void Drop()
         {
