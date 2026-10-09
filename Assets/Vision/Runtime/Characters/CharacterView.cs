@@ -57,7 +57,11 @@ namespace Vision.Characters
             Wire();
             if (p == null || Layer == null) return;
             bool zach = p.Role == Role.Hunter;
-            if (Animator != null) Animator.Prone = zach ? p.KnockT > 0f : p.Health == Game.Health.Downed || p.Health == Game.Health.Carried;
+            if (Animator != null)
+            {
+                Animator.Prone = zach ? p.KnockT > 0f : p.Health == Game.Health.Downed || p.Health == Game.Health.Carried;
+                Animator.Crouch = !zach && p.Crouching && (p.Health == Game.Health.Healthy || p.Health == Game.Health.Wounded) ? 1f : 0f;
+            }
 
             // Props: Zach's machete; a survivor's selected item, or the flashlight.
             if (zach) Layer.Hold(PropKind.Machete);
@@ -161,6 +165,8 @@ namespace Vision.Characters
                 case EventKind.Talk:
                     if (e.A == self.Id && e.Text == "burst") PlayOnce(ActionClips.Burst);
                     else if (e.A == self.Id && e.Text == "search") PlayOnce(ActionClips.SearchOnce);
+                    else if (e.A == self.Id && e.Text == "slam") PlayOnce(ActionClips.Slam);
+                    else if (e.A == self.Id && e.Text == "door") PlayOnce(ActionClips.Push);
                     break;
                 case EventKind.Gas:
                     if (e.A == self.Id && e.Text != null && (e.Text == "vape" || e.Text == "nic")) PlayOnce(ActionClips.Vape);

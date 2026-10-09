@@ -713,6 +713,7 @@ MonoBehaviour:
   turnSpeed: 420
   maxTwist: 80
   Prone: 0
+  Crouch: 0
 --- !u!114 &5050273021259528254
 MonoBehaviour:
   m_ObjectHideFlags: 0

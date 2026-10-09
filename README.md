@@ -148,6 +148,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Hiding**: tall grass, wardrobes, beds, lockers and barrels (in 0.6 s, out 0.5 s). Hidden, the stamina bar shows
   your breath: Space holds it, and running out makes you gasp. Zach searches a spot and drags out whoever is in it.
   **Pallets** beside doorways (Space).
+- **Pallets, doors and windows**: Space slams a pallet (Zach caught under it is stunned); two machete hits break a
+  dropped pallet, two break a closed door (it stays open for good, the panel gone), one smashes a window, which
+  anyone can then climb through slowly. **Crouching** (C or Ctrl) lowers the hips and bends the knees.
+- **Effects** (`Vfx`, the `Vision/Fx` shader): particle bursts, rings and ribbons, either hidden outside the viewer's
+  light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
+  stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
+  wisps where they ran and blood where the hurt have been, fading over ten seconds.
 - **Results**: the original's end screen (who won and why, the time, the generators, and each player's numbers), and
   a match clock under the compass.
 - The **wanderer** walks a loop near the spawn and takes 20% when it walks into you (the NPCs replace it).

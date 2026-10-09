@@ -356,6 +356,7 @@ namespace Vision.Game
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
                     ToggleDoor(p.PromptTarget);
+                    Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Talk, A = p.Id, Text = "door", Pos = p.Pos });
                     break;
                 default:
                     if (p.PromptTarget >= 0 && p.PromptTarget < Npcs.Count && IsTalk(p.Prompt)) Npcs[p.PromptTarget].Talk(this, p);
@@ -427,6 +428,7 @@ namespace Vision.Game
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
                     ToggleDoor(p.PromptTarget);
+                    Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Talk, A = p.Id, Text = "door", Pos = p.Pos });
                     break;
                 default:
                     if (p.PromptTarget >= 0 && p.PromptTarget < Npcs.Count && IsTalk(p.Prompt)) Npcs[p.PromptTarget].Talk(this, p);

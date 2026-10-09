@@ -32,6 +32,9 @@ namespace Vision.Characters
         public float maxTwist = 80f;
         [Tooltip("Downed: the body lies forward on the ground and the legs crawl.")]
         public bool Prone;
+        [Tooltip("Crouching (0-1): the pelvis drops, the knees bend under it and the back leans forward.")]
+        public float Crouch;
+        float crouch;
 
         readonly GaitSolver solver = new GaitSolver();
         Vector3 worldVelocity;
@@ -71,6 +74,7 @@ namespace Vision.Characters
                 initialized = true;
             }
             prone = Mathf.MoveTowards(prone, Prone ? 1f : 0f, dt * 2.5f);
+            crouch = Mathf.MoveTowards(crouch, Prone ? 0f : Mathf.Clamp01(Crouch), dt * 4f);
 
             float targetYaw = legsYaw;
             if (speed > 0.15f)
@@ -142,14 +146,15 @@ namespace Vision.Characters
             pelvisDrop = Ground == null || prone > 0f ? 0f : drop;   // continuous already: the ankle targets move smoothly
 
             Transform pelvis = B(Bone.Pelvis);
-            pelvis.localPosition = HumanoidSkeleton.BindPosition(Bone.Pelvis) + pose.PelvisOffset - Vector3.up * (pelvisDrop / scale);
+            float ce = crouch * crouch * (3f - 2f * crouch);
+            pelvis.localPosition = HumanoidSkeleton.BindPosition(Bone.Pelvis) + pose.PelvisOffset - Vector3.up * (pelvisDrop / scale + 0.27f * ce);
             pelvis.localRotation = Quaternion.Euler(pose.PelvisPitch, pose.PelvisYaw, pose.PelvisRoll);
 
             // The torso leans into a climb; the neck and head take most of it back so the gaze stays level.
-            B(Bone.Spine).localRotation = Quaternion.Euler(pose.SpinePitch - pose.PelvisPitch * 0.7f + slopeLean, -pose.PelvisYaw + twist * 0.35f, -pose.PelvisRoll * 0.8f);
+            B(Bone.Spine).localRotation = Quaternion.Euler(pose.SpinePitch - pose.PelvisPitch * 0.7f + slopeLean + 18f * ce, -pose.PelvisYaw + twist * 0.35f, -pose.PelvisRoll * 0.8f);
             B(Bone.Chest).localRotation = Quaternion.Euler(pose.ChestPitch, pose.ChestYaw + twist * 0.35f, 0f);
             B(Bone.Neck).localRotation = Quaternion.Euler(pose.HeadPitch * 0.4f - slopeLean * 0.4f, twist * 0.15f, 0f);
-            B(Bone.Head).localRotation = Quaternion.Euler(pose.HeadPitch * 0.6f - slopeLean * 0.4f, pose.HeadYaw + twist * 0.15f, 0f);
+            B(Bone.Head).localRotation = Quaternion.Euler(pose.HeadPitch * 0.6f - slopeLean * 0.4f - 12f * ce, pose.HeadYaw + twist * 0.15f, 0f);
 
             LeftAnkleTarget = SolveLeg(pose.Left, Bone.ThighL, -1, scale, offL, nL);
             RightAnkleTarget = SolveLeg(pose.Right, Bone.ThighR, 1, scale, offR, nR);

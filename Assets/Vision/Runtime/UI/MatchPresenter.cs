@@ -4,6 +4,7 @@ using Vision.Effects;
 using Vision.Game;
 using Vision.Player;
 using Vision.World;
+using Vision.Visibility;
 
 namespace Vision.UI
 {
@@ -36,6 +37,7 @@ namespace Vision.UI
             SimPlayer me = host != null ? host.Local : null;
             if (me == null) return;
             UpdateCamera(me);
+            DrawTrails(me);
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;
             // Penjamin: the gas sound loops while a survivor is in the cloud.
@@ -84,10 +86,84 @@ namespace Vision.UI
             if (cameraRig.target != target) cameraRig.target = target;
         }
 
+        /// <summary>A point of the level in world space, just above the ground (design units in).</summary>
+        Vector3 Ground(Vector2 at, float up = 0.04f)
+        {
+            float h = world.Terrain != null ? world.Terrain.Height(at.x, at.y) : 0f;
+            return world.transform.TransformPoint(new Vector3(at.x, h + up, at.y));
+        }
+
+        float S => world != null ? world.transform.lossyScale.x : 1f;
+
+        /// <summary>
+        /// The scent: Zach sees the trails survivors leave when they run (red smoke wisps) and blood where the hurt have been,
+        /// fading over ten seconds, only where his light falls (survivors see their own in testing mode).
+        /// </summary>
+        readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>> byWho = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>>();
+        readonly System.Collections.Generic.List<Vector3> ribbonPts = new System.Collections.Generic.List<Vector3>(128);
+        readonly System.Collections.Generic.List<Color> ribbonCols = new System.Collections.Generic.List<Color>(128);
+        static readonly System.Comparison<TrailPoint> ByTime = (a, b) => a.T.CompareTo(b.T);
+
+        void DrawTrails(SimPlayer me)
+        {
+            MatchSim sim = host.Sim;
+            bool zach = me.Role == Role.Hunter;
+            if (!zach && !sim.TestMode) return;
+            Vfx fx = Vfx.Instance;
+            foreach (var l in byWho.Values) l.Clear();
+            foreach (TrailPoint t in sim.Trails)
+            {
+                if (!zach && t.Who != me.Id) continue;
+                float age = (sim.Time - t.T) / Balance.Trails.MaxAgeSec;
+                if (age >= 1f || age < 0f) continue;
+                if (t.Kind == 1)
+                {
+                    float a = Mathf.Pow(1f - age, 1.3f) * 0.62f;
+                    fx.Dot(Ground(t.Pos, 0.05f), (0.12f + age * 0.12f) * S, new Color(0.82f, 0.06f, 0.12f, a), true);
+                    continue;
+                }
+                if (!byWho.TryGetValue(t.Who, out var list)) byWho[t.Who] = list = new System.Collections.Generic.List<TrailPoint>(64);
+                list.Add(t);
+            }
+            foreach (var kv in byWho)
+            {
+                var pts = kv.Value;
+                if (pts.Count < 2) continue;
+                pts.Sort(ByTime);
+                int start = 0;
+                for (int i = 1; i <= pts.Count; i++)
+                {
+                    // Break where the trail really breaks (they stopped sprinting for a while).
+                    bool cut = i == pts.Count || pts[i].T - pts[i - 1].T > 0.7f || Vector2.Distance(pts[i].Pos, pts[i - 1].Pos) > Scale.D(160f);
+                    if (!cut) continue;
+                    int n = i - start;
+                    if (n >= 2)
+                        for (int strand = 0; strand < 3; strand++)
+                        {
+                            ribbonPts.Clear();
+                            ribbonCols.Clear();
+                            for (int k = 0; k < n; k++)
+                            {
+                                TrailPoint t = pts[start + k];
+                                Vector2 dir = k + 1 < n ? pts[start + k + 1].Pos - t.Pos : t.Pos - pts[start + k - 1].Pos;
+                                Vector2 side = new Vector2(-dir.y, dir.x).normalized;
+                                float off = Mathf.Sin(t.T * 3.1f + strand * 2.1f + kv.Key) * Scale.D(6f + strand * 3f);
+                                ribbonPts.Add(Ground(t.Pos + side * off, 0.06f));
+                                float age = (sim.Time - t.T) / Balance.Trails.MaxAgeSec;
+                                ribbonCols.Add(new Color(strand == 0 ? 1f : 0.88f, strand == 0 ? 0.35f : 0.12f, strand == 0 ? 0.35f : 0.18f, Mathf.Pow(1f - age, 1.1f) * (strand == 0 ? 0.5f : 0.22f)));
+                            }
+                            fx.Ribbon(ribbonPts, ribbonCols, Scale.D(strand == 0 ? 3f : 9f) * S, true);
+                        }
+                    start = i;
+                }
+            }
+        }
+
         void Bind()
         {
             if (world == null) return;
             if (cameraRig == null) cameraRig = FindAnyObjectByType<TopDownCamera>();
+            if (cameraRig != null && cameraRig.GetComponent<SensesCamera>() == null) cameraRig.gameObject.AddComponent<SensesCamera>();
             MatchHost h = MatchHost.For(world);
             if (h != host)
             {
@@ -124,6 +200,27 @@ namespace Vision.UI
         void Shake(float px)
         {
             if (cameraRig != null && px > 0f) cameraRig.Shake(px);
+        }
+
+        /// <summary>What a noise looks like where it happens (the original's particle bursts): sparks, glass, splinters.</summary>
+        void NoiseBurst(GameEvent e)
+        {
+            Vfx fx = Vfx.Instance;
+            switch (e.Text)
+            {
+                case "gen_explode":
+                case "gen_kick":
+                    fx.Burst(Ground(e.Pos, 0.7f), 40, 3.5f * S, 0.7f, new Color(1f, 0.85f, 0.4f, 1f), 0.05f * S, true, Vfx.Blend.Additive, 5f * S, 2f, 0.6f, new Color(1f, 0.55f, 0.2f, 1f));
+                    break;
+                case "glass":
+                    fx.Burst(Ground(e.Pos, 1.2f), 22, 2.4f * S, 0.45f, new Color(0.72f, 0.78f, 0.78f, 0.9f), 0.045f * S, true, Vfx.Blend.Alpha, 7f * S, 1.5f, 0.3f);
+                    break;
+                case "smash":
+                case "barricade":
+                case "door_smash":
+                    fx.Burst(Ground(e.Pos, 0.8f), e.Text == "door_smash" ? 30 : 16, 2.1f * S, 0.55f, new Color(0.43f, 0.35f, 0.25f, 1f), 0.07f * S, true, Vfx.Blend.Alpha, 6f * S, 2f, 0.4f, new Color(0.3f, 0.23f, 0.16f, 1f));
+                    break;
+            }
         }
 
         public void OnEvent(GameEvent e)
@@ -165,12 +262,20 @@ namespace Vision.UI
                 case EventKind.Hit:
                     if (e.A == me) Shake(14f);
                     else Shake(6f * Near(e.Pos, 300f));
+                    // Blood (a white flash for the Hemp beam).
+                    if (e.Text == "beam") Vfx.Instance.Burst(Ground(e.Pos, 0.9f), 14, 2.6f * S, 0.45f, new Color(0.94f, 1f, 0.94f, 1f), 0.06f * S);
+                    else Vfx.Instance.Burst(Ground(e.Pos, 0.9f), e.Text == "pellet" ? 6 : 16, 2.2f * S, 0.5f, new Color(0.48f, 0.05f, 0.08f, 1f), 0.07f * S, true, Vfx.Blend.Alpha, 6f * S, 2f, 0.4f, new Color(0.3f, 0.02f, 0.03f, 1f));
+                    break;
+                case EventKind.Breath:
+                    // Breathing heard through a hiding spot's door (a gasp is louder): rings through the dark.
+                    Vfx.Instance.RingAt(Ground(e.Pos, 0.1f), Scale.D(10f) * S, Scale.D(e.F > 0f ? 70f : 50f) * S, 1.4f, new Color(0.85f, 0.94f, 1f, 0.7f), 0.05f * S, true);
                     break;
                 case EventKind.Shot:
                     Shake(9f * Near(e.Pos, 500f));
                     break;
                 case EventKind.Noise:
                     if (e.Text == "gen_explode" || e.Text == "barricade" || e.Text == "smash" || e.Text == "door_smash") Shake(7f * Near(e.Pos, 450f));
+                    NoiseBurst(e);
                     break;
                 case EventKind.Downed:
                     if (e.A == me) overlays?.Center("You are down", 4f);
