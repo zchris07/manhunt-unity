@@ -176,8 +176,8 @@ namespace Vision.Tests
             foreach (GameObject character in new[] { library.player, library.wanderer })
             {
                 Mesh m = character.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh;
-                Assert.IsTrue(EditorUtility.IsPersistent(m), "saved mannequin mesh");
-                Assert.LessOrEqual(m.triangles.Length / 3, Vision.Characters.MannequinBuilder.MaxTriangles);
+                Assert.IsTrue(EditorUtility.IsPersistent(m), "saved character mesh");
+                Assert.LessOrEqual(m.triangles.Length / 3, Vision.Characters.CharacterBuilder.MaxTriangles);
                 Assert.AreEqual(m.vertexCount, m.boneWeights.Length, "the saved mesh keeps its bone weights");
                 Assert.AreEqual(Vision.Characters.HumanoidSkeleton.BoneCount, m.bindposeCount, "and its bind poses");
             }

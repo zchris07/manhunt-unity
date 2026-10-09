@@ -121,6 +121,18 @@ namespace Vision.Player
         void OnEvent(GameEvent e)
         {
             if (e.Kind == EventKind.Item && !string.IsNullOrEmpty(e.Text)) Notice?.Invoke(e.Text);
+            if (view != null && host != null && host.Sim != null) view.OnEvent(e, Me, host.Sim);
+        }
+
+        CharacterView view;
+
+        /// <summary>The model for the role (survivor or Zach) and the action clips for what the player is doing.</summary>
+        void PresentCharacter(SimPlayer p)
+        {
+            if (view == null) view = GetComponent<CharacterView>();
+            if (view == null) return;
+            view.SetSpec(p.Role == Role.Hunter ? CharacterSpec.Zach() : CharacterSpec.Survivor());
+            view.Present(p);
         }
 
         static bool Pressed(InputAction a) => a != null && a.WasPressedThisFrame();
@@ -168,6 +180,7 @@ namespace Vision.Player
             ViewReach(p);
 
             UpdateLook(p, cmd);
+            PresentCharacter(p);
             UpdateHud(p, h);
         }
 
@@ -308,7 +321,6 @@ namespace Vision.Player
             }
             if (animator != null)
             {
-                animator.Prone = downed;
                 Vector3 moved = cc.enabled ? cc.velocity : Vector3.zero;
                 animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing)));
             }

@@ -439,6 +439,7 @@ namespace Vision.Player
             // 11. Tree catalogues and the gait sheet (side-on, fully lit).
             yield return TreeSheets();
             yield return GaitSheet(player);
+            yield return CharacterSheets();
 
             // Frame time over a short run with everything live, and how long the map took to build.
             yield return Stage(player, V(L.Spawn), Vector2.up, wanderer, away);
@@ -724,6 +725,129 @@ namespace Vision.Player
             rt.Release();
             Destroy(rt);
             Destroy(sheet);
+        }
+
+        /// <summary>
+        /// The character models (every one, front and three-quarter) and the action clips (each at its key moment), rendered
+        /// off to the side in daylight, as contact sheets.
+        /// </summary>
+        IEnumerator CharacterSheets()
+        {
+            const int w = 260, h = 380;
+            var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            var camGo = new GameObject("Sheet Camera");
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.62f, 0.64f, 0.67f);
+            cam.nearClipPlane = 0.1f;
+            cam.farClipPlane = 60f;
+            cam.targetTexture = rt;
+            Light moon = FindAnyObjectByType<Light>();
+            float moonIntensity = moon != null ? moon.intensity : 0f;
+            Quaternion moonRot = moon != null ? moon.transform.rotation : Quaternion.identity;
+            Color ambient = RenderSettings.ambientLight;
+            if (moon != null)
+            {
+                moon.intensity = 1.7f;
+                moon.transform.rotation = Quaternion.Euler(35f, -40f, 0f);
+            }
+            RenderSettings.ambientLight = new Color(0.5f, 0.5f, 0.53f);
+            float scale = world.transform.lossyScale.x;
+
+            // Who: the survivor, Zach, then the NPCs.
+            var specs = new System.Collections.Generic.List<CharacterSpec> { CharacterSpec.Survivor(), CharacterSpec.Zach() };
+            foreach (string n in Vision.Game.Texts.NpcNames) specs.Add(CharacterSpec.Npc(n));
+            var made = new System.Collections.Generic.List<GameObject>();
+            GameObject Make(CharacterSpec spec, Vector3 at)
+            {
+                GameObject go = PropFactory.CreateCharacter(spec.Name, world.lowPolyMaterial, null);
+                go.transform.SetParent(world.transform, false);
+                go.transform.localPosition = at;
+                go.GetComponent<CharacterView>().SetSpec(spec);
+                go.GetComponent<HumanoidAnimator>().Drive(Vector3.zero, new Vector2(0f, 1f));
+                made.Add(go);
+                return go;
+            }
+            Vector3 origin = new Vector3(0f, 120f, 0f);
+            var figures = new GameObject[specs.Count];
+            for (int i = 0; i < specs.Count; i++) figures[i] = Make(specs[i], origin + new Vector3(i * 3f, 0f, 0f));
+            figures[1].GetComponent<ActionLayer>().Hold(PropKind.Machete);
+            yield return Wait(30);
+            int cols = specs.Count;
+            var lineup = new Texture2D(w * cols, h * 2, TextureFormat.RGB24, false);
+            for (int row = 0; row < 2; row++)
+                for (int i = 0; i < cols; i++)
+                {
+                    Vector3 dir = row == 0 ? Vector3.forward : new Vector3(1f, 0.3f, 1f).normalized;
+                    Vector3 target = figures[i].transform.position + Vector3.up * (1.0f * scale * specs[i].RootScale);
+                    cam.orthographicSize = 1.2f * scale;
+                    cam.transform.SetPositionAndRotation(target + dir * 10f, Quaternion.LookRotation(-dir));
+                    yield return new WaitForEndOfFrame();
+                    Blit(rt, lineup, i * w, (1 - row) * h);
+                }
+            lineup.Apply();
+            File.WriteAllBytes(Path.Combine(folder, "82_character_lineup.png"), lineup.EncodeToPNG());
+            Destroy(lineup);
+            foreach (GameObject go in made) Destroy(go);
+            made.Clear();
+            yield return null;
+
+            // What: each clip at its key moment, on a survivor (or Zach for his), three-quarter view.
+            var clips = new System.Collections.Generic.List<ActionClip>(ActionClips.All);
+            var zachClips = new System.Collections.Generic.HashSet<ActionClip>
+            {
+                ActionClips.Charge, ActionClips.Swing, ActionClips.SwingHeavy, ActionClips.Lunge, ActionClips.Carry, ActionClips.LiftBody, ActionClips.StakeBody,
+                ActionClips.Search, ActionClips.Kick, ActionClips.Burst, ActionClips.Vape, ActionClips.Hemp, ActionClips.Beam,
+            };
+            const int perRow = 10;
+            int rows = (clips.Count + perRow - 1) / perRow;
+            var sheet = new Texture2D(w * perRow, h * rows, TextureFormat.RGB24, false);
+            for (int i = 0; i < clips.Count; i++)
+            {
+                ActionClip clip = clips[i];
+                bool zach = zachClips.Contains(clip);
+                GameObject go = Make(zach ? CharacterSpec.Zach() : CharacterSpec.Survivor(), origin + new Vector3(60f, 0f, i * 4f));
+                var layer = go.GetComponent<ActionLayer>();
+                if (zach) layer.Hold(PropKind.Machete);
+                else if (clip == ActionClips.AimLong || clip == ActionClips.RecoilLong) layer.Hold(PropKind.Shotgun);
+                else if (clip == ActionClips.AimPistol || clip == ActionClips.RecoilPistol) layer.Hold(PropKind.Pistol);
+                else if (clip == ActionClips.Drink) layer.Hold(PropKind.Can);
+                else if (clip == ActionClips.Throw) layer.Hold(PropKind.Bottle);
+                else if (clip == ActionClips.Tablet) layer.Hold(PropKind.Tablet);
+                else layer.Hold(PropKind.Flashlight);
+                // The key moment: the release or strike of a one-shot, the middle key of a loop.
+                float at = clip.Events.Count > 0 ? clip.Events[0].t : clip.Keys[clip.Keys.Count / 2].t;
+                layer.Play(clip, 0f, true, at);
+                if (clip == ActionClips.Crawl || clip == ActionClips.Carried) go.GetComponent<HumanoidAnimator>().Prone = true;
+            }
+            yield return Wait(120);
+            for (int i = 0; i < clips.Count; i++)
+            {
+                GameObject go = made[i];
+                // Side-on from the right: forward is to the right of each tile.
+                Vector3 dir = new Vector3(1f, 0.12f, 0.15f).normalized;
+                Vector3 target = go.transform.position + Vector3.up * (0.95f * scale);
+                cam.orthographicSize = 1.25f * scale;
+                cam.transform.SetPositionAndRotation(target + dir * 10f, Quaternion.LookRotation(-dir));
+                yield return new WaitForEndOfFrame();
+                Blit(rt, sheet, (i % perRow) * w, (rows - 1 - i / perRow) * h);
+            }
+            sheet.Apply();
+            File.WriteAllBytes(Path.Combine(folder, "83_action_sheet.png"), sheet.EncodeToPNG());
+            Destroy(sheet);
+            foreach (GameObject go in made) Destroy(go);
+
+            if (moon != null)
+            {
+                moon.intensity = moonIntensity;
+                moon.transform.rotation = moonRot;
+            }
+            RenderSettings.ambientLight = ambient;
+            cam.targetTexture = null;
+            Destroy(camGo);
+            rt.Release();
+            Destroy(rt);
         }
 
         /// <summary>Writes what each character's renderer is doing, to diagnose a figure that does not show up.</summary>

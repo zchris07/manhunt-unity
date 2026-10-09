@@ -218,7 +218,7 @@ namespace Vision.World
 
             var skin = NoShadows(new GameObject("Mesh").AddComponent<SkinnedMeshRenderer>());
             skin.transform.SetParent(body, false);
-            skin.sharedMesh = mesh != null ? mesh : MannequinBuilder.Build();
+            skin.sharedMesh = mesh != null ? mesh : CharacterBuilder.Shared(CharacterSpec.Survivor());
             skin.sharedMaterial = material;
             skin.bones = bones;
             skin.rootBone = bones[(int)Bone.Pelvis];
@@ -230,6 +230,11 @@ namespace Vision.World
             var animator = root.AddComponent<HumanoidAnimator>();
             animator.body = body;
             animator.bones = bones;
+            // Actions (clips, held props) on top of the walk, chosen from the match by the view.
+            var layer = root.AddComponent<ActionLayer>();
+            layer.animator = animator;
+            layer.bones = bones;
+            root.AddComponent<CharacterView>();
             return root;
         }
 

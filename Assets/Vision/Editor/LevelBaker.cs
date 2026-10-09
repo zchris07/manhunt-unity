@@ -107,8 +107,10 @@ namespace Vision.EditorTools
 
             // One mannequin mesh for every character; the wanderer only differs by its entity material.
             Mesh mannequin = SaveMesh(MannequinBuilder.Build(), $"{PropMeshes}/Mannequin.asset");
-            library.wanderer = SavePrefab(PropFactory.CreateWanderer(entity, mannequin), "Wanderer");
-            library.player = SavePrefab(PropFactory.CreatePlayer(lowPoly, mannequin), "Player");
+            // Characters wear the survivor model (roles swap it at runtime).
+            Mesh survivor = SaveMesh(CharacterBuilder.Build(CharacterSpec.Survivor()), $"{PropMeshes}/Survivor.asset");
+            library.wanderer = SavePrefab(PropFactory.CreateWanderer(entity, survivor), "Wanderer");
+            library.player = SavePrefab(PropFactory.CreatePlayer(lowPoly, survivor), "Player");
             foreach (string stale in new[] { "Player", "Wanderer" })
                 if (AssetDatabase.LoadAssetAtPath<Mesh>($"{PropMeshes}/{stale}.asset") != null) AssetDatabase.DeleteAsset($"{PropMeshes}/{stale}.asset");
 

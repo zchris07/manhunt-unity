@@ -272,19 +272,28 @@ ditches and packed dirt on the paths.
 
 ## Characters
 
-`MannequinBuilder` builds one plain, dark grey mannequin of 222 triangles (the cap is 250): an
-8-sided torso, closed shoulder caps weighted half to the chest so the arms stay joined when they
-swing, a 6-sided head with a ridge down the face, 4-sided boxy limbs, mitten hands and wedge feet, with
-no clothing, hair, face or equipment. It is skinned to the 51-bone `HumanoidSkeleton`
-(Drillis-Contini proportions, 1.8 m), with joint rings weighted half to each bone. The player and the
-wanderer share the mesh; the wanderer uses the entity material.
-
-`GaitSolver` and `HumanoidAnimator` animate it procedurally: heel strike, flat foot and toe-off so the
-feet never slide, a flight phase when sprinting, arms swinging opposite the legs, two-bone leg IK with
-forward-only knees, and a torso that twists toward the aim (the legs walk backwards when you aim
-behind you). Walk 3.2 and sprint 5.2 world units per second. On slopes each foot plants on the ground
-under it and tilts to it, the pelvis drops so the downhill leg can reach, the torso leans into climbs
-while the head stays level, and the player is slower uphill and a little faster downhill.
+- **Models** (`CharacterSpec`, `CharacterBuilder`): every character is built on the same 51-bone rig, flat-shaded and
+  vertex-coloured, at most **500 triangles**: a ten-sided torso, an eight-sided head with jaw, brow, nose and ears,
+  six-sided limbs with knee, elbow and boot rings, mitten hands with a thumb, wedge feet. The **survivor** stays grey
+  and identical for everyone (tonal greys: darker trousers, gloves and soles). **Zach** is Jason Voorhees: 2 m, broad
+  and heavy-limbed with a slight hunch, a white hockey mask with red chevrons, eye holes and vents, a torn dark work
+  shirt hanging in tails, bare forearms and gloves. The **NPCs** use the original's look table (skin, hair, shirt,
+  jacket, trousers, shoes) with features to fine-tune later: hair styles, a backwards cap, glasses, a headset, hoods,
+  hi-vis bands, a star of life, a checked flannel, a jersey band.
+- **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, shotgun, golden pump, P250, 0.50 cal,
+  flashlight, magnifier, tablet, controller, bottle, book, jar, can, bar) held on hand sockets.
+- **Animation**: the procedural walk and sprint (`GaitSolver`, `HumanoidAnimator`) adapts to slopes and, at the
+  original's speeds, strides like a sprinter. On top of it, `ActionLayer` plays keyframed clips (`ActionClips`,
+  Catmull-Rom through the keys, eased blends, events such as "release", "hit" and "kick") on the bones each clip owns,
+  so the legs keep walking under an upper-body action; hits add a damped flinch from the blow's direction.
+  `CharacterView` picks the model, the held prop and the clip from the match: repairing, the lever, healing and
+  reviving, picking up, hiding, drinking, eating, talking, planting a trap, aiming and recoil, goggles, JARVIS,
+  stunned, coughing in Penjamin's gas, the scare, staked, carried, crawling; Zach's charge, light and heavy swings,
+  lunge, carry, lift, stake, search, kicks, burst, Penjamin, Hemp Battery and beam.
+- **Animation lab** (`CharacterTests`): every clip is played through at 240 Hz and checked for pops (bone speeds under
+  1000 deg/s, 2600 for strikes and throws), single-firing events and a clean end; key poses are checked for where the
+  hands go (in front for the lever, at the mouth when drinking, overhead on a stake, the gun pointing forward).
+  Captures `82_character_lineup` and `83_action_sheet` show every model and every clip.
 
 ## Polygon budget
 

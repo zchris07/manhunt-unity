@@ -24,6 +24,7 @@ namespace Vision.Player
             public Role Role;
             public GameObject Go;
             public HumanoidAnimator Animator;
+            public CharacterView View;
             public StunStars Stars;
             public Renderer[] Renderers;
             public Vector3 Shown;
@@ -38,7 +39,27 @@ namespace Vision.Player
 
         public Puppet For(int id) => puppets.TryGetValue(id, out Puppet p) ? p : null;
 
-        void LateUpdate() => Sync(Time.deltaTime);
+        MatchHost subscribed;
+
+        void LateUpdate()
+        {
+            MatchHost h = world != null ? MatchHost.For(world) : null;
+            if (h != subscribed)
+            {
+                if (subscribed != null) subscribed.EventRaised -= OnMatchEvent;
+                subscribed = h;
+                if (h != null) h.EventRaised += OnMatchEvent;
+            }
+            Sync(Time.deltaTime);
+        }
+
+        void OnMatchEvent(GameEvent e)
+        {
+            MatchSim sim = subscribed != null ? subscribed.Sim : null;
+            if (sim == null) return;
+            foreach (Puppet pup in puppets.Values)
+                if (pup.View != null) pup.View.OnEvent(e, sim.Get(pup.Id), sim);
+        }
 
         /// <summary>Creates, moves and removes the figures to match the players in the match.</summary>
         public void Sync(float dt)
@@ -69,8 +90,8 @@ namespace Vision.Player
             go.transform.SetParent(world.transform, false);
             go.layer = SandboxWorld.CharacterLayer;
             go.AddComponent<CharacterShadow>().isEntity = true;
-            // Zach is bigger (his own model comes with the characters milestone).
-            if (p.Role == Role.Hunter) go.transform.localScale = Vector3.one * (Balance.HunterRadius / Balance.SurvivorRadius) * 0.9f;
+            var view = go.GetComponent<CharacterView>();
+            view.SetSpec(p.Role == Role.Hunter ? CharacterSpec.Zach() : CharacterSpec.Survivor());
             var stars = go.AddComponent<StunStars>();
             if (starMaterial == null && world.entityMaterial != null)
             {
@@ -84,6 +105,7 @@ namespace Vision.Player
                 Role = p.Role,
                 Go = go,
                 Animator = go.GetComponent<HumanoidAnimator>(),
+                View = view,
                 Stars = stars,
                 Renderers = go.GetComponentsInChildren<Renderer>(),
                 Shown = new Vector3(p.Pos.x, 0f, p.Pos.y),
@@ -114,10 +136,9 @@ namespace Vision.Player
             // Ticks come at 30 Hz: ease toward the latest position (snap on long jumps, such as a teleport).
             Vector3 now = (target - before).sqrMagnitude > 9f ? target : Vector3.Lerp(before, target, 1f - Mathf.Exp(-dt * 18f));
             pup.Go.transform.localPosition = now;
+            pup.View.Present(p);
             if (pup.Animator != null)
             {
-                bool lying = p.Health == Game.Health.Downed || p.Health == Game.Health.Carried;
-                pup.Animator.Prone = lying;
                 Vector3 vLocal = dt > 0f ? (now - before) / dt : Vector3.zero;
                 Vector3 vWorld = world.transform.TransformVector(new Vector3(vLocal.x, 0f, vLocal.z));
                 pup.Animator.Drive(vWorld, new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing)));
@@ -129,6 +150,7 @@ namespace Vision.Player
 
         void OnDestroy()
         {
+            if (subscribed != null) subscribed.EventRaised -= OnMatchEvent;
             foreach (Puppet p in puppets.Values) Kill(p.Go);
             puppets.Clear();
             Kill(starMaterial);

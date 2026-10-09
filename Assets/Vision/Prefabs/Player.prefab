@@ -615,6 +615,8 @@ GameObject:
   m_Component:
   - component: {fileID: 8967193224926738719}
   - component: {fileID: 363634132608494811}
+  - component: {fileID: 5050273021259528254}
+  - component: {fileID: 504172917322990267}
   - component: {fileID: 3346030196746331178}
   - component: {fileID: 1602474456474461470}
   - component: {fileID: 8508204900453197659}
@@ -711,6 +713,83 @@ MonoBehaviour:
   turnSpeed: 420
   maxTwist: 80
   Prone: 0
+--- !u!114 &5050273021259528254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3290713459606778728}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e12e532bbb31dd4aaa90b7309adea08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Characters.ActionLayer
+  animator: {fileID: 363634132608494811}
+  bones:
+  - {fileID: 7131597232896233001}
+  - {fileID: 6084139701729474928}
+  - {fileID: 2645802353944121062}
+  - {fileID: 5925140852881026281}
+  - {fileID: 8129010046732662470}
+  - {fileID: 4375982497063563122}
+  - {fileID: 4471231545628548778}
+  - {fileID: 8362583014690131028}
+  - {fileID: 1631565802369970783}
+  - {fileID: 2133813228605470377}
+  - {fileID: 5360008483865009930}
+  - {fileID: 3475773888598869549}
+  - {fileID: 1037674265964823088}
+  - {fileID: 7678283741963774661}
+  - {fileID: 3315609631605264419}
+  - {fileID: 8841546050338643764}
+  - {fileID: 6776194157099637925}
+  - {fileID: 4681062744832536588}
+  - {fileID: 5436023162663122353}
+  - {fileID: 9122040509343872221}
+  - {fileID: 4923020740304133580}
+  - {fileID: 7506389116364482417}
+  - {fileID: 8897831576606501468}
+  - {fileID: 7146815139119345715}
+  - {fileID: 2881107226321917221}
+  - {fileID: 6779160164259057434}
+  - {fileID: 8044862188887363192}
+  - {fileID: 1320499784613834290}
+  - {fileID: 4022515780994392764}
+  - {fileID: 144402881904410713}
+  - {fileID: 346978731185834458}
+  - {fileID: 3195914316643752747}
+  - {fileID: 45839634015953499}
+  - {fileID: 638762292890765521}
+  - {fileID: 5813133308075311797}
+  - {fileID: 2415904380618505492}
+  - {fileID: 7127421433487858216}
+  - {fileID: 4647861820756466257}
+  - {fileID: 7802487127175272441}
+  - {fileID: 4459870786926085187}
+  - {fileID: 3818192606359655986}
+  - {fileID: 4643219175908327303}
+  - {fileID: 8456054030992562557}
+  - {fileID: 675153495113537889}
+  - {fileID: 3302109789157238673}
+  - {fileID: 775567206437372581}
+  - {fileID: 2708906980400670710}
+  - {fileID: 8937932034272695732}
+  - {fileID: 4522362561424416659}
+  - {fileID: 8091009302155625802}
+  - {fileID: 2931506249621829996}
+--- !u!114 &504172917322990267
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3290713459606778728}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a33f071157f734b439f54cab41aaee84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Vision.Runtime::Vision.Characters.CharacterView
 --- !u!143 &3346030196746331178
 CharacterController:
   m_ObjectHideFlags: 0
@@ -1237,7 +1316,7 @@ SkinnedMeshRenderer:
   m_Quality: 2
   m_UpdateWhenOffscreen: 0
   m_SkinnedMotionVectors: 1
-  m_Mesh: {fileID: 4300000, guid: fe621960a1e4b0f4281bea494919898b, type: 2}
+  m_Mesh: {fileID: 4300000, guid: a8e21a9d321793d46a4b3c7c63b15699, type: 2}
   m_Bones:
   - {fileID: 7131597232896233001}
   - {fileID: 6084139701729474928}
