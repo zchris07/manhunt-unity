@@ -257,6 +257,15 @@ namespace Vision.Characters
             .Key(0.45f, P().R(Bone.Spine, 26f).R(Bone.Head, 16f).R(Bone.UpperArmR, -74f, 0f, 8f).R(Bone.ForearmR, -30f).R(Bone.UpperArmL, -94f, 0f, -8f).R(Bone.ForearmL, -14f))
             .Blend(0.2f, 0.25f);
 
+        /// <summary>Searching a hiding spot (the original's search is instant): one rummage.</summary>
+        public static readonly ActionClip SearchOnce = new ActionClip("SearchOnce", 0.9f)
+            .Key(0f, Stand())
+            .Key(0.28f, Search.Keys[0].pose)
+            .Key(0.55f, Search.Keys[1].pose)
+            .Key(0.9f, Stand())
+            .Event(0.4f, "search")
+            .Blend(0.12f, 0.2f);
+
         /// <summary>Damaging a generator: stamping kicks ("kick" each time, loop).</summary>
         public static readonly ActionClip Kick = new ActionClip("Kick", 1.0f, true)
             .Key(0f, P().R(Bone.Spine, -4f).R(Bone.ThighR, -10f).R(Bone.ShinR, 20f))
@@ -301,7 +310,7 @@ namespace Vision.Characters
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, AimPistol, RecoilPistol,
             Goggles, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
-            Search, Kick, Burst, Vape, Hemp, Beam,
+            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam,
         };
     }
 }

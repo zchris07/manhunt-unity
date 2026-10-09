@@ -7,7 +7,8 @@ namespace Vision.Game
     /// <summary>Reads a generated level into the <see cref="SimMap"/> the match rules use (everything in build order).</summary>
     public static class SimMapBuilder
     {
-        public static SimMap Build(SandboxWorld w)
+        /// <param name="stakes">How many of the level's stakes the match uses (the original's survivors + 4, 6 to 12).</param>
+        public static SimMap Build(SandboxWorld w, int stakes = SandboxWorld.MaxStakes)
         {
             var map = new SimMap { HalfExtent = w.halfExtent };
             Transform root = w.transform;
@@ -37,7 +38,13 @@ namespace Vision.Game
             foreach (Door d in w.Doors) map.Doors.Add(new SimMap.DoorDef { A = d.a, B = d.b, StartsOpen = d.IsOpen, Shutter = d.blocksMovementWhenOpen });
             foreach (Barricade b in w.BarricadeList) map.Barricades.Add(new SimMap.BarricadeDef { A = b.a, B = b.b, Pos = (b.a + b.b) * 0.5f });
             foreach (WindowPiece win in w.Windows) map.Windows.Add(new SimMap.WindowDef { A = win.a, B = win.b });
-            foreach (Transform s in w.Stakes) map.Stakes.Add(Local(s.position));
+            for (int i = 0; i < w.Stakes.Count; i++)
+            {
+                bool used = i < stakes;
+                // The ones the match doesn't use are taken away.
+                if (w.Stakes[i] != null && w.Stakes[i].gameObject.activeSelf != used) w.Stakes[i].gameObject.SetActive(used);
+                if (used) map.Stakes.Add(Local(w.Stakes[i].position));
+            }
             foreach (Transform n in w.Notes) map.Notes.Add(Local(n.position));
 
             if (w.Layout != null)

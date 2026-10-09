@@ -63,8 +63,8 @@ namespace Vision.Game
             if (world == null || world.Layout == null) return;
             Role role = Local != null && MatchState.Current.TestingMode ? Local.Role : Role.Survivor;
             Geometry = new WorldGeometry(world);
-            SimMap map = SimMapBuilder.Build(world);
             ResolvedBalance bal = MatchRules.Resolve(4, 1);
+            SimMap map = SimMapBuilder.Build(world, MatchRules.StakeCount(bal.Survivors));
             Sim = new MatchSim(map, Geometry, bal, MatchState.Current.TestingMode, world.seed);
             Geometry.BrokenWindows = Sim.WindowsBroken;
             Vector2 at = world.Player != null ? PlayerPlane() : (map.SurvivorSpawns.Count > 0 ? map.SurvivorSpawns[0] : Vector2.zero);
@@ -161,7 +161,11 @@ namespace Vision.Game
             ExitGate.MatchPowered = Sim.Gate.Powered;
             if (world.Gate != null) world.Gate.SetState(Sim.Gate.Progress, Sim.Gate.Open);
             for (int i = 0; i < Sim.Doors.Length && i < world.Doors.Count; i++)
-                if (world.Doors[i] != null && (force || world.Doors[i].IsOpen != Sim.Doors[i])) world.Doors[i].SetOpen(Sim.Doors[i]);
+            {
+                if (world.Doors[i] == null) continue;
+                if (force || world.Doors[i].IsOpen != Sim.Doors[i]) world.Doors[i].SetOpen(Sim.Doors[i]);
+                if (world.Doors[i].IsBroken != Sim.DoorBroken[i]) world.Doors[i].SetBroken(Sim.DoorBroken[i]);
+            }
             for (int i = 0; i < Sim.Barricades.Length && i < world.BarricadeList.Count; i++)
                 if (world.BarricadeList[i] != null) world.BarricadeList[i].SetState((int)Sim.Barricades[i]);
             for (int i = 0; i < Sim.LootTaken.Length && i < world.Pickups.Count; i++)

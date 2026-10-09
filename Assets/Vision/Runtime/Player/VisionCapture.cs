@@ -430,6 +430,35 @@ namespace Vision.Player
                     yield return Shot("81_testing_dummies");
                     host.Sim.ClearDummies();
                 }
+                // A survivor on a stake (its aura shows to teammates), then the results screen.
+                if (host.Sim.Map.Stakes.Count > 0)
+                {
+                    Vector2 stake = host.Sim.Map.Stakes[0];
+                    SimPlayer zd = host.SpawnDummy(Role.Hunter);
+                    SimPlayer sd = host.SpawnDummy(Role.Survivor);
+                    if (zd != null && sd != null)
+                    {
+                        host.Sim.Teleport(zd.Id, stake + new Vector2(1.2f, -0.8f));
+                        sd.Pos = stake;
+                        sd.Facing = -Mathf.PI / 2f;
+                        host.Sim.StakeSurvivor(zd, sd, 0);
+                        yield return Stage(player, new Vector3(stake.x, 0f, stake.y - 3.2f), Vector2.up, wanderer, away);
+                        yield return new WaitForSeconds(1.2f);
+                        gameHud.Refresh();
+                        yield return Shot("84_staked");
+                        host.Sim.ClearDummies();
+                    }
+                }
+                var fake = new MatchResult { Winner = Winner.Survivors, Reason = "3 escaped, 1 eliminated", DurationSec = 1043, GeneratorsRepaired = 5, GeneratorsRequired = 5 };
+                fake.Stats.Add((1, "Zach", Role.Hunter, new MatchStats { Outcome = "hunter", Hits = 9, Downs = 4, Stakes = 2, StunnedTimes = 5, GensDamaged = 3 }));
+                fake.Stats.Add((2, "Ana", Role.Survivor, new MatchStats { Outcome = "escaped", RepairSec = 140f, Heals = 2, Revives = 1, Unstakes = 1, Stuns = 3, TimeAlive = 1000f }));
+                fake.Stats.Add((3, "Ben", Role.Survivor, new MatchStats { Outcome = "eliminated", RepairSec = 61f, Heals = 0, Revives = 0, Unstakes = 0, Stuns = 1, TimeAlive = 712f }));
+                fake.Stats.Add((4, "Cam", Role.Survivor, new MatchStats { Outcome = "escaped", RepairSec = 88f, Heals = 1, Revives = 0, Unstakes = 1, Stuns = 2, TimeAlive = 1000f }));
+                gameHud.ShowResults(fake);
+                yield return Wait(5);
+                yield return Shot("85_results");
+                gameHud.ShowMainMenu();
+                gameHud.StartTesting(false);
                 gameHud.visible = false;
             }
 

@@ -212,6 +212,7 @@ namespace Vision.World
             Step("power", BuildPowerLine);
             Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); });
             Step("lights", () => { BuildGenerators(); BuildLights(); });
+            Step("stakes", BuildStakes);
             Step("trees", BuildTrees);
             Step("rocks", BuildRocks);
             Step("supplies", BuildPickups);
@@ -1014,6 +1015,72 @@ namespace Vision.World
             var objective = gen.AddComponent<GeneratorObjective>();
             objective.body = gen.transform;
             objective.glow = glow;
+        }
+
+        /// <summary>The most stakes a map has (the original's: survivors + 4, between 6 and 12).</summary>
+        public const int MaxStakes = 12;
+
+        /// <summary>
+        /// The original's scarecrow stakes: three candidate spots in each clearing but the spawn's (at 0.55 of its radius),
+        /// none near a generator (3.9 m), a cabin, a campfire, the building or the spawn (15 m), then spread out by always
+        /// taking the candidate farthest from those already chosen. Up to <see cref="MaxStakes"/>; a match uses the first
+        /// survivors + 4 of them (the best spread).
+        /// </summary>
+        void BuildStakes()
+        {
+            System.Random r = FeatureRng(3);
+            float R(float a, float b) => a + (float)r.NextDouble() * (b - a);
+            var candidates = new List<Vector2>();
+            for (int i = 1; i < Layout.Clearings.Count; i++)
+            {
+                MapLayout.Clearing c = Layout.Clearings[i];
+                for (int k = 0; k < 3; k++)
+                {
+                    float a = R(0f, Mathf.PI * 2f);
+                    candidates.Add(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * c.Radius * 0.55f);
+                }
+            }
+            bool Ok(Vector2 p)
+            {
+                if (Mathf.Abs(p.x) > halfExtent - 3f || Mathf.Abs(p.y) > halfExtent - 3f) return false;
+                if (Layout.LakeDepth(p) > -1f || Layout.Yard.Contains(p) || Layout.Building.Contains(p)) return false;
+                foreach (Transform g in Generators)
+                {
+                    Vector3 l = transform.InverseTransformPoint(g.position);
+                    if (Vector2.Distance(new Vector2(l.x, l.z), p) < 130f * MapLayout.Unit) return false;
+                }
+                foreach (MapLayout.Cabin c in Layout.Cabins) if (Expand(c.Area, 40f * MapLayout.Unit).Contains(p)) return false;
+                foreach (Vector2 f in Layout.Campfires) if (Vector2.Distance(f, p) < 90f * MapLayout.Unit) return false;
+                if (Vector2.Distance(Layout.Spawn, p) < 500f * MapLayout.Unit) return false;
+                return !blocked.AnyWithin(p, 1.0f);
+            }
+            var pool = candidates.FindAll(Ok);
+            var chosen = new List<Vector2>();
+            while (chosen.Count < MaxStakes && pool.Count > 0)
+            {
+                int bi = 0;
+                float bd = -1f;
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    float d = (float)r.NextDouble();
+                    if (chosen.Count > 0)
+                    {
+                        d = float.MaxValue;
+                        foreach (Vector2 s in chosen) d = Mathf.Min(d, Vector2.Distance(s, pool[i]));
+                    }
+                    if (d > bd) { bd = d; bi = i; }
+                }
+                chosen.Add(pool[bi]);
+                pool.RemoveAt(bi);
+            }
+            Transform parent = Group("Stakes");
+            foreach (Vector2 p in chosen)
+            {
+                GameObject go = Piece("Stake", LowPolyModels.Stake(r), parent, Upright(p, 0.2f), R(0f, 360f));
+                AddBox(go, new Vector3(0f, 1.2f, 0f), new Vector3(0.16f, 2.4f, 0.16f));
+                Stakes.Add(go.transform);
+                blocked.Add(p);
+            }
         }
 
         void BuildLights()

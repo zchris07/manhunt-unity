@@ -160,6 +160,7 @@ namespace Vision.Characters
                     break;
                 case EventKind.Talk:
                     if (e.A == self.Id && e.Text == "burst") PlayOnce(ActionClips.Burst);
+                    else if (e.A == self.Id && e.Text == "search") PlayOnce(ActionClips.SearchOnce);
                     break;
                 case EventKind.Gas:
                     if (e.A == self.Id && e.Text != null && (e.Text == "vape" || e.Text == "nic")) PlayOnce(ActionClips.Vape);

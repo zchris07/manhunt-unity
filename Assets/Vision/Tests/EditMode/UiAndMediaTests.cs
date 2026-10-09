@@ -174,6 +174,50 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheLevel_HasSpreadOutStakes_AndTheMatchUsesSurvivorsPlusFour()
+        {
+            SandboxWorld world = NewWorld();
+            Assert.That(world.Stakes.Count, Is.InRange(6, SandboxWorld.MaxStakes), "scarecrow stakes in the clearings");
+            for (int i = 0; i < world.Stakes.Count; i++)
+            {
+                Vector3 a = world.transform.InverseTransformPoint(world.Stakes[i].position);
+                Assert.Greater(Vector2.Distance(new Vector2(a.x, a.z), world.Layout.Spawn), 14.9f, "none by the spawn");
+                for (int j = i + 1; j < world.Stakes.Count; j++)
+                {
+                    Vector3 b = world.transform.InverseTransformPoint(world.Stakes[j].position);
+                    float d = Vector2.Distance(new Vector2(a.x, a.z), new Vector2(b.x, b.z));
+                    Assert.Greater(d, 4f, "never on top of each other");
+                    if (j < MatchRules.StakeCount(4)) Assert.Greater(d, 15f, "the ones a match uses are spread across the map");
+                }
+            }
+            MatchHost host = MatchHost.For(world);
+            host.Begin();
+            Assert.AreEqual(Mathf.Min(world.Stakes.Count, MatchRules.StakeCount(4)), host.Sim.Map.Stakes.Count);
+            int shown = world.Stakes.Count(s => s.gameObject.activeSelf);
+            Assert.AreEqual(host.Sim.Map.Stakes.Count, shown, "the spare stakes are taken away");
+        }
+
+        [Test]
+        public void TheResults_ShowTheWinner_TheTime_AndEveryonesNumbers()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            var r = new MatchResult { Winner = Winner.Hunters, Reason = "0 escaped, 1 eliminated", DurationSec = 754, GeneratorsRepaired = 2, GeneratorsRequired = 5 };
+            r.Stats.Add((1, "Zach", Role.Hunter, new MatchStats { Outcome = "hunter", Hits = 7, Downs = 3, Stakes = 2 }));
+            r.Stats.Add((2, "Ana", Role.Survivor, new MatchStats { Outcome = "eliminated", RepairSec = 61.4f, Heals = 1, Revives = 1, TimeAlive = 640f }));
+            hud.ShowResults(r);
+            Assert.IsTrue(hud.ResultsShowing);
+            var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true).Select(t => t.text).ToList();
+            Assert.Contains("ZACH WINS", texts);
+            Assert.IsTrue(texts.Any(t => t.Contains("12:34") && t.Contains("generators 2/5")), "the time and the generators");
+            Assert.Contains("Sacrificed", texts);
+            Assert.Contains("61", texts, "repair seconds");
+            Assert.Contains("10m", texts, "time alive");
+            Assert.Contains("7", texts, "Zach's hits");
+        }
+
+        [Test]
         public void MatchEvents_BecomePicturesAndSounds()
         {
             SandboxWorld world = NewWorld();

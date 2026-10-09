@@ -169,7 +169,8 @@ namespace Vision.Player
             if (pinned || p.PlaceVersion != placeSeen)
             {
                 placeSeen = p.PlaceVersion;
-                PlaceAvatar(p.Pos);
+                Vector3 off = PlayerPuppets.StakeOffset(p);
+                PlaceAvatar(p.Pos + new Vector2(off.x, off.z));
                 verticalSpeed = 0f;
             }
             else MoveAvatar(p, cmd, dt);

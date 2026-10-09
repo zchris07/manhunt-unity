@@ -27,6 +27,22 @@ namespace Vision.World
 
         public void Toggle() => SetOpen(!open);
 
+        /// <summary>Smashed in (Zach's two swipes): the panel is gone and the doorway is open for good.</summary>
+        public bool IsBroken { get; private set; }
+
+        public void SetBroken(bool broken)
+        {
+            if (IsBroken == broken) return;
+            IsBroken = broken;
+            if (hinge != null) hinge.gameObject.SetActive(!broken);
+            if (broken)
+            {
+                if (occluder != null) occluder.Blocking = false;
+                if (blocker != null) blocker.enabled = false;
+            }
+            else SetOpen(open);
+        }
+
         public void SetOpen(bool value)
         {
             open = value;

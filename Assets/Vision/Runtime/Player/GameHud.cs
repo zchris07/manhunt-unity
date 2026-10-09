@@ -47,7 +47,7 @@ namespace Vision.Player
         RectTransform root;
         RectTransform healthFill, shieldFill, staminaFill, holdFill;
         RawImage healthImage, staminaImage;
-        Text healthLabel, healthValue, shieldValue, staminaValue, prompt, objectiveTitle, objectiveSub, compass, notices, modeLine;
+        Text healthLabel, staminaLabel, healthValue, shieldValue, staminaValue, prompt, objectiveTitle, objectiveSub, compass, notices, modeLine;
         GameObject promptBox, holdBar, downedScreen, shieldRow, generating, fxPanel;
         MapHud map;
         bool needsMapBind;
@@ -176,7 +176,7 @@ namespace Vision.Player
             HudPanel(vitalsBox);
             healthFill = Bar(vitalsBox, "Health", new Vector2(18f, -16f), survivorHp, out healthValue, out healthImage, out healthLabel, out _);
             shieldFill = Bar(vitalsBox, "Shield", new Vector2(18f, -52f), shieldTex, out shieldValue, out _, out _, out shieldRow);
-            staminaFill = Bar(vitalsBox, "Stamina", new Vector2(18f, -88f), staminaTex, out staminaValue, out staminaImage, out _, out _);
+            staminaFill = Bar(vitalsBox, "Stamina", new Vector2(18f, -88f), staminaTex, out staminaValue, out staminaImage, out staminaLabel, out _);
 
             // Inventory, bottom centre: eight slots, twelve in testing mode; the selected one is outlined (left mouse uses it).
             strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(Inventory.Slots * 82f, 86f));
@@ -230,6 +230,7 @@ namespace Vision.Player
 
             BuildFxPanel(root);
             map = new MapHud(root, kit.Mono);
+            BuildResults(root);
             BuildMenu(root);
             BuildMainMenu(root);
             BuildHowToPlay(root);
@@ -411,9 +412,21 @@ namespace Vision.Player
             SetFill(shieldFill, me.Shield);
             shieldValue.text = Mathf.CeilToInt(me.Shield * 100f - 0.01f).ToString();
             float maxStamina = MoveState.MaxStamina(me.Role, me.Move.BoostT);
-            SetFill(staminaFill, me.Move.Stamina / maxStamina);
-            staminaImage.texture = me.Move.StaminaLock > 0f || me.Move.SprintBlocked ? staminaLocked : me.Move.BoostT > 0f ? staminaBoost : staminaTex;
-            staminaValue.text = me.Move.Stamina.ToString("0.0");
+            if (me.HideState == 2)
+            {
+                // Hidden: the bar shows your breath (Space holds it; run out and you gasp).
+                staminaLabel.text = "BREATH";
+                SetFill(staminaFill, me.Breath);
+                staminaImage.texture = me.HoldingBreath ? staminaBoost : me.GaspCd > 0f ? staminaLocked : staminaTex;
+                staminaValue.text = Mathf.RoundToInt(me.Breath * 100f).ToString();
+            }
+            else
+            {
+                staminaLabel.text = "STAMINA";
+                SetFill(staminaFill, me.Move.Stamina / maxStamina);
+                staminaImage.texture = me.Move.StaminaLock > 0f || me.Move.SprintBlocked ? staminaLocked : me.Move.BoostT > 0f ? staminaBoost : staminaTex;
+                staminaValue.text = me.Move.Stamina.ToString("0.0");
+            }
 
             // Inventory (survivors).
             Inventory inv = me.Inv;
@@ -477,6 +490,7 @@ namespace Vision.Player
             vignette.color = new Color(0.55f, 0.02f, 0.02f, Mathf.Clamp01(hurt * 0.85f + flash * 0.5f));
             downedScreen.SetActive(downed);
             fxPanel.SetActive(host != null && host.Sim != null && host.Sim.TestMode && me.Role != Role.Spectator && !MainMenuOpen);
+            RefreshMatch(me);
         }
 
         static string StripColor(string s) => System.Text.RegularExpressions.Regex.Replace(s, "<[^>]+>", "");

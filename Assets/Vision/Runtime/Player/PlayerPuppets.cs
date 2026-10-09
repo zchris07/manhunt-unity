@@ -115,6 +115,14 @@ namespace Vision.Player
             return pup;
         }
 
+        /// <summary>A staked survivor stands just in front of the post (the match puts them on it).</summary>
+        public static Vector3 StakeOffset(SimPlayer p)
+        {
+            if (p.Health != Game.Health.Staked) return Vector3.zero;
+            Vector2 d = p.FacingDir * 0.2f;
+            return new Vector3(d.x, 0f, d.y);
+        }
+
         Vector3 Ground(Vector2 at)
         {
             float h = world.Terrain != null ? world.Terrain.Height(at.x, at.y) : 0f;
@@ -130,8 +138,9 @@ namespace Vision.Player
                 foreach (Renderer r in pup.Renderers) if (r != null) r.enabled = visible;
             }
             Vector3 target = Ground(p.Pos);
-            // Carried over Zach's shoulder.
+            // Carried over Zach's shoulder; tied to the front of a stake.
             if (p.Health == Game.Health.Carried) target += Vector3.up * 1.05f;
+            target += StakeOffset(p);
             Vector3 before = pup.Go.transform.localPosition;
             // Ticks come at 30 Hz: ease toward the latest position (snap on long jumps, such as a teleport).
             Vector3 now = (target - before).sqrMagnitude > 9f ? target : Vector3.Lerp(before, target, 1f - Mathf.Exp(-dt * 18f));

@@ -186,6 +186,7 @@ namespace Vision.Player
             map?.SetOpen(false);
             MainMenuOpen = true;
             mainMenu.SetActive(true);
+            if (results != null) results.SetActive(false);
             ShowLandingError("", false);
             GameSession.Reset();
             Overlays?.ClearAll();

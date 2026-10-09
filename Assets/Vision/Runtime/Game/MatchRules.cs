@@ -51,6 +51,9 @@ namespace Vision.Game
             return new ResolvedBalance(H, S, pressure, scale, required, repair, hunterSpeed, stun, escape);
         }
 
+        /// <summary>The original's stake count: survivors + 4, between 6 and 12.</summary>
+        public static int StakeCount(int survivors) => Mathf.Clamp(survivors + 4, 6, 12);
+
         /// <summary>Zach's permanent speed bonus from the survivors he has staked.</summary>
         public static float HunterStakeMul(int stakes) => 1f + stakes * Balance.Hunter.StakeBuff;
 

@@ -140,7 +140,16 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Generators and the gate**: hold E for the original's repair time (70 s, scaled to the player count;
   +25% for each extra survivor on it). With enough running, hold E at the lever for 20 s and the gate
   opens onto the yard; walking out escapes.
-- **Hiding**: tall grass, wardrobes, beds, lockers and barrels. **Pallets** beside doorways (Space).
+- **Stakes**: the original's scarecrow stakes, three candidate spots per clearing (not the spawn's), away from
+  generators, cabins, campfires and the spawn, spread out by farthest-first picking; a match uses survivors + 4 of
+  them (6 to 12). Zach carries the downed there; teammates see a pulsing red ring over a staked survivor anywhere.
+- **Generators under attack**: Zach kicks a part-repaired generator (2 s): 8% off at once, then it keeps running
+  down until a survivor works on it.
+- **Hiding**: tall grass, wardrobes, beds, lockers and barrels (in 0.6 s, out 0.5 s). Hidden, the stamina bar shows
+  your breath: Space holds it, and running out makes you gasp. Zach searches a spot and drags out whoever is in it.
+  **Pallets** beside doorways (Space).
+- **Results**: the original's end screen (who won and why, the time, the generators, and each player's numbers), and
+  a match clock under the compass.
 - The **wanderer** walks a loop near the spawn and takes 20% when it walks into you (the NPCs replace it).
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
 

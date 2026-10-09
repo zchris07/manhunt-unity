@@ -414,6 +414,79 @@ namespace Vision.Tests
             Assert.AreEqual(96, total, "the original's 96 supplies on the map");
         }
 
+        [Test]
+        public void Zach_KicksAGenerator_BackAndItRegresses_UntilSomeoneWorksOnIt()
+        {
+            var rig = new SimRig(2, 1);
+            SimPlayer zach = rig.P(1), a = rig.P(2);
+            rig.Place(rig.P(3), 2500f, 2500f);
+            rig.Place(a, 2500f, -2500f);
+            rig.Sim.Gens[0].Progress = 0.5f;
+            rig.Place(zach, 640f, 0f);
+            rig.Run(2);
+            Assert.AreEqual(Prompt.DamageGen, zach.Prompt);
+            rig.Tap(1, Btn.Interact);
+            Assert.AreEqual(ActionKind.DamageGen, zach.Action);
+            Assert.AreEqual(MoveMode.Locked, rig.Sim.MoveModeFor(zach), "he stands still to kick it");
+            rig.Run(Secs(Balance.Hunter.DamageGenTime) + 2);
+            float after = rig.Sim.Gens[0].Progress;
+            Assert.AreEqual(0.5f - Balance.Objectives.DamageRegressInstant, after, 0.01f, "8% off at once");
+            Assert.IsTrue(rig.Sim.Gens[0].Regressing);
+            Assert.AreEqual(1, zach.Stats.GensDamaged);
+            rig.Place(zach, 2500f, -2400f);
+            rig.Run(Secs(60f));
+            Assert.AreEqual(after - Balance.Objectives.RegressPerSec * 60f, rig.Sim.Gens[0].Progress, 0.01f, "then it keeps running down");
+            rig.Place(a, 640f, 0f);
+            rig.Hold(2, Btn.Interact, 10);
+            Assert.IsFalse(rig.Sim.Gens[0].Regressing, "until a survivor works on it");
+        }
+
+        [Test]
+        public void Hiding_TakesAMoment_BreathRunsOut_AndZachDragsThemOut()
+        {
+            var rig = new SimRig(1, 1);
+            rig.Map.HidingSpots.Add(new SimMap.HideDef { Pos = SimRig.U(300, 300), Exit = SimRig.U(300, 250), Kind = Vision.World.HidingSpot.Kind.Locker, Reach = 0.5f });
+            var sim = new MatchSim(rig.Map, rig.Geo, MatchRules.Resolve(1, 1), false, 3);
+            sim.AddPlayer(1, "Zach", Role.Hunter, SimRig.U(2500, -2500));
+            SimPlayer s = sim.AddPlayer(2, "S", Role.Survivor, SimRig.U(300, 260));
+            void Run(int ticks, Btn b, int id = 2)
+            {
+                for (int t = 0; t < ticks; t++)
+                {
+                    foreach (SimPlayer p in sim.Order) sim.SubmitInput(p.Id, p.Id == id ? new InputCmd { Buttons = b, AimDist = 100f } : new InputCmd { AimDist = 100f });
+                    sim.Step();
+                    sim.Events.Clear();
+                }
+            }
+            Run(2, Btn.None);
+            Assert.AreEqual(Prompt.Hide, s.Prompt);
+            Run(1, Btn.Interact);
+            Run(Secs(Balance.Hiding.EnterTime) + 2, Btn.None);
+            Assert.AreEqual(2, s.HideState, "hidden after 0.6 s");
+            Run(Secs(Balance.Hiding.BreathMax * 0.5f), Btn.Space);
+            Assert.AreEqual(0.5f, s.Breath, 0.05f, "holding your breath uses it up");
+            Assert.IsTrue(s.HoldingBreath);
+            Run(Secs(Balance.Hiding.BreathMax * 0.6f), Btn.Space);
+            Assert.IsFalse(s.HoldingBreath, "it runs out");
+            Assert.Greater(s.GaspCd, 0f, "a gasp");
+
+            SimPlayer zach = sim.Get(1);
+            sim.Teleport(1, SimRig.U(300, 230));
+            Run(2, Btn.None, 1);
+            Assert.AreEqual(Prompt.Search, zach.Prompt);
+            Run(1, Btn.Interact, 1);
+            Assert.AreEqual(0, s.HideState, "dragged out");
+            Assert.AreEqual(Health.Wounded, s.Health, "and cut");
+        }
+
+        [Test]
+        public void Stakes_AreTheOriginalsCount()
+        {
+            Assert.AreEqual(6, MatchRules.StakeCount(1));
+            Assert.AreEqual(8, MatchRules.StakeCount(4));
+            Assert.AreEqual(12, MatchRules.StakeCount(9));
+        }
+
         // ---------------------------------------------------------------- testing dummies
 
         [Test]
