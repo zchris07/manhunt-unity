@@ -155,6 +155,16 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
   stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
   wisps where they ran and blood where the hurt have been, fading over ten seconds.
+- **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
+  golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, cooldown shades, charges and
+  meters, his status lines (speed lost to his wounds, recovery, stunned, abilities off) and the generators he has
+  heard being repaired. The machete charges with a red ring at his feet and a rising swell, swings with a swish
+  (heavier when charged) and leaves a smear (pale, or dark blood-red when heavy); the lunge leaves speed lines; the
+  Burst is a purple concave lens racing across the map through walls with fading echoes; Penjamin rolls out soft
+  yellow puffs along a narrow cone (blue for 50 Nic) that show above the dark; the Hemp Battery is a pulsing green
+  disc; the Hemp Beam gathers an orb then fires a white-green beam with the original's repulsor loop. Guns flash and
+  leave pellet tracers. Sounds come from the fetched CC0 packs, picked at random per cue with pitch and volume
+  jitter, placed and panned where they happen.
 - **Results**: the original's end screen (who won and why, the time, the generators, and each player's numbers), and
   a match clock under the compass.
 - The **wanderer** walks a loop near the spawn and takes 20% when it walks into you (the NPCs replace it).

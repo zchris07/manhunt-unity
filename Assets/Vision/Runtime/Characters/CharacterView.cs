@@ -64,7 +64,7 @@ namespace Vision.Characters
             }
 
             // Props: Zach's machete; a survivor's selected item, or the flashlight.
-            if (zach) Layer.Hold(PropKind.Machete);
+            if (zach) Layer.Hold(p.Pump > 0 ? PropKind.GoldenPump : PropKind.Machete);
             else
             {
                 Inventory.Slot s = p.Selected;

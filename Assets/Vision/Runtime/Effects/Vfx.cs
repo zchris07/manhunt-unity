@@ -39,6 +39,9 @@ namespace Vision.Effects
             public readonly List<Color> RibbonCols = new List<Color>();
             public readonly List<(int start, int count, float width)> Ribbons = new List<(int, int, float)>();
             public readonly List<(Vector3 pos, float size, Color color)> Dots = new List<(Vector3, float, Color)>();
+            // Triangles for this frame (three vertices and colours each).
+            public readonly List<Vector3> TriV = new List<Vector3>();
+            public readonly List<Color> TriC = new List<Color>();
             public Mesh Mesh;
             public Material Material;
             public GameObject Go;
@@ -186,10 +189,46 @@ namespace Vision.Effects
             Get(masked, senses, blend).Dots.Add((at, size, color));
         }
 
+        /// <summary>A flat four-cornered shape for this frame (the Burst's lens is built of these).</summary>
+        public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        {
+            Batch bt = Get(masked, senses, blend);
+            bt.TriV.Add(a); bt.TriV.Add(b); bt.TriV.Add(c);
+            bt.TriV.Add(a); bt.TriV.Add(c); bt.TriV.Add(d);
+            for (int i = 0; i < 6; i++) bt.TriC.Add(color);
+        }
+
+        /// <summary>A band on the ground between two radii, from an angle (radians, on the ground plane) for a sweep.</summary>
+        public void Arc(Vector3 centre, float r0, float r1, float start, float sweep, Color color, bool masked = true, Blend blend = Blend.Additive, bool senses = false)
+        {
+            if (Mathf.Abs(sweep) < 1e-4f) return;
+            int n = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(sweep) / (Mathf.PI / 16f)));
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = start + sweep * i / n, a1 = start + sweep * (i + 1) / n;
+                Vector3 d0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)), d1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                Quad(centre + d0 * r0, centre + d0 * r1, centre + d1 * r1, centre + d1 * r0, color, masked, senses, blend);
+            }
+        }
+
+        /// <summary>A thin ring on the ground for this frame.</summary>
+        public void Circle(Vector3 centre, float r, float width, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        {
+            Arc(centre, r - width * 0.5f, r + width * 0.5f, 0f, Mathf.PI * 2f, color, masked, blend, senses);
+        }
+
+        /// <summary>A filled disc on the ground for this frame.</summary>
+        public void Disc(Vector3 centre, float r, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        {
+            Arc(centre, 0f, r, 0f, Mathf.PI * 2f, color, masked, blend, senses);
+        }
+
         public void Clear()
         {
             foreach (Batch b in batches.Values)
             {
+                b.TriV.Clear();
+                b.TriC.Clear();
                 b.Dots.Clear();
                 b.Particles.Clear();
                 b.Rings.Clear();
@@ -241,6 +280,15 @@ namespace Vision.Effects
                 b.RibbonCols.Clear();
                 foreach (var (pos, size, color) in b.Dots) Quad(b, pos, right * size, up * size, color);
                 b.Dots.Clear();
+                for (int i = 0; i < b.TriV.Count; i++)
+                {
+                    b.T.Add(b.V.Count);
+                    b.V.Add(b.TriV[i]);
+                    b.C.Add(b.TriC[i]);
+                    b.U.Add(Vector2.zero);
+                }
+                b.TriV.Clear();
+                b.TriC.Clear();
                 b.Mesh.Clear();
                 if (b.V.Count == 0) continue;
                 b.Mesh.indexFormat = b.V.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;

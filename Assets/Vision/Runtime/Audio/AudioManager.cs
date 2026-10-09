@@ -155,6 +155,52 @@ namespace Vision.Audio
             return s;
         }
 
+        /// <summary>
+        /// Plays a sound cue (<see cref="SoundBank"/>) from a point on the map (original units): a random variant, a
+        /// little pitch and volume jitter, loudness falling off from the cue's near distance to its radius, panned left or
+        /// right of the listener. Without a point it plays at full volume in the middle.
+        /// </summary>
+        public bool PlayCue(string cue, Vector2? at = null, float volume = 1f)
+        {
+            if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue c) || c.Files.Length == 0) return false;
+            AudioClip clip = SoundBank.Load(c.Files[UnityEngine.Random.Range(0, c.Files.Length)]);
+            if (clip == null) return false;
+            float pitch = c.Pitch * (1f + UnityEngine.Random.Range(-c.PitchJitter, c.PitchJitter));
+            float vol = c.Volume * volume * (1f + UnityEngine.Random.Range(-c.VolumeJitter, c.VolumeJitter));
+            bool ok = PlayClipAt(clip, at, vol, pitch, c.Near, c.Radius);
+            if (ok) LastPlayed = cue;
+            return ok;
+        }
+
+        /// <summary>Plays a clip once from a point (original units), falling off between near and radius; null: everywhere.</summary>
+        public bool PlayClipAt(AudioClip clip, Vector2? at, float volume, float pitch = 1f, float near = 150f, float radius = 1400f)
+        {
+            if (clip == null || volume <= 0f) return false;
+            float gain = 1f, pan = 0f;
+            if (at.HasValue)
+            {
+                Vector2 rel = at.Value - Listener;
+                gain = Falloff(rel.magnitude, near, radius, 1.4f);
+                if (gain <= 0.001f) return false;
+                pan = Mathf.Clamp(rel.x / Mathf.Max(1f, radius) * 2.5f, -0.8f, 0.8f);
+            }
+            AudioSource s = oneShots.Find(x => x != null && !x.isPlaying);
+            if (s == null)
+            {
+                if (oneShots.Count >= 24) return false;
+                s = NewSource("One-shot");
+                oneShots.Add(s);
+            }
+            s.clip = clip;
+            s.loop = false;
+            s.pitch = pitch;
+            s.panStereo = pan;
+            s.volume = Mathf.Clamp01(volume * gain) * SfxGain;
+            s.Play();
+            Played++;
+            return true;
+        }
+
         /// <summary>Plays a whole sound once, on its own (it doesn't cut off other sounds).</summary>
         public bool OneShot(string id, float volume = 1f)
         {
@@ -169,6 +215,7 @@ namespace Vision.Audio
             }
             s.clip = c;
             s.loop = false;
+            s.pitch = 1f;
             s.volume = Mathf.Clamp01(volume) * SfxGain;
             s.panStereo = 0f;
             s.Play();

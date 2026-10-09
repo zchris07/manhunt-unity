@@ -449,6 +449,48 @@ namespace Vision.Player
                         host.Sim.ClearDummies();
                     }
                 }
+                // Zach's kit: his HUD, the charge ring, a swing, the Burst, Penjamin, the Hemp Battery and Beam.
+                if (host.SwitchRole())
+                {
+                    SimPlayer z = host.Local;
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
+                    SimPlayer target = host.SpawnDummy(Role.Survivor);
+                    if (target != null) host.Sim.Teleport(target.Id, z.Pos + new Vector2(0f, 3.2f));
+                    IEnumerator Press(Btn b, int frames = 3)
+                    {
+                        player.ExtraButtons = b;
+                        yield return Wait(frames);
+                        player.ExtraButtons = Btn.None;
+                    }
+                    player.ExtraButtons = Btn.Primary;
+                    yield return new WaitForSeconds(0.6f);
+                    gameHud.Refresh();
+                    yield return Shot("86_zach_charge_and_hud");
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.12f);
+                    yield return Shot("87_zach_heavy_swing");
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Press(Btn.Secondary, 1);
+                    yield return new WaitForSeconds(0.08f);
+                    yield return Shot("88_soundcloud_burst");
+                    yield return new WaitForSeconds(1.5f);
+                    yield return Press(Btn.Vape);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot("89_penjamin");
+                    yield return new WaitForSeconds(5f);
+                    yield return Press(Btn.Ability);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot("90_hemp_battery");
+                    yield return Press(Btn.Beam);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot("91_hemp_beam_charging");
+                    yield return new WaitForSeconds(1.0f);
+                    yield return Shot("92_hemp_beam");
+                    yield return new WaitForSeconds(3.5f);
+                    yield return Press(Btn.Ability);
+                    host.Sim.ClearDummies();
+                    host.SwitchRole();
+                }
                 var fake = new MatchResult { Winner = Winner.Survivors, Reason = "3 escaped, 1 eliminated", DurationSec = 1043, GeneratorsRepaired = 5, GeneratorsRequired = 5 };
                 fake.Stats.Add((1, "Zach", Role.Hunter, new MatchStats { Outcome = "hunter", Hits = 9, Downs = 4, Stakes = 2, StunnedTimes = 5, GensDamaged = 3 }));
                 fake.Stats.Add((2, "Ana", Role.Survivor, new MatchStats { Outcome = "escaped", RepairSec = 140f, Heals = 2, Revives = 1, Unstakes = 1, Stuns = 3, TimeAlive = 1000f }));

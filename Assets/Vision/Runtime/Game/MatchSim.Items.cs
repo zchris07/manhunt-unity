@@ -392,7 +392,13 @@ namespace Vision.Game
             }
             bool hit = zach != null || onSurvivor.Count > 0;
             LastPellets = pellets.ToArray();
-            Emit(Near(o, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = p.Id, B = (int)ItemType.Shotgun, Pos = o, F = aim, G = zachGun || golden ? 1f : 0f, Text = (hit ? "hit" : "") + "|" + string.Join(",", pellets) });
+            var text = new System.Text.StringBuilder(hit ? "hit|" : "|");
+            for (int i = 0; i + 1 < pellets.Count; i += 2)
+            {
+                if (i > 0) text.Append(',');
+                text.Append(Mathf.RoundToInt(pellets[i] * 1000f)).Append(':').Append(Mathf.RoundToInt(Scale.ToUnits(pellets[i + 1])));
+            }
+            Emit(Near(o, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = p.Id, B = (int)ItemType.Shotgun, Pos = o, F = aim, G = zachGun || golden ? 1f : 0f, Text = text.ToString() });
             Noise(o, 1100f, "shot");
             foreach (var kv in onSurvivor)
             {
