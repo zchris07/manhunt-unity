@@ -96,6 +96,10 @@ namespace Vision.Rendering
         public IReadOnlyList<Vector2> ProximityPolygon => proximityPolygon;
         readonly List<Vector2> seeThroughPolygon = new List<Vector2>(256);
         readonly List<Vector2> allyDiscs = new List<Vector2>(8);
+        readonly List<Vector2> overLowPolygon = new List<Vector2>(256);
+        Vector2 coverMin;
+        /// <summary>The share of the viewer's own light JARVIS lays over the whole screen (the original's 0.85).</summary>
+        public const float RevealLight = 0.85f;
         readonly List<Vector2> shadowPolygon = new List<Vector2>(8);
 
         // Debug: last polygons as line strips for the overlay.
@@ -103,6 +107,13 @@ namespace Vision.Rendering
         int debugCount;
 
         public VisibilityComputer Computer => computer ??= new VisibilityComputer(VisionWorld.Occluders);
+        VisibilityComputer lowComputer;
+        /// <summary>Sight that stops at the low things too (fallen logs and trees): the full-strength part of the beam.</summary>
+        public VisibilityComputer LowComputer => lowComputer ??= new VisibilityComputer(VisionWorld.WithLow);
+        /// <summary>How bright the beam is behind a fallen log or tree: the see-through shade.</summary>
+        public const float OverLowLight = 0.7f;
+        /// <summary>Diagnostics (the perf run's -perfNoLow): skip the cone that stops at the low things.</summary>
+        public static bool SkipLowCone;
         public RenderTexture MaskTexture => maskTexture;
         public Rect MaskRect { get; private set; }
         public int LastPolygonCount { get; private set; }
@@ -155,6 +166,7 @@ namespace Vision.Rendering
             focus.x = Mathf.Round(focus.x / texel) * texel;
             focus.y = Mathf.Round(focus.y / texel) * texel;
             Vector2 min = focus - Vector2.one * (size * 0.5f);
+            coverMin = min;
             MaskRect = new Rect(min, Vector2.one * size);
             var rect = new Vector4(min.x, min.y, 1f / size, 1f / size);
             Shader.SetGlobalVector(MaskRectId, rect);
@@ -233,7 +245,10 @@ namespace Vision.Rendering
             float width = 2f * cam.orthographicSize * cam.aspect;
             float depth = 2f * cam.orthographicSize / Mathf.Sin(pitch);
             // The margin also covers hills and hollows: ground 4 m above or below the player shifts by 4 / tan(pitch).
-            return Mathf.Max(minimum, Mathf.Max(width, depth) + 8f + 2f * 4f * Vision.World.WorldScale.S / Mathf.Tan(pitch));
+            // The view may be turned (Z / C): the square has to hold the turned rectangle.
+            float yaw = cam.transform.eulerAngles.y * Mathf.Deg2Rad, c = Mathf.Abs(Mathf.Cos(yaw)), s = Mathf.Abs(Mathf.Sin(yaw));
+            float span = Mathf.Max(width * c + depth * s, width * s + depth * c);
+            return Mathf.Max(minimum, span + 8f + 2f * 4f * Vision.World.WorldScale.S / Mathf.Tan(pitch));
         }
 
         public static Vector2 GroundFocus(Camera cam, float groundY = 0f)
@@ -281,14 +296,21 @@ namespace Vision.Rendering
             coneStartW = coneStart;
             ViewerMarker.Begin();
             float halfAngle = viewer.coneHalfAngleDeg * Mathf.Deg2Rad;
-            vc.Compute(ViewQuery.Cone(origin, dir, halfAngle, coneRange), polygon);
             // The beam fades toward its sides as well as with distance (soft cone edge).
             beam = new Vector4(Mathf.Cos(dir), Mathf.Sin(dir), halfAngle, viewer.coneEdgeSoftness);
+            // Over fallen logs and trees: past them the beam goes on in the dimmer see-through shade...
+            vc.Compute(ViewQuery.Cone(origin, dir, halfAngle, coneRange), polygon);
+            AddPolygon(polygon, false, origin, blue * OverLowLight, coneRange, coneStart);
+            overLowPolygon.Clear();
+            overLowPolygon.AddRange(polygon);
+            rays += vc.LastRayCount; polygons++;
+            // ...and at full strength up to them.
+            if (!SkipLowCone) LowComputer.Compute(ViewQuery.Cone(origin, dir, halfAngle, coneRange), polygon);
             AddPolygon(polygon, false, origin, blue, coneRange, coneStart);
             beam = Vector4.zero;
             conePolygon.Clear();
             conePolygon.AddRange(polygon);
-            rays += vc.LastRayCount; polygons++;
+            rays += LowComputer.LastRayCount; polygons++;
 
             float proximity = viewer.proximityRadius * k;
             proximityW = proximity;
@@ -314,6 +336,19 @@ namespace Vision.Rendering
                 beam = Vector4.zero;
                 seeThroughPolygon.AddRange(polygon);
                 rays += vc.LastRayCount; polygons++;
+            }
+
+            // JARVIS: every survivor's whole screen lit by their own light for its ten seconds, everyone on it shown.
+            if (viewer.revealAll)
+            {
+                polygon.Clear();
+                float sz = CoverSize;
+                polygon.Add(coverMin);
+                polygon.Add(coverMin + new Vector2(sz, 0f));
+                polygon.Add(coverMin + new Vector2(sz, sz));
+                polygon.Add(coverMin + new Vector2(0f, sz));
+                AddPolygon(polygon, false, coverMin + Vector2.one * (sz * 0.5f), blue * RevealLight, sz * 2f, 2f);
+                polygons++;
             }
 
             // Teammates (a survivor's view): a small bright disc about each one shows them through the fog, walls or not
@@ -428,7 +463,11 @@ namespace Vision.Rendering
             if (Contains(conePolygon, p))
                 b = DistanceFalloff(d, coneRangeW, coneStartW)
                     * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
+            else if (Contains(overLowPolygon, p))
+                b = OverLowLight * DistanceFalloff(d, coneRangeW, coneStartW)
+                    * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
             if (Contains(proximityPolygon, p)) b = Mathf.Max(b, DistanceFalloff(d, proximityW, viewer.proximityFalloffStart));
+            if (viewer.revealAll) b = Mathf.Max(b, RevealLight);
             foreach (Vector2 c in allyDiscs)
             {
                 float da = (p - c).magnitude;
@@ -466,7 +505,10 @@ namespace Vision.Rendering
             float pitch = Mathf.Max(10f, cam.transform.eulerAngles.x) * Mathf.Deg2Rad;
             Vector2 c = GroundFocus(cam, groundY);
             var half = new Vector2(cam.orthographicSize * cam.aspect, cam.orthographicSize / Mathf.Sin(pitch));
-            return RectExit(origin - c, axis.normalized, half);
+            // Into the view's own frame (it may be turned with Z / C).
+            float yaw = cam.transform.eulerAngles.y * Mathf.Deg2Rad, cy = Mathf.Cos(yaw), sy = Mathf.Sin(yaw);
+            Vector2 ToView(Vector2 g) => new Vector2(g.x * cy - g.y * sy, g.x * sy + g.y * cy);
+            return RectExit(ToView(origin - c), ToView(axis.normalized), half);
         }
 
         /// <summary>Distance from p (inside or near a centred rectangle of half-size h) along unit d to its boundary.</summary>

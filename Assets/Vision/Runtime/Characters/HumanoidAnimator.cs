@@ -33,6 +33,8 @@ namespace Vision.Characters
         public float maxTwist = 100f;
         [Tooltip("Downed: the body lies forward on the ground and the legs crawl.")]
         public bool Prone;
+        [Tooltip("Vaulting: the whole body raised this far (local units) as it goes over a log, a fallen tree or a window sill.")]
+        public float Lift;
         [Tooltip("Crouching (0-1): the pelvis drops, the knees bend under it and the back leans forward.")]
         public float Crouch;
         float crouch;
@@ -104,7 +106,7 @@ namespace Vision.Characters
                 body.localRotation *= Quaternion.Euler(80f * s, 0f, 0f);
                 body.localPosition = bodyRest + Vector3.up * (0.13f * s);
             }
-            else body.localPosition = bodyRest;
+            else body.localPosition = bodyRest + Vector3.up * Lift;
 
             // Lean into the slope along the legs' heading (half the slope angle, while moving).
             float grade = 0f;

@@ -39,6 +39,13 @@ namespace Vision.Player
             if (composite == null) return;
             try
             {
+                // New defaults replace a look saved before them, once; later changes are kept as usual.
+                if (PlayerPrefs.GetInt(PrefsKey + ".Version", 1) < VisionComposite.Look.DefaultsVersion)
+                {
+                    PlayerPrefs.DeleteKey(PrefsKey);
+                    PlayerPrefs.SetInt(PrefsKey + ".Version", VisionComposite.Look.DefaultsVersion);
+                    PlayerPrefs.Save();
+                }
                 string json = PlayerPrefs.GetString(PrefsKey, "");
                 if (!string.IsNullOrEmpty(json))
                 {

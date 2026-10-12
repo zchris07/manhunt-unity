@@ -93,7 +93,8 @@ namespace Vision.Game
             public static class Vape
             {
                 public const int Charges = 2;
-                public const float Cooldown = 25f, HalfAngleDeg = 10f, ReachMul = 1.1f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
+                // The cloud reaches 30% less far than the original's (ReachMul 1.1 x 0.7, at the user's request); same width.
+                public const float Cooldown = 25f, HalfAngleDeg = 10f, ReachMul = 1.1f * 0.7f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
                 public const float Dps = 0.05f, DpsFar = 0.01f, AfterTime = 2f, ConeCut = 0.6f, DarkAfter = 6f, DarkEase = 0.6f;
@@ -109,7 +110,9 @@ namespace Vision.Game
             public static class Beam
             {
                 public const int Charges = 3;
-                public const float Cooldown = 2f, Windup = 1f, ZachTickDamage = 0.01f, NpcHitEvery = 0.5f, TickRate = 10f, TickDamage = 0.03f;
+                // Every beam, whoever fires it, takes 1 HP of anyone it touches ten times a second (the user's rule; the
+                // original's Zach beam took 3% of a survivor's health a tick). A door the beam stays on for DoorTime s breaks.
+                public const float Cooldown = 2f, Windup = 1f, ZachTickDamage = 0.01f, NpcHitEvery = 0.5f, TickRate = 10f, TickDamage = 0.01f, DoorTime = 1.5f;
                 public const float AudioRadius = 1400f, AudioNear = 200f, AudioCurve = 1.5f, AudioVolume = 1f;
             }
 
@@ -189,6 +192,8 @@ namespace Vision.Game
             public static class Trap
             {
                 public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f, GasRadius = HunterWidth * 10f * 0.65f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
+                /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s.</summary>
+                public const float ZachConeCut = 0.3f, BlurAfter = 2f;
             }
 
             public const float StunImmunity = 2.5f;

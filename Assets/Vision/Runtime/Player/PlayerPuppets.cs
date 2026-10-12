@@ -183,6 +183,8 @@ namespace Vision.Player
                 Vector3 vLocal = dt > 0f ? (now - before) / dt : Vector3.zero;
                 Vector3 vWorld = world.transform.TransformVector(new Vector3(vLocal.x, 0f, vLocal.z));
                 pup.Animator.Drive(vWorld, new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
+                MatchHost mh = MatchHost.For(world);
+                pup.Animator.Lift = p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, mh != null ? mh.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, pup.Go.transform.lossyScale.y) : 0f;
             }
             bool dazed = p.StunT > 0f || (p.Role == Role.Hunter && p.KnockT > 0f);
             pup.Stars.Dizzy = !dazed && p.VapeT > 0f;

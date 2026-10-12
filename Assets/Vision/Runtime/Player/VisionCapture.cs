@@ -522,6 +522,56 @@ namespace Vision.Player
                     player.SelectedSlot = -1;
                     yield return new WaitForSeconds(0.4f);
                 }
+                // The view turned 45 degrees at the building (its doors and windows on every side show), an office door up
+                // close, a vault over a fallen log, JARVIS lighting the whole screen, and the blur of Penjamin's gas.
+                {
+                    SimPlayer meV = host.Local;
+                    TopDownCamera rigV = cameraRig;
+                    // Outside a corner of the building, zoomed out a little: its walls run diagonally across the screen.
+                    Rect bld = world.Layout.Building;
+                    Vector2 corner = new Vector2(bld.xMin, bld.yMin);
+                    yield return Stage(player, V(corner + new Vector2(-4f, -4f)), new Vector2(1f, 1f).normalized, wanderer, away);
+                    float oz = cameraRig.orthographicSize;
+                    cameraRig.orthographicSize = oz * 1.25f;
+                    // JARVIS lights the whole screen, so the building shows.
+                    player.ExtraButtons = Btn.Ability;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    if (rigV != null) rigV.Turn(1);
+                    yield return new WaitForSeconds(0.7f);
+                    gameHud.Refresh();
+                    yield return Shot("119_view_turned_45");
+                    if (rigV != null) rigV.ResetYaw();
+                    cameraRig.orthographicSize = oz;
+                    if (world.Lows.Count > 0)
+                    {
+                        SandboxWorld.LowObstacle log = world.Lows[0];
+                        Vector2 mid = (log.A + log.B) * 0.5f, along = (log.B - log.A).normalized, normal = new Vector2(-along.y, along.x);
+                        yield return Stage(player, V(mid + normal * 1.6f), -normal, wanderer, away);
+                        float o = cameraRig.orthographicSize;
+                        cameraRig.orthographicSize = o * 0.4f;
+                        player.MoveOverride = -normal;
+                        float until = Time.time + 3f;
+                        while (!meV.Move.Climbing && Time.time < until) yield return null;
+                        yield return new WaitForSeconds(0.12f);
+                        yield return Shot("121_vault_over_log");
+                        player.MoveOverride = null;
+                        cameraRig.orthographicSize = o;
+                        yield return new WaitForSeconds(0.5f);
+                    }
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                    player.ExtraButtons = Btn.Ability;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.5f);
+                    gameHud.Refresh();
+                    yield return Shot("122_jarvis_whole_screen");
+                    yield return new WaitForSeconds(10f);
+                    gameHud.PlayTestFx(TestFx.Vape);
+                    yield return new WaitForSeconds(1.6f);
+                    yield return Shot("123_penjamin_blur");
+                    yield return new WaitForSeconds(5f);
+                }
                 // The NPCs: all of them in a row, then Marc talking, Shane's alert building and Jaden shooting.
                 {
                     SimPlayer me9 = host.Local;
@@ -1303,6 +1353,22 @@ namespace Vision.Player
                     }
                 }
                 sheets.Add(($"46_evergreens_{sheet + 1}", new Vector3(x0 + 21.5f, 4.8f, 0f)));
+            }
+            // The central building's office door in its frame, drawn large: face on, and turned to show its edge.
+            {
+                var rng = new System.Random(5);
+                for (int k = 0; k < 2; k++)
+                {
+                    var door = Place(LowPolyModels.MetalDoor(rng, 1.06f, 2.12f, 0.06f), new Vector3(1000f + k * 7f + 2.2f, 0f, 0f), Vector3.one * 4f);
+                    var frame = Place(LowPolyModels.MetalDoorFrame(rng, 1.1f, 2.15f, 0.24f), new Vector3(1000f + k * 7f, 0f, 0f), Vector3.one * 4f);
+                    if (k == 1)
+                    {
+                        door.transform.localRotation = Quaternion.Euler(0f, 35f, 0f);
+                        frame.transform.localRotation = Quaternion.Euler(0f, 35f, 0f);
+                        door.transform.localPosition = frame.transform.localPosition + Quaternion.Euler(0f, 35f, 0f) * new Vector3(2.2f, 0f, 0f);
+                    }
+                }
+                sheets.Add(("47_office_door", new Vector3(1005.5f, 4.6f, 0f)));
             }
 
             float s = world.transform.lossyScale.x;

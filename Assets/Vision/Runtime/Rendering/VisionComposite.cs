@@ -41,11 +41,15 @@ namespace Vision.Rendering
             [Tooltip("Camera effects: vignette, film grain, light flicker and the distance blur.")]
             public bool cameraEffects;
 
+            /// <summary>The user's chosen look (2026-10-12): punchy contrast and colour, a strong beam, black unlit ground.</summary>
             public static Look Defaults => new Look
             {
-                contrast = 1f, saturation = 1f, litBrightness = 1f, unlitBrightness = 1f, beamIntensity = 1.15f,
-                blurStart = 5f, blurEnd = 13f, blurMaxPixels = 3f, cameraEffects = true,
+                contrast = 1.81f, saturation = 1.22f, litBrightness = 1.21f, unlitBrightness = 0f, beamIntensity = 1.89f,
+                blurStart = 11.21f, blurEnd = 30.01f, blurMaxPixels = 8f, cameraEffects = true,
             };
+
+            /// <summary>Bumped when <see cref="Defaults"/> change: saved looks from before are dropped once in favour of them.</summary>
+            public const int DefaultsVersion = 2;
 
             /// <summary>Keeps every value inside its slider range (and the blur end past its start).</summary>
             public Look Clamped()
@@ -78,6 +82,10 @@ namespace Vision.Rendering
         [Range(0f, 0.1f)] public float darkFloor = 0.01f;
         [Tooltip("Scales the unlit ground (1: as set; 0: pitch black, as in Penjamin's gas, eased in and out by the player).")]
         [Range(0f, 1f)] public float fogScale = 1f;
+        [Tooltip("Gassed (Penjamin on a survivor, galaxy gas on Zach): blurs the whole view, 0-1 (set by the player).")]
+        [Range(0f, 1f)] public float gasBlur;
+        /// <summary>The gas blur's radius at full strength, in pixels at 1080 lines.</summary>
+        public const float GasBlurPx = 9f;
         [Tooltip("Near-neutral so unlit areas carry almost no colour.")]
         public Color darkTint = new Color(0.99f, 1f, 1.01f);
 
@@ -144,7 +152,7 @@ namespace Vision.Rendering
             VisionLight.FlickerEnabled = fx;
             material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness * fogScale));
             material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, 0f));
-            material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
+            material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, gasBlur * GasBlurPx * cam.pixelHeight / 1080f));
             material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);
             material.SetColor(SourceTintId, sourceTint);

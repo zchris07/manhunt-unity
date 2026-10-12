@@ -206,7 +206,7 @@ namespace Vision.Characters
             }
 
             // ---- Hair and hats.
-            if (s.HairStyle == HairStyle.Short || s.HairStyle == HairStyle.Long || s.HairStyle == HairStyle.Curly || s.HairStyle == HairStyle.Cap)
+            if (s.HairStyle == HairStyle.Short || s.HairStyle == HairStyle.Long || s.HairStyle == HairStyle.Curly || s.HairStyle == HairStyle.Cap || s.HairStyle == HairStyle.Bowl)
             {
                 m.Paint = s.HairStyle == HairStyle.Cap ? s.Hair : s.Hair;
                 bool curly = s.HairStyle == HairStyle.Curly;
@@ -217,9 +217,12 @@ namespace Vision.Characters
                 {
                     float a = i * Mathf.PI * 2f / HeadSides;
                     float x = Mathf.Sin(a), z = Mathf.Cos(a);
-                    float bump = curly ? (i % 2 == 0 ? 1.14f : 1.0f) : 1.05f;
+                    bool bowl = s.HairStyle == HairStyle.Bowl;
+                    float bump = curly ? (i % 2 == 0 ? 1.14f : 1.0f) : bowl ? 1.1f : 1.05f;
                     float y = Mathf.Lerp(1.66f, 1.765f, (z + 1f) * 0.5f);
                     if (s.HairStyle == HairStyle.Cap) y = 1.755f;
+                    // A bowl cut: one straight edge all the way round, a heavy fringe down to the brows.
+                    if (bowl) y = 1.728f;
                     line[i] = m.Add(new Vector3(x * 0.083f * k * bump, hc.y + (y - hc.y) * k, z * (z >= 0f ? 0.098f : 0.094f) * k * bump), W(Bone.Head));
                     float tb = curly ? (i % 2 == 1 ? 1.16f : 1.04f) : 1.06f;
                     top[i] = m.Add(new Vector3(x * 0.068f * k * tb, hc.y + (1.797f - hc.y) * k, (z * (z >= 0f ? 0.07f : 0.083f) - 0.006f) * k * tb), W(Bone.Head));
@@ -253,6 +256,20 @@ namespace Vision.Characters
                     m.Tri(b0, bm, t0, above);
                     m.Tri(b1, t1, bm, above);
                 }
+            }
+
+            // ---- A short goatee: a small wedge of beard on the chin, below the mouth.
+            if (s.Has(Feature.Goatee))
+            {
+                m.Paint = s.Hair;
+                float Z(float y) => Mathf.Lerp(0.082f, 0.097f, Mathf.InverseLerp(1.585f, 1.63f, y)) * k;
+                Vector3 G(float x, float y) => new Vector3(x * k, hc.y + (y - hc.y) * k, Z(y) + 0.004f);
+                int g0 = m.Add(G(-0.022f, 1.612f), W(Bone.Head)), g1 = m.Add(G(0.022f, 1.612f), W(Bone.Head));
+                int g2 = m.Add(G(0.016f, 1.58f), W(Bone.Head)), g3 = m.Add(G(-0.016f, 1.58f), W(Bone.Head));
+                int tip = m.Add(G(0f, 1.56f) + new Vector3(0f, 0f, -0.006f), W(Bone.Head));
+                Vector3 behind = new Vector3(0f, hc.y - 0.08f, 0f);
+                m.Quad(g0, g1, g2, g3, behind);
+                m.Tri(g3, g2, tip, behind);
             }
 
             // ---- Glasses: two dark lenses and a bridge in front of the eyes.

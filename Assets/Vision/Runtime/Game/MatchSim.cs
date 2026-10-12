@@ -230,6 +230,7 @@ namespace Vision.Game
                     if (!s.Empty && (s.item == ItemType.Bottle || s.item == ItemType.Piss || s.item == ItemType.Book)) s.count = 9;
                 }
                 p.Jarvis = 3;
+                p.BeamCharges = Balance.Hunter.Beam.Charges;
             }
             else if (p.Role == Role.Hunter)
             {

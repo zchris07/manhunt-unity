@@ -7,6 +7,8 @@ namespace Vision.Game
     {
         bool InWater(Vector2 p);
         bool InBrokenWindow(Vector2 p, float radius);
+        /// <summary>Over a fallen log or tree: the body is vaulting it.</summary>
+        bool OverLow(Vector2 p, float radius);
     }
 
     public struct MoveContext
@@ -118,7 +120,8 @@ namespace Vision.Game
             s.Sprinting = sprint;
 
             float speed;
-            bool inWindow = env != null && env.InBrokenWindow(at, radius + Scale.D(4f));
+            // Through a broken window or over a fallen log or tree: vaulting, at the climbing pace.
+            bool inWindow = env != null && (env.InBrokenWindow(at, radius + Scale.D(4f)) || env.OverLow(at, radius * 0.5f));
             s.Climbing = inWindow;
             if (role == Role.Hunter)
             {

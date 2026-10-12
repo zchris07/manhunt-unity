@@ -43,6 +43,7 @@ namespace Vision.Effects
             public readonly List<Color> RibbonCols = new List<Color>();
             public readonly List<(int start, int count, float width, bool soft)> Ribbons = new List<(int, int, float, bool)>();
             public readonly List<(Vector3 pos, float size, Color color, bool glow)> Dots = new List<(Vector3, float, Color, bool)>();
+            public readonly List<(Vector3 pos, float size, Color color, int seed, float spin)> Smokes = new List<(Vector3, float, Color, int, float)>();
             // Triangles for this frame (three vertices and colours each).
             public readonly List<Vector3> TriV = new List<Vector3>();
             public readonly List<Color> TriC = new List<Color>();
@@ -205,6 +206,16 @@ namespace Vision.Effects
             Get(masked, senses, blend).Dots.Add((at, size, color, false));
         }
 
+        /// <summary>
+        /// A puff of smoke or gas for this frame only: billowing and ragged (the shader's noise, chosen by
+        /// <paramref name="seed"/>), turned by <paramref name="spin"/> radians, thinning out where it meets the ground or
+        /// anything solid. Clouds are built from many of these.
+        /// </summary>
+        public void Smoke(Vector3 at, float size, Color color, int seed, float spin = 0f, bool masked = true, bool senses = false, Blend blend = Blend.Alpha)
+        {
+            Get(masked, senses, blend).Smokes.Add((at, size, color, seed & 63, spin));
+        }
+
         /// <summary>A soft glow for this frame only: bright in the middle, falling off smoothly (an orb, a flare, a hot spot).</summary>
         public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive)
         {
@@ -310,6 +321,18 @@ namespace Vision.Effects
                 b.RibbonCols.Clear();
                 foreach (var (pos, size, color, glow) in b.Dots) Quad(b, pos, right * size, up * size, color, glow);
                 b.Dots.Clear();
+                foreach (var (at, size0, color0, seed, spin) in b.Smokes)
+                {
+                    Vector3 pos = at;
+                    float size = size0;
+                    Color color = color0;
+                    if (SkipSmoke) continue;
+                    ConformSmoke(ref pos, ref size, ref color, up);
+                    if (color.a <= 0.002f) continue;
+                    float cs = Mathf.Cos(spin), sn = Mathf.Sin(spin);
+                    SmokeQuad(b, pos, (right * cs + up * sn) * size, (up * cs - right * sn) * size, color, seed);
+                }
+                b.Smokes.Clear();
                 for (int i = 0; i < b.TriV.Count; i++)
                 {
                     b.T.Add(b.V.Count);
@@ -338,6 +361,44 @@ namespace Vision.Effects
             // uv.x 2-3 marks a soft round dot in the shader, 6-7 a glow.
             float x0 = glow ? 6f : 2f;
             b.U.Add(new Vector2(x0, 0f)); b.U.Add(new Vector2(x0 + 1f, 0f)); b.U.Add(new Vector2(x0 + 1f, 1f)); b.U.Add(new Vector2(x0, 1f));
+            b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 1); b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
+        }
+
+        /// <summary>Layers gas never sits inside: everything solid (the ground, characters, raycast-ignored things and effects excepted).</summary>
+        public static int SolidMask = ~((1 << 8) | (1 << 9) | (1 << 2) | (1 << SensesLayer));
+        /// <summary>Diagnostics (the perf run's -perfNoSmoke): draw no smoke.</summary>
+        public static bool SkipSmoke;
+
+        /// <summary>
+        /// Gas hugs the world without cutting into it: the puff is lifted until the bottom of its quad (which leans toward
+        /// the camera) clears the ground under it, and a puff that would sit inside something solid (a wall, a tree, a car,
+        /// a log) shrinks round it, or thins away if it still can't fit; gameplay-wise gas still passes through everything.
+        /// </summary>
+        static void ConformSmoke(ref Vector3 pos, ref float size, ref Color color, Vector3 up)
+        {
+            var ground = Vision.Characters.HumanoidAnimator.Ground;
+            if (ground != null)
+            {
+                Vector3 bottom = pos - up * (size * 0.8f);
+                float lift = 0f;
+                if (ground(bottom, out float hb, out _)) lift = Mathf.Max(lift, hb + size * 0.08f - bottom.y);
+                if (ground(pos, out float hc, out _)) lift = Mathf.Max(lift, hc + size * 0.3f - pos.y);
+                pos.y += lift;
+            }
+            if (Physics.CheckSphere(pos, size * 0.5f, SolidMask, QueryTriggerInteraction.Ignore))
+            {
+                size *= 0.55f;
+                if (Physics.CheckSphere(pos, size * 0.5f, SolidMask, QueryTriggerInteraction.Ignore)) color.a *= 0.25f;
+            }
+        }
+
+        /// <summary>A smoke puff's quad: uv.x 8-9 marks smoke in the shader, uv.y's whole part carries the seed.</summary>
+        static void SmokeQuad(Batch b, Vector3 c, Vector3 r, Vector3 u, Color col, int seed)
+        {
+            int i = b.V.Count;
+            b.V.Add(c - r - u); b.V.Add(c + r - u); b.V.Add(c + r + u); b.V.Add(c - r + u);
+            for (int k = 0; k < 4; k++) b.C.Add(col);
+            b.U.Add(new Vector2(8f, seed)); b.U.Add(new Vector2(9f, seed)); b.U.Add(new Vector2(9f, seed + 0.999f)); b.U.Add(new Vector2(8f, seed + 0.999f));
             b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 1); b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
         }
 

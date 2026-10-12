@@ -46,6 +46,14 @@ namespace Vision.Player
             yield return null;
             while (world.Player == null) yield return null;
             gameHud.StartTesting(false);
+            // Switches for finding what costs what (comparing runs): the earlier look, no low-obstacle cone, no smoke.
+            string[] cl = Environment.GetCommandLineArgs();
+            var comp = FindAnyObjectByType<Vision.Rendering.VisionComposite>();
+            if (comp != null && Array.IndexOf(cl, "-perfOldLook") >= 0)
+                comp.look = new Vision.Rendering.VisionComposite.Look { contrast = 1f, saturation = 1f, litBrightness = 1f, unlitBrightness = 1f, beamIntensity = 1.15f, blurStart = 5f, blurEnd = 13f, blurMaxPixels = 3f, cameraEffects = true };
+            if (comp != null && Array.IndexOf(cl, "-perfNoBlur") >= 0) comp.look.blurMaxPixels = 0f;
+            if (Array.IndexOf(cl, "-perfNoLow") >= 0) Vision.Rendering.VisionMaskRenderer.SkipLowCone = true;
+            if (Array.IndexOf(cl, "-perfNoSmoke") >= 0) Vision.Effects.Vfx.SkipSmoke = true;
             yield return new WaitForSeconds(2f);
             PlayerController player = world.Player;
             MapLayout L = world.Layout;

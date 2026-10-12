@@ -118,7 +118,7 @@ namespace Vision.World
             switch (o.Kind)
             {
                 case BuildingPlan.OpeningKind.Door:
-                    MakeDoor(o.A, along, width, BuildingPlan.DoorHeight - 0.02f, false, floor);
+                    MakeDoor(o.A, along, width, BuildingPlan.DoorHeight - 0.02f, false, floor, true);
                     if (o.StartsOpen) Doors[Doors.Count - 1].SetOpen(true);
                     Header(mid, along, width, BuildingPlan.DoorHeight, t, paint, root, floor);
                     break;

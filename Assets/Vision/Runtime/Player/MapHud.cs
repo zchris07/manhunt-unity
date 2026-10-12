@@ -21,7 +21,11 @@ namespace Vision.Player
         public const float MiniPx = 250f, FullPx = 860f;
 
         readonly Font font;
-        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniView;
+        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniView, miniSpin;
+
+        /// <summary>The 3D view's turn (degrees clockwise from north): the minimap turns with it, so its up is the screen's up.</summary>
+        public static float ViewYaw;
+        float lastViewYaw = float.MaxValue;
         readonly List<(RectTransform mini, RectTransform full, Text name)> npcDots = new List<(RectTransform, RectTransform, Text)>();
         readonly Image youRingImage;
         readonly RawImage miniArt, miniFog, fullArt, fullFog;
@@ -68,7 +72,9 @@ namespace Vision.Player
             view.gameObject.AddComponent<Canvas>();   // its own canvas: the moving map never rebuilds the rest of the HUD
             view.gameObject.AddComponent<RectMask2D>();
             Image(view, new Color(0.02f, 0.02f, 0.03f, 1f));
-            miniContent = Node("Content", view, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one);
+            // The map turns about the player (the centre of the minimap) with the view.
+            miniSpin = Node("Spin", view, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one);
+            miniContent = Node("Content", miniSpin, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one);
             miniArt = Raw(Stretch(Node("Art", miniContent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             miniFog = Raw(Stretch(Node("Fog", miniContent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             miniArrow = Node("You", view, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f));
@@ -245,13 +251,16 @@ namespace Vision.Player
             float miniScale = MiniPx / MiniSpan, fullScale = FullPx / (2f * world.halfExtent);
             float yaw = -Mathf.Atan2(facing.x, facing.y) * Mathf.Rad2Deg;
             // Only touch the UI when something moved (every change re-batches the canvas), or the map was rebuilt or opened.
-            if (markerDirty || (me - lastMe).sqrMagnitude > 0.0004f || Mathf.Abs(Mathf.DeltaAngle(yaw, lastYaw)) > 0.5f)
+            if (markerDirty || (me - lastMe).sqrMagnitude > 0.0004f || Mathf.Abs(Mathf.DeltaAngle(yaw, lastYaw)) > 0.5f || Mathf.Abs(Mathf.DeltaAngle(ViewYaw, lastViewYaw)) > 0.1f)
             {
                 markerDirty = false;
                 lastMe = me;
                 lastYaw = yaw;
+                lastViewYaw = ViewYaw;
                 miniContent.anchoredPosition = -me * miniScale;
-                miniArrow.localRotation = fullArrow.localRotation = Quaternion.Euler(0f, 0f, yaw);
+                miniSpin.localRotation = Quaternion.Euler(0f, 0f, ViewYaw);
+                miniArrow.localRotation = Quaternion.Euler(0f, 0f, yaw + ViewYaw);
+                fullArrow.localRotation = Quaternion.Euler(0f, 0f, yaw);
                 fullArrow.anchoredPosition = youRing.anchoredPosition = me * fullScale;
                 youLabel.anchoredPosition = me * fullScale + new Vector2(0f, 38f);
             }

@@ -102,8 +102,6 @@ namespace Vision.UI
         /// fading over ten seconds, only where his light falls (survivors see their own in testing mode).
         /// </summary>
         readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>> byWho = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>>();
-        readonly System.Collections.Generic.List<Vector3> ribbonPts = new System.Collections.Generic.List<Vector3>(128);
-        readonly System.Collections.Generic.List<Color> ribbonCols = new System.Collections.Generic.List<Color>(128);
         static readonly System.Comparison<TrailPoint> ByTime = (a, b) => a.T.CompareTo(b.T);
 
         void DrawTrails(SimPlayer me)
@@ -142,22 +140,20 @@ namespace Vision.UI
                     bool cut = i == pts.Count || pts[i].T - pts[i - 1].T > 0.7f || Vector2.Distance(pts[i].Pos, pts[i - 1].Pos) > Scale.D(160f);
                     if (!cut) continue;
                     int n = i - start;
+                    // The scent: a low trail of red smoke where they ran, fresh wisps dense and close to the ground, older
+                    // ones risen a little, spread wider and thinning away, each sitting on the ground under it.
                     if (n >= 2)
-                        for (int strand = 0; strand < 3; strand++)
+                        for (int k = 0; k < n; k += 2)
                         {
-                            ribbonPts.Clear();
-                            ribbonCols.Clear();
-                            for (int k = 0; k < n; k++)
-                            {
-                                TrailPoint t = pts[start + k];
-                                Vector2 dir = k + 1 < n ? pts[start + k + 1].Pos - t.Pos : t.Pos - pts[start + k - 1].Pos;
-                                Vector2 side = new Vector2(-dir.y, dir.x).normalized;
-                                float off = Mathf.Sin(t.T * 3.1f + strand * 2.1f + kv.Key) * Scale.D(6f + strand * 3f);
-                                ribbonPts.Add(Ground(t.Pos + side * off, 0.06f));
-                                float age = (sim.Time - t.T) / Balance.Trails.MaxAgeSec;
-                                ribbonCols.Add(new Color(strand == 0 ? 1f : 0.88f, strand == 0 ? 0.35f : 0.12f, strand == 0 ? 0.35f : 0.18f, Mathf.Pow(1f - age, 1.1f) * (strand == 0 ? 0.5f : 0.22f)));
-                            }
-                            fx.Ribbon(ribbonPts, ribbonCols, Scale.D(strand == 0 ? 3f : 9f) * S, true);
+                            TrailPoint t = pts[start + k];
+                            Vector2 dir = k + 1 < n ? pts[start + k + 1].Pos - t.Pos : t.Pos - pts[start + k - 1].Pos;
+                            Vector2 side = new Vector2(-dir.y, dir.x).normalized;
+                            float age = Mathf.Clamp01((sim.Time - t.T) / Balance.Trails.MaxAgeSec);
+                            int seed = Mathf.RoundToInt(t.T * 37f) + kv.Key * 7;
+                            float wob = Mathf.Sin(t.T * 3.1f + kv.Key + sim.Time * 0.7f) * Scale.D(5f + 8f * age);
+                            float sizeD = Scale.D(6f + 9f * age);
+                            Color c = new Color(0.86f, 0.12f + 0.1f * (seed % 3) / 2f, 0.14f, Mathf.Pow(1f - age, 1.2f) * 0.34f);
+                            fx.Smoke(Ground(t.Pos + side * wob, sizeD * (0.3f + 0.25f * age)), sizeD * S, c, seed, seed * 0.7f + sim.Time * 0.3f * (seed % 2 == 0 ? 1f : -1f), true);
                         }
                     start = i;
                 }

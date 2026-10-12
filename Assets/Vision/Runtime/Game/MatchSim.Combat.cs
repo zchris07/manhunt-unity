@@ -243,10 +243,11 @@ namespace Vision.Game
         {
             if (q.Role != Role.Survivor || (q.Health != Health.Healthy && q.Health != Health.Wounded) || q.HideState == 2) return;
             bool zach = by != null && by.Role == Role.Hunter;
-            bool quiet = kind == "gas";
+            bool quiet = kind == "gas" || kind == "vape";
             if (!quiet) CancelAction(q);
             if (zach && !quiet) by.Stats.Hits++;
-            float soaked = Mathf.Min(q.Shield, amount);
+            // Penjamin's gas skips the shield and goes straight to health.
+            float soaked = kind == "vape" ? 0f : Mathf.Min(q.Shield, amount);
             q.Shield -= soaked;
             q.Hp = Mathf.Max(0f, q.Hp - (amount - soaked));
             if (!quiet)

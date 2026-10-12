@@ -40,6 +40,9 @@ namespace Vision.Game
         /// <summary>Collision radius in original units.</summary>
         public virtual float RadiusUnits => 15f;
         public float HitRadius => Scale.D(RadiusUnits);
+        /// <summary>The body's footprint when it moves (walls, doorways); the hit size by default.</summary>
+        public virtual float MoveRadiusUnits => RadiusUnits;
+        public float MoveRadius => Scale.D(MoveRadiusUnits);
         /// <summary>Alive and present in the world (thrown items and pellets can hit it).</summary>
         public virtual bool Solid => true;
         public virtual bool Alive => true;

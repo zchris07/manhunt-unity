@@ -141,6 +141,9 @@ namespace Vision.Game
         public float HempLock;
         public int BeamCharges;
         public float BeamCd, BeamT, BeamAng, BeamLen, BeamTick, BeamFlinch;
+        /// <summary>The closed door the beam is burning into (-1: none) and for how long it has been on it.</summary>
+        public int BeamDoor = -1;
+        public float BeamDoorT;
         public int BeamId;
         public readonly Dictionary<string, float> BeamHit = new Dictionary<string, float>();
         public int VapeCharges = Balance.Hunter.Vape.Charges;

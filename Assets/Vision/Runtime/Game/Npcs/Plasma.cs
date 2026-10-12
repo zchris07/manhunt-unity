@@ -28,6 +28,8 @@ namespace Vision.Game
         public override string Name => "Plasma.TTV";
         public override int Kind => 4;
         public override float RadiusUnits => State == Mode.Rage || State == Mode.Revert ? Balance.Plasma.BeastRadius : Balance.Plasma.Radius;
+        /// <summary>The beast is as easy to hit as he is big, but squeezes through doorways like a man (his model keeps its size).</summary>
+        public override float MoveRadiusUnits => Balance.Plasma.Radius;
         public override bool Slashable => alive;
         /// <summary>Slain, he lies where he fell.</summary>
         public override bool Gone => false;
@@ -42,7 +44,7 @@ namespace Vision.Game
 
         public Plasma(MatchSim sim) : base(sim, 104)
         {
-            chaser = new Chaser(sim, Balance.Plasma.BeastRadius - 6f);
+            chaser = new Chaser(sim, Balance.Plasma.Radius);
             SpawnAnywhere(Balance.Plasma.BeastRadius - Balance.Plasma.Radius + 6f, 700f);
         }
 

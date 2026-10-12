@@ -431,13 +431,17 @@ namespace Vision.Characters
             .Key(0.2f, Repulsor(1f))
             .Blend(0.22f, 0.3f);
 
-        /// <summary>Through a broken window: hands on the sill, a knee up and over, leaning in (loop while climbing).</summary>
-        public static readonly ActionClip Climb = new ActionClip("Climb", 0.9f, true)
-            .Key(0f, P().Lower(0.08f).R(Bone.Spine, 22f).R(Bone.Chest, 8f).R(Bone.Head, -6f).Both(Bone.UpperArmR, -72f, 0f, 6f).Both(Bone.ForearmR, -28f).Both(Bone.HandR, 30f)
-                .R(Bone.ThighR, -92f).R(Bone.ShinR, 96f).R(Bone.ThighL, -8f).R(Bone.ShinL, 18f))
-            .Key(0.45f, P().Lower(0.12f).R(Bone.Spine, 28f).R(Bone.Chest, 10f).R(Bone.Head, -8f).Both(Bone.UpperArmR, -64f, 0f, 8f).Both(Bone.ForearmR, -40f).Both(Bone.HandR, 35f)
-                .R(Bone.ThighR, -70f).R(Bone.ShinR, 80f).R(Bone.ThighL, -30f).R(Bone.ShinL, 60f))
-            .Blend(0.2f, 0.25f);
+        /// <summary>
+        /// A vault (through a broken window, over a fallen log or tree): leaning in with both hands planted on top, knees
+        /// tucked up to the chest and swung across (loop while vaulting; the body itself is lifted over the top by
+        /// <see cref="HumanoidAnimator.Lift"/>).
+        /// </summary>
+        public static readonly ActionClip Climb = new ActionClip("Climb", 0.6f, true)
+            .Key(0f, P().R(Bone.Spine, 30f).R(Bone.Chest, 10f).R(Bone.Head, -14f).Both(Bone.UpperArmR, -42f, 0f, 10f).Both(Bone.ForearmR, -12f).Both(Bone.HandR, 60f)
+                .Both(Bone.ThighR, -88f, 0f, 6f).Both(Bone.ShinR, 112f).Both(Bone.FootR, 20f))
+            .Key(0.3f, P().R(Bone.Spine, 26f, 6f).R(Bone.Chest, 8f).R(Bone.Head, -12f).Both(Bone.UpperArmR, -38f, 0f, 10f).Both(Bone.ForearmR, -8f).Both(Bone.HandR, 64f)
+                .R(Bone.ThighR, -96f, 0f, 14f).R(Bone.ShinR, 118f).R(Bone.ThighL, -80f, 0f, -2f).R(Bone.ShinL, 104f).Both(Bone.FootR, 22f))
+            .Blend(0.18f, 0.22f);
 
         /// <summary>Reading one of the Four Notes: holding the photo at the chest, head bowed over it.</summary>
         public static readonly ActionClip ReadNote = new ActionClip("ReadNote", 1.6f)

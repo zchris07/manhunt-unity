@@ -149,22 +149,28 @@ namespace Vision.UI
             }
             Sweep(drops);
 
-            // Galaxy gas: billowing purple, pink and blue, with stars twinkling in it.
+            // Galaxy gas: a churning cloud of smoke in purple, pink and blue that swirls slowly about its middle and rolls
+            // outward, puffs sitting on the ground beneath them and thinning against anything solid, with stars in it.
             float life = Balance.Items.Trap.GasTime;
             foreach (GasCloud g in sim.Gases)
             {
                 float fade = Mathf.Clamp01((life - g.Age) / 1.2f) * Mathf.Clamp01(g.Age / 0.3f);
-                float radius = Scale.D(Balance.Items.Trap.GasRadius) * s * (0.6f + 0.4f * Mathf.Sqrt(Mathf.Min(1f, g.Age / 0.8f)));
-                for (int i = 0; i < 24; i++)
+                float radiusD = Scale.D(Balance.Items.Trap.GasRadius) * (0.6f + 0.4f * Mathf.Sqrt(Mathf.Min(1f, g.Age / 0.8f)));
+                float radius = radiusD * s;
+                for (int i = 0; i < 30; i++)
                 {
                     float h1 = Mathf.Sin(i * 12.9898f + g.Id) * 43758.5453f, r1 = h1 - Mathf.Floor(h1);
                     float h2 = Mathf.Sin(i * 78.233f + g.Id) * 12345.6789f, r2 = h2 - Mathf.Floor(h2);
-                    float a = r1 * Mathf.PI * 2f + g.Age * (0.2f + r2 * 0.3f);
-                    float d = Mathf.Sqrt(r2) * radius * 0.8f;
-                    Vector3 pos = Ground(g.Pos, 0.4f * s) + new Vector3(Mathf.Cos(a) * d, Mathf.Sin(g.Age * 1.3f + i) * 0.1f * s, Mathf.Sin(a) * d);
-                    Color c = i % 3 == 0 ? new Color(0.62f, 0.32f, 0.92f) : i % 3 == 1 ? new Color(0.95f, 0.42f, 0.78f) : new Color(0.38f, 0.52f, 0.98f);
-                    c.a = 0.11f * fade;
-                    Vfx.Instance.Dot(pos, radius * (0.18f + 0.14f * r1), c, true, false, Vfx.Blend.Alpha);
+                    float h3 = Mathf.Sin(i * 39.425f + g.Id * 2.3f) * 24634.6345f, r3 = h3 - Mathf.Floor(h3);
+                    // Swirling round the middle (inner puffs faster), drifting out and back as it breathes.
+                    float a = r1 * Mathf.PI * 2f + g.Age * (0.35f - 0.22f * r2) * (i % 2 == 0 ? 1f : -0.6f);
+                    float d = Mathf.Sqrt(r2) * radiusD * (0.75f + 0.12f * Mathf.Sin(g.Age * 0.9f + i));
+                    float sizeD = radiusD * (0.15f + 0.11f * r3);
+                    Vector2 at = g.Pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
+                    Vector3 pos = Ground(at, sizeD * 0.42f + Mathf.Sin(g.Age * 1.1f + i) * 0.04f);
+                    Color c = i % 3 == 0 ? new Color(0.42f, 0.2f, 0.72f) : i % 3 == 1 ? new Color(0.78f, 0.3f, 0.62f) : new Color(0.26f, 0.36f, 0.82f);
+                    c.a = (i % 4 == 0 ? 0.13f : 0.09f) * fade;
+                    Vfx.Instance.Smoke(pos, sizeD * s, c, g.Id * 11 + i, r3 * 6.28f + g.Age * (r1 - 0.5f) * 0.5f, true, false, Vfx.Blend.Alpha);
                 }
                 for (int i = 0; i < 10; i++)
                 {

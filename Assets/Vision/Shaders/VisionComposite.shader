@@ -42,7 +42,7 @@ Shader "Hidden/Vision/Composite"
             float _VisShadow;      // character shadow darkening
             float4 _VisGrade;      // x = contrast, y = saturation, z = lit brightness, w = unlit brightness
             float4 _VisBeam;       // x = flashlight beam intensity, y = back-side light share, z = back-side reach (world)
-            float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px
+            float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px, w = gas blur over the whole screen (px)
             float4 _VisionViewerPos;
 
             // Disc blur: 12 taps on a golden-angle spiral plus the centre.
@@ -89,6 +89,8 @@ Shader "Hidden/Vision/Composite"
 
                 // Distance blur: far from the player the scene softens (off with the camera effects).
                 float blurPx = _VisBlur.z * smoothstep(_VisBlur.x, _VisBlur.y, distance(ws.xz, _VisionViewerPos.xz));
+                // Gassed (Penjamin, galaxy gas): the whole view swims out of focus.
+                blurPx = max(blurPx, _VisBlur.w);
                 if (blurPx > 0.25) scene = DiscBlur(uv, blurPx);
 
                 // Sample the mask a little in front of each surface, so a wall face lit from its side

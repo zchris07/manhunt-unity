@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Vision.Characters
 {
-    public enum HairStyle { None, Buzz, Short, Long, Curly, Cap }
+    public enum HairStyle { None, Buzz, Short, Long, Curly, Cap, Bowl }
 
     [Flags]
     public enum Feature
@@ -28,6 +28,8 @@ namespace Vision.Characters
         OpenJacket = 1 << 8,
         /// <summary>A work shirt hanging in ragged tails below the belt, sleeves torn off at the forearm (Zach).</summary>
         TornShirt = 1 << 9,
+        /// <summary>A short goatee on the chin, in the hair colour (Waz).</summary>
+        Goatee = 1 << 10,
     }
 
     /// <summary>
@@ -85,7 +87,8 @@ namespace Vision.Characters
             switch (name)
             {
                 case "Sexton Science":
-                    return new CharacterSpec { Name = name, Skin = H(0xf4cfae), Hair = H(0xf5d86a), Shirt = H(0x2f86f0), Pants = H(0xcdb57c), Shoes = H(0x5a3a22), HairStyle = HairStyle.Short, Features = Feature.Glasses, Accent = H(0x1a1a1a) };
+                    // A white man with blond hair.
+                    return new CharacterSpec { Name = name, Skin = H(0xf2cdb0), Hair = H(0xf2d468), Shirt = H(0x2f86f0), Pants = H(0xcdb57c), Shoes = H(0x5a3a22), HairStyle = HairStyle.Short, Features = Feature.Glasses, Accent = H(0x1a1a1a) };
                 case "Shane Jeans":
                     return new CharacterSpec { Name = name, Skin = H(0xe0b890), Hair = H(0x3a2a1c), Shirt = H(0xd8d0c0), Jacket = H(0x4a6a9a), Pants = H(0x3a5a8a), Shoes = H(0x2a2622), HairStyle = HairStyle.Long, Features = Feature.OpenJacket };
                 case "Chris Zelley":
@@ -93,26 +96,33 @@ namespace Vision.Characters
                 case "Marc Cortez":
                     return new CharacterSpec { Name = name, Skin = H(0xc68a5e), Hair = H(0x1e1612), Shirt = H(0xe8e4dc), Jacket = H(0x9a2a24), Pants = H(0x3c4a6a), Shoes = H(0x4a3424), HairStyle = HairStyle.Short, Features = Feature.Flannel | Feature.OpenJacket };
                 case "Plasma.TTV":
-                    return new CharacterSpec { Name = name, Skin = H(0xe8c0a0), Hair = H(0x2a1e1a), Shirt = H(0x2a2a30), Jacket = H(0x1c1c22), Pants = H(0x26262c), Shoes = H(0xe8e8ec), HairStyle = HairStyle.Curly, Features = Feature.Headset | Feature.Hood, Accent = H(0xff4fb0), Accent2 = H(0x3af0ff) };
+                    // A tall white man with light brown hair.
+                    return new CharacterSpec { Name = name, Height = 1.88f, Skin = H(0xf0c9a8), Hair = H(0xa5794e), Shirt = H(0x2a2a30), Jacket = H(0x1c1c22), Pants = H(0x26262c), Shoes = H(0xe8e8ec), HairStyle = HairStyle.Short, Features = Feature.Headset | Feature.Hood, Accent = H(0xff4fb0), Accent2 = H(0x3af0ff) };
                 case "Plasma beast":
                     // GAMER RAGE: the same man, hulking, purple, his clothes torn.
                     return new CharacterSpec { Name = name, Height = 2.05f, Shoulders = 1.45f, Chest = 1.4f, Waist = 1.2f, Hips = 1.1f, Arms = 1.6f, Legs = 1.35f, Neck = 1.6f, Head = 1.05f, Hunch = 0.05f,
-                        Skin = H(0x7a3ab0), Hair = H(0x2a1e1a), Shirt = H(0x2a2a30), Jacket = H(0x1c1c22), Pants = H(0x26262c), Shoes = H(0xe8e8ec), HairStyle = HairStyle.Curly,
+                        Skin = H(0x7a3ab0), Hair = H(0xa5794e), Shirt = H(0x2a2a30), Jacket = H(0x1c1c22), Pants = H(0x26262c), Shoes = H(0xe8e8ec), HairStyle = HairStyle.Short,
                         Features = Feature.Headset | Feature.TornShirt, Accent = H(0xff4fb0), Accent2 = H(0x3af0ff) };
                 case "Jaden Nguyen":
-                    return new CharacterSpec { Name = name, Skin = H(0xd8b08a), Hair = H(0x1e1e22), Shirt = H(0xeeeeee), Jacket = H(0x4e5a36), Pants = H(0x2a2a30), Shoes = H(0xe8e8e8), HairStyle = HairStyle.Cap, Features = Feature.OpenJacket };
+                    // An Asian man with cartoon-yellow skin.
+                    return new CharacterSpec { Name = name, Skin = H(0xf5d33a), Hair = H(0x1e1e22), Shirt = H(0xeeeeee), Jacket = H(0x4e5a36), Pants = H(0x2a2a30), Shoes = H(0xe8e8e8), HairStyle = HairStyle.Cap, Features = Feature.OpenJacket };
                 case "Waz":
-                    return new CharacterSpec { Name = name, Skin = H(0x8a5a38), Hair = H(0x0e0c0c), Shirt = H(0x2f8a3a), Pants = H(0x2e3442), Shoes = H(0x1c1c1e), HairStyle = HairStyle.Short };
+                    // A tall Indian man with curly hair and a short goatee.
+                    return new CharacterSpec { Name = name, Height = 1.88f, Skin = H(0x8a5a38), Hair = H(0x0e0c0c), Shirt = H(0x2f8a3a), Pants = H(0x2e3442), Shoes = H(0x1c1c1e), HairStyle = HairStyle.Curly, Features = Feature.Goatee };
                 case "Chacko":
                     return new CharacterSpec { Name = name, Skin = H(0xb9825a), Hair = H(0x161212), Shirt = H(0x176a4a), Pants = H(0x2a2e3a), Shoes = H(0xd8d8d8), HairStyle = HairStyle.Short, Features = Feature.Jersey, Accent = H(0xf0f0f0) };
                 case "Njaaron":
-                    return new CharacterSpec { Name = name, Skin = H(0xa9714a), Hair = H(0x15110f), Shirt = H(0x1f3a78), Jacket = H(0x26468a), Pants = H(0x2c2f38), Shoes = H(0xf0f0f0), HairStyle = HairStyle.Short, Features = Feature.Hood };
+                    // A slightly muscular Asian man: a little broader in the shoulders and chest, thicker in the arms.
+                    return new CharacterSpec { Name = name, Shoulders = 1.07f, Chest = 1.08f, Arms = 1.12f, Neck = 1.08f, Skin = H(0xe2bb92), Hair = H(0x15110f), Shirt = H(0x1f3a78), Jacket = H(0x26468a), Pants = H(0x2c2f38), Shoes = H(0xf0f0f0), HairStyle = HairStyle.Short, Features = Feature.Hood };
                 case "Monique Bourgeois":
-                    return new CharacterSpec { Name = name, Height = 1.7f, Shoulders = 0.92f, Chest = 0.95f, Waist = 0.9f, Arms = 0.9f, Legs = 0.95f, Neck = 0.9f, Skin = H(0xefc9a6), Hair = H(0x7a3a1c), Shirt = H(0xf0e8d8), Pants = H(0x3a2a4a), Shoes = H(0x5a3a2a), HairStyle = HairStyle.Long };
+                    // A short Asian woman.
+                    return new CharacterSpec { Name = name, Height = 1.62f, Shoulders = 0.9f, Chest = 0.94f, Waist = 0.88f, Arms = 0.88f, Legs = 0.94f, Neck = 0.88f, Skin = H(0xeac6a0), Hair = H(0x141012), Shirt = H(0xf0e8d8), Pants = H(0x3a2a4a), Shoes = H(0x5a3a2a), HairStyle = HairStyle.Long };
                 case "Thomas Bourgeois":
-                    return new CharacterSpec { Name = name, Skin = H(0xe4b894), Hair = H(0x9a9a9a), Shirt = H(0xe8e4dc), Jacket = H(0xb88a2a), Pants = H(0x4a4a3a), Shoes = H(0x3a2a1c), HairStyle = HairStyle.Curly, Features = Feature.Glasses | Feature.OpenJacket, Accent = H(0x2a2a2a) };
+                    // A white man with grey hair.
+                    return new CharacterSpec { Name = name, Skin = H(0xf0c8a8), Hair = H(0x9a9a9a), Shirt = H(0xe8e4dc), Jacket = H(0xb88a2a), Pants = H(0x4a4a3a), Shoes = H(0x3a2a1c), HairStyle = HairStyle.Curly, Features = Feature.Glasses | Feature.OpenJacket, Accent = H(0x2a2a2a) };
                 case "Soham":
-                    return new CharacterSpec { Name = name, Skin = H(0xb9825a), Hair = H(0x161212), Shirt = H(0x2a2a2a), Jacket = H(0xc8322a), Pants = H(0x2a3a5a), Shoes = H(0xe8e8e8), HairStyle = HairStyle.Buzz, Features = Feature.Hood };
+                    // A tall Indian man with a bowl cut.
+                    return new CharacterSpec { Name = name, Height = 1.88f, Skin = H(0x9a6642), Hair = H(0x161212), Shirt = H(0x2a2a2a), Jacket = H(0xc8322a), Pants = H(0x2a3a5a), Shoes = H(0xe8e8e8), HairStyle = HairStyle.Bowl, Features = Feature.Hood };
                 default:
                     return Survivor();
             }

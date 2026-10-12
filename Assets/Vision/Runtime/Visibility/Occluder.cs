@@ -23,8 +23,10 @@ namespace Vision.Visibility
         [Tooltip("Local footprint centre offset in X/Z.")]
         public Vector2 offset;
         [SerializeField] bool blocking = true;
+        [Tooltip("Knee-high (a fallen log or tree): seen, lit and shot over; only the dimmer see-through shade stops at it.")]
+        public bool low;
 
-        int handle = -1;
+        int handle = -1, lowHandle = -1;
         static readonly List<Vector2> Points = new List<Vector2>(16);
 
         /// <summary>False lets sight pass, e.g. an open door or open shutters.</summary>
@@ -35,13 +37,20 @@ namespace Vision.Visibility
             {
                 blocking = value;
                 if (handle >= 0) VisionWorld.Occluders.SetActive(handle, value);
+                if (lowHandle >= 0) VisionWorld.WithLow.SetActive(lowHandle, value);
             }
         }
 
         void OnEnable()
         {
             BuildFootprint(Points);
-            handle = VisionWorld.Occluders.Register(Points, true, blocking);
+            RegisterAll();
+        }
+
+        void RegisterAll()
+        {
+            handle = low ? -1 : VisionWorld.Occluders.Register(Points, true, blocking);
+            lowHandle = VisionWorld.WithLow.Register(Points, true, blocking);
         }
 
         // Props are often spawned (and enabled) first and placed afterwards: take the footprint again where they stand.
@@ -51,8 +60,9 @@ namespace Vision.Visibility
         public void Refresh()
         {
             if (handle >= 0) VisionWorld.Occluders.Unregister(handle);
+            if (lowHandle >= 0) VisionWorld.WithLow.Unregister(lowHandle);
             BuildFootprint(Points);
-            handle = VisionWorld.Occluders.Register(Points, true, blocking);
+            RegisterAll();
         }
 
         void OnDisable() => Release();
@@ -61,7 +71,9 @@ namespace Vision.Visibility
         public void Release()
         {
             VisionWorld.Occluders.Unregister(handle);
+            VisionWorld.WithLow.Unregister(lowHandle);
             handle = -1;
+            lowHandle = -1;
         }
 
         public void BuildFootprint(List<Vector2> points)

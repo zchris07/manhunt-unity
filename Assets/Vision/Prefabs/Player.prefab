@@ -714,6 +714,7 @@ MonoBehaviour:
   turnSpeed: 720
   maxTwist: 100
   Prone: 0
+  Lift: 0
   Crouch: 0
 --- !u!114 &5050273021259528254
 MonoBehaviour:
@@ -856,6 +857,7 @@ MonoBehaviour:
   seeThroughRange: 8
   seeThroughStrength: 0.7
   seeThroughK: 1
+  revealAll: 0
   allyBodyRadius: 1.2
   allyBodyIntensity: 0.55
 --- !u!114 &8508204900453197659

@@ -303,7 +303,8 @@ namespace Vision.Game
                 }
                 if (p.VapeT <= 0f) continue;
                 p.VapeT = Mathf.Max(0f, p.VapeT - dt);
-                HurtSurvivor(p, p.VapeDps * dt, null, "gas");
+                // Penjamin goes straight through the shield to the health bar.
+                HurtSurvivor(p, p.VapeDps * dt, null, "vape");
             }
         }
 
@@ -322,6 +323,8 @@ namespace Vision.Game
             h.BeamAng = aim;
             h.BeamLen = 0f;
             h.BeamHit.Clear();
+            h.BeamDoor = -1;
+            h.BeamDoorT = 0f;
             h.ChargeT = -1f;
             Feed($"{h.Name} fired a Hemp Beam");
         }
@@ -355,25 +358,59 @@ namespace Vision.Game
                         h.BeamTick -= 1f / Balance.Hunter.Beam.TickRate;
                         ticks++;
                     }
-                    FireBeam(h, ticks);
+                    FireBeam(h, ticks, dt);
                 }
                 if (h.BeamT <= 0f) h.BeamCd = Balance.Hunter.Beam.Cooldown;
             }
         }
 
-        /// <summary>The beam runs until it meets something solid or a person, and hurts what it touches.</summary>
-        void FireBeam(SimPlayer h, int ticks)
+        /// <summary>
+        /// The beam runs until it meets something solid or a person, and hurts whoever it touches: Zach or a survivor, the
+        /// beamer's own side too (1 HP ten times a second). Glass in its way shatters at once and it carries on through the
+        /// empty frame; a closed door it stays on for <see cref="Balance.Hunter.Beam.DoorTime"/> s is blown open.
+        /// </summary>
+        void FireBeam(SimPlayer h, int ticks, float dt)
         {
             var d = new Vector2(Mathf.Cos(h.BeamAng), Mathf.Sin(h.BeamAng));
             Vector2 s = h.Pos + d * (h.RadiusD + R(2f));
             float range = R(Balance.Sexton.Defense.BeamRange);
-            float len = Mathf.Min(Geo.CastSight(s, d, range), WindowHit(s, d, range, out _));
+            float wall = Mathf.Min(Geo.CastSight(s, d, range), range);
+            for (int guard = 0; guard < 8; guard++)
+            {
+                float t = WindowHit(s, d, wall, out int win);
+                if (win < 0) break;
+                BreakWindow(win);
+                Noise(s + d * t, 800f, "glass");
+            }
+            float len = wall;
+            // A closed door at the end of the beam burns through.
+            int door = -1;
+            for (int i = 0; i < Map.Doors.Count; i++)
+            {
+                if (Doors[i] || DoorBroken[i]) continue;
+                float t = RaySegment(s, d, Map.Doors[i].A, Map.Doors[i].B);
+                if (!float.IsPositiveInfinity(t) && Mathf.Abs(t - len) < R(6f)) { door = i; break; }
+            }
+            if (door != h.BeamDoor) { h.BeamDoor = door; h.BeamDoorT = 0f; }
+            if (door >= 0)
+            {
+                h.BeamDoorT += dt;
+                if (h.BeamDoorT >= Balance.Hunter.Beam.DoorTime)
+                {
+                    SetDoor(door, true);
+                    DoorBroken[door] = true;
+                    Noise(s + d * len, 900f, "door_smash");
+                    h.BeamDoor = -1;
+                    h.BeamDoorT = 0f;
+                }
+            }
             SimPlayer victim = null;
             float vt = len, halfW = R(Balance.Sexton.Defense.BeamWidth) / 2f;
             bool vsZach = h.Role == Role.Survivor;
             foreach (SimPlayer p in Order)
             {
-                if (vsZach ? p.Role != Role.Hunter || p.Health == Health.Eliminated : p.Role != Role.Survivor || (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState == 2) continue;
+                if (p == h || p.Role == Role.Spectator) continue;
+                if (p.Role == Role.Hunter ? p.Health == Health.Eliminated : (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState == 2) continue;
                 float along = Vector2.Dot(p.Pos - s, d);
                 if (along < 0f || along > vt) continue;
                 if (SimMap.SegmentDistance(p.Pos, s, s + d * len) > p.RadiusD + halfW) continue;
@@ -386,7 +423,7 @@ namespace Vision.Game
                 {
                     h.BeamFlinch++;
                     string kind = h.BeamFlinch % 3 == 0 ? "beam" : "gas";
-                    if (vsZach) HurtHunter(victim, Balance.Hunter.Beam.ZachTickDamage * Balance.Hunter.Health.Max, h, kind);
+                    if (victim.Role == Role.Hunter) HurtHunter(victim, Balance.Hunter.Beam.ZachTickDamage * Balance.Hunter.Health.Max, h, kind);
                     else HurtSurvivor(victim, Balance.Hunter.Beam.TickDamage, h, kind);
                     if (victim.Health == Health.Downed || victim.KnockT > 0f) break;
                 }

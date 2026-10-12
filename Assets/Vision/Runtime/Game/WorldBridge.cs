@@ -171,6 +171,13 @@ namespace Vision.Game
 
         public bool InWater(Vector2 p) => TerrainField.InWaterAt(root.TransformPoint(new Vector3(p.x, 0f, p.y)));
 
+        public bool OverLow(Vector2 p, float radius)
+        {
+            foreach (SandboxWorld.LowObstacle o in world.Lows)
+                if (SimMap.SegmentDistance(p, o.A, o.B) < o.Half + radius) return true;
+            return false;
+        }
+
         public bool InBrokenWindow(Vector2 p, float radius)
         {
             if (BrokenWindows == null) return false;

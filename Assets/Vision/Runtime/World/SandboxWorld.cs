@@ -55,6 +55,55 @@ namespace Vision.World
 
         /// <summary>Layers: the terrain, and characters (sight and body checks ignore both).</summary>
         public const int GroundLayer = 8, CharacterLayer = 9;
+        /// <summary>Fallen logs and trees: players step over them (vaulting), NPCs walk round them; sight and shots pass over.</summary>
+        public const int LowLayer = 12;
+
+        /// <summary>A knee-high thing lying on the ground that players vault (design units, the level's plane).</summary>
+        public struct LowObstacle { public Vector2 A, B; public float Half, Height; }
+        public readonly List<LowObstacle> Lows = new List<LowObstacle>();
+
+        /// <summary>
+        /// How high a body crossing at <paramref name="p"/> is lifted (design units): a smooth bump over a fallen log or tree,
+        /// or over the sill of a broken window, peaking on top of it; zero anywhere else. Only the drawing uses it.
+        /// </summary>
+        public float VaultLift(Vector2 p, float radius, bool[] brokenWindows)
+        {
+            float lift = 0f;
+            foreach (LowObstacle o in Lows)
+            {
+                float d = Vision.Game.SimMap.SegmentDistance(p, o.A, o.B), reach = o.Half + radius;
+                if (d < reach) lift = Mathf.Max(lift, o.Height * Mathf.Cos(d / reach * Mathf.PI * 0.5f));
+            }
+            if (brokenWindows != null)
+                for (int i = 0; i < Windows.Count && i < brokenWindows.Length; i++)
+                {
+                    if (!brokenWindows[i]) continue;
+                    float d = Vision.Game.SimMap.SegmentDistance(p, Windows[i].a, Windows[i].b), reach = 0.15f + radius;
+                    if (d < reach) lift = Mathf.Max(lift, WindowVaultHeight * Mathf.Cos(d / reach * Mathf.PI * 0.5f));
+                }
+            return lift;
+        }
+
+        /// <summary>How high the body goes over a broken window's sill, and over a fallen log or tree (design units).</summary>
+        public const float WindowVaultHeight = 0.55f, LogVaultHeight = 0.42f;
+
+        /// <summary>Records a lying obstacle from its box collider, and makes it low: vaulted, seen and shot over.</summary>
+        void MakeLow(GameObject go, BoxCollider box)
+        {
+            go.layer = LowLayer;
+            var occ = go.GetComponent<Vision.Visibility.Occluder>();
+            if (occ != null && !occ.low)
+            {
+                occ.low = true;
+                if (occ.isActiveAndEnabled) occ.Refresh();
+            }
+            if (box == null) return;
+            Transform t = box.transform;
+            Vector3 c = box.center, e = new Vector3(box.size.x * 0.5f, 0f, 0f);
+            Vector3 a = transform.InverseTransformPoint(t.TransformPoint(c - e)), b = transform.InverseTransformPoint(t.TransformPoint(c + e));
+            float half = box.size.z * 0.5f * t.lossyScale.z / Mathf.Max(1e-4f, transform.lossyScale.x);
+            Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = half, Height = LogVaultHeight });
+        }
         /// <summary>For the painted map: each tree's spot, its crown radius and whether it is dead; each rock's spot and radius.</summary>
         public readonly List<(Vector2 p, float r, bool dead)> MapTrees = new List<(Vector2, float, bool)>();
         public readonly List<(Vector2 p, float r)> MapRocks = new List<(Vector2, float)>();
@@ -166,6 +215,8 @@ namespace Vision.World
         [ContextMenu("Generate Level")]
         public void Generate()
         {
+            Lows.Clear();
+            Physics.IgnoreLayerCollision(CharacterLayer, LowLayer, true);
             rng = new System.Random(seed);
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
@@ -720,7 +771,7 @@ namespace Vision.World
         /// A hinged panel filling a gap that starts at <paramref name="start"/> and runs along
         /// <paramref name="along"/>. Shutters sit on the sill (raised) and never unblock movement.
         /// </summary>
-        void MakeDoor(Vector2 start, Vector2 along, float width, float height, bool shutter, float baseY)
+        void MakeDoor(Vector2 start, Vector2 along, float width, float height, bool shutter, float baseY, bool office = false)
         {
             var root = new GameObject(shutter ? "Window Shutter" : "Door");
             root.SetActive(false);
@@ -730,7 +781,15 @@ namespace Vision.World
 
             var hinge = new GameObject("Hinge").transform;
             hinge.SetParent(root.transform, false);
-            Mesh m = LowPolyModels.Panel(rng, width, height, 0.12f);
+            // The central building's are office steel doors in steel frames; cabins keep their plank doors.
+            Mesh m = office ? LowPolyModels.MetalDoor(rng, width - 0.04f, height - 0.03f, 0.06f) : LowPolyModels.Panel(rng, width, height, 0.12f);
+            if (office)
+            {
+                var frame = new GameObject("Frame");
+                frame.transform.SetParent(root.transform, false);
+                frame.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.MetalDoorFrame(rng, width, height, 0.24f);
+                PropFactory.NoShadows(frame.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+            }
             var panel = new GameObject("Panel");
             panel.transform.SetParent(hinge, false);
             panel.transform.localPosition = new Vector3(width * 0.5f, shutter ? 0.8f : 0f, 0f);
@@ -958,7 +1017,13 @@ namespace Vision.World
                 float len = Vector2.Distance(l.A, l.B);
                 GameObject go = Piece("Log", LowPolyModels.Log(rng, len), parent, Vector3.zero, 0f);
                 Conform(go.transform, mid, len * 0.4f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0.85f, 0.04f);
-                AddBox(go, new Vector3(0f, 0.3f, 0f), new Vector3(len, 0.6f, 0.6f));
+                BoxCollider box = AddBox(go, new Vector3(0f, 0.3f, 0f), new Vector3(len, 0.6f, 0.6f));
+                // Seen over in the see-through shade, vaulted by players.
+                var occ = go.AddComponent<Vision.Visibility.Occluder>();
+                occ.shape = Vision.Visibility.Occluder.Shape.Box;
+                occ.size = new Vector2(len * 0.95f, 0.5f);
+                occ.low = true;
+                MakeLow(go, box);
                 blocked.Add(mid);
             }
         }
@@ -1357,7 +1422,10 @@ namespace Vision.World
                 Vector2 hg = TreeScale(rng, isDead);
                 go.transform.localScale = new Vector3(hg.y, hg.x, hg.y);
                 if (go.name.StartsWith("Fallen"))
+                {
                     Conform(go.transform, p, 1.5f, Range(0f, 360f), 0.9f, 0.05f);
+                    MakeLow(go, go.GetComponent<BoxCollider>());
+                }
                 else
                     go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius * hg.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blocked.Add(p);

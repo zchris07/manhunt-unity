@@ -72,12 +72,44 @@ namespace Vision.Player
         Vector2 lastPointer;
         uint seq;
         int placeSeen = -1;
+        InputAction turnLeft, turnRight;
+        TopDownCamera rig;
+        MatchSim turnedFor;
+
+        /// <summary>The view's current turn (degrees clockwise from north), 0 without a camera rig.</summary>
+        public float ViewYaw
+        {
+            get
+            {
+                if (rig == null && viewCamera != null) rig = viewCamera.GetComponent<TopDownCamera>();
+                return rig != null ? rig.Yaw : 0f;
+            }
+        }
+
+        /// <summary>Z and C turn the view 45 degrees left or right; every match starts facing north.</summary>
+        void UpdateTurn(MatchHost h, bool menu)
+        {
+            if (rig == null && viewCamera != null) rig = viewCamera.GetComponent<TopDownCamera>();
+            if (rig == null) return;
+            if (h.Sim != turnedFor)
+            {
+                turnedFor = h.Sim;
+                rig.ResetYaw();
+            }
+            if (menu) return;
+            if (Pressed(turnLeft)) rig.Turn(-1);
+            if (Pressed(turnRight)) rig.Turn(1);
+            MapHud.ViewYaw = rig.Yaw;
+        }
+
         bool hiddenShown;
         // The see-through light's growth (0-1), and whether the one fading is the Hemp Battery's (it fades out as slowly as in).
         float xrayK;
         bool xrayHemp;
         // Penjamin's darkness (0-1), eased in and out over the original's 0.6 s: the beam narrows and the dark goes black.
         float darkK;
+        // The gas blur (0-1) and how long since Zach left the galaxy gas.
+        float gasBlurK, gasLeftT = 99f;
         Vision.Rendering.VisionComposite composite;
 
         void Awake()
@@ -94,6 +126,8 @@ namespace Vision.Player
             sprint = A("Sprint");
             interact = A("Interact");
             crouch = A("Crouch");
+            turnLeft = A("TurnLeft");
+            turnRight = A("TurnRight");
             aimPoint = A("AimPoint");
             aimStick = A("AimStick");
             fire = A("Fire");
@@ -155,6 +189,8 @@ namespace Vision.Player
             float dt = Time.deltaTime;
             bool menu = GameHud.MenuOpen;
 
+            UpdateTurn(h, menu);
+
             // Testing mode: T switches between Zach and a survivor where you stand.
             if (!menu && Pressed(switchRole) && h.Sim.TestMode && h.SwitchRole())
             {
@@ -215,6 +251,8 @@ namespace Vision.Player
                 return cmd;
             }
             Vector2 mv = Vector2.ClampMagnitude(MoveOverride ?? move.ReadValue<Vector2>(), 1f);
+            // Up the screen is wherever the view is turned (Z / C).
+            if (MoveOverride == null) mv = TopDownCamera.ScreenToGround(mv, ViewYaw);
             cmd.Move = mv;
             Btn b = ExtraButtons;
             if (SprintOverride ?? Held(sprint)) b |= Btn.Run;
@@ -319,12 +357,21 @@ namespace Vision.Player
                 viewer.Facing = new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing));
                 float cone = (zach ? Balance.Hunter.ConeHalfAngleDeg : Balance.Survivor.ConeHalfAngleDeg) * Mathf.Sqrt(p.FovMul);
                 if (p.GogglesOn) cone *= Balance.Items.Goggles.ConeMul;
+                // Galaxy gas narrows Zach's cone by 30%.
+                if (zach && p.Gassed) cone *= 1f - Balance.Items.Trap.ZachConeCut;
                 float dt0 = Time.deltaTime;
                 darkK = Mathf.MoveTowards(darkK, !zach && p.DarkT > 0f ? 1f : 0f, dt0 / Balance.Hunter.Vape.DarkEase);
                 float darkE = darkK * darkK * (3f - 2f * darkK);
                 cone *= 1f - Balance.Hunter.Vape.ConeCut * darkE;
                 if (composite == null) composite = FindAnyObjectByType<Vision.Rendering.VisionComposite>();
                 if (composite != null) composite.fogScale = 1f - darkE;
+                // The gas blur: strong the moment you're gassed, held while you're in it, fading as the effect wears off
+                // (Penjamin's after-effect on a survivor; two seconds after Zach leaves the galaxy gas).
+                gasLeftT = zach && p.Gassed ? 0f : gasLeftT + dt0;
+                float blurWant = zach ? Mathf.Clamp01(1f - gasLeftT / Balance.Items.Trap.BlurAfter)
+                    : p.VapeT > 0f ? Mathf.Clamp01(p.VapeT / Balance.Hunter.Vape.AfterTime) : 0f;
+                gasBlurK = blurWant > gasBlurK ? Mathf.MoveTowards(gasBlurK, blurWant, dt0 / 0.15f) : blurWant;
+                if (composite != null) composite.gasBlur = gasBlurK;
                 // Hidden: peeking out through the slats (or the grass all round) for the original's short reach.
                 bool peeking = p.HideState == 2;
                 bool grass = peeking && world.HidingSpots[p.HideSpot].kind == HidingSpot.Kind.Grass;
@@ -341,11 +388,14 @@ namespace Vision.Player
                 viewer.seeThroughEnabled = xrayK > 0f;
                 viewer.seeThroughK = xrayK;
                 viewer.seeThroughStrength = Balance.Xray.Brightness;
+                // JARVIS: while it runs, every survivor sees everything on their screen (Zach doesn't).
+                viewer.revealAll = Host != null && Host.Sim.RevealT > 0f && !zach;
             }
             if (animator != null)
             {
                 Vector3 moved = cc.enabled ? cc.velocity : Vector3.zero;
                 animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
+                animator.Lift = p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, Host != null ? Host.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y) : 0f;
             }
             bool hidden = p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator;
             if (hidden != hiddenShown)
@@ -433,7 +483,7 @@ namespace Vision.Player
             else if ((pointer - lastPointer).sqrMagnitude > 4f) aimingWithStick = false;
             lastPointer = pointer;
             // Holding the last stick direction when it is released keeps the light where it was.
-            if (aimingWithStick) return stick.magnitude > stickAimDeadzone ? stick : Vector2.zero;
+            if (aimingWithStick) return stick.magnitude > stickAimDeadzone ? TopDownCamera.ScreenToGround(stick, ViewYaw) : Vector2.zero;
             return PointerAim(pointer);
         }
 

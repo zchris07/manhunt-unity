@@ -42,7 +42,7 @@ namespace Vision.Game
             for (int i = 0; i < 500; i++)
             {
                 var p = new Vector2(Range(-half, half), Range(-half, half));
-                if (s.Geo.Blocked(p, HitRadius + Scale.D(clearUnits)) || s.Geo.InWater(p)) continue;
+                if (s.Geo.Blocked(p, MoveRadius + Scale.D(clearUnits)) || s.Geo.InWater(p)) continue;
                 if (Vector2.Distance(p, a) < Scale.D(awayUnits) || Vector2.Distance(p, b) < Scale.D(awayUnits)) continue;
                 Pos = p;
                 break;
@@ -58,7 +58,7 @@ namespace Vision.Game
             for (int i = 0; i < 400; i++)
             {
                 var p = new Vector2(Range(r.xMin + m, r.xMax - m), Range(r.yMin + m, r.yMax - m));
-                if (Sim.Geo.Blocked(p, HitRadius + Scale.D(clearUnits))) continue;
+                if (Sim.Geo.Blocked(p, MoveRadius + Scale.D(clearUnits))) continue;
                 Pos = p;
                 Heading = Range(-Mathf.PI, Mathf.PI);
                 Facing = Heading;
@@ -89,7 +89,7 @@ namespace Vision.Game
             if (VapeSlowT > 0f) speed *= 1f - VapeSlow;
             if (Sim.Geo.InWater(Pos)) speed *= Balance.WadeMul;
             Vector2 before = Pos;
-            Pos = Sim.MoveCircle(Pos, HitRadius, new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * speed * dt);
+            Pos = Sim.MoveCircle(Pos, MoveRadius, new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * speed * dt);
             Moving = true;
             StuckT = Vector2.Distance(Pos, before) < speed * dt * 0.35f ? StuckT + dt : 0f;
         }
@@ -163,13 +163,13 @@ namespace Vision.Game
         /// <summary>Pushed into something (a door closed on it): move to the nearest open spot.</summary>
         public override void Unstick(MatchSim sim)
         {
-            if (!alive || !sim.Geo.Blocked(Pos, HitRadius)) return;
+            if (!alive || !sim.Geo.Blocked(Pos, MoveRadius)) return;
             for (int ring = 1; ring <= 12; ring++)
                 for (int k = 0; k < 12; k++)
                 {
                     float a = k * Mathf.PI / 6f;
                     Vector2 p = Pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Scale.D(ring * 8f);
-                    if (!sim.Geo.Blocked(p, HitRadius)) { Pos = p; return; }
+                    if (!sim.Geo.Blocked(p, MoveRadius)) { Pos = p; return; }
                 }
         }
 

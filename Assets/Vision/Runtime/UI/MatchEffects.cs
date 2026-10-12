@@ -276,13 +276,44 @@ namespace Vision.UI
         }
 
         /// <summary>The Hemp Battery: a green disc pulsing under him while it's on.</summary>
+        /// <summary>
+        /// The Hemp Battery's ring, a battery gauge lying on the ground round Zach and following its rise and fall: a dim
+        /// full ring, the charge left as a bright arc from twelve o'clock (as the screen is turned) that shrinks clockwise as
+        /// the battery drains, and a faint slice of the same size filling it. Steady: no pulse.
+        /// </summary>
         void HempDisc(SimPlayer p)
         {
             if (!p.HempOn) return;
-            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 4f);
-            float r = Scale.D(Balance.HunterRadius * (2.6f + 0.4f * pulse)) * S;
-            Fx.Disc(Ground(p.Pos, 0.05f), r, new Color(0x6d / 255f, 1f, 0x6a / 255f, 0.07f + 0.06f * pulse), true);
-            Fx.Circle(Ground(p.Pos, 0.05f), r, 0.04f * S, new Color(0x6d / 255f, 1f, 0x6a / 255f, 0.5f), true);
+            float k = p.Hemp == 2 ? 1f : Mathf.Clamp01(p.HempLeft / Balance.Hunter.Hemp.Duration);
+            float r = Scale.D(Balance.HunterRadius * 2.8f), w = Scale.D(Balance.HunterRadius * 0.16f);
+            var green = new Color(0x6d / 255f, 1f, 0x6a / 255f, 1f);
+            float twelve = (90f - Vision.Player.MapHud.ViewYaw) * Mathf.Deg2Rad;
+            GroundArc(p.Pos, r - w, r + w, 0f, Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.14f));
+            if (k <= 0f) return;
+            GroundArc(p.Pos, r - w, r + w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.62f));
+            GroundArc(p.Pos, 0f, r - w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.07f));
+        }
+
+        /// <summary>
+        /// A band on the ground between two radii (design units) about a point, from an angle for a sweep, every vertex set
+        /// on the terrain just above it, so it lies on slopes and bumps instead of floating flat or sinking into them.
+        /// </summary>
+        void GroundArc(Vector2 centre, float r0, float r1, float start, float sweep, Color color)
+        {
+            if (Mathf.Abs(sweep) < 1e-4f) return;
+            int n = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(sweep) / (Mathf.PI / 24f)));
+            int rings = r0 <= 1e-4f ? 4 : 1;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = start + sweep * i / n, a1 = start + sweep * (i + 1) / n;
+                var d0 = new Vector2(Mathf.Cos(a0), Mathf.Sin(a0));
+                var d1 = new Vector2(Mathf.Cos(a1), Mathf.Sin(a1));
+                for (int j = 0; j < rings; j++)
+                {
+                    float ra = Mathf.Lerp(r0, r1, j / (float)rings), rb = Mathf.Lerp(r0, r1, (j + 1) / (float)rings);
+                    Fx.Quad(Ground(centre + d0 * ra, 0.06f), Ground(centre + d0 * rb, 0.06f), Ground(centre + d1 * rb, 0.06f), Ground(centre + d1 * ra, 0.06f), color, true);
+                }
+            }
         }
 
         readonly Dictionary<int, ActionKind> lastAction = new Dictionary<int, ActionKind>();
@@ -409,6 +440,11 @@ namespace Vision.UI
         /// front reaches it and drifting on, bigger and thinner the farther out; it rolls out in 0.6 s, hangs, then fades.
         /// It shows above the dark: Zach sees the gas run to the edge of his screen.
         /// </summary>
+        /// <summary>
+        /// Penjamin's cloud (yellow, or blue for 50 Nic): rolling out along its cone as the original's does, now a churning
+        /// body of smoke puffs (dense, darker billows at its heart, paler wisps curling off its edges and a low haze
+        /// creeping along the ground), every puff sitting on the terrain under it and thinning where it meets anything solid.
+        /// </summary>
         void DrawVapes(MatchSim sim)
         {
             float now = sim.Time;
@@ -421,31 +457,47 @@ namespace Vision.UI
                 float k = Mathf.Min(1f, age / grow);
                 float ext = rUnits * (1f - (1f - k) * (1f - k));
                 float fade = Mathf.Clamp01((grow + linger + fadeT - age) / fadeT);
-                int n = Mathf.CeilToInt(rUnits / 16f);
+                int n = Mathf.CeilToInt(rUnits / 13f);
+                Color core = v.Nic ? Hex(0x4a8ed0) : Hex(0xb8a040), mid = v.Nic ? Hex(0x72bcf0) : Hex(0xdccb5a), pale = v.Nic ? Hex(0xbfe6ff) : Hex(0xf4eab0);
                 for (int i = 0; i < n; i++)
                 {
                     float h1 = Mathf.Sin(i * 12.9898f + v.Id * 1.3f) * 43758.5453f, r1 = h1 - Mathf.Floor(h1);
                     float h2 = Mathf.Sin(i * 78.233f + v.Id * 0.7f) * 12345.6789f, r2 = h2 - Mathf.Floor(h2);
+                    float h3 = Mathf.Sin(i * 39.425f + v.Id * 2.9f) * 24634.6345f, r3 = h3 - Mathf.Floor(h3);
                     float u = Mathf.Pow((i + r1 * 0.8f) / n, 0.9f);
                     float bas = u * rUnits;
                     if (bas > ext) continue;
                     float reached = grow * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - bas / rUnits)));
                     float since = Mathf.Max(0f, age - reached);
                     float g = 1f - Mathf.Exp(-since * 5f);
-                    float d = bas + since * (14f + 18f * u);
+                    // Rolling on and spreading: puffs drift outward and sideways, curling as they go.
+                    float d = bas + since * (10f + 14f * u);
                     float width = Mathf.Tan(halfAng) * Mathf.Max(d, 30f);
-                    float side = (r2 * 2f - 1f) * width * 0.7f + Mathf.Sin(age * (0.8f + r1) + i * 1.9f) * width * 0.22f;
-                    float falloff = 1f - 0.7f * u;
-                    float size = (14f + width * 0.9f) * 0.5f * (0.55f + 0.45f * g) * (1f + since * 0.05f);
-                    Color body = v.Nic ? (i % 4 == 0 ? Hex(0xa6dcff) : i % 3 == 0 ? Hex(0x4a9ae0) : Hex(0x72bcf0)) : (i % 4 == 0 ? Hex(0xf2e6a0) : i % 3 == 0 ? Hex(0xc8b040) : Hex(0xdccb5a));
-                    body.a = 0.34f * falloff * fade * (0.4f + 0.6f * g);
-                    Vector3 pos = Along(v.Origin, v.Angle, d, side, 1.0f);
-                    Fx.Dot(pos, Scale.D(size) * S, body, false, true, Vfx.Blend.Alpha);
-                    if (i % 2 == 0)
+                    float side = (r2 * 2f - 1f) * width * 0.75f + Mathf.Sin(age * (0.6f + r1) + i * 1.9f) * width * 0.25f;
+                    float falloff = 1f - 0.6f * u;
+                    float size = (14f + width * 0.9f) * 0.5f * (0.5f + 0.5f * g) * (1f + since * 0.06f);
+                    float sizeW = Scale.D(size) * S;
+                    int seed = v.Id * 13 + i;
+                    float spin = r3 * 6.28f + age * (r1 - 0.5f) * 0.6f;
+                    // The puff's centre rides above the ground under it by a little under half its size.
+                    Vector3 pos = Along(v.Origin, v.Angle, d, side, Scale.D(size) * 0.42f);
+                    int layer = i % 3;
+                    Color body = layer == 0 ? core : layer == 1 ? mid : pale;
+                    body.a = (layer == 0 ? 0.2f : layer == 1 ? 0.15f : 0.1f) * falloff * fade * (0.35f + 0.65f * g);
+                    Fx.Smoke(pos, sizeW * (layer == 2 ? 1.15f : 1f), body, seed, spin, false, true, Vfx.Blend.Alpha);
+                    // A low haze hugging the ground under the thicker puffs.
+                    if (layer == 0)
+                    {
+                        Color haze = mid;
+                        haze.a = 0.06f * falloff * fade * g;
+                        Fx.Smoke(Along(v.Origin, v.Angle, d + size * 0.3f, side * 0.8f, Scale.D(size) * 0.22f), sizeW * 1.5f, haze, seed + 31, -spin, false, true, Vfx.Blend.Alpha);
+                    }
+                    // A faint inner light, as the original's cloud glows a little.
+                    if (i % 4 == 0)
                     {
                         Color glow = v.Nic ? Hex(0xb8e6ff) : Hex(0xfff0a0);
-                        glow.a = 0.16f * falloff * fade * g;
-                        Fx.Dot(pos, Scale.D(size * 0.7f) * S, glow, false, true, Vfx.Blend.Additive);
+                        glow.a = 0.05f * falloff * fade * g;
+                        Fx.Smoke(pos, sizeW * 0.7f, glow, seed + 7, spin * 1.3f, false, true, Vfx.Blend.Additive);
                     }
                 }
             }

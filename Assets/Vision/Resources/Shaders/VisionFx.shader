@@ -65,11 +65,61 @@ Shader "Vision/Fx"
                 return o;
             }
 
+            float Hash2(float2 p)
+            {
+                p = frac(p * float2(123.34, 456.21));
+                p += dot(p, p + 45.32);
+                return frac(p.x * p.y);
+            }
+
+            float ValueNoise(float2 p)
+            {
+                float2 f = frac(p), w = f * f * (3.0 - 2.0 * f);
+                float2 n = floor(p);
+                float a = Hash2(n), b = Hash2(n + float2(1, 0)), c = Hash2(n + float2(0, 1)), d = Hash2(n + float2(1, 1));
+                return lerp(lerp(a, b, w.x), lerp(c, d, w.x), w.y);
+            }
+
+            // Three octaves of value noise (and two for the finer churn): enough for billows, cheap for big clouds.
+            float Fbm(float2 p)
+            {
+                float v = 0.5 * ValueNoise(p);
+                p = p * 2.03 + 17.1;
+                v += 0.25 * ValueNoise(p);
+                p = p * 2.03 + 17.1;
+                return (v + 0.125 * ValueNoise(p)) / 0.875;
+            }
+
+            float Fbm2(float2 p)
+            {
+                return (0.5 * ValueNoise(p) + 0.25 * ValueNoise(p * 2.03 + 17.1)) / 0.75;
+            }
+
             half4 frag(Varyings i) : SV_Target
             {
                 half4 c = i.color;
+                // uv.x 8-9: a puff of smoke or gas (uv.y's whole part is its seed): billowing, ragged at the edges, lighter
+                // and darker as it folds, slowly churning (each puff is set clear of the ground and of solid things on
+                // the CPU, see Vfx.Step, and its lower edge is soft, so it never shows a hard line cutting into them).
+                if (i.uv.x > 7.5)
+                {
+                    float seed = floor(i.uv.y);
+                    float2 q = float2(i.uv.x - 8.0, frac(i.uv.y)) - 0.5;
+                    float r = length(q) * 2.0;
+                    // Outside the puff's circle there is nothing to draw.
+                    clip(1.0 - r);
+                    float t = _Time.y;
+                    float2 p = q * 2.6 + float2(seed * 7.13, seed * 3.71);
+                    float n = Fbm(p + float2(t * 0.09, -t * 0.06));
+                    float n2 = Fbm2(p * 2.2 + float2(-t * 0.13, t * 0.08) + 5.2);
+                    float body = saturate(1.0 - r);
+                    float dens = saturate((body * (0.4 + 1.1 * n) - 0.35 * n2) * 1.25);
+                    dens *= smoothstep(0.0, 0.35, body);
+                    c.rgb *= lerp(0.7, 1.2, saturate(n2 * 0.6 + body * 0.5));
+                    c.a *= dens * smoothstep(-0.5, -0.2, q.y);
+                }
                 // uv.x 6-7: a glow, bright in the middle and falling off smoothly (beams' cores, orbs, flares).
-                if (i.uv.x > 5.5)
+                else if (i.uv.x > 5.5)
                 {
                     float2 d = i.uv - float2(6.5, 0.5);
                     float r = saturate(1.0 - length(d) * 2.0);

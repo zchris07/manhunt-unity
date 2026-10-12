@@ -129,36 +129,48 @@ namespace Vision.World
         }
 
         /// <summary>
-        /// Ragged, spiky evergreen: a thin trunk bristling with sharp needle-spikes jutting out at angles, sparse and uneven,
-        /// longest low down and shortest at the tip. The black spruce form is narrower with a dense clump near the top.
+        /// Spiky evergreen, fuller and softer: a solid inner body of soft, many-sided needle cones round the trunk, bristling
+        /// with short, thick sprays that droop a little and fill most of the gaps, longest low down and shortest at the tip.
+        /// The black spruce form is narrower with a dense club near the top.
         /// </summary>
         static void Spiky(LowPolyMeshBuilder b, float height, bool black)
         {
             Color bark = new Color(0.22f, 0.19f, 0.16f);
             Color needles = black ? new Color(0.11f, 0.17f, 0.13f) : new Color(0.14f, 0.22f, 0.15f);
+            Color inner = needles * 0.82f;
             b.AddFrustum(Vector3.zero, new Vector3(0f, height * 0.97f, 0f), 0.035f * height, 0.008f * height, 5, bark, 0.1f);
             float crownBase = (black ? 0.2f : 0.12f) * height;
             float maxReach = (black ? 0.13f : 0.18f) * height;
-            int levels = black ? 16 : 14;
+            // The body: overlapping soft cones, so the tree reads as full rather than a bare pole with spikes.
+            const int bodies = 4;
+            for (int i = 0; i < bodies; i++)
+            {
+                float t = i / (float)bodies;
+                float bottom = Mathf.Lerp(crownBase, height * 0.8f, t);
+                float top = Mathf.Min(height * 0.98f, bottom + height * 0.34f);
+                float r = maxReach * 0.72f * Mathf.Lerp(1f, 0.35f, t) * (black && t > 0.6f ? 1.15f : 1f);
+                b.AddCone(new Vector3(b.Range(-0.03f, 0.03f), bottom, b.Range(-0.03f, 0.03f)), new Vector3(0f, top, 0f), r, 7, b.Jitter(inner, 0.06f), 0.1f, true);
+            }
+            int levels = black ? 13 : 12;
             for (int l = 0; l < levels; l++)
             {
                 float t = l / (float)(levels - 1);
                 float y = Mathf.Lerp(crownBase, height * 0.93f, t);
-                float reach = maxReach * Mathf.Lerp(1f, 0.2f, t);
+                float reach = maxReach * Mathf.Lerp(1f, 0.25f, t);
                 if (black && t > 0.72f) reach = maxReach * 0.55f;   // the club-shaped top
-                int spikes = black ? 6 : 7 + b.Rng.Next(3);
+                int spikes = black ? 6 : 7 + b.Rng.Next(2);
                 for (int k = 0; k < spikes; k++)
                 {
-                    if (b.Next() < (black ? 0.22f : 0.15f)) continue;   // gaps: ragged, not regular
-                    float a = (l * 61f + k * 360f / spikes + b.Range(-25f, 25f)) * Mathf.Deg2Rad;
-                    var outward = new Vector3(Mathf.Cos(a), b.Range(-0.35f, 0.25f), Mathf.Sin(a)).normalized;
-                    float len = reach * b.Range(0.6f, 1.25f);
+                    if (b.Next() < 0.06f) continue;   // a few gaps, so it stays a little ragged
+                    float a = (l * 61f + k * 360f / spikes + b.Range(-20f, 20f)) * Mathf.Deg2Rad;
+                    var outward = new Vector3(Mathf.Cos(a), b.Range(-0.45f, 0.1f), Mathf.Sin(a)).normalized;
+                    float len = reach * b.Range(0.7f, 1.1f);
                     var root = new Vector3(0f, y, 0f);
-                    // A spike is a thin, sharp cone, a few needles thick at its root.
-                    b.AddCone(root, root + outward * len, Mathf.Max(0.07f, len * 0.24f), 4, b.Jitter(needles, 0.1f), 0.12f, true);
+                    // A spray: short and thick at the root, five-sided so its edges read soft.
+                    b.AddCone(root, root + outward * len, Mathf.Max(0.1f, len * 0.4f), 5, b.Jitter(needles, 0.09f), 0.1f, true);
                 }
             }
-            b.AddCone(new Vector3(0f, height * 0.85f, 0f), new Vector3(0f, height, 0f), maxReach * 0.22f, 4, needles, 0.1f, true);
+            b.AddCone(new Vector3(0f, height * 0.84f, 0f), new Vector3(0f, height, 0f), maxReach * 0.26f, 5, needles, 0.1f, true);
         }
 
         // ------------------------------------------------------------------ wrecks and machines

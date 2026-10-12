@@ -4,7 +4,9 @@ namespace Vision.Player
 {
     /// <summary>
     /// Orthographic 2.5D top-down camera, pitched ~60° so the fronts of walls, trunks and characters
-    /// show clearly. Follows the target with smoothing and keeps it at the centre of the view.
+    /// show clearly. Follows the target with smoothing and keeps it at the centre of the view. Z and C turn the view 45°
+    /// at a time (eased over a quarter of a second), so walls never run square to the screen and the doors and windows
+    /// on every side of a building show; each match starts facing north.
     /// </summary>
     [DefaultExecutionOrder(100)]
     [RequireComponent(typeof(Camera))]
@@ -25,6 +27,24 @@ namespace Vision.Player
 
         [Tooltip("Zoom multiplier on the view size (the Hemp Battery zooms out; Waz changes the field of view).")]
         public float zoom = 1f;
+
+        /// <summary>The step one press of Z or C turns the view, and how long the turn takes.</summary>
+        public const float TurnStep = 45f, TurnTime = 0.25f;
+        float yawTarget, yaw, yawVelocity;
+
+        /// <summary>The view's turn about the vertical (degrees clockwise from north, as drawn now; eased toward the target).</summary>
+        public float Yaw => yaw;
+        public float YawTarget => yawTarget;
+
+        /// <summary>Turns the view by whole steps (negative: left), easing round; presses queue up.</summary>
+        public void Turn(int steps) => yawTarget += steps * TurnStep;
+
+        /// <summary>Back to facing north at once (a new match).</summary>
+        public void ResetYaw()
+        {
+            yawTarget = yaw = 0f;
+            yawVelocity = 0f;
+        }
 
         Camera cam;
         Vector3 velocity, smoothed;
@@ -56,6 +76,9 @@ namespace Vision.Player
         void LateUpdate()
         {
             if (target == null) return;
+            // The turn eases round in about a quarter of a second (SmoothDamp reaches the target in roughly 3x its time).
+            yaw = Mathf.SmoothDampAngle(yaw, yawTarget, ref yawVelocity, TurnTime / 3f, Mathf.Infinity, Time.unscaledDeltaTime);
+            if (Mathf.Abs(Mathf.DeltaAngle(yaw, yawTarget)) < 0.05f) { yaw = yawTarget; yawVelocity = 0f; }
             Apply();
             groundY = Mathf.SmoothDamp(groundY, target.position.y, ref groundVelocity, heightSmoothTime);
             // Faster paces (and speed mode, six times as fast) follow tighter, so the lag stays the same distance and the
@@ -76,7 +99,17 @@ namespace Vision.Player
         {
             if (cam == null) cam = GetComponent<Camera>();   // the level may snap the camera before this Awake runs
             cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight) * Mathf.Clamp(zoom, 0.3f, 3f);
-            transform.rotation = Quaternion.Euler(pitch, 0f, 0f);
+            transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
+        }
+
+        /// <summary>
+        /// A move or aim stick direction as the screen shows it (x right, y up the screen) to the ground plane (x east, y
+        /// north): up the screen is wherever the view is turned to.
+        /// </summary>
+        public static Vector2 ScreenToGround(Vector2 v, float yawDeg)
+        {
+            float a = yawDeg * Mathf.Deg2Rad, c = Mathf.Cos(a), s = Mathf.Sin(a);
+            return new Vector2(v.x * c + v.y * s, -v.x * s + v.y * c);
         }
 
         /// <summary>Pixels per world unit stay constant: the view grows with the screen instead of zooming.</summary>

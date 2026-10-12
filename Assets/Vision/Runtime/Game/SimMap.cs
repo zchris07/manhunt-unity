@@ -125,7 +125,11 @@ namespace Vision.Game
             return n;
         }
         public bool LineOfSight(Vector2 a, Vector2 b) => true;
-        public float CastSight(Vector2 from, Vector2 dir, float max) => max;
+        /// <summary>Optional sight for tests (from, direction, max: distance); open ground without it.</summary>
+        public System.Func<Vector2, Vector2, float, float> Sight;
+        /// <summary>Optional fallen logs for tests (a, b, half width): vaulted over.</summary>
+        public readonly List<(Vector2 a, Vector2 b, float half)> Lows = new List<(Vector2, Vector2, float)>();
+        public float CastSight(Vector2 from, Vector2 dir, float max) => Sight != null ? Sight(from, dir, max) : max;
         public float CastBody(Vector2 from, Vector2 dir, float max, float radius) => max;
         public bool Blocked(Vector2 p, float radius)
         {
@@ -135,5 +139,10 @@ namespace Vision.Game
         public bool InExitZone(Vector2 p) => ExitZone.Contains(p);
         public bool InWater(Vector2 p) => false;
         public bool InBrokenWindow(Vector2 p, float radius) => false;
+        public bool OverLow(Vector2 p, float radius)
+        {
+            foreach (var (a, b, half) in Lows) if (SimMap.SegmentDistance(p, a, b) < half + radius) return true;
+            return false;
+        }
     }
 }

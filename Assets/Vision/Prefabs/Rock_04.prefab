@@ -133,3 +133,4 @@ MonoBehaviour:
   sides: 9
   offset: {x: 0, y: 0}
   blocking: 1
+  low: 0

@@ -12,16 +12,16 @@ namespace Vision.Player
     {
         public static readonly (string key, string action)[] SurvivorControls =
         {
-            ("W A S D", "Move"), ("Mouse", "Aim"), ("Shift", "Sprint"), ("C / Ctrl", "Crouch"), ("E", "Interact"),
+            ("W A S D", "Move"), ("Mouse", "Aim"), ("Shift", "Sprint"), ("Ctrl", "Crouch"), ("E", "Interact"),
             ("Left mouse", "Use item"), ("Wheel / 1-8", "Select item"), ("G", "Drop item"), ("Tab", "Arrange inventory"),
-            ("Q", "JARVIS"), ("Space", "Barricade · hold breath"), ("M", "Map"),
+            ("Q", "JARVIS"), ("R", "Hemp Beam (once you have it)"), ("Space", "Barricade · hold breath"), ("Z / C", "Turn the view"), ("M", "Map"),
         };
 
         public static readonly (string key, string action)[] HunterControls =
         {
             ("W A S D", "Move"), ("Shift", "Sprint"), ("Mouse", "Look"), ("Left mouse", "Machete (hold to charge)"), ("Right mouse", "Lunge"),
             ("F", "Soundcloud Burst"), ("Q", "Hemp Battery (toggle)"), ("R", "Hemp Beam (once you have it)"),
-            ("Space", "Penjamin (50 Nic once Chacko gives it)"), ("E", "Interact"), ("M", "Map"),
+            ("Space", "Penjamin (50 Nic once Chacko gives it)"), ("E", "Interact"), ("Z / C", "Turn the view"), ("M", "Map"),
         };
 
         public static readonly (string key, string action)[] GeneralControls =

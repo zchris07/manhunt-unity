@@ -135,6 +135,54 @@ namespace Vision.World
             return b.ToMesh("Panel");
         }
 
+        /// <summary>
+        /// A standard office steel door, centred on x = 0 with the hinges at -x: a painted light-grey slab, a brushed kick
+        /// plate, a narrow wired-glass vision panel toward the latch side, a lever handle on a rose on both faces, three
+        /// hinge knuckles and a closer arm along the top.
+        /// </summary>
+        public static Mesh MetalDoor(System.Random rng, float width, float height, float thickness)
+        {
+            var b = new LowPolyMeshBuilder(rng);
+            float hw = width * 0.5f, ht = thickness * 0.5f;
+            Color slab = new Color(0.60f, 0.62f, 0.63f), kick = new Color(0.70f, 0.71f, 0.72f), glass = new Color(0.20f, 0.26f, 0.30f),
+                wire = new Color(0.42f, 0.45f, 0.47f), lever = new Color(0.78f, 0.79f, 0.80f), dark = new Color(0.22f, 0.23f, 0.24f);
+            b.AddBox(new Vector3(-hw, 0f, -ht), new Vector3(width - 0.01f, height, thickness), slab, 0.02f);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                float z0 = side > 0 ? ht : -ht - 0.008f;
+                // Kick plate along the bottom.
+                b.AddBox(new Vector3(-hw + 0.03f, 0.02f, z0), new Vector3(width - 0.07f, 0.24f, 0.008f), kick, 0.015f);
+                // The vision panel: dark glass with a lighter wire grid, set in a thin steel bead.
+                float gx = hw - 0.12f - 0.16f, gy = height * 0.5f, gw = 0.16f, gh = height * 0.34f;
+                b.AddBox(new Vector3(gx - 0.015f, gy - 0.015f, z0), new Vector3(gw + 0.03f, gh + 0.03f, 0.008f), dark, 0.01f);
+                b.AddBox(new Vector3(gx, gy, z0 + side * 0.002f), new Vector3(gw, gh, 0.008f), glass, 0.01f);
+                for (int k = 1; k < 4; k++)
+                    b.AddBox(new Vector3(gx, gy + gh * k / 4f - 0.003f, z0 + side * 0.004f), new Vector3(gw, 0.006f, 0.008f), wire, 0.01f);
+                b.AddBox(new Vector3(gx + gw * 0.5f - 0.003f, gy, z0 + side * 0.004f), new Vector3(0.006f, gh, 0.008f), wire, 0.01f);
+                // Lever on a rose, pointing toward the hinges.
+                float lx = hw - 0.09f, ly = 1.0f;
+                b.AddBox(new Vector3(lx - 0.035f, ly - 0.035f, side > 0 ? ht : -ht - 0.012f), new Vector3(0.07f, 0.07f, 0.012f), lever, 0.01f);
+                b.AddBox(new Vector3(lx - 0.13f, ly - 0.012f, side > 0 ? ht + 0.012f : -ht - 0.045f), new Vector3(0.15f, 0.024f, 0.033f), lever, 0.01f);
+            }
+            // Hinge knuckles on the hinge edge, and the closer arm across the top on one face.
+            foreach (float f in new[] { 0.12f, 0.5f, 0.88f })
+                b.AddBox(new Vector3(-hw - 0.012f, height * f - 0.06f, -0.02f), new Vector3(0.024f, 0.12f, 0.04f), dark, 0.01f);
+            b.AddBox(new Vector3(-hw + 0.08f, height - 0.11f, ht), new Vector3(0.34f, 0.06f, 0.05f), dark, 0.01f);
+            return b.ToMesh("Metal Door");
+        }
+
+        /// <summary>The door's steel frame: two jambs and a head, darker than the slab (x from 0 to the opening's width).</summary>
+        public static Mesh MetalDoorFrame(System.Random rng, float width, float height, float depth)
+        {
+            var b = new LowPolyMeshBuilder(rng);
+            Color frame = new Color(0.33f, 0.34f, 0.36f);
+            float hd = depth * 0.5f;
+            b.AddBox(new Vector3(-0.07f, 0f, -hd), new Vector3(0.08f, height + 0.07f, depth), frame, 0.02f);
+            b.AddBox(new Vector3(width - 0.01f, 0f, -hd), new Vector3(0.08f, height + 0.07f, depth), frame, 0.02f);
+            b.AddBox(new Vector3(-0.07f, height, -hd), new Vector3(width + 0.14f, 0.07f, depth), frame, 0.02f);
+            return b.ToMesh("Metal Door Frame");
+        }
+
         public static Mesh Crate(System.Random rng, float size)
         {
             var b = new LowPolyMeshBuilder(rng);

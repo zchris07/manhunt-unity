@@ -8,14 +8,17 @@ namespace Vision.Tests
     public class LookTests
     {
         [Test]
-        public void Defaults_LeaveTheTunedLookUnchanged()
+        public void Defaults_AreTheUsersChosenLook()
         {
             VisionComposite.Look l = VisionComposite.Look.Defaults;
-            Assert.AreEqual(1f, l.contrast);
-            Assert.AreEqual(1f, l.saturation);
-            Assert.AreEqual(1f, l.litBrightness);
-            Assert.AreEqual(1f, l.unlitBrightness);
-            Assert.Greater(l.beamIntensity, 1f, "a stronger flashlight beam");
+            Assert.AreEqual(1.81f, l.contrast, 1e-4f);
+            Assert.AreEqual(1.22f, l.saturation, 1e-4f);
+            Assert.AreEqual(1.21f, l.litBrightness, 1e-4f);
+            Assert.AreEqual(0f, l.unlitBrightness);
+            Assert.AreEqual(1.89f, l.beamIntensity, 1e-4f);
+            Assert.AreEqual(11.21f, l.blurStart, 1e-4f);
+            Assert.AreEqual(30.01f, l.blurEnd, 1e-4f);
+            Assert.AreEqual(8f, l.blurMaxPixels);
             Assert.IsTrue(l.cameraEffects);
             Assert.AreEqual(l, l.Clamped(), "defaults are inside every slider range");
         }

@@ -59,7 +59,8 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 |---|---|---|
 | WASD or arrows | Left stick | Move (crawl while downed) |
 | Shift | Left stick press | Run (Zach: sprint) |
-| C or Ctrl | B / Circle | Crouch |
+| Ctrl | B / Circle | Crouch |
+| Z / C | – | Turn the view 45° left / right (eased over a quarter of a second; W keeps moving up the screen, the minimap turns with it, each match starts facing north) |
 | Mouse | Right stick | Aim the light cone (whichever moved last) |
 | E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
 | 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode) |
@@ -67,7 +68,7 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | Right mouse | Left trigger | Zach: lunge |
 | Space | A / Cross | Slam a pallet down |
 | G | D-pad down | Drop the selected item |
-| F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam |
+| F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam; survivors: R fires the Hemp Beam once Thomas gives it |
 | Y / N | D-pad up | Answer yes or no |
 | T | – | Testing: switch between Zach and a survivor where you stand |
 | M | – | Full map (the minimap is always on) |
@@ -177,7 +178,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   frame can no longer fling an arm over the head and leave it there.
 - **Pallets, doors and windows**: Space slams a pallet (Zach caught under it is stunned); two machete hits break a
   dropped pallet, two break a closed door (it stays open for good, the panel gone), one smashes a window, which
-  anyone can then climb through slowly. **Crouching** (C or Ctrl) lowers the hips and bends the knees.
+  anyone can then climb through slowly. **Crouching** (Ctrl) lowers the hips and bends the knees. **Fallen logs and
+  fallen trees** are knee-high: everyone sees, lights and shoots over them (the ground past one shows in the dimmer
+  see-through shade, as behind a wall with night vision, while people standing behind it show in full), Zach's Burst
+  and thrown items fly over them, and every player vaults them automatically at the window-climbing pace, hands
+  planted, knees tucked, the body lifted up and over the top (and over a broken window's sill the same way); NPCs walk
+  round them. The central building's doors are standard office steel doors in steel frames: light-grey slabs with a
+  lever handle, a kick plate and a narrow wired-glass vision panel.
 - **Effects** (`Vfx`, the `Vision/Fx` shader): particle bursts, rings and ribbons, either hidden outside the viewer's
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
   stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
@@ -194,12 +201,22 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   sound wave racing through walls on the rules' concave front: a bright trembling crest, a soft body, pressure bands
   rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin rolls out soft yellow puffs
   along a narrow cone (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes while their
-  light narrows and the dark goes pitch black, easing in and out over the original's 0.6 s. The Hemp
-  Battery is a pulsing green disc. The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
+  light narrows and the dark goes pitch black, easing in and out over the original's 0.6 s; their whole view blurs,
+  strongly while they're in it and clearing as the gas wears off. Penjamin reaches 30% less far than the original's
+  (the same width) and goes straight through a shield to the health bar. Galaxy gas narrows Zach's light by 30% and
+  blurs his view the same way. The gas itself (Penjamin, 50 Nic, galaxy gas and the scent trail) is a churning body of
+  procedural smoke puffs: dense, darker billows at the heart, paler wisps curling off the edges, a low haze along the
+  ground, every puff sitting on the terrain beneath it and thinning softly wherever it meets the ground or anything
+  solid, so it never shows a line cutting into them. The Hemp Battery's ring lies on the ground round Zach and follows
+  every rise and dip: a dim full ring, the charge left as a bright arc from twelve o'clock shrinking clockwise as the
+  battery drains, and a faint slice filling it (no pulse). The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
   outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
   charges, then a layered beam (white-hot core, green body, wide glow, two twisting energy threads, shimmer flecks)
   runs to whatever stops it and splashes there with sparks spraying back and falling, embers, smoke and chips, to the
-  original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Guns flash
+  original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Every
+  beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
+  side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once
+  and a closed door it stays on for a second and a half is blown open. Guns flash
   at the end of the barrel and their tracers leave from it (the sim's rounds start just ahead of the shooter), but make
   no sound, and the charge is silent. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
@@ -238,8 +255,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   who slays him gets a lunge charge and more reach. **Marc Cortez** starts in the building, opens doors and hands out
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
   wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you; he explodes
-  when he dies. **Soham** says Hi and explodes. **Thomas Bourgeois** hands over a full Hemp Beam. **Monique
-  Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
+  when he dies. **Soham** says Hi and explodes. **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
+  him first, Zach or a survivor (testing mode gives survivors one to try). **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
@@ -247,9 +264,14 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   and takes his beam. **Chris Zelley** paces round his ambulance until a survivor enlists him; then the first survivor
   left downed or staked too long gets a sprinting paramedic, a revive, and a halo and wings as he ascends. **Plasma.TTV**
   says "ggs" and hands out golden pumps; attack him and GAMER RAGE turns him into a purple beast who punches you down
-  (only the beast can die, and drops his pump). **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
+  (only the beast can die, and drops his pump); the beast keeps his size but squeezes through doorways like a man. **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
   survivors, 50 Nic for Zach; kill him as a survivor and Jaden, Plasma and Shane hunt you; as Zach, he explodes. Every
-  NPC carries a faint light, as in the original.
+  NPC carries a faint light, as in the original. Their looks: Sexton a white man with blond hair; Thomas white with
+  grey hair; Plasma a tall white man with light brown hair (the beast stays purple); Waz a tall Indian man with curly
+  hair and a short goatee; Soham a tall Indian man with a bowl cut; Njaaron a slightly muscular Asian man; Jaden an
+  Asian man with cartoon-yellow skin; Monique a short Asian woman (tall is 1.88 m, short 1.62 m).
+- **JARVIS**: for its ten seconds every survivor's whole screen is lit and everyone on it shows (the original's
+  reveal), and its user's map is revealed.
 - **The ambulance, the lounge and the Four Notes** (`SandboxWorld.Story`): Chris's ambulance parks in the woods off the
   paths with a row of supplies beside it and a flashing light bar; the building's biggest room without a generator is
   the lounge, a couch facing a flickering TV; the Four Notes lie beside the paths, far apart. Zach's map shows every stake
@@ -261,18 +283,18 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 
 Live sliders for finding the palette. Each slider shows its current value, **Copy values** puts all of
 them on the clipboard (and in the log) as one line of text, and **Reset** restores the defaults. Values
-persist between runs. The defaults are the tuned look.
+persist between runs. The defaults are the user's chosen look (a look saved before them is replaced by them once).
 
 | Slider | Range | Default | Effect |
 |---|---|---|---|
-| Contrast | 0-2 | 1.00 | Global contrast, pivoting on mid-grey |
-| Saturation | 0-2 | 1.00 | Global saturation of every colour (0 = greyscale) |
-| Lit brightness | 0-2 | 1.00 | Multiplier on everything lit (flashlight, campfires, lanterns) |
-| Unlit brightness | 0-5 | 1.00 | Multiplier on the unlit ground and objects |
-| Beam intensity | 0.5-2 | 1.15 | Strength of the flashlight beam only |
+| Contrast | 0-2 | 1.81 | Global contrast, pivoting on mid-grey |
+| Saturation | 0-2 | 1.22 | Global saturation of every colour (0 = greyscale) |
+| Lit brightness | 0-2 | 1.21 | Multiplier on everything lit (flashlight, campfires, lanterns) |
+| Unlit brightness | 0-5 | 0.00 | Multiplier on the unlit ground and objects |
+| Beam intensity | 0.5-2 | 1.89 | Strength of the flashlight beam only |
 | Beam edge falloff | 1-6 | 2.50 | Exponent of the beam's fade toward the screen edge |
-| Blur start / end (m) | 0-30 | 5 / 13 | Distance from the player where the distance blur begins and is full |
-| Blur max (px) | 0-8 | 3.00 | Full distance-blur radius in screen pixels |
+| Blur start / end (m) | 0-30 | 11.21 / 30.01 | Distance from the player where the distance blur begins and is full |
+| Blur max (px) | 0-8 | 8.00 | Full distance-blur radius in screen pixels |
 | Camera effects | on/off | on | Vignette, film grain, light flicker and the distance blur (also F5) |
 
 ## How the lighting works
@@ -384,7 +406,7 @@ junctions out in the woods tied into the network (some by two trails), and cross
 other. Each path has its own width, swelling and narrowing along it, and its own look drifting into a second one along
 its length (packed dirt, gravel, leaf litter, moss, clay, rutted mud), worn lighter down the middle, with ruts on the
 main paths, damp patches and puddles, and litter by look (pebbles, leaves, twigs, moss, puddles, stones by the edges). The land changes gradually: slow
-noise fields choose between evergreens (seven forms, including spiky ones) and twelve dead-tree designs,
+noise fields choose between evergreens (seven forms, including spiky ones, full-bodied with short, soft-edged sprays) and twelve dead-tree designs,
 and colour the ground from earth and clay to moss and straw, with rock grey on steep slopes, mud in the
 ditches and packed dirt on the paths.
 
@@ -492,7 +514,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 210 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 218 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

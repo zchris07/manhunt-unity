@@ -1,0 +1,184 @@
+using NUnit.Framework;
+using UnityEngine;
+using Vision.Game;
+using Vision.Player;
+using static Vision.Tests.SimRig;
+
+namespace Vision.Tests
+{
+    /// <summary>
+    /// The Hemp Beam in anyone's hands (1 HP ten times a second to whoever it touches, glass and doors), Penjamin through
+    /// the shield and its shorter reach, JARVIS, vaulting fallen logs, Plasma's beast in doorways and the turned view.
+    /// </summary>
+    public class BeamGasAndViewTests
+    {
+        MatchState saved;
+
+        [SetUp]
+        public void SaveState() => saved = MatchState.Current;
+
+        [TearDown]
+        public void RestoreState() => MatchState.Current = saved;
+
+        /// <summary>Fires a beam due east from where the beamer stands and lets it run for <paramref name="firing"/> s after the charge.</summary>
+        static void Beam(SimRig rig, SimPlayer by, float firing)
+        {
+            by.BeamCharges = Balance.Hunter.Beam.Charges;
+            rig.Tap(by.Id, Btn.Beam, 0f);
+            rig.Run(Secs(Balance.Hunter.Beam.Windup + firing), p => new InputCmd { Aim = 0f, AimDist = 100f, Item = p.SelSlot + 1 });
+        }
+
+        [Test]
+        public void EveryBeam_TakesOneHpATick_FromAnyoneItTouches_TeammatesToo()
+        {
+            // A survivor's beam on another survivor: friendly fire, 1 HP a tick.
+            var rig = new SimRig(2, 1);
+            SimPlayer s = rig.P(2), mate = rig.P(3), zach = rig.P(1);
+            rig.Place(s, 0f, 0f);
+            rig.Place(mate, 150f, 0f);
+            rig.Place(zach, 0f, 2500f);
+            Beam(rig, s, 0.5f);
+            float lost = 1f - mate.Hp;
+            Assert.That(lost, Is.InRange(0.03f, 0.07f), "about five ticks of 1 HP in half a second");
+
+            // Zach's beam on a survivor: the same 1 HP a tick (no longer 3).
+            rig = new SimRig(1, 1);
+            s = rig.P(2);
+            zach = rig.P(1);
+            rig.Place(zach, 0f, 0f);
+            rig.Place(s, 150f, 0f);
+            Beam(rig, zach, 0.5f);
+            Assert.That(1f - s.Hp, Is.InRange(0.03f, 0.07f), "Zach's beam: 1 HP a tick");
+
+            // A survivor's beam on Zach: 1 HP a tick of his 100.
+            rig = new SimRig(1, 1);
+            s = rig.P(2);
+            zach = rig.P(1);
+            rig.Place(s, 0f, 0f);
+            rig.Place(zach, 150f, 0f);
+            float before = zach.Hp;
+            Beam(rig, s, 0.5f);
+            Assert.That(before - zach.Hp, Is.InRange(0.03f, 0.07f), "on Zach too");
+        }
+
+        [Test]
+        public void TheBeam_ShattersGlassAtOnce_AndBlowsOpenADoorItStaysOnForASecondAndAHalf()
+        {
+            var rig = new SimRig(1, 1, false, 1, m =>
+            {
+                m.Windows.Add(new SimMap.WindowDef { A = U(200, -60), B = U(200, 60) });
+                m.Doors.Add(new SimMap.DoorDef { A = U(400, -60), B = U(400, 60) });
+            });
+            // Sight stops at the closed door.
+            rig.Geo.Sight = (from, dir, max) =>
+            {
+                if (rig.Sim.Doors[0] || rig.Sim.DoorBroken[0]) return max;
+                float t = MatchSim.RaySegment(from, dir, rig.Map.Doors[0].A, rig.Map.Doors[0].B);
+                return Mathf.Min(max, t);
+            };
+            SimPlayer s = rig.P(2);
+            rig.Place(s, 0f, 0f);
+            rig.Place(rig.P(1), 0f, 2500f);
+            Beam(rig, s, 0.3f);
+            Assert.IsTrue(rig.Sim.WindowsBroken[0], "the glass goes at once");
+            Assert.IsFalse(rig.Sim.DoorBroken[0], "the door holds a moment");
+            rig.Run(Secs(Balance.Hunter.Beam.DoorTime), p => new InputCmd { Aim = 0f, AimDist = 100f, Item = p.SelSlot + 1 });
+            Assert.IsTrue(rig.Sim.DoorBroken[0], "after a second and a half on it the door is blown open");
+            Assert.IsTrue(rig.Sim.Doors[0]);
+        }
+
+        [Test]
+        public void Penjamin_GoesStraightThroughTheShield_AndReaches30PercentLess()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer s = rig.P(2);
+            s.Shield = 0.5f;
+            rig.Sim.HurtSurvivor(s, 0.1f, null, "vape");
+            Assert.AreEqual(0.5f, s.Shield, 1e-5f, "the shield isn't touched");
+            Assert.AreEqual(0.9f, s.Hp, 1e-5f, "health takes it all");
+            rig.Sim.HurtSurvivor(s, 0.1f, null, "slash");
+            Assert.AreEqual(0.4f, s.Shield, 1e-5f, "anything else still hits the shield first");
+            Assert.AreEqual(1.1f * 0.7f, Balance.Hunter.Vape.ReachMul, 1e-5f);
+            Assert.AreEqual(10f, Balance.Hunter.Vape.HalfAngleDeg, "the same width");
+            Assert.AreEqual(0.3f, Balance.Items.Trap.ZachConeCut, 1e-5f, "galaxy gas narrows Zach's cone by 30%");
+        }
+
+        [Test]
+        public void Thomas_GivesHisBeamToZachToo_AndTestingSurvivorsCarryOne()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer zach = rig.P(1);
+            var thomas = new Thomas(rig.Sim) { Pos = U(0, 0) };
+            rig.Sim.Npcs.Add(thomas);
+            rig.Place(zach, 50f, 0f);
+            rig.Run(1);
+            rig.Tap(zach.Id, Btn.Interact);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, zach.BeamCharges, "Zach can be the one he gives it to");
+
+            var test = new SimRig(1, 1, true);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, test.P(2).BeamCharges, "testing mode: a survivor has the beam to try");
+        }
+
+        [Test]
+        public void Jarvis_LightsEverySurvivorsScreen_ForTenSeconds()
+        {
+            var rig = new SimRig(1, 1, true);
+            SimPlayer s = rig.P(2);
+            rig.Tap(s.Id, Btn.Ability);
+            Assert.AreEqual(Balance.Sexton.JarvisRadarSec, rig.Sim.RevealT, 0.1f, "the reveal runs");
+            rig.Run(Secs(Balance.Sexton.JarvisRadarSec + 0.2f));
+            Assert.AreEqual(0f, rig.Sim.RevealT);
+            Assert.Greater(Vision.Rendering.VisionMaskRenderer.RevealLight, 0.5f, "above the line that shows people");
+        }
+
+        [Test]
+        public void AnyoneVaultsAFallenLog_AtTheClimbingPace()
+        {
+            var rig = new SimRig(1, 1);
+            rig.Geo.Lows.Add((U(100, -80), U(100, 80), Scale.D(10f)));
+            SimPlayer s = rig.P(2), zach = rig.P(1);
+            rig.Place(s, 0f, 0f);
+            rig.Place(zach, 0f, -300f);
+            bool climbed = false;
+            for (int i = 0; i < Secs(3f); i++)
+            {
+                rig.Run(1, p => p.Id == s.Id ? new InputCmd { Move = Vector2.right, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+                climbed |= s.Move.Climbing;
+            }
+            Assert.IsTrue(climbed, "over the log");
+            Assert.Greater(Scale.ToUnits(s.Pos.x), 140f, "and on past it");
+
+            rig.Place(zach, 0f, 0f);
+            climbed = false;
+            for (int i = 0; i < Secs(3f); i++)
+            {
+                rig.Run(1, p => p.Id == zach.Id ? new InputCmd { Move = Vector2.right, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+                climbed |= zach.Move.Climbing;
+            }
+            Assert.IsTrue(climbed, "Zach vaults it too");
+        }
+
+        [Test]
+        public void PlasmasBeast_FitsThroughDoors_ButStaysAsBigToHit()
+        {
+            var rig = new SimRig(1, 1);
+            var plasma = new Plasma(rig.Sim);
+            Assert.AreEqual(Balance.Plasma.Radius, plasma.MoveRadiusUnits, "moves like a man (through doorways)");
+            Assert.LessOrEqual(Balance.Plasma.Radius, Balance.SurvivorRadius, "no wider than a survivor, who fits a door");
+        }
+
+        [Test]
+        public void TheTurnedView_MovesUpTheScreen()
+        {
+            // W (up the screen) with the view turned 45 degrees to the right heads north-east.
+            Vector2 w = TopDownCamera.ScreenToGround(Vector2.up, 45f);
+            Assert.AreEqual(Mathf.Sqrt(0.5f), w.x, 1e-4f);
+            Assert.AreEqual(Mathf.Sqrt(0.5f), w.y, 1e-4f);
+            Vector2 d = TopDownCamera.ScreenToGround(Vector2.right, 90f);
+            Assert.AreEqual(0f, d.x, 1e-4f);
+            Assert.AreEqual(-1f, d.y, 1e-4f, "with the view turned to face east, right on screen is south");
+            Assert.AreEqual(Vector2.up, TopDownCamera.ScreenToGround(Vector2.up, 0f), "unturned, up is north");
+            Assert.AreEqual(45f, TopDownCamera.TurnStep);
+        }
+    }
+}
