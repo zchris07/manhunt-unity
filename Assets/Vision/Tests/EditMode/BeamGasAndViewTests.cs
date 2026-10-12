@@ -168,6 +168,38 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void ZachsSpeedAndHempRecovery_AreContinuous_AndShownToTheHundredth()
+        {
+            // Speed lost to wounds: continuous with health (no steps), 10% per quarter of the bar.
+            Assert.AreEqual(1f - 0.1f * (0.137f / 0.25f), MatchRules.HunterHealthMul(1f - 0.137f, 0), 1e-5f);
+            Assert.Less(MatchRules.HunterHealthMul(0.9999f, 0), 1f, "the smallest scratch slows him a little");
+            // Recovery: 1 + 10% of the charge left, every fraction of it.
+            Assert.AreEqual(1.1f, MatchRules.HempRegenMul(1f), 1e-6f);
+            Assert.AreEqual(1.0437f, MatchRules.HempRegenMul(0.437f), 1e-6f);
+            var z = new SimPlayer(1, "Z", Role.Hunter, Vector2.zero) { Hp = 0.863f, Hemp = 1, HempLeft = Balance.Hunter.Hemp.Duration * 0.4371f };
+            string text = GameHud.ZachRates(z);
+            StringAssert.Contains("SPEED -5.48% FROM HEALTH", text);
+            StringAssert.Contains("RECOVERY x1.0437 (HEMP 43.71%)", text);
+        }
+
+        [Test]
+        public void RespawningTheNpcs_BringsThemAllBack_AndClearsWhatTheyLeft()
+        {
+            var rig = new SimRig(1, 1, true);
+            rig.Sim.NpcSpawner = NpcRoster.Spawn;
+            rig.Sim.RespawnNpcs();
+            int all = rig.Sim.Npcs.Count;
+            Assert.AreEqual(NpcRoster.Makers.Length, all);
+            rig.Sim.Npcs.RemoveAt(0);
+            rig.Sim.HempDrop = Vector2.zero;
+            rig.Sim.Vengeance = 2;
+            rig.Sim.RespawnNpcs();
+            Assert.AreEqual(all, rig.Sim.Npcs.Count, "everyone back");
+            Assert.IsNull(rig.Sim.HempDrop);
+            Assert.AreEqual(0, rig.Sim.Vengeance);
+        }
+
+        [Test]
         public void TheTurnedView_MovesUpTheScreen()
         {
             // W (up the screen) with the view turned 45 degrees to the right heads north-east.

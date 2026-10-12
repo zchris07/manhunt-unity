@@ -26,14 +26,14 @@ namespace Vision.Player
         static readonly (string key, string name, string icon)[] HunterAbilities =
         {
             ("LMB", "Machete Swipe", "machete"), ("RMB", "Lunge", "lunge"), ("F", "Soundcloud Burst", "burst"), ("Q", "Hemp Battery", "hemp"),
-            ("Space", "Penjamin", "vape"), ("R", "Hemp Beam", "hemp"),
+            ("Space", "Penjamin", "vape"), ("R", "Hemp Beam", "leaf"),
         };
 
         RectTransform abilityStrip, survivorStrip;
         readonly AbilitySlot[] abilities = new AbilitySlot[6];
         // A survivor's JARVIS (Q) and the Hemp Beam Thomas gave them (R), beside the inventory as in the original.
         AbilitySlot jarvisSlot, beamSlot;
-        Text hunterStatus, heard;
+        Text hunterStatus, heard, zachRates;
 
         /// <summary>An ability slot: its key cap, its icon, the count at the top right, the name, a cooldown shade and a meter.</summary>
         AbilitySlot MakeAbility(Transform parent, string key, string name, string icon, float x, float w)
@@ -71,6 +71,11 @@ namespace Vision.Player
             jarvisSlot = MakeAbility(survivorStrip, "Q", "JARVIS", "tablet", 14f, 76f);
             beamSlot = MakeAbility(survivorStrip, "R", "Hemp Beam", "leaf", 14f + 82f, 76f);
             survivorStrip.gameObject.SetActive(false);
+            // Zach's speed loss and Hemp recovery sit in the shield's place under his health bar.
+            zachRates = kit.Label(Node("Zach Rates", vitalsBox, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -45f), new Vector2(350f, 38f)), "", 14, TextAnchor.UpperLeft, UiKit.Bone, UiKit.Face.Mono, 0f);
+            zachRates.supportRichText = true;
+            zachRates.lineSpacing = 1.15f;
+            zachRates.gameObject.SetActive(false);
             hunterStatus = kit.Label(Node("Zach Status", parent, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(30f, 170f), new Vector2(520f, 160f)), "", 15, TextAnchor.LowerLeft, UiKit.Bone);
             hunterStatus.lineSpacing = 1.25f;
             heard = kit.Label(Node("Heard", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(30f, -96f), new Vector2(520f, 22f)), "", 14, TextAnchor.MiddleLeft, UiKit.Muted);
@@ -90,6 +95,26 @@ namespace Vision.Player
             if (meter.HasValue) a.Meter.anchorMax = new Vector2(Mathf.Clamp01(meter.Value), 1f);
             foreach (Image e in a.Frame) e.color = active ? SlotBorderSelected : SlotBorder;
             a.Back.color = active ? new Color(0.16f, 0.05f, 0.05f, 0.85f) : SlotColor;
+        }
+
+        /// <summary>
+        /// Under Zach's health bar, as exact as the original shows them and updated every frame: the speed his wounds take
+        /// (continuous with his health, to 0.01%, plus what each time he went down takes for good) and, with the Hemp
+        /// Battery, the healing rate it gives (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%).
+        /// </summary>
+        public static string ZachRates(SimPlayer me)
+        {
+            var sb = new System.Text.StringBuilder();
+            float slow = (1f - MatchRules.HunterHealthMul(me.Hp, me.Downs)) * 100f;
+            sb.Append($"<color=#b8b09a>SPEED -{slow:0.00}% FROM HEALTH");
+            if (me.Downs > 0) sb.Append($" ({Mathf.Min(Balance.Hunter.Health.DownPenaltyMax, me.Downs * Balance.Hunter.Health.DownPenalty) * 100f:0}% FOR GOOD)");
+            sb.Append("</color>");
+            if (me.Hemp > 0)
+            {
+                float c = me.Hemp == 2 ? 1f : Mathf.Clamp01(me.HempLeft / Balance.Hunter.Hemp.Duration);
+                sb.Append($"\n<color=#8fae7a>RECOVERY x{MatchRules.HempRegenMul(c):0.0000} (HEMP {c * 100f:0.00}%)</color>");
+            }
+            return sb.ToString();
         }
 
         static string Dots(int on, int of) => new string('●', Mathf.Max(0, on)) + new string('○', Mathf.Max(0, of - on));
@@ -114,6 +139,7 @@ namespace Vision.Player
             bool zach = me.Role == Role.Hunter;
             abilityStrip.gameObject.SetActive(zach && !MainMenuOpen);
             hunterStatus.gameObject.SetActive(zach);
+            zachRates.gameObject.SetActive(zach && !MainMenuOpen);
             heard.gameObject.SetActive(zach);
             if (!zach) return;
             bool test = sim.TestMode, locked = me.AbilityLockT > 0f;
@@ -146,14 +172,8 @@ namespace Vision.Player
 
             // Status lines.
             var sb = new System.Text.StringBuilder();
-            float slow = (1f - MatchRules.HunterHealthMul(me.Hp, me.Downs)) * 100f;
             if (me.Carrying != 0) sb.Append("Carrying ").Append(sim.Get(me.Carrying)?.Name ?? "someone").Append('\n');
-            if (me.KnockT <= 0f) sb.Append($"<color=#8a8574>Speed -{slow:0.0}% from health{(me.Downs > 0 ? $" ({Mathf.Min(Balance.Hunter.Health.DownPenaltyMax, me.Downs * Balance.Hunter.Health.DownPenalty) * 100f:0}% for good)" : "")}</color>\n");
-            if (me.Hemp > 0)
-            {
-                float c = me.Hemp == 2 ? 1f : me.HempLeft / Balance.Hunter.Hemp.Duration;
-                sb.Append($"<color=#8fae7a>Recovery x{MatchRules.HempRegenMul(c):0.000} (hemp {c * 100f:0}%)</color>\n");
-            }
+            zachRates.text = ZachRates(me);
             if (me.KnockT > 0f) sb.Append($"<color=#d05a4a>DOWN: getting back up {me.KnockT:0.0}s</color>\n");
             if (me.StunT > 0f) sb.Append($"<color=#d05a4a>STUNNED {me.StunT:0.0}s</color>\n");
             if (me.PissT > 0f) sb.Append($"<color=#d05a4a>SOAKED IN PISS: +50% damage {me.PissT:0.0}s</color>\n");

@@ -191,7 +191,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   wisps where they ran and blood where the hurt have been, fading over ten seconds.
 - **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
   golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, icons, cooldown shades, charges and
-  meters, his status lines (speed lost to his wounds, recovery, stunned, abilities off) and the generators he has
+  meters (the Hemp Beam's is the leaf), under his health bar the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
   heard being repaired. Charging the machete, he coils like a spring (blade drawn back high over his shoulder, torso
   wound away, weight on the back foot, trembling) over a red ring at his feet; swings come with a swish (heavier when
   charged) and a smear (pale, or dark blood-red when heavy). Light swings are flat slashes across his body, back and
@@ -256,7 +256,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
   wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you; he explodes
   when he dies. **Soham** says Hi and explodes. **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
-  him first, Zach or a survivor (testing mode gives survivors one to try). **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
+  him first, Zach or a survivor (testing mode gives survivors one to try). In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off Chacko's vengeance and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
@@ -514,7 +514,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 218 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 220 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

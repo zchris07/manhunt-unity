@@ -44,7 +44,7 @@ namespace Vision.Player
         UiKit kit;
         Canvas canvas;
         RectTransform root;
-        RectTransform healthFill, shieldFill, staminaFill, holdFill;
+        RectTransform healthFill, shieldFill, staminaFill, holdFill, vitalsBox;
         RawImage healthImage, staminaImage;
         Text healthLabel, staminaLabel, healthValue, shieldValue, staminaValue, prompt, objectiveTitle, objectiveSub, compass, notices, modeLine;
         GameObject promptBox, holdBar, downedScreen, shieldRow, generating, fxPanel;
@@ -174,7 +174,7 @@ namespace Vision.Player
             vignette.raycastTarget = false;
 
             // Health, shield and stamina, bottom left.
-            RectTransform vitalsBox = Node("Vitals", root, Vector2.zero, Vector2.zero, new Vector2(28f, 28f), new Vector2(380f, 132f));
+            vitalsBox = Node("Vitals", root, Vector2.zero, Vector2.zero, new Vector2(28f, 28f), new Vector2(380f, 132f));
             HudPanel(vitalsBox);
             healthFill = Bar(vitalsBox, "Health", new Vector2(18f, -16f), survivorHp, out healthValue, out healthImage, out healthLabel, out _);
             shieldFill = Bar(vitalsBox, "Shield", new Vector2(18f, -52f), shieldTex, out shieldValue, out _, out _, out shieldRow);
