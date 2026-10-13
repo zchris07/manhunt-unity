@@ -247,6 +247,44 @@ namespace Vision.Characters
             .Key(0.5f, P().Both(Bone.UpperArmR, -118f, -56f, -8f).Both(Bone.ForearmR, -116f).R(Bone.Head, 14f, 0f, -12f).R(Bone.Spine, 8f, 0f, -6f))
             .Blend(0.25f, 0.3f);
 
+        /// <summary>
+        /// Zach stunned: dazed and reeling on the spot. His knees buckle in turn as his weight rolls round in a slow circle, the
+        /// torso slumped forward and swaying with it, the masked head lolling a beat behind, the machete arm hanging limp and
+        /// swinging, the free hand pressed to the side of the mask (loop, eight keys round the circle).
+        /// </summary>
+        public static readonly ActionClip Reel = BuildReel();
+
+        static ActionClip BuildReel()
+        {
+            const float length = 1.8f;
+            const int keys = 8;
+            var clip = new ActionClip("Reel", length, true);
+            for (int i = 0; i < keys; i++)
+            {
+                float a = i * Mathf.PI * 2f / keys, s = Mathf.Sin(a), c = Mathf.Cos(a);
+                float sh = Mathf.Sin(a - 1f), ch = Mathf.Cos(a - 1f), sc = Mathf.Sin(a - 0.5f);
+                clip.Key(i * length / keys, P().Lower(0.05f + 0.012f * Mathf.Abs(s))
+                    // The weight rolls onto one leg, then the other: that knee gives.
+                    .R(Bone.ThighR, -16f - 7f * s).R(Bone.ShinR, 28f + 12f * s).R(Bone.FootR, -3f)
+                    .R(Bone.ThighL, -16f + 7f * s).R(Bone.ShinL, 28f - 12f * s).R(Bone.FootL, -3f)
+                    // Slumped and circling.
+                    .R(Bone.Spine, 20f + 7f * c, 6f * s, 10f * s).R(Bone.Chest, 8f + 3f * c, 4f * s, 6f * sc)
+                    .R(Bone.Neck, 8f + 4f * ch, 0f, 6f * sh).R(Bone.Head, 22f + 8f * ch, 12f * sh, 20f * sh)
+                    // The machete arm hangs and swings with the sway; the other hand is pressed to the mask.
+                    .R(Bone.UpperArmR, -10f + 9f * Mathf.Cos(a + 0.6f), 0f, 13f + 6f * s).R(Bone.ForearmR, -22f + 7f * s).R(Bone.HandR, 8f)
+                    .R(Bone.UpperArmL, -112f, 54f, 8f + 3f * s).R(Bone.ForearmL, -118f + 4f * c).R(Bone.HandL, 12f));
+            }
+            return clip.Blend(0.25f, 0.3f);
+        }
+
+        /// <summary>Seated (Chacko on the couch) and hit: jerking back and away, both arms up to guard his face, wincing (loop while it lasts).</summary>
+        public static readonly ActionClip SitFlinch = new ActionClip("SitFlinch", 0.24f, true)
+            .Key(0f, P().Lower(0.45f).Both(Bone.ThighR, -88f).Both(Bone.ShinR, 86f).R(Bone.Spine, -24f, 10f, 6f).R(Bone.Chest, -10f, 6f).R(Bone.Head, -12f, 28f, 8f)
+                .Both(Bone.UpperArmR, -98f, 0f, 18f).Both(Bone.ForearmR, -126f).Both(Bone.HandR, -10f))
+            .Key(0.12f, P().Lower(0.45f).Both(Bone.ThighR, -88f).Both(Bone.ShinR, 86f).R(Bone.Spine, -22f, 12f, 5f).R(Bone.Chest, -9f, 7f).R(Bone.Head, -10f, 31f, 6f)
+                .Both(Bone.UpperArmR, -102f, 0f, 20f).Both(Bone.ForearmR, -122f).Both(Bone.HandR, -6f))
+            .Blend(0.1f, 0.35f);
+
         /// <summary>Penjamin's gas: coughing, rubbing an eye (loop).</summary>
         public static readonly ActionClip Cough = new ActionClip("Cough", 1.4f, true)
             .Key(0f, P().R(Bone.UpperArmR, -128f, 0f, 22f).R(Bone.ForearmR, -132f).R(Bone.Spine, 14f).R(Bone.Head, 18f))
@@ -565,7 +603,7 @@ namespace Vision.Characters
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, AimRifle, RecoilRifle,
             AimPistol, RecoilPistol, HipRifle, RecoilHip, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
-            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes,
+            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes, Reel, SitFlinch,
         };
     }
 }

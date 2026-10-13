@@ -105,7 +105,8 @@ namespace Vision.UI
             }
             float t = Time.time, s = S;
 
-            // Thrown: spinning end over end along the flight, lifted in a shallow arc.
+            // Thrown: spinning end over end along the flight, lifted in a shallow arc, always over the ground as it's drawn
+            // (following its every rise and dip, so it never touches the ground or goes under it, and no hill hides it).
             foreach (ThrownItem b in sim.Thrown)
             {
                 if (!thrown.TryGetValue(b.Id, out View v))
@@ -115,7 +116,7 @@ namespace Vision.UI
                 }
                 v.Seen = true;
                 float arc = Mathf.Sin(Mathf.Clamp01(Scale.ToUnits(b.Travelled) / 900f) * Mathf.PI) * 0.6f;
-                v.Go.transform.position = Ground(b.Pos, 1.2f + arc);
+                v.Go.transform.position = world.transform.TransformPoint(new Vector3(b.Pos.x, world.SurfaceHeight(b.Pos) + 1.2f + arc, b.Pos.y));
                 Vector3 dir = new Vector3(b.Dir.x, 0f, b.Dir.y);
                 v.Go.transform.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(t * 720f + b.Id * 40f, 0f, 0f);
             }

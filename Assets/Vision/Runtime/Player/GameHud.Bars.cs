@@ -9,8 +9,8 @@ namespace Vision.Player
     /// <summary>
     /// Health over heads, after the original's (client EntityLayer HealthBar): over every player you can see (yourself
     /// included), a 5-unit-tall bar 38 units wide (46 for Zach) with an ink border, a pale trail draining behind fresh damage,
-    /// ticks at the thirds, and the fill olive above 60%, amber above 30%, red below; survivors have a thin blue shield bar
-    /// above it, ticked at the quarters. A player's bars are opaque for five seconds after their health or shield last
+    /// ticks at the thirds, and a green fill; a survivor with shield has a thin blue shield bar above it, ticked at the
+    /// quarters, gone again once the shield is used up. A player's bars are opaque for five seconds after their health or shield last
     /// changed, then fade to 35%. Over the NPCs the viewer's role can slay, the same health bar, always opaque. Sized from
     /// the world, so they keep their size against the models as the camera zooms.
     /// </summary>
@@ -26,7 +26,7 @@ namespace Vision.Player
         }
 
         static readonly Color BarInk = new Color(0f, 0f, 0f, 0.8f), BarBack = UiKit.Hex(0x241a18), BarTrail = new Color(0xe8 / 255f, 0xd8 / 255f, 0xb0 / 255f, 0.85f);
-        static readonly Color BarGood = UiKit.Hex(0x8a9a5a), BarMid = UiKit.Hex(0xc0903a), BarLow = UiKit.Hex(0xb3261e), BarShield = UiKit.Hex(0x3aa8ff);
+        static readonly Color BarHealth = UiKit.Hex(0x4cbf4a), BarShield = UiKit.Hex(0x3a8cff);
         /// <summary>Seconds a player's bars stay opaque after a change, and how faint they fade.</summary>
         const float BarHoldSec = 5f, BarFaded = 0.35f;
         /// <summary>The original's bars are sized to its disc of a body; against these slimmer models they're drawn at 60%.</summary>
@@ -64,7 +64,7 @@ namespace Vision.Player
             trail = UiKit.Fill("Trail", back);
             UiKit.Box(trail, BarTrail);
             fill = UiKit.Fill("Fill", back);
-            fillImage = UiKit.Box(fill, BarGood);
+            fillImage = UiKit.Box(fill, BarHealth);
             for (int i = 1; i < ticks; i++)
             {
                 RectTransform tick = Node("Tick", back, new Vector2(i / (float)ticks, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(1f, 0f));
@@ -73,8 +73,6 @@ namespace Vision.Player
             }
             return border;
         }
-
-        static Color BarColor(float k) => k > 0.6f ? BarGood : k > 0.3f ? BarMid : BarLow;
 
         /// <summary>Places and sizes a head bar over a world point; false if it's off screen.</summary>
         bool PlaceBar(HeadBar b, RectTransform parent, Camera cam, Vector3 worldAt, float widthUnits, bool shield)
@@ -106,7 +104,6 @@ namespace Vision.Player
             b.TrailK = hp < b.TrailK ? Mathf.Max(hp, b.TrailK - 0.6f * dt) : hp;
             b.Fill.anchorMax = new Vector2(hp, 1f);
             b.Trail.anchorMax = new Vector2(b.TrailK, 1f);
-            b.FillImage.color = BarColor(hp);
             b.ShieldFill.anchorMax = new Vector2(Mathf.Clamp01(shield), 1f);
         }
 
@@ -136,7 +133,8 @@ namespace Vision.Player
                     HeadBar b = BarFor(p.Id, ref used);
                     float top = zach ? 2.3f : 2.05f;
                     Vector3 wp = world.transform.TransformPoint(new Vector3(p.Pos.x, world.GroundHeight(p.Pos) + top, p.Pos.y));
-                    if (!PlaceBar(b, headBarRoot, cam, wp, zach ? 46f : 38f, !zach)) { used--; continue; }
+                    // The shield bar only while there is shield.
+                    if (!PlaceBar(b, headBarRoot, cam, wp, zach ? 46f : 38f, !zach && p.Shield > 1e-4f)) { used--; continue; }
                     b.Root.gameObject.SetActive(true);
                     // Opaque while health or shield changes, fading to 35% five seconds after the last change.
                     if (b.LastHp < 0f || Mathf.Abs(p.Hp - b.LastHp) > 1e-4f || Mathf.Abs(p.Shield - b.LastShield) > 1e-4f)

@@ -343,6 +343,8 @@ namespace Vision.Game
             LungeBonus = p.JadenBonus * Balance.Hunter.JadenSlainLunge,
             AbilitiesLocked = p.AbilityLockT > 0f,
             SpeedMode = speedMode,
+            // More than halfway into a full charge, Zach can't sprint.
+            NoSprint = p.Role == Role.Hunter && p.ChargeT > Balance.Hunter.Attack.ChargeMax * 0.5f,
         };
 
         // ---------------------------------------------------------------- the tick

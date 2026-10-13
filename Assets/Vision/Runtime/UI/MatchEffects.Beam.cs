@@ -9,13 +9,14 @@ namespace Vision.UI
     /// <summary>
     /// The Hemp Beam, whoever fires it (Zach, a survivor Thomas armed, Sexton): it comes out of the palm of the
     /// outstretched hand like a repulsor blast. While it charges, a cloud of green-white motes spirals in and condenses
-    /// into a single blinding point in the palm; then a layered beam (a white-hot core, a green body, a wide soft glow,
-    /// two energy threads twisting round it, shimmer flecks peeling off) runs to whatever stops it, and there it
-    /// splashes: a hot spot, sparks spraying back off the surface and falling, embers, curling smoke and chips of debris.
+    /// into a single blinding point in the palm; then a layered beam, light green through and through (a bright pale green
+    /// core, a green body, a wide soft glow, two energy threads twisting round it, shimmer flecks peeling off), runs to
+    /// whatever stops it, and there it splashes: a hot spot, sparks spraying back off the surface and falling, embers,
+    /// curling smoke and chips of debris.
     /// </summary>
     public sealed partial class MatchEffects
     {
-        static readonly Color BeamCore = new Color(1f, 1f, 0.96f, 1f), BeamBody = new Color(0.62f, 1f, 0.6f, 1f), BeamGlow = new Color(0.3f, 1f, 0.36f, 1f);
+        static readonly Color BeamCore = new Color(0.62f, 1f, 0.56f, 1f), BeamBody = new Color(0.5f, 0.95f, 0.46f, 1f), BeamGlow = new Color(0.3f, 0.9f, 0.34f, 1f);
         readonly Dictionary<int, float> beamEmit = new Dictionary<int, float>();
         readonly List<Vector3> beamPts = new List<Vector3>(48);
         readonly List<Color> beamCols = new List<Color>(48);
@@ -78,7 +79,7 @@ namespace Vision.UI
             float flicker = 0.88f + 0.12f * Mathf.Sin(now * 53f + key) * Mathf.Sin(now * 31f);
             float s = S;
 
-            // The body: a wide soft glow, the green beam, the white-hot core (soft-edged ribbons).
+            // The body: a wide soft glow, the green beam, its bright core (soft-edged ribbons, kept light green where they add up).
             void Layer(float width, Color c, float taper)
             {
                 beamPts.Clear(); beamCols.Clear();
@@ -96,8 +97,8 @@ namespace Vision.UI
                 Fx.Ribbon(beamPts, beamCols, width * s, false, false, Vfx.Blend.Additive, true);
             }
             Layer(0.95f, new Color(BeamGlow.r, BeamGlow.g, BeamGlow.b, 0.16f), 0.7f);
-            Layer(0.42f, new Color(BeamBody.r, BeamBody.g, BeamBody.b, 0.5f), 0.85f);
-            Layer(0.16f, new Color(BeamCore.r, BeamCore.g, BeamCore.b, 0.95f), 0.9f);
+            Layer(0.42f, new Color(BeamBody.r, BeamBody.g, BeamBody.b, 0.45f), 0.85f);
+            Layer(0.16f, new Color(BeamCore.r, BeamCore.g, BeamCore.b, 0.42f), 0.9f);
 
             // Two energy threads twisting round the beam, racing forward.
             for (int strand = 0; strand < 2; strand++)
@@ -109,15 +110,15 @@ namespace Vision.UI
                     float t = i / (float)n;
                     float ph = t * length / (0.55f * s) * Mathf.PI * 2f - now * 26f + strand * Mathf.PI;
                     beamPts.Add(palm + axis * t + side * (Mathf.Sin(ph) * 0.13f * s) + Vector3.up * (Mathf.Cos(ph) * 0.06f * s));
-                    beamCols.Add(new Color(0.85f, 1f, 0.85f, 0.55f * (1f - t * 0.4f)));
+                    beamCols.Add(new Color(0.5f, 1f, 0.5f, 0.4f * (1f - t * 0.4f)));
                 }
                 Fx.Ribbon(beamPts, beamCols, 0.035f * s, false, false, Vfx.Blend.Additive, true);
             }
 
-            // At the palm: a blinding flare and a ring of light round the hand.
-            Fx.Glow(palm, 0.55f * s * flicker, new Color(0.75f, 1f, 0.75f, 0.85f), false, false);
-            Fx.Glow(palm, 1.2f * s * flicker, new Color(0.35f, 1f, 0.4f, 0.3f), false, false);
-            Fx.Glow(palm, 0.22f * s, new Color(1f, 1f, 1f, 1f), false, false);
+            // At the palm: a bright flare and a ring of light round the hand.
+            Fx.Glow(palm, 0.55f * s * flicker, new Color(0.5f, 1f, 0.48f, 0.42f), false, false);
+            Fx.Glow(palm, 1.2f * s * flicker, new Color(0.35f, 1f, 0.4f, 0.25f), false, false);
+            Fx.Glow(palm, 0.22f * s, new Color(0.62f, 1f, 0.56f, 0.45f), false, false);
 
             // Shimmer: flecks peeling off the beam.
             float dt = Time.deltaTime;
@@ -137,8 +138,8 @@ namespace Vision.UI
 
             if (blocked)
             {
-                // Where it hits: a white-hot spot and a green bloom.
-                Fx.Glow(end, 0.7f * s * flicker, new Color(1f, 1f, 0.9f, 0.9f), false, false);
+                // Where it hits: a bright pale green spot and a green bloom.
+                Fx.Glow(end, 0.7f * s * flicker, new Color(0.66f, 1f, 0.6f, 0.65f), false, false);
                 Fx.Glow(end, 1.6f * s * flicker, new Color(0.4f, 1f, 0.45f, 0.35f), false, false);
                 Fx.Glow(end - dir * 0.1f * s, 0.35f * s, new Color(1f, 0.85f, 0.5f, 0.8f), false, false);
             }

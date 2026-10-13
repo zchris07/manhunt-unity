@@ -117,7 +117,7 @@ namespace Vision.Tests
         /// <summary>A throw or a light slash whips the arm faster than anything else (a real throwing arm passes 5000 deg/s).</summary>
         static bool Whip(ActionClip c) => c == ActionClips.Throw || c == ActionClips.Swing || c == ActionClips.SwingBack || c == ActionClips.SwingHeavy || c == ActionClips.SwingHeavyBack;
 
-        static bool Fast(ActionClip c) => c.Name.StartsWith("Swing") || c.Name.StartsWith("Recoil") || c == ActionClips.Throw || c == ActionClips.Burst || c == ActionClips.Lunge || c == ActionClips.Slam || c == ActionClips.Push || c == ActionClips.Cringe;
+        static bool Fast(ActionClip c) => c.Name.StartsWith("Swing") || c.Name.StartsWith("Recoil") || c == ActionClips.Throw || c == ActionClips.Burst || c == ActionClips.Lunge || c == ActionClips.Slam || c == ActionClips.Push || c == ActionClips.Cringe || c == ActionClips.SitFlinch;
 
         [Test]
         public void EveryClip_MovesWithoutPops_BlendsInAndOut_AndFiresEachEventOnce()

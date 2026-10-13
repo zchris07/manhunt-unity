@@ -211,7 +211,8 @@ namespace Vision.UI
             if (!dead)
             {
                 if ((f & NpcFlags.Stunned) != 0) clip = ActionClips.Stunned;
-                else if ((f & NpcFlags.Seated) != 0) clip = ActionClips.Sit;
+                // Chacko hit on the couch flinches back from it.
+                else if ((f & NpcFlags.Seated) != 0) clip = (f & NpcFlags.Hurt) != 0 ? ActionClips.SitFlinch : ActionClips.Sit;
                 else if ((f & NpcFlags.Ascending) != 0) clip = ActionClips.Ascend;
                 else if ((f & NpcFlags.Working) != 0) clip = ActionClips.Repair;
                 else if ((f & NpcFlags.Transforming) != 0) clip = ActionClips.Rage;

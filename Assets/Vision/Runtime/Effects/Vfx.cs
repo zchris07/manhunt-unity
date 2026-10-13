@@ -213,6 +213,14 @@ namespace Vision.Effects
             Get(masked, senses, blend).Dots.Add((at, size, color, true));
         }
 
+        /// <summary>A flat triangle for this frame (a blood splatter is built of these).</summary>
+        public void Tri(Vector3 a, Vector3 b, Vector3 c, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        {
+            Batch bt = Get(masked, senses, blend);
+            bt.TriV.Add(a); bt.TriV.Add(b); bt.TriV.Add(c);
+            bt.TriC.Add(color); bt.TriC.Add(color); bt.TriC.Add(color);
+        }
+
         /// <summary>A flat four-cornered shape for this frame (the Burst's lens is built of these).</summary>
         public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
         {

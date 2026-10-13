@@ -169,7 +169,10 @@ namespace Vision.Game
         public int PromptTarget = -1;
         public Prompt Prompt2;
         public int Prompt2Target = -1;
-        public float LastScent, LastBlood;
+        public float LastScent, NextBlood;
+        /// <summary>Where blood last started dripping from them, and how many drops have landed there since.</summary>
+        public Vector2 BloodAt;
+        public int BloodPool;
         public float Terror;
 
         public int Spectating;

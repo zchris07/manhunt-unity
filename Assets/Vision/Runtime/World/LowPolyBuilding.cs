@@ -5,7 +5,7 @@ namespace Vision.World
 {
     /// <summary>
     /// Models for the central building: its walls, gate and yard fence, and everything in the rooms. Origin at the bottom
-    /// centre with the front facing +Z (wall fittings: the back on z = 0); runs of pipe and duct go along +Z.
+    /// centre with the front facing +Z (wall fittings: the back on z = 0).
     /// </summary>
     public static partial class LowPolyModels
     {
@@ -647,10 +647,6 @@ namespace Vision.World
                     b.AddFrustum(new Vector3(0f, 0.15f, 0.09f), new Vector3(0f, 0.25f, 0.09f), 0.04f, 0.02f, 5, Bldg.Black, 0.04f);
                     b.AddBox(new Vector3(-0.06f, -0.05f, 0f), new Vector3(0.12f, 0.08f, 0.03f), Bldg.SteelDark, 0.04f);
                     break;
-                case BF.VentGrille:
-                    b.AddBox(new Vector3(-hw, -0.15f, 0f), new Vector3(w, 0.3f, 0.03f), Bldg.Galvanised * 0.8f, 0.04f);
-                    for (int i = 0; i < 5; i++) b.AddBox(new Vector3(-hw + 0.04f, -0.12f + i * 0.055f, 0.03f), new Vector3(w - 0.08f, 0.02f, 0.02f), Bldg.Galvanised, 0.04f);
-                    break;
                 case BF.Mirror:
                     b.AddBox(new Vector3(-hw, 0f, 0f), new Vector3(w, 0.7f, 0.02f), Bldg.SteelDark, 0.03f);
                     b.AddBox(new Vector3(-hw + 0.03f, 0.03f, 0.02f), new Vector3(w - 0.06f, 0.64f, 0.004f), new Color(0.28f, 0.32f, 0.33f), 0.03f);
@@ -721,26 +717,6 @@ namespace Vision.World
                         b.AddFrustum(new Vector3(0f, 0.3f, 0f), top, 0.012f, 0.004f, 3, new Color(0.32f, 0.26f, 0.16f), 0.08f);
                     }
                     break;
-                case BF.Pipes:
-                {
-                    int n = Mathf.Max(1, variant);
-                    float len = w;
-                    for (int i = 0; i < n; i++)
-                    {
-                        float r = b.Range(0.04f, 0.08f), off = i * 0.18f;
-                        Color c = i % 3 == 0 ? Bldg.Rust : i % 3 == 1 ? Bldg.PaintGreen * 0.8f : Bldg.Steel;
-                        b.AddFrustum(new Vector3(-off, -off * 0.3f, 0f), new Vector3(-off, -off * 0.3f, len), r, r, 6, c, 0.08f);
-                    }
-                    for (float z = 0.5f; z < len; z += 2f) b.AddBox(new Vector3(-n * 0.18f, 0.06f, z), new Vector3(n * 0.18f + 0.1f, 0.03f, 0.04f), Bldg.SteelDark, 0.04f);
-                    break;
-                }
-                case BF.Duct:
-                {
-                    float len = w;
-                    b.AddBox(new Vector3(-0.22f, -0.16f, 0f), new Vector3(0.44f, 0.32f, len), Bldg.Galvanised, 0.04f);
-                    for (float z = 1.2f; z < len; z += 1.2f) b.AddBox(new Vector3(-0.235f, -0.175f, z), new Vector3(0.47f, 0.35f, 0.05f), Bldg.Galvanised * 0.85f, 0.03f);
-                    break;
-                }
                 default:
                     b.AddBox(new Vector3(-hw, 0f, -hd), new Vector3(w, 0.5f, d), Bldg.Concrete, 0.05f);
                     break;

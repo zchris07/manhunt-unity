@@ -282,8 +282,8 @@ namespace Vision.World
             }
 
             Vector2 front = new Vector2(Mathf.Sin(item.Yaw * Mathf.Deg2Rad), Mathf.Cos(item.Yaw * Mathf.Deg2Rad));
-            bool mounted = item.Elevation > 0f && item.Kind != BF.Pipes && item.Kind != BF.Duct && item.Kind != BF.Cobweb;
-            // Wall fittings sit on the wall face behind their strip; runs of pipe start at their given point.
+            bool mounted = item.Elevation > 0f && item.Kind != BF.Cobweb;
+            // Wall fittings sit on the wall face behind their strip.
             if (mounted) pos -= new Vector3(front.x, 0f, front.y) * 0.15f;
             Mesh mesh = LowPolyModels.BuildingItem(item.Kind, rng, item.Size, item.Variant);
             GameObject go = Piece(item.Kind.ToString(), mesh, root, pos, item.Yaw);

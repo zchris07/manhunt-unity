@@ -7,7 +7,8 @@ namespace Vision.Game
     /// Shane Jeans (the original's shane.ts): a harmless, unkillable wanderer with a faint light. Survivors who crowd him
     /// or keep a flashlight on him alert him, and he tails that survivor as closely as he can, a beacon for Zach. He
     /// ignores Zach, can't open doors or break pallets, and gives up after a while; two bottles or a shotgun blast in one
-    /// chase shake him off, and galaxy gas makes him lose them.
+    /// chase shake him off, and galaxy gas makes him lose them. After a survivor attacks Chacko he goes after them and only
+    /// gives up once he's shaken off like that.
     /// </summary>
     public class Shane : Walker
     {
@@ -36,7 +37,10 @@ namespace Vision.Game
         public readonly Dictionary<int, float> Meter = new Dictionary<int, float>();
         protected float ChaseT, CooldownT;
         protected int BottleHits;
+        /// <summary>Chasing for Chacko: no giving up for time, distance or Zach coming near.</summary>
         protected bool Avenging;
+        /// <summary>The survivor he's after for Chacko (0: none).</summary>
+        protected int Grudge;
         protected readonly Chaser Chaser;
 
         public override string Name => "Shane Jeans";
@@ -68,6 +72,7 @@ namespace Vision.Game
         }
 
         public override NpcFlags Flags => base.Flags | (State == Mode.Chase ? NpcFlags.Chasing : 0) | (State == Mode.Flee ? NpcFlags.Fleeing : 0);
+        public override int GrudgeTarget => alive ? Grudge : 0;
         public override bool TripsTraps => State == Mode.Chase;
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind)
@@ -98,6 +103,8 @@ namespace Vision.Game
 
         protected void ShakeOff()
         {
+            // Stunned and driven off: that ends a grudge too.
+            Grudge = 0;
             SimPlayer t = Sim.Get(Target);
             FleeFrom = t != null ? t.Pos : Pos;
             EndChase(Mode.Flee);
@@ -114,18 +121,39 @@ namespace Vision.Game
             ModeT = next == Mode.Flee ? C.FleeTime : Range(2f, 5f);
         }
 
-        /// <summary>Chacko was slain by <paramref name="p"/>: he hunts them until they're downed or it's called off.</summary>
+        /// <summary>
+        /// <paramref name="p"/> attacked Chacko: he goes after them and keeps on (whatever the time, the distance or Zach coming
+        /// near) until the grudge is over. While they're out of his reach (hidden, carried, staked) he loses them, and goes
+        /// after them again the moment they're back out.
+        /// </summary>
         public override void Avenge(MatchSim sim, SimPlayer p)
         {
-            if (!Eligible(p)) return;
+            if (!alive || p == null) return;
+            Grudge = p.Id;
+            if (Eligible(p)) Pursue(p);
+        }
+
+        void Pursue(SimPlayer p)
+        {
             Alert(p);
             Avenging = true;
         }
 
-        public override void StopAvenging(MatchSim sim)
+        /// <summary>Shane's grudge lasts until he's shaken off (<see cref="ShakeOff"/>), or the survivor has left the match.</summary>
+        protected virtual bool GrudgeOver(SimPlayer t) => t == null || t.Health == Health.Escaped || t.Health == Health.Eliminated;
+
+        /// <summary>Keeps after the survivor he holds a grudge against whenever they can be chased.</summary>
+        protected void KeepGrudge()
         {
-            if (Avenging && State == Mode.Chase) EndChase(Mode.Walk);
-            Avenging = false;
+            if (Grudge == 0) return;
+            SimPlayer t = Sim.Get(Grudge);
+            if (GrudgeOver(t))
+            {
+                Grudge = 0;
+                return;
+            }
+            if (State == Mode.Chase && Target == Grudge) Avenging = true;
+            else if (Eligible(t)) Pursue(t);
         }
 
         protected virtual void Alert(SimPlayer p)
@@ -194,6 +222,7 @@ namespace Vision.Game
             if (!alive) return;
             Tick(dt);
             CooldownT = Mathf.Max(0f, CooldownT - dt);
+            KeepGrudge();
             Watch(dt);
             float speed = 0f;
             if (State == Mode.Chase)

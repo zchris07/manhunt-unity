@@ -105,6 +105,8 @@ namespace Vision.Game
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
                 public const float Dps = 0.05f, DpsFar = 0.01f, AfterTime = 2f, ConeCut = 0.6f, DarkAfter = 6f, DarkEase = 0.6f;
+                /// <summary>The blur on a gassed survivor clears over this long once they're out (a second longer than the after-effect).</summary>
+                public const float BlurTime = AfterTime + 1f;
             }
 
             public static class Hemp
@@ -205,8 +207,8 @@ namespace Vision.Game
             public static class Trap
             {
                 public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f, GasRadius = HunterWidth * 10f * 0.65f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
-                /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s.</summary>
-                public const float ZachConeCut = 0.3f, BlurAfter = 2f;
+                /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s (3: a second longer than at first).</summary>
+                public const float ZachConeCut = 0.3f, BlurAfter = 2f + 1f;
                 /// <summary>An armed trap a shot or a thrown item passes over (within the trap's own size) bursts.</summary>
                 public const float HitRadius = 20f;
             }
@@ -298,7 +300,10 @@ namespace Vision.Game
 
         public static class Chacko
         {
-            public const float Radius = 14f, Reach = 70f, Explosion = 0.5f, NicRangeMul = 1.1f, VengeanceSec = 30f, LightRadius = 130f, LightIntensity = 0.3f;
+            public const float Radius = 14f, Reach = 70f, Explosion = 0.5f, NicRangeMul = 1.1f, LightRadius = 130f, LightIntensity = 0.3f;
+            /// <summary>How long he flinches when a survivor hits him, and what he snaps at them (in turn).</summary>
+            public const float FlinchTime = 0.6f;
+            public const string LineLayOff = "Lay off man!", LineHeck = "What the heck...";
             public const string LineSurvivor = "Take a Dr Pepper, bro. Madden is on.", LineZach = "Here. 50 Nic. Don't tell anyone.", LineHit = "Not during the game!";
         }
 
@@ -348,7 +353,17 @@ namespace Vision.Game
             public const float Note = 64f, Teammate = 70f, Generator = 78f, Gate = 58f, Loot = 48f, Hide = 58f, Barricade = 80f, Door = 62f, Stake = 78f, Pickup = 68f, NpcName = 110f;
         }
 
-        public static class Trails { public const float ScentEvery = 0.12f, WalkHeadStart = 4f, BloodEvery = 0.4f, MaxAgeSec = 10f; }
+        public static class Trails
+        {
+            public const float ScentEvery = 0.12f, WalkHeadStart = 4f, MaxAgeSec = 10f;
+            /// <summary>
+            /// Blood drips at random moments (every 0.15-0.75 s, 0.45 s on average, about the original's 0.4 s) and lands up to
+            /// BloodSpread units about them. Standing still, no more than BloodPoolMax drops land within BloodPoolRadius of
+            /// where they stand; moving on that far starts them again.
+            /// </summary>
+            public const float BloodEveryMin = 0.15f, BloodEveryMax = 0.75f, BloodSpread = 8f, BloodPoolRadius = 16f;
+            public const int BloodPoolMax = 6;
+        }
 
         public static class Lights
         {

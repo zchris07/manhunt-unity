@@ -86,8 +86,11 @@ namespace Vision.Rendering
         [Range(0f, 1f)] public float gasBlur;
         [Tooltip("The whole screen darkened (1: black), past the edge of the woods.")]
         [Range(0f, 1f)] public float blackout;
-        /// <summary>The gas blur's radius at full strength, in pixels at 1080 lines.</summary>
-        public const float GasBlurPx = 9f;
+        /// <summary>
+        /// The gas blur at full strength, in pixels at 1080 lines: the blur's radius, how far apart the double vision's two
+        /// images drift, and how far the swimming warp pushes the view.
+        /// </summary>
+        public const float GasBlurPx = 15f, GasSplitPx = 16f, GasWarpPx = 7f;
         [Tooltip("Near-neutral so unlit areas carry almost no colour.")]
         public Color darkTint = new Color(0.99f, 1f, 1.01f);
 
@@ -127,6 +130,7 @@ namespace Vision.Rendering
         static readonly int GradeId = Shader.PropertyToID("_VisGrade");
         static readonly int BeamId = Shader.PropertyToID("_VisBeam");
         static readonly int BlurId = Shader.PropertyToID("_VisBlur");
+        static readonly int GasId = Shader.PropertyToID("_VisGas");
 
         Material material;
         VisionCompositePass pass;
@@ -154,7 +158,9 @@ namespace Vision.Rendering
             VisionLight.FlickerEnabled = fx;
             material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness * fogScale));
             material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, blackout));
-            material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, gasBlur * GasBlurPx * cam.pixelHeight / 1080f));
+            float px = cam.pixelHeight / 1080f;
+            material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
+            material.SetVector(GasId, new Vector4(gasBlur, GasBlurPx * px * Mathf.Lerp(0.45f, 1f, gasBlur), GasSplitPx * px * gasBlur, GasWarpPx * px * gasBlur));
             material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);
             material.SetColor(SourceTintId, sourceTint);

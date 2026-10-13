@@ -108,8 +108,8 @@ namespace Vision.Player
         bool xrayHemp;
         // Penjamin's darkness (0-1), eased in and out over the original's 0.6 s: the beam narrows and the dark goes black.
         float darkK;
-        // The gas blur (0-1) and how long since Zach left the galaxy gas.
-        float gasBlurK, gasLeftT = 99f;
+        // The gas blur (0-1), how long since Zach left the galaxy gas, and how long a survivor's blur has left.
+        float gasBlurK, gasLeftT = 99f, vapeBlurLeft;
         Vision.Rendering.VisionComposite composite;
 
         void Awake()
@@ -414,10 +414,12 @@ namespace Vision.Player
                 if (composite == null) composite = FindAnyObjectByType<Vision.Rendering.VisionComposite>();
                 if (composite != null) composite.fogScale = 1f - darkE;
                 // The gas blur: strong the moment you're gassed, held while you're in it, fading as the effect wears off
-                // (Penjamin's after-effect on a survivor; two seconds after Zach leaves the galaxy gas).
+                // (over three seconds: Penjamin's two-second after-effect on a survivor and a second more; three seconds
+                // after Zach leaves the galaxy gas).
                 gasLeftT = zach && p.Gassed ? 0f : gasLeftT + dt0;
+                vapeBlurLeft = Mathf.Max(vapeBlurLeft - dt0, p.VapeT > 0f ? p.VapeT + (Balance.Hunter.Vape.BlurTime - Balance.Hunter.Vape.AfterTime) : 0f);
                 float blurWant = zach ? Mathf.Clamp01(1f - gasLeftT / Balance.Items.Trap.BlurAfter)
-                    : p.VapeT > 0f ? Mathf.Clamp01(p.VapeT / Balance.Hunter.Vape.AfterTime) : 0f;
+                    : Mathf.Clamp01(vapeBlurLeft / Balance.Hunter.Vape.BlurTime);
                 gasBlurK = blurWant > gasBlurK ? Mathf.MoveTowards(gasBlurK, blurWant, dt0 / 0.15f) : blurWant;
                 if (composite != null) composite.gasBlur = gasBlurK;
                 // Hidden: peeking out through the slats (or the grass all round) for the original's short reach.

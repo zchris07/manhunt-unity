@@ -9,7 +9,8 @@ namespace Vision.Game
     /// turns into a hulking beast, then chases whoever hit him and punches until they're down (Zach goes down, without the
     /// lasting slowdown), then turns back and walks off. Losing him for ten seconds calms him, and ten seconds after he
     /// changes he turns back on his own. Items and the machete stun him; only the beast can be killed. Talk to him (either
-    /// side) and he says "ggs" and hands you a golden pump, once each.
+    /// side) and he says "ggs" and hands you a golden pump, once each. After a survivor attacks Chacko he rages at them until
+    /// they're down (or he's slain), turning on them again whenever they come back out of hiding.
     /// </summary>
     public sealed class Plasma : Walker
     {
@@ -21,7 +22,10 @@ namespace Vision.Game
         /// <summary>Hits taken in beast form: from survivors' items, and from Zach (a heavy swing counts two).</summary>
         public int SurvivorHits, ZachHits;
         float escapeT, rageT, punchCd, punchAge = 9f;
+        /// <summary>Raging for Chacko: no calming down for time or for losing them.</summary>
         bool avenging;
+        /// <summary>The survivor he's after for Chacko (0: none).</summary>
+        int grudge;
         readonly HashSet<int> given = new HashSet<int>();
         readonly Chaser chaser;
 
@@ -41,6 +45,7 @@ namespace Vision.Game
         /// <summary>How far through changing he is (0 man, 1 beast), for the view.</summary>
         public float BeastAmount => State == Mode.Rage ? 1f : State == Mode.Transform ? 1f - ModeT / Balance.Plasma.TransformTime : State == Mode.Revert ? Mathf.Clamp01(ModeT) : 0f;
         public override bool Aggressive => alive && Raging;
+        public override int GrudgeTarget => alive ? grudge : 0;
         public override bool TripsTraps => alive && Raging;
         public override NpcFlags Flags => base.Flags | (State == Mode.Rage ? NpcFlags.Raging | NpcFlags.Chasing : 0) | (State == Mode.Transform ? NpcFlags.Transforming : 0)
             | (Beast ? NpcFlags.Beast : 0) | (punchAge < 0.3f ? NpcFlags.Punching : 0);
@@ -92,10 +97,16 @@ namespace Vision.Game
 
         public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by, 0f, 0);
 
-        /// <summary>Chacko was slain by <paramref name="p"/>: GAMER RAGE at them, wherever they are, until they're downed.</summary>
+        /// <summary><paramref name="p"/> attacked Chacko: GAMER RAGE at them, wherever they are, until they're down.</summary>
         public override void Avenge(MatchSim sim, SimPlayer p)
         {
-            if (!alive || !Huntable(p)) return;
+            if (!alive || p == null) return;
+            grudge = p.Id;
+            if (Huntable(p)) Pursue(p);
+        }
+
+        void Pursue(SimPlayer p)
+        {
             if (!Beast) Attacked(p, 0f, 0);
             Target = p.Id;
             rageT = 0f;
@@ -103,11 +114,22 @@ namespace Vision.Game
             avenging = true;
         }
 
-        public override void StopAvenging(MatchSim sim)
+        /// <summary>
+        /// Keeps after Chacko's attacker until they're down: losing them in hiding he calms down, and he rages at them again
+        /// the moment they're back out.
+        /// </summary>
+        void KeepGrudge()
         {
-            bool was = avenging;
-            avenging = false;
-            if (was && Raging) CalmDown();
+            if (grudge == 0) return;
+            SimPlayer g = Sim.Get(grudge);
+            if (g == null || !OnFeet(g))
+            {
+                grudge = 0;
+                avenging = false;
+                return;
+            }
+            if (Raging && Target == grudge) avenging = true;
+            else if (State != Mode.Transform && Huntable(g)) Pursue(g);
         }
 
         /// <summary>A 0.50 cal round slays him in one shot, but only in beast form (otherwise it just sets him off).</summary>
@@ -131,14 +153,6 @@ namespace Vision.Game
             if (damage > 0) HurtT = 0.3f;
             if (Beast)
             {
-                // Someone else attacking while he hunts for Chacko draws him off to them (and ends the vendetta).
-                if (avenging && by.Id != Target && Huntable(by))
-                {
-                    avenging = false;
-                    Target = by.Id;
-                    rageT = 0f;
-                    escapeT = 0f;
-                }
                 if (stun > 0f) StunT = Mathf.Max(StunT, stun);
                 // Only the beast can be hurt (not while he's still changing).
                 if (damage > 0 && State != Mode.Transform)
@@ -197,6 +211,7 @@ namespace Vision.Game
             Tick(dt);
             punchCd = Mathf.Max(0f, punchCd - dt);
             punchAge += dt;
+            KeepGrudge();
             Gait = 0;
             if (StunT > 0f)
             {

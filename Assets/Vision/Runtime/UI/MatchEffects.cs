@@ -12,8 +12,8 @@ namespace Vision.UI
     /// The match's effects and sounds in the world, after the original's look: Zach's machete (the swipe line off the
     /// blade's tip out to its reach, the slash), the lunge's speed lines, the Soundcloud Burst (a purple concave lens
     /// racing across the map through walls, with fading echoes), Penjamin's gas (yellow wisps streaming out along a narrow
-    /// cone, blue for 50 Nic), the Hemp Beam (a charging orb, then a white-green beam with an
-    /// impact glow), guns (muzzle flash, pellet tracers), and the sounds of all of it, placed where it happens.
+    /// cone, blue for 50 Nic), the Hemp Beam (a charging orb, then a light green beam with an
+    /// impact glow), guns (muzzle flash, rounds in flight), and the sounds of all of it, placed where it happens.
     /// </summary>
     [DefaultExecutionOrder(100)]
     public sealed partial class MatchEffects : MonoBehaviour
@@ -23,13 +23,11 @@ namespace Vision.UI
         MatchHost host;
 
         struct Wave { public Vector2 At; public float Angle, Born; }
-        struct Tracer { public Vector3 From, To; public Color Color; public float Born, Life, Width; }
 
         struct Breath { public Vector2 At; public bool Gasp; public float Born; }
         readonly List<Breath> breaths = new List<Breath>();
         readonly List<Vector3> arcGrid = new List<Vector3>(2048);
         readonly List<Wave> waves = new List<Wave>();
-        readonly List<Tracer> tracers = new List<Tracer>();
         readonly HashSet<int> beamLoops = new HashSet<int>();
         readonly List<int> beamGone = new List<int>();
         readonly List<Vector3> pts = new List<Vector3>(64);
@@ -173,7 +171,7 @@ namespace Vision.UI
             return Along(e.Pos, e.F, Balance.SurvivorRadius * 2.2f, 0f, 1.1f);
         }
 
-        /// <summary>A gun going off: the flash at the muzzle, tracers from the barrel for each pellet or the round, and its sound.</summary>
+        /// <summary>A gun going off: the flash at the muzzle, and a round flying from the barrel for each pellet or bullet.</summary>
         void Shot(GameEvent e, MatchSim sim)
         {
             var item = (Vision.Player.ItemType)e.B;
@@ -184,10 +182,10 @@ namespace Vision.UI
             switch (item)
             {
                 case Vision.Player.ItemType.Pistol:
-                    AddTracer(muzzle, e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, new Color(1f, 0.9f, 0.6f, 0.9f), 0.04f);
+                    Fire(muzzle, e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, PistolRound, 0);
                     break;
                 case Vision.Player.ItemType.Sniper:
-                    SniperRound(muzzle, e.F);
+                    SniperRound(muzzle, e.Pos, e.F);
                     break;
                 default:
                     // Pellets: "hit|angle*1000:distance,..." (original units).
@@ -198,17 +196,11 @@ namespace Vision.UI
                         if (c <= 0) continue;
                         if (!float.TryParse(p.Substring(0, c), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float ang)) continue;
                         if (!float.TryParse(p.Substring(c + 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float dist)) continue;
-                        AddTracer(muzzle, e.Pos, ang / 1000f, dist, golden ? new Color(1f, 0.85f, 0.4f, 0.8f) : new Color(1f, 0.76f, 0.23f, 0.7f), 0.025f);
-                        Fx.Burst(Along(e.Pos, ang / 1000f, dist, 0f, 1.0f), 3, 1.4f * S, 0.3f, golden ? new Color(1f, 0.85f, 0.42f, 1f) : new Color(1f, 0.76f, 0.23f, 1f), 0.04f * S);
+                        // Each pellet flies to where it stopped and sparks there as it arrives.
+                        Fire(muzzle, e.Pos, ang / 1000f, dist, golden ? GoldenPellet : PelletRound, golden ? 2 : 1);
                     }
                     break;
             }
-        }
-
-        /// <summary>A tracer from the barrel to where the round stopped (<paramref name="units"/> from the shooter's centre along <paramref name="angle"/>).</summary>
-        void AddTracer(Vector3 muzzle, Vector2 from, float angle, float units, Color c, float width, float life = 0.14f)
-        {
-            tracers.Add(new Tracer { From = muzzle, To = Along(from, angle, units, 0f, 1.0f), Color = c, Born = Time.time, Life = life, Width = width });
         }
 
         // ---------------------------------------------------------------- per frame
@@ -232,9 +224,8 @@ namespace Vision.UI
             DrawBreaths();
             DrawWaves(sim);
             DrawVapes(sim);
-            DrawTracers();
+            DrawRounds();
             DrawLasers(sim);
-            DrawStreaks();
             DrawNpcs(sim);
             DoorSounds(sim);
             BeamSounds(sim);
@@ -439,27 +430,9 @@ namespace Vision.UI
             }
         }
 
-        void DrawTracers()
-        {
-            float now = Time.time;
-            for (int i = tracers.Count - 1; i >= 0; i--)
-            {
-                Tracer t = tracers[i];
-                float k = (now - t.Born) / t.Life;
-                if (k >= 1f) { tracers.RemoveAt(i); continue; }
-                pts.Clear(); cols.Clear();
-                pts.Add(t.From); pts.Add(t.To);
-                Color c = t.Color;
-                c.a *= 1f - k;
-                cols.Add(c); cols.Add(c);
-                Fx.Ribbon(pts, cols, t.Width * S, false);
-            }
-        }
-
         static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f);
 
         public int TrailCount => trails.Count;
         public int WaveCount => waves.Count;
-        public int TracerCount => tracers.Count;
     }
 }

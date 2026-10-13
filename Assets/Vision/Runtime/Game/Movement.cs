@@ -21,6 +21,8 @@ namespace Vision.Game
         public bool AbilitiesLocked;
         /// <summary>Testing mode's speed mode: six times the speed, a sprint meter that never drains.</summary>
         public bool SpeedMode;
+        /// <summary>No sprinting (Zach more than halfway into a full charge; the lunge and abilities still work).</summary>
+        public bool NoSprint;
     }
 
     /// <summary>
@@ -101,7 +103,7 @@ namespace Vision.Game
             Vector2 dir = Vector2.ClampMagnitude(cmd.Move, 1f);
             bool moving = dir.sqrMagnitude > 1e-4f;
             bool crouching = role == Role.Survivor && cmd.Has(Btn.Crouch);
-            bool wantsSprint = runHeld && moving && !crouching && s.Mode == MoveMode.Normal;
+            bool wantsSprint = runHeld && moving && !crouching && s.Mode == MoveMode.Normal && !ctx.NoSprint;
             bool sprint = wantsSprint && !s.SprintBlocked && s.StaminaLock <= 0f && s.Stamina > 0f;
             if (ctx.SpeedMode) sprint = wantsSprint;
             if (sprint && !ctx.SpeedMode)

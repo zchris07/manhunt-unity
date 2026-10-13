@@ -7,8 +7,8 @@ namespace Vision.Game
     public sealed partial class MatchSim
     {
         /// <summary>The survivor Jaden, Plasma and Shane are hunting for Chacko's sake (0 nobody), and seconds left.</summary>
+        /// <summary>The survivor who last attacked Chacko, while any NPC is still after them (0: nobody).</summary>
         public int Vengeance;
-        public float VengeanceT;
 
         void UpdateObjectives(float dt)
         {
@@ -199,10 +199,22 @@ namespace Vision.Game
                         p.LastScent = Time;
                         Trails.Add(new TrailPoint { Id = trailSeq++, Pos = p.Pos, T = Time - (walking ? Balance.Trails.WalkHeadStart : 0f), Kind = 0, Who = p.Id });
                     }
-                    if ((p.Health == Health.Wounded || p.Health == Health.Downed) && Time - p.LastBlood >= Balance.Trails.BloodEvery)
+                    if ((p.Health == Health.Wounded || p.Health == Health.Downed) && Time >= p.NextBlood)
                     {
-                        p.LastBlood = Time;
-                        Trails.Add(new TrailPoint { Id = trailSeq++, Pos = p.Pos + new Vector2(RandRange(-1f, 1f), RandRange(-1f, 1f)) * R(6f), T = Time, Kind = 1, Who = p.Id });
+                        // A drop at a random moment, landing somewhere about them. Standing still, the drops stop piling up
+                        // under them after a few; once they've moved on, they start again.
+                        p.NextBlood = Time + RandRange(Balance.Trails.BloodEveryMin, Balance.Trails.BloodEveryMax);
+                        if (Vector2.Distance(p.Pos, p.BloodAt) > R(Balance.Trails.BloodPoolRadius))
+                        {
+                            p.BloodAt = p.Pos;
+                            p.BloodPool = 0;
+                        }
+                        if (p.BloodPool < Balance.Trails.BloodPoolMax)
+                        {
+                            p.BloodPool++;
+                            float a = RandRange(0f, Mathf.PI * 2f), r = Mathf.Sqrt(RandRange(0f, 1f)) * R(Balance.Trails.BloodSpread);
+                            Trails.Add(new TrailPoint { Id = trailSeq++, Pos = p.Pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r, T = Time, Kind = 1, Who = p.Id });
+                        }
                     }
                 }
 
@@ -240,27 +252,22 @@ namespace Vision.Game
             if (Trails.Count > 0 && Trails[0].T < cut) Trails.RemoveAll(t => t.T < cut);
         }
 
-        /// <summary>Chacko was slain by a survivor: Jaden, Plasma and Shane hunt that survivor until they're downed once, or for 30 s.</summary>
+        /// <summary>
+        /// A survivor attacked Chacko: Jaden, Plasma and Shane go after them, each with no time limit. Jaden and Plasma keep at
+        /// it until that survivor is down (or they're slain themselves); Shane until he's stunned and driven off (two bottles,
+        /// a shotgun blast or galaxy gas). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
+        /// </summary>
         public void Avenge(SimPlayer target)
         {
             Vengeance = target.Id;
-            VengeanceT = Balance.Chacko.VengeanceSec;
             foreach (Npc n in Npcs) n.Avenge(this, target);
         }
 
         void UpdateVengeance(float dt)
         {
             if (Vengeance == 0) return;
-            SimPlayer t = Get(Vengeance);
-            bool downed = t == null || (t.Health != Health.Healthy && t.Health != Health.Wounded);
-            VengeanceT -= dt;
-            bool huntersAlive = true;
-            foreach (Npc n in Npcs) if ((n.Kind == 5 || n.Kind == 4) && !n.Alive) huntersAlive = false;
-            if (downed || VengeanceT <= 0f || !huntersAlive)
-            {
-                Vengeance = 0;
-                foreach (Npc n in Npcs) n.StopAvenging(this);
-            }
+            foreach (Npc n in Npcs) if (n.GrudgeTarget == Vengeance) return;
+            Vengeance = 0;
         }
     }
 }

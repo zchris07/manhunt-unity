@@ -8,7 +8,8 @@ namespace Vision.Game
     /// alerted he hangs back a few metres and shoots the survivor who set him off, until they get out of range or have lost
     /// half the health they had when he started. Any survivor item stuns him for a moment; three kill him and he drops his
     /// pistol. Zach's machete shoves and stuns him; six points of it kill him, and Zach gets a lunge charge and longer reach
-    /// for good. Anyone who attacks him (or gasses him with Penjamin) sets him on them.
+    /// for good. Anyone who attacks him (or gasses him with Penjamin) sets him on them. After a survivor attacks Chacko he
+    /// goes after them until they're down (or he's slain), and nobody else draws him off meanwhile.
     /// </summary>
     public sealed class Jaden : Shane
     {
@@ -70,12 +71,8 @@ namespace Vision.Game
 
         public override void Provoke(MatchSim sim, SimPlayer by) => ProvokeBy(by);
 
-        public override void Avenge(MatchSim sim, SimPlayer p)
-        {
-            if (!alive || !Targetable(p)) return;
-            Alert(p);
-            Avenging = true;
-        }
+        /// <summary>His grudge for Chacko lasts until that survivor is down (or out of the match).</summary>
+        protected override bool GrudgeOver(SimPlayer t) => t == null || (t.Health != Health.Healthy && t.Health != Health.Wounded);
 
         /// <summary>A 0.50 cal round: one shot slays him.</summary>
         public override void Snipe(MatchSim sim, SimPlayer shooter)
@@ -91,6 +88,8 @@ namespace Vision.Game
         void ProvokeBy(SimPlayer by)
         {
             if (!alive || (State == Mode.Chase && Target == by.Id)) return;
+            // After Chacko's attacker, nobody else draws him off.
+            if (Grudge != 0 && by.Id != Grudge) return;
             if (!Targetable(by)) return;
             Alert(by);
         }

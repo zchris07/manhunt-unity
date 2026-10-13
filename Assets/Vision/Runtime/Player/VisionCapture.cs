@@ -474,6 +474,8 @@ namespace Vision.Player
                     cameraRig.orthographicSize = o * 0.45f;
                     yield return new WaitForSeconds(0.6f);
                     yield return Shot("80_stun_stars");
+                    yield return new WaitForSeconds(0.45f);
+                    yield return Shot("142_zach_reeling");
                     cameraRig.orthographicSize = o;
                     host.SwitchRole();
                 }
@@ -548,6 +550,16 @@ namespace Vision.Player
                         gameHud.Refresh();
                         yield return Shot(name);
                     }
+                    // A pistol round flying out: the short bright streak and its thin dim trail.
+                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Pistol);
+                    cameraRig.orthographicSize = o * 0.7f;
+                    yield return new WaitForSeconds(0.5f);
+                    int roundsP = RoundsNow();
+                    player.ExtraButtons = Btn.Primary;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return RoundInFlight("143_pistol_round_in_flight", roundsP, 0.004f);
+                    yield return new WaitForSeconds(0.5f);
                     // The 0.50 cal aimed: right click brings the scope to the eye and the laser on; then a round.
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Sniper);
                     cameraRig.orthographicSize = o * 0.7f;
@@ -555,22 +567,22 @@ namespace Vision.Player
                     yield return new WaitForSeconds(0.8f);
                     gameHud.Refresh();
                     yield return Shot("131_sniper_aimed_laser");
+                    int roundsS = RoundsNow();
                     player.ExtraButtons = Btn.Lunge | Btn.Primary;
-                    yield return new WaitForSeconds(0.12f);
+                    yield return Wait(2);
                     player.ExtraButtons = Btn.Lunge;
-                    yield return new WaitForSeconds(0.05f);
-                    yield return Shot("132_sniper_round_through");
+                    yield return RoundInFlight("132_sniper_round_through", roundsS, 0.006f);
                     player.ExtraButtons = Btn.None;
                     yield return new WaitForSeconds(0.6f);
                     yield return Shot("133_sniper_at_the_hip");
                     cameraRig.orthographicSize = o * 0.38f;
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Shotgun);
                     yield return new WaitForSeconds(0.5f);
+                    int roundsG = RoundsNow();
                     player.ExtraButtons = Btn.Primary;
                     yield return Wait(2);
                     player.ExtraButtons = Btn.None;
-                    yield return new WaitForSeconds(0.01f);
-                    yield return Shot("114_shotgun_from_the_barrel");
+                    yield return RoundInFlight("114_shotgun_from_the_barrel", roundsG, 0.004f);
                     yield return new WaitForSeconds(0.8f);
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Bottle);
                     yield return new WaitForSeconds(0.4f);
@@ -711,6 +723,20 @@ namespace Vision.Player
                         yield return new WaitForSeconds(0.8f);
                         gameHud.Refresh();
                         yield return Shot("101_lounge_chacko");
+                        // A survivor's bottle: he flinches back from it and snaps at them (a dummy throws it, so the NPCs it
+                        // sets on the thrower give up as soon as the dummy is gone).
+                        Chacko chacko = null;
+                        foreach (Npc n in host.Sim.Npcs) if (n is Chacko c) chacko = c;
+                        SimPlayer thrower = host.SpawnDummy(Role.Survivor);
+                        if (chacko != null && thrower != null)
+                        {
+                            host.Sim.Teleport(thrower.Id, mid);
+                            chacko.ItemHit(host.Sim, thrower, "bottle");
+                            yield return new WaitForSeconds(0.14f);
+                            gameHud.Refresh();
+                            yield return Shot("141_chacko_flinch");
+                        }
+                        host.Sim.ClearDummies();
                     }
                     yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
                     SimPlayer foe = host.SpawnDummy(Role.Survivor);
@@ -856,14 +882,34 @@ namespace Vision.Player
                     if (dummyB != null)
                     {
                         host.Sim.Teleport(dummyB.Id, meB.Pos + new Vector2(1.6f, 2.2f));
+                        dummyB.Shield = 0.6f;
                         yield return new WaitForSeconds(0.3f);
                         host.Sim.HurtSurvivor(dummyB, 0.3f, null, "test");
+                        host.Sim.HurtSurvivor(dummyB, 0.3f, null, "vape");
                         yield return new WaitForSeconds(0.25f);
                         gameHud.Refresh();
                         yield return Shot("134_head_bars_fresh");
                         yield return new WaitForSeconds(6f);
                         yield return Shot("135_head_bars_faded");
                         host.Sim.ClearDummies();
+                    }
+                    // Blood: hurt, a survivor drips it as they go (in testing mode they see their own trail), tiny splatters
+                    // of every shape lying on the ground; and standing still, only a few land under them.
+                    {
+                        host.Sim.HurtSurvivor(meB, 0.4f, null, "test");
+                        player.MoveOverride = new Vector2(1f, 0.35f).normalized;
+                        yield return new WaitForSeconds(2.2f);
+                        player.MoveOverride = null;
+                        yield return new WaitForSeconds(3f);
+                        float ob = cameraRig.orthographicSize;
+                        cameraRig.orthographicSize = ob * 0.32f;
+                        player.AimOverride = new Vector2(-1f, -0.3f).normalized;
+                        yield return new WaitForSeconds(0.3f);
+                        gameHud.Refresh();
+                        yield return Shot("144_blood_splatters");
+                        player.AimOverride = null;
+                        cameraRig.orthographicSize = ob;
+                        Game.MatchSim.RestoreSurvivor(meB, 1f);
                     }
                     Vector2 edgeOut = new Vector2(0.6f, -0.8f).normalized;
                     yield return Stage(player, V(edgeOut * (host.Sim.Ring1 + 5f)), edgeOut, wanderer, away);
@@ -1672,6 +1718,27 @@ namespace Vision.Player
         static IEnumerator Wait(int frames)
         {
             for (int i = 0; i < frames; i++) yield return null;
+        }
+
+        /// <summary>The rounds flying right now (the match's effects).</summary>
+        static int RoundsNow()
+        {
+            var fx = FindAnyObjectByType<Vision.UI.MatchEffects>();
+            return fx != null ? fx.RoundCount : 0;
+        }
+
+        /// <summary>
+        /// Once a round has left the barrel (more in flight than <paramref name="before"/>), slows time right down and
+        /// shoots it <paramref name="gameSeconds"/> into its flight.
+        /// </summary>
+        IEnumerator RoundInFlight(string name, int before, float gameSeconds)
+        {
+            float t0 = Time.realtimeSinceStartup;
+            while (RoundsNow() <= before && Time.realtimeSinceStartup - t0 < 2f) yield return null;
+            Time.timeScale = 0.02f;
+            yield return new WaitForSecondsRealtime(gameSeconds / 0.02f);
+            yield return Shot(name);
+            Time.timeScale = 1f;
         }
 
         IEnumerator Shot(string name)

@@ -112,7 +112,7 @@ namespace Vision.UI
                 {
                     Vector3 v = swing * Random.Range(0.25f, 0.6f) + Random.insideUnitSphere * 1.6f * S + Vector3.up * Random.Range(0.4f, 1.6f) * S;
                     Vector3 at = Vector3.Lerp(b.Inner, b.Blade, Random.Range(0.3f, 1f));
-                    Fx.Emit(at, v, Random.Range(0.35f, 0.6f), Hex(0x6a0a0c, 0.95f), Random.Range(0.035f, 0.06f) * S, 9.8f * S, 0.6f, true, false, 1f, true, false, Vfx.Blend.Alpha);
+                    Fx.Emit(at, v, Random.Range(0.35f, 0.6f), Hex(0x0e0001, 0.95f), Random.Range(0.035f, 0.06f) * S, 9.8f * S, 0.6f, true, false, 1f, true, false, Vfx.Blend.Alpha);
                 }
                 return;
             }

@@ -105,6 +105,8 @@ namespace Vision.UI
         /// fading over ten seconds, only where his light falls (survivors see their own in testing mode).
         /// </summary>
         readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>> byWho = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>>();
+        readonly BloodSplats blood = new BloodSplats();
+        public int BloodCount => blood.Count;
         static readonly System.Comparison<TrailPoint> ByTime = (a, b) => a.T.CompareTo(b.T);
 
         void DrawTrails(SimPlayer me)
@@ -112,10 +114,10 @@ namespace Vision.UI
             MatchSim sim = host.Sim;
             bool zach = me.Role == Role.Hunter;
             if (!zach && !sim.TestMode) return;
-            Vfx fx = Vfx.Instance;
             foreach (var l in byWho.Values) l.Clear();
             // Zach's nose reaches the original's 1300 units (the trail is sent to him only that far about him).
             float nose = Scale.D(Balance.Hunter.ScentRadius);
+            blood.Begin();
             foreach (TrailPoint t in sim.Trails)
             {
                 if (!zach && t.Who != me.Id) continue;
@@ -124,13 +126,14 @@ namespace Vision.UI
                 if (age >= 1f || age < 0f) continue;
                 if (t.Kind == 1)
                 {
-                    float a = Mathf.Pow(1f - age, 1.3f) * 0.62f;
-                    fx.Dot(Ground(t.Pos, 0.05f), (0.12f + age * 0.12f) * S, new Color(0.82f, 0.06f, 0.12f, a), true);
+                    // Blood: a miniature splatter on the ground.
+                    blood.Draw(world, t.Id, t.Pos, age);
                     continue;
                 }
                 if (!byWho.TryGetValue(t.Who, out var list)) byWho[t.Who] = list = new System.Collections.Generic.List<TrailPoint>(64);
                 list.Add(t);
             }
+            blood.End();
             foreach (var kv in byWho)
             {
                 var pts = kv.Value;
@@ -280,7 +283,7 @@ namespace Vision.UI
                     else Shake(6f * Near(e.Pos, 300f));
                     // Blood (a white flash for the Hemp beam).
                     if (e.Text == "beam") Vfx.Instance.Burst(Ground(e.Pos, 0.9f), 14, 2.6f * S, 0.45f, new Color(0.94f, 1f, 0.94f, 1f), 0.06f * S);
-                    else Vfx.Instance.Burst(Ground(e.Pos, 0.9f), e.Text == "pellet" ? 6 : 16, 2.2f * S, 0.5f, new Color(0.48f, 0.05f, 0.08f, 1f), 0.07f * S, true, Vfx.Blend.Alpha, 6f * S, 2f, 0.4f, new Color(0.3f, 0.02f, 0.03f, 1f));
+                    else Vfx.Instance.Burst(Ground(e.Pos, 0.9f), e.Text == "pellet" ? 6 : 16, 2.2f * S, 0.5f, new Color(0.055f, 0.0016f, 0.0045f, 1f), 0.07f * S, true, Vfx.Blend.Alpha, 6f * S, 2f, 0.4f, new Color(0.032f, 0.001f, 0.0028f, 1f));
                     break;
                 case EventKind.Shot:
                     Shake(9f * Near(e.Pos, 500f));

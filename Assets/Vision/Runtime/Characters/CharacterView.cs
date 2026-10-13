@@ -144,7 +144,8 @@ namespace Vision.Characters
         static ActionClip HunterState(SimPlayer p)
         {
             if (p.KnockT > 0f) return null;
-            if (p.StunT > 0f) return ActionClips.Stunned;
+            // Stunned, he reels on the spot.
+            if (p.StunT > 0f) return ActionClips.Reel;
             switch (p.Action)
             {
                 case ActionKind.Search: return ActionClips.Search;

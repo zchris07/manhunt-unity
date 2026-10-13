@@ -4,10 +4,11 @@ using UnityEngine;
 namespace Vision.World
 {
     /// <summary>
-    /// What fills the building: the two generators, furniture and clutter by room type, lockers along the hallways, pipes,
-    /// ducts and electrics, decorations and a sparse set of lamps. Each room is filled by a <see cref="Filler"/> that keeps
-    /// the doorways clear, keeps furniture to under half the floor (so there is always room to move and loop) and stops
-    /// tall pieces from covering windows.
+    /// What fills the building: the two generators, furniture and clutter by room type, lockers along the hallways,
+    /// electrics, decorations and a sparse set of lamps (no air ducts, overhead pipe runs or vent grilles: from above they
+    /// hid the windows, doorways and exits). Each room is filled by a <see cref="Filler"/> that keeps the doorways clear,
+    /// keeps furniture to under half the floor (so there is always room to move and loop) and stops tall pieces from
+    /// covering windows.
     /// </summary>
     public sealed partial class BuildingPlan
     {
@@ -17,9 +18,9 @@ namespace Vision.World
             Table, Chair, Sofa, Fridge, Vending, Counter, Toilet, Stall, Sink, Locker, LockerBank, Bench, Workbench, CableSpool,
             ServerRack, Boiler, Transformer, SetFlat, LightRig, Camera, DirectorChair, Mannequin, Bed, Wardrobe, Mattress, Forklift,
             // On the walls
-            BreakerPanel, JunctionBox, Poster, Clock, Extinguisher, VentGrille, Mirror, ToolBoard, Whiteboard,
-            // Loose on the floor, and overhead runs
-            Papers, Bottles, Stain, Debris, Cobweb, DeadPlant, Pipes, Duct,
+            BreakerPanel, JunctionBox, Poster, Clock, Extinguisher, Mirror, ToolBoard, Whiteboard,
+            // Loose on the floor, and up in the corners
+            Papers, Bottles, Stain, Debris, Cobweb, DeadPlant,
             // The lounge's TV on its stand.
             Tv,
         }
@@ -27,11 +28,11 @@ namespace Vision.World
         public struct Item
         {
             public Furn Kind;
-            /// <summary>Footprint centre on the floor (runs of pipe or duct: their start).</summary>
+            /// <summary>Footprint centre on the floor.</summary>
             public Vector2 Position;
             /// <summary>Degrees about up; the model's front (+Z) turned by this. Against a wall the front faces into the room.</summary>
             public float Yaw;
-            /// <summary>Model-local width (x) and depth (z); runs: length in x.</summary>
+            /// <summary>Model-local width (x) and depth (z).</summary>
             public Vector2 Size;
             public float Elevation;
             public int Room;
@@ -454,23 +455,6 @@ namespace Vision.World
                 return false;
             }
 
-            /// <summary>A run of pipes or duct along one side, under the ceiling.</summary>
-            void Run(Furn kind, float elevation, int variant, int side = -1)
-            {
-                int s = side >= 0 ? side : p.rng.Next(4);
-                (float lo, float hi) = Span(s);
-                float inset = kind == Furn.Duct ? 0.28f : 0.12f;
-                Vector2 start, dir;
-                switch (s)
-                {
-                    case 0: start = new Vector2(lo, inner.yMin + inset); dir = Vector2.right; break;
-                    case 2: start = new Vector2(lo, inner.yMax - inset); dir = Vector2.right; break;
-                    case 3: start = new Vector2(inner.xMin + inset, lo); dir = Vector2.up; break;
-                    default: start = new Vector2(inner.xMax - inset, lo); dir = Vector2.up; break;
-                }
-                p.Items.Add(new Item { Kind = kind, Position = start, Yaw = Mathf.Atan2(dir.x, dir.y) * Mathf.Rad2Deg, Size = new Vector2(hi - lo, 0.3f), Elevation = elevation, Room = room.Id, Variant = variant });
-            }
-
             int LongSide() => inner.width >= inner.height ? (p.Chance(0.5f) ? 0 : 2) : (p.Chance(0.5f) ? 1 : 3);
             bool AlongX => inner.width >= inner.height;
             float Area => inner.width * inner.height;
@@ -520,8 +504,6 @@ namespace Vision.World
                 if (p.Chance(0.5f)) Mount(Furn.Extinguisher, 0.25f, 1.0f);
                 if (p.Chance(0.6f)) Mount(Furn.Poster, 0.6f, 1.45f);
                 if (p.Chance(0.25f)) Mount(Furn.Clock, 0.32f, 2.0f);
-                if (p.Chance(0.55f)) Run(Furn.Duct, 2.28f, 0, LongSide());
-                if (p.Chance(0.4f)) Run(Furn.Pipes, 2.4f, p.rng.Next(1, 4), LongSide());
                 Loose(Furn.Papers, 0.5f, p.rng.Next(0, 3));
                 Loose(Furn.Debris, 0.4f, p.rng.Next(1, 3));
             }
@@ -691,7 +673,6 @@ namespace Vision.World
                 if (!room.HasGenerator || p.Chance(0.4f)) Wall(Furn.Transformer, 1.0f, 0.8f);
                 if (p.Chance(0.5f)) Wall(Furn.CableSpool, 0.8f, 0.8f);
                 if (p.Chance(0.5f)) Wall(Furn.Shelf, 1.0f, 0.4f, tall: true);
-                Run(Furn.Pipes, 2.4f, 1);
                 Loose(Furn.Debris, 0.4f, p.rng.Next(1, 3));
             }
 
@@ -738,8 +719,6 @@ namespace Vision.World
                 if (!room.HasGenerator || Area > 20f) Wall(Furn.Boiler, 1.4f, 1.4f, tall: true);
                 for (int i = p.rng.Next(1, 3); i > 0; i--) Wall(Furn.Barrel, 0.62f, 0.62f, hide: p.Chance(0.4f), variant: p.rng.Next(3));
                 if (p.Chance(0.5f)) Wall(Furn.Shelf, 1.0f, 0.4f, tall: true);
-                Run(Furn.Pipes, 2.35f, 3);
-                Run(Furn.Pipes, 2.2f, 2);
                 Loose(Furn.Stain, p.Range(0.8f, 1.6f), p.rng.Next(1, 3));
             }
 
@@ -770,9 +749,7 @@ namespace Vision.World
                     p.Items.Add(new Item { Kind = Furn.Cobweb, Position = at, Yaw = corner switch { 0 => 45f, 1 => -45f, 2 => 135f, _ => -135f }, Size = Vector2.one * 0.6f, Elevation = 2.25f, Room = room.Id });
                 }
                 bool industrial = room.Type == RoomType.Storage || room.Type == RoomType.Workshop || room.Type == RoomType.LoadingBay || room.Type == RoomType.Electrical;
-                if (industrial && p.Chance(0.5f)) Run(Furn.Pipes, 2.4f, p.rng.Next(1, 3));
                 if (industrial && p.Chance(0.3f)) Mount(Furn.JunctionBox, 0.3f, 1.6f);
-                if (!room.IsHallway && p.Chance(0.35f)) Mount(Furn.VentGrille, 0.5f, 2.15f);
                 if (!room.IsHallway && room.Type != RoomType.Restroom && p.Chance(0.3f)) Mount(Furn.Poster, 0.6f, 1.45f);
                 if (p.Chance(0.45f)) Loose(Furn.Stain, p.Range(0.5f, 1.4f));
             }

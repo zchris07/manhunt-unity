@@ -81,9 +81,10 @@ namespace Vision.Game
         public virtual bool Aggressive => false;
         /// <summary>A 0.50 cal round passes through it.</summary>
         public virtual void Snipe(MatchSim sim, SimPlayer shooter) => ItemHit(sim, shooter, "shot");
-        /// <summary>Chacko's vengeance: hunt this survivor.</summary>
+        /// <summary>A survivor attacked Chacko: go after them (Jaden, Plasma, Shane).</summary>
         public virtual void Avenge(MatchSim sim, SimPlayer target) { }
-        public virtual void StopAvenging(MatchSim sim) { }
+        /// <summary>The survivor this NPC is still after for Chacko (0: none).</summary>
+        public virtual int GrudgeTarget => 0;
         /// <summary>A door closed on it: move clear.</summary>
         public virtual void Unstick(MatchSim sim) { }
 

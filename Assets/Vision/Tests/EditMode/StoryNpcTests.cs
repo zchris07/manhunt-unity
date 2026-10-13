@@ -207,7 +207,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void ChackoServesEachOnceAndHisKillerIsHunted()
+        public void ChackoServesEachOnce_FlinchesAtASurvivorsHit_AndTheyAreHunted()
         {
             var rig = new SimRig();
             SimPlayer s = rig.P(2), h = rig.P(1);
@@ -227,13 +227,21 @@ namespace Vision.Tests
             rig.Tap(h.Id, Btn.Interact);
             Assert.IsTrue(h.Nic, "50 Nic");
 
+            Assert.IsNull(chacko.HealthFor(Role.Survivor), "survivors can't slay him: no bar for them");
+            Assert.AreEqual(1f, chacko.HealthFor(Role.Hunter), "one blow from Zach can");
             chacko.ItemHit(rig.Sim, s, "bottle");
-            Assert.IsFalse(chacko.Alive, "one hit");
-            Assert.IsFalse(chacko.Gone, "slumped on the couch");
+            Assert.IsTrue(chacko.Alive, "a survivor's hit doesn't kill him");
+            Assert.IsTrue((chacko.Flags & NpcFlags.Hurt) != 0, "he flinches");
+            Assert.AreEqual("Lay off man!", chacko.Say);
             Assert.AreEqual(s.Id, rig.Sim.Vengeance);
-            Assert.IsTrue(jaden.Chasing && jaden.Target == s.Id, "Jaden hunts his killer");
+            Assert.IsTrue(jaden.Chasing && jaden.Target == s.Id, "Jaden goes after his attacker");
             Assert.AreEqual(s.Id, plasma.Target, "and so does Plasma");
             Assert.IsTrue(plasma.Raging);
+            rig.Run(SimRig.Secs(Balance.Chacko.FlinchTime + 0.1f));
+            Assert.IsTrue((chacko.Flags & NpcFlags.Hurt) == 0, "the flinch passes");
+            chacko.ItemHit(rig.Sim, s, "shot");
+            Assert.AreEqual("What the heck...", chacko.Say, "and the next hit gets the other line");
+            Assert.IsTrue(chacko.Alive);
         }
 
         [Test]

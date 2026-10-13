@@ -187,7 +187,7 @@ namespace Vision.Tests
                 effects.OnEvent(new GameEvent { Kind = EventKind.Talk, A = z.Id, Text = "burst", Pos = z.Pos, F = 0f });
                 Assert.AreEqual(1, effects.WaveCount, "the Burst's wave");
                 effects.OnEvent(new GameEvent { Kind = EventKind.Shot, A = z.Id, B = (int)Vision.Player.ItemType.Shotgun, Pos = z.Pos, F = 0f, G = 1f, Text = "hit|0:300,30:280,-30:290" });
-                Assert.AreEqual(3, effects.TracerCount, "a tracer per pellet");
+                Assert.AreEqual(3, effects.RoundCount, "a round per pellet");
                 Assert.Greater(Vfx.Instance.ParticleCount, 0, "and a muzzle flash");
                 z.ChargeT = 0.5f;
                 z.HempOn = true;
