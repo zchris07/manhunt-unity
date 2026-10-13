@@ -72,7 +72,7 @@ namespace Vision.Game
         /// <summary>Hemp Battery (Q): on or off. On: wider view, light through walls, faster, while its charge lasts.</summary>
         void TryHemp(SimPlayer h)
         {
-            if (!AbilitiesOn(h)) return;
+            if (!AbilitiesOn(h) || h.Zone >= 1) return;
             if (h.HempOn)
             {
                 h.HempOn = false;
@@ -106,6 +106,8 @@ namespace Vision.Game
         {
             if (p.Jarvis != 1 && p.Jarvis != 3) return;
             if (p.Health == Health.Eliminated || p.Health == Health.Escaped) return;
+            // No vision aids past the first ring.
+            if (p.Zone >= 1) return;
             if (p.Jarvis == 1) p.Jarvis = 2;
             p.JarvisT = Balance.Sexton.JarvisRadarSec;
             RevealT = Balance.Sexton.JarvisRadarSec;
@@ -316,6 +318,8 @@ namespace Vision.Game
         void TryBeam(SimPlayer h, float aim)
         {
             if (h.Role == Role.Spectator || h.BeamCharges <= 0 || h.BeamCd > 0f || h.BeamT > 0f || !BeamUsable(h) || h.Carrying != 0) return;
+            // Zach's Hemp Beam doesn't work past the first ring.
+            if (h.Role == Role.Hunter && h.Zone >= 1) return;
             if (h.BeamId == 0) h.BeamId = AllocEntityId();
             if (!TestMode) h.BeamCharges--;
             h.BeamT = Balance.Hunter.Beam.Windup + Balance.Sexton.Defense.BeamTime;
@@ -477,7 +481,12 @@ namespace Vision.Game
             Noise(origin, 2400f, "shot");
         }
 
-        void FireSniper(SimPlayer p, float aim) => SpawnBullet(p.Pos + new Vector2(Mathf.Cos(aim), Mathf.Sin(aim)) * (p.RadiusD + R(2f)), aim, p.Id);
+        /// <summary>Aimed (right click), the round goes exactly where it's pointed; from the hip it strays up to 5 degrees.</summary>
+        void FireSniper(SimPlayer p, float aim)
+        {
+            if (!p.Aiming) aim += RandRange(-1f, 1f) * Balance.Items.Sniper.HipSpreadDeg * Mathf.Deg2Rad;
+            SpawnBullet(p.Pos + new Vector2(Mathf.Cos(aim), Mathf.Sin(aim)) * (p.RadiusD + R(2f)), aim, p.Id);
+        }
 
         void UpdateSnipes(float dt)
         {
@@ -516,6 +525,7 @@ namespace Vision.Game
                     }
                 }
                 float hitR = R(Balance.Items.Sniper.HitRadius);
+                if (b.By > 0) HitTraps(a, b.Dir, b.Front - prev, shooter?.Name ?? "Someone");
                 foreach (SimPlayer q in Order)
                 {
                     if (q.Id == b.By || b.Hit.Contains(q)) continue;

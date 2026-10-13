@@ -87,7 +87,7 @@ namespace Vision.World
         }
         public float HalfExtent => halfExtent;
 
-        /// <param name="halfExtent">Half the arena size; the ground is flat from the walls inward over <paramref name="edgeBand"/>.</param>
+        /// <param name="halfExtent">The world's radius; the ground is flat from its edge inward over <paramref name="edgeBand"/>.</param>
         public TerrainField(int seed, float halfExtent, float edgeBand = 4f)
         {
             this.halfExtent = halfExtent;
@@ -258,7 +258,8 @@ namespace Vision.World
                     if (depth > 0f) h -= 1.1f * Mathf.SmoothStep(0f, 1f, depth / 3.5f);
                 }
             }
-            float edge = Mathf.Max(Mathf.Abs(x), Mathf.Abs(z));
+            // The world is a circle: the ground settles flat toward its edge.
+            float edge = Mathf.Sqrt(x * x + z * z);
             float inner = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(halfExtent - 1f, halfExtent - 1f - edgeBand, edge));
             return h * inner;
         }

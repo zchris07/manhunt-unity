@@ -16,6 +16,9 @@ namespace Vision.Game
 
         public Mode State = Mode.Wander;
         int hp = Balance.Njaaron.Hp, stunHits, askWho, followId, targetId;
+        /// <summary>Zach takes four points; survivors three stunning hits (or one shot).</summary>
+        public override float? HealthFor(Role viewer) => !alive ? (float?)null
+            : viewer == Role.Hunter ? hp / (float)Balance.Njaaron.Hp : 1f - stunHits / (float)Balance.Njaaron.StunHits;
         float askT, angryT, punchCd, punchAge = 9f, lastHp = 1f;
 
         public override string Name => "Njaaron";

@@ -9,10 +9,10 @@ using Vision.World;
 namespace Vision.UI
 {
     /// <summary>
-    /// The match's effects and sounds in the world, after the original's look: Zach's machete (charge ring at his feet,
-    /// the trail off the blade's tip, the slash), the lunge's speed lines, the Soundcloud Burst (a purple concave lens
+    /// The match's effects and sounds in the world, after the original's look: Zach's machete (the swipe line off the
+    /// blade's tip out to its reach, the slash), the lunge's speed lines, the Soundcloud Burst (a purple concave lens
     /// racing across the map through walls, with fading echoes), Penjamin's gas (yellow wisps streaming out along a narrow
-    /// cone, blue for 50 Nic), the Hemp Battery's ring on the ground, the Hemp Beam (a charging orb, then a white-green beam with an
+    /// cone, blue for 50 Nic), the Hemp Beam (a charging orb, then a white-green beam with an
     /// impact glow), guns (muzzle flash, pellet tracers), and the sounds of all of it, placed where it happens.
     /// </summary>
     [DefaultExecutionOrder(100)]
@@ -34,7 +34,6 @@ namespace Vision.UI
         readonly List<int> beamGone = new List<int>();
         readonly List<Vector3> pts = new List<Vector3>(64);
         readonly List<Color> cols = new List<Color>(64);
-        readonly Dictionary<int, float> charging = new Dictionary<int, float>();
 
         AudioManager Audio => AudioManager.Instance;
         Vfx Fx => Vfx.Instance;
@@ -88,7 +87,6 @@ namespace Vision.UI
                     {
                         // The windup: the swish (heavier for a charged swing).
                         Audio.PlayCue(e.B >= 2 ? "swing_heavy" : "swing", Units(by.Pos));
-                        charging.Remove(by.Id);
                     }
                     else if (e.G <= 0f && e.F > 0f)
                     {
@@ -189,7 +187,7 @@ namespace Vision.UI
                     AddTracer(muzzle, e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, new Color(1f, 0.9f, 0.6f, 0.9f), 0.04f);
                     break;
                 case Vision.Player.ItemType.Sniper:
-                    AddTracer(muzzle, e.Pos, e.F, 6000f, new Color(1f, 0.95f, 0.82f, 1f), 0.05f, 0.35f);
+                    SniperRound(muzzle, e.F);
                     break;
                 default:
                     // Pellets: "hit|angle*1000:distance,..." (original units).
@@ -228,41 +226,19 @@ namespace Vision.UI
                 // Anyone Thomas armed can fire the Hemp Beam too.
                 if (p.BeamT > 0f && p.Health != Health.Eliminated) PlayerBeam(p);
                 if (p.Role != Role.Hunter || p.Health == Health.Eliminated) continue;
-                ChargeRing(p);
                 LungeLines(p);
-                HempDisc(p);
             }
             BladeTrails(sim);
             DrawBreaths();
             DrawWaves(sim);
             DrawVapes(sim);
             DrawTracers();
+            DrawLasers(sim);
+            DrawStreaks();
             DrawNpcs(sim);
             DoorSounds(sim);
             BeamSounds(sim);
             ReloadSounds(sim);
-        }
-
-        /// <summary>The machete's charge: a ring at his feet, dark red filling to bright red, pulsing once it's heavy.</summary>
-        void ChargeRing(SimPlayer p)
-        {
-            if (p.ChargeT < 0f)
-            {
-                charging.Remove(p.Id);
-                return;
-            }
-            if (!charging.ContainsKey(p.Id))
-            {
-                charging[p.Id] = Time.time;
-            }
-            float k = Mathf.Clamp01(p.ChargeT / Balance.Hunter.Attack.ChargeMax);
-            bool heavy = p.ChargeT >= Balance.Hunter.Attack.HeavyAt;
-            Color c = Color.Lerp(new Color(0x6a / 255f, 0x20 / 255f, 0x20 / 255f, 0.8f), new Color(0xb0 / 255f, 0x18 / 255f, 0x18 / 255f, 0.95f), k);
-            float pulse = heavy ? 0.5f + 0.5f * Mathf.Sin(Time.time * 18f) : 0f;
-            float r = Scale.D(Balance.HunterRadius * 2.2f) * S * (1f + 0.08f * pulse);
-            Fx.Circle(Ground(p.Pos, 0.05f), r, 0.05f * S * (1f + pulse), c, true);
-            // The filled part sweeps round with the charge.
-            Fx.Arc(Ground(p.Pos, 0.05f), r * 0.82f, r * 0.92f, Mathf.PI / 2f, k * Mathf.PI * 2f, new Color(c.r, c.g, c.b, c.a * 0.7f), true);
         }
 
         /// <summary>Speed lines streaming behind Zach while he lunges.</summary>
@@ -282,26 +258,8 @@ namespace Vision.UI
         }
 
         /// <summary>
-        /// The Hemp Battery's ring, a battery gauge lying on the ground round Zach and following its rise and fall: a dim
-        /// full ring, the charge left as a bright arc from twelve o'clock (as the screen is turned) that shrinks clockwise as
-        /// the battery drains, and a faint slice of the same size filling it. Steady: no pulse.
-        /// </summary>
-        void HempDisc(SimPlayer p)
-        {
-            if (!p.HempOn) return;
-            float k = p.Hemp == 2 ? 1f : Mathf.Clamp01(p.HempLeft / Balance.Hunter.Hemp.Duration);
-            float r = Scale.D(Balance.HunterRadius * 2.8f) * RingSize, w = Scale.D(Balance.HunterRadius * 0.16f) * RingSize;
-            var green = new Color(0x6d / 255f, 1f, 0x6a / 255f, 1f);
-            float twelve = (90f - Vision.Player.MapHud.ViewYaw) * Mathf.Deg2Rad;
-            GroundArc(p.Pos, r - w, r + w, 0f, Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.14f * RingBright));
-            if (k <= 0f) return;
-            GroundArc(p.Pos, r - w, r + w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.62f * RingBright));
-            GroundArc(p.Pos, 0f, r - w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.07f * RingBright));
-        }
-
-        /// <summary>
-        /// The indicator rings on the ground (the Hemp Battery's, Plasma's, the breath rings) are drawn 30% smaller and 30%
-        /// thinner than they were, and 40% dimmer (at the user's request).
+        /// The indicator rings on the ground (Plasma's, the breath rings) are drawn 30% smaller and 30% thinner than they
+        /// were, and 40% dimmer (at the user's request). Zach's charge and the Hemp Battery have no ring.
         /// </summary>
         const float RingSize = 0.7f, RingBright = 0.6f;
 
@@ -454,65 +412,30 @@ namespace Vision.UI
         /// </summary>
         void DrawVapes(MatchSim sim)
         {
-            // Penjamin's gas as long, thin wisps streaming out along the cone from his mouth: each one drifts outward and
-            // fans a little wider as it goes, its strands curling, the streaks denser and darker near him, paler and
-            // sparser toward the cone's far end; a few broad, faint streaks underneath give the cloud its body. About a
-            // quarter more visible than the old puffs.
+            // Penjamin's gas: a cone of dense, billowing smoke rolling out from his mouth along the aim (Cold War's smoke,
+            // tinted yellow, or blue for 50 Nic), growing out over the original's 0.6 s, hanging, then thinning away.
             float now = sim.Time;
-            float halfAng = Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad;
+            float tan = Mathf.Tan(Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad);
             float grow = Balance.Hunter.Vape.GrowTime, linger = Balance.Hunter.Vape.LingerTime, fadeT = Balance.Hunter.Vape.FadeTime;
             foreach (VapeCloud v in sim.Vapes)
             {
                 float age = now - v.T0;
-                float rUnits = Scale.ToUnits(v.Range);
                 float k = Mathf.Min(1f, age / grow);
-                float ext = rUnits * (1f - (1f - k) * (1f - k));
+                float length = v.Range * (1f - (1f - k) * (1f - k)) * S;
                 float fade = Mathf.Clamp01((grow + linger + fadeT - age) / fadeT);
-                int n = Mathf.CeilToInt(rUnits / 8f);
-                Color core = v.Nic ? Hex(0x4a8ed0) : Hex(0xb8a040), mid = v.Nic ? Hex(0x72bcf0) : Hex(0xdccb5a), pale = v.Nic ? Hex(0xbfe6ff) : Hex(0xf4eab0);
-                for (int i = 0; i < n; i++)
+                float endRadius = Mathf.Max(0.35f * S, tan * length + 0.3f * S) * 1.15f;
+                var look = new VolumetricGas.Look
                 {
-                    float h1 = Mathf.Sin(i * 12.9898f + v.Id * 1.3f) * 43758.5453f, r1 = h1 - Mathf.Floor(h1);
-                    float h2 = Mathf.Sin(i * 78.233f + v.Id * 0.7f) * 12345.6789f, r2 = h2 - Mathf.Floor(h2);
-                    float h3 = Mathf.Sin(i * 39.425f + v.Id * 2.9f) * 24634.6345f, r3 = h3 - Mathf.Floor(h3);
-                    float u = Mathf.Pow((i + r1 * 0.8f) / n, 0.85f);
-                    float bas = u * rUnits;
-                    if (bas > ext) continue;
-                    float reached = grow * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - bas / rUnits)));
-                    float since = Mathf.Max(0f, age - reached);
-                    float g = 1f - Mathf.Exp(-since * 5f);
-                    // Streaming outward, faster further out, and fanning a little wider as it goes.
-                    float d = bas + since * (16f + 22f * u);
-                    float width = Mathf.Tan(halfAng) * Mathf.Max(d, 30f);
-                    float lane = r2 * 2f - 1f;
-                    float side = lane * width * 0.8f + Mathf.Sin(age * (0.5f + r1) + i * 1.9f) * width * 0.18f;
-                    // Each streak points out along the cone, splayed toward its own side and curling, so the streaks cross.
-                    float ang = v.Angle + lane * halfAng * 1.3f + Mathf.Sin(age * (0.7f + r3 * 0.6f) + i * 2.3f) * 0.3f;
-                    float lenU = (34f + 0.32f * d) * (0.65f + 0.5f * r3) * (0.6f + 0.4f * g) * (1f + since * 0.05f);
-                    float wideU = (3.5f + width * 0.16f) * (0.7f + 0.6f * r1) * (1f + since * 0.08f);
-                    float falloff = 1f - 0.55f * u;
-                    Vector3 pos = Along(v.Origin, v.Angle, d, side, Scale.D(6f + 10f * r1 + since * 2f));
-                    Vector3 dir = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang));
-                    int seed = v.Id * 13 + i;
-                    int layer = i % 3;
-                    Color body = layer == 0 ? core : layer == 1 ? mid : pale;
-                    body.a = (layer == 0 ? 0.41f : layer == 1 ? 0.32f : 0.23f) * falloff * fade * (0.35f + 0.65f * g);
-                    Fx.Wisp(pos, dir, Scale.D(lenU) * S, Scale.D(wideU) * S, body, seed, false, true, Vfx.Blend.Alpha);
-                    // The body: a broad, faint streak under every fourth wisp.
-                    if (i % 4 == 0)
-                    {
-                        Color haze = mid;
-                        haze.a = 0.075f * falloff * fade * g;
-                        Fx.Wisp(Along(v.Origin, v.Angle, d + lenU * 0.2f, side * 0.7f, Scale.D(5f)), dir, Scale.D(lenU * 1.5f) * S, Scale.D(wideU * 3.2f) * S, haze, seed + 31, false, true, Vfx.Blend.Alpha);
-                    }
-                    // A faint inner light, as the original's cloud glows a little.
-                    if (i % 5 == 0)
-                    {
-                        Color glow = v.Nic ? Hex(0xb8e6ff) : Hex(0xfff0a0);
-                        glow.a = 0.07f * falloff * fade * g;
-                        Fx.Wisp(pos, dir, Scale.D(lenU * 0.8f) * S, Scale.D(wideU * 1.4f) * S, glow, seed + 7, false, true, Vfx.Blend.Additive);
-                    }
-                }
+                    TintA = v.Nic ? new Color(0.62f, 0.78f, 0.88f) : new Color(0.8f, 0.74f, 0.5f),
+                    TintB = v.Nic ? new Color(0.25f, 0.42f, 0.62f) : new Color(0.5f, 0.43f, 0.22f),
+                    Opacity = fade,
+                    Extinction = 1.5f / S,
+                    NoiseScale = 0.6f / S,
+                    Erosion = 0.8f,
+                    Drift = WorldDir(v.Angle) * (0.9f * S) + Vector3.up * (0.12f * S),
+                    Seed = v.Id,
+                };
+                VolumetricGas.Cone(Ground(v.Origin, 0f), WorldDir(v.Angle), length, endRadius, 0.22f, endRadius * 0.5f, look, false, true);
             }
         }
 

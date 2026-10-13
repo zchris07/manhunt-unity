@@ -149,39 +149,26 @@ namespace Vision.UI
             }
             Sweep(drops);
 
-            // Galaxy gas: thin strands of purple, pink and blue swirling slowly round the cloud's middle (inner ones faster),
-            // drifting out and back as it breathes, over a faint body of broad streaks; each strand sits on the ground
-            // beneath it and thins against anything solid; stars twinkle in it. About a quarter more visible than the old
-            // puffs.
+            // Galaxy gas: a dense, billowing cloud of smoke sitting on the ground (Cold War's smoke, in purple, pink and blue),
+            // spreading out as the trap bursts and thinning away at the end, with stars twinkling in it.
             float life = Balance.Items.Trap.GasTime;
             foreach (GasCloud g in sim.Gases)
             {
                 float fade = Mathf.Clamp01((life - g.Age) / 1.2f) * Mathf.Clamp01(g.Age / 0.3f);
                 float radiusD = Scale.D(Balance.Items.Trap.GasRadius) * (0.6f + 0.4f * Mathf.Sqrt(Mathf.Min(1f, g.Age / 0.8f)));
                 float radius = radiusD * s;
-                for (int i = 0; i < 48; i++)
+                var look = new VolumetricGas.Look
                 {
-                    float h1 = Mathf.Sin(i * 12.9898f + g.Id) * 43758.5453f, r1 = h1 - Mathf.Floor(h1);
-                    float h2 = Mathf.Sin(i * 78.233f + g.Id) * 12345.6789f, r2 = h2 - Mathf.Floor(h2);
-                    float h3 = Mathf.Sin(i * 39.425f + g.Id * 2.3f) * 24634.6345f, r3 = h3 - Mathf.Floor(h3);
-                    float turn = i % 2 == 0 ? 1f : -0.6f;
-                    float a = r1 * Mathf.PI * 2f + g.Age * (0.35f - 0.22f * r2) * turn;
-                    float d = (0.15f + 0.85f * Mathf.Sqrt(r2)) * radiusD * (0.8f + 0.1f * Mathf.Sin(g.Age * 0.9f + i));
-                    Vector2 at = g.Pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
-                    // Along the swirl (round the middle), leaning a little outward.
-                    float da = a + Mathf.PI * 0.5f * Mathf.Sign(turn) - 0.25f * Mathf.Sign(turn);
-                    var dir = new Vector3(Mathf.Cos(da), 0f, Mathf.Sin(da));
-                    float lenD = radiusD * (0.3f + 0.28f * r3), wideD = radiusD * (0.028f + 0.024f * r1);
-                    Vector3 pos = Ground(at, wideD * 1.4f + 0.05f + Mathf.Sin(g.Age * 1.1f + i) * 0.04f);
-                    Color c = i % 3 == 0 ? new Color(0.46f, 0.22f, 0.78f) : i % 3 == 1 ? new Color(0.82f, 0.32f, 0.66f) : new Color(0.3f, 0.4f, 0.86f);
-                    c.a = (i % 4 == 0 ? 0.24f : 0.17f) * fade;
-                    Vfx.Instance.Wisp(pos, dir, lenD * s, wideD * s, c, g.Id * 11 + i, true, false, Vfx.Blend.Alpha);
-                    if (i % 5 == 0)
-                    {
-                        Color body = new Color(0.4f, 0.24f, 0.7f, 0.06f * fade);
-                        Vfx.Instance.Wisp(Ground(at * 0.6f + g.Pos * 0.4f, wideD * 3f), dir, lenD * 1.6f * s, wideD * 4f * s, body, g.Id * 11 + i + 29, true, false, Vfx.Blend.Alpha);
-                    }
-                }
+                    TintA = new Color(0.62f, 0.42f, 0.68f),
+                    TintB = new Color(0.3f, 0.34f, 0.62f),
+                    Opacity = fade,
+                    Extinction = 1.1f / s,
+                    NoiseScale = 0.5f / s,
+                    Erosion = 0.8f,
+                    Drift = new Vector3(0.12f, 0.08f, 0.1f) * s,
+                    Seed = g.Id,
+                };
+                VolumetricGas.Blob(Ground(g.Pos, 0f), radius, radius * 0.95f, look, true, false);
                 for (int i = 0; i < 10; i++)
                 {
                     float h = Mathf.Sin(i * 43.17f + g.Id * 3.1f) * 9631.7f, r = h - Mathf.Floor(h);

@@ -206,7 +206,7 @@ namespace Vision.Tests
             SimPlayer h = rig.P(1), s = rig.P(2);
             rig.Place(h, 0f, 0f);
             rig.Place(s, dist, 0f);
-            for (int i = 3; i <= survivors + 1; i++) rig.Place(rig.P(i), 2500f, 2500f - i * 40f);
+            for (int i = 3; i <= survivors + 1; i++) rig.Place(rig.P(i), 1800f, 1800f - i * 40f);
             h.Facing = 0f;
             return rig;
         }
@@ -315,9 +315,9 @@ namespace Vision.Tests
         {
             var rig = new SimRig(2, 1);
             SimPlayer a = rig.P(2), b = rig.P(3);
-            rig.Place(rig.P(1), 2500f, -2500f);
+            rig.Place(rig.P(1), 1800f, -1800f);
             rig.Place(a, 640f, 0f);
-            rig.Place(b, 2500f, 2500f);
+            rig.Place(b, 1800f, 1800f);
             float t = rig.Sim.Bal.RepairTime;
             rig.Hold(2, Btn.Interact, Secs(t * 0.5f));
             Assert.AreEqual(0.5f, rig.Sim.Gens[0].Progress, 0.02f, "halfway after half the repair time");
@@ -335,7 +335,7 @@ namespace Vision.Tests
         {
             var rig = new SimRig(1, 1);
             SimPlayer s = rig.P(2);
-            rig.Place(rig.P(1), 2500f, -2500f);
+            rig.Place(rig.P(1), 1800f, -1800f);
             rig.Place(s, 30f, 1200f);
             rig.Run(2);
             Assert.AreEqual(Prompt.GatePowerless, s.Prompt, "no power yet");
@@ -359,7 +359,7 @@ namespace Vision.Tests
         {
             var rig = new SimRig(2, 1);
             SimPlayer s = rig.P(2);
-            rig.Place(rig.P(1), 2500f, -2500f);
+            rig.Place(rig.P(1), 1800f, -1800f);
             s.Inv.Add(ItemType.Confit);
             s.Inv.Add(ItemType.MrBeastBar, 2);
             s.Inv.Add(ItemType.MiniShield, 2);
@@ -457,8 +457,8 @@ namespace Vision.Tests
         {
             var rig = new SimRig(2, 1);
             SimPlayer zach = rig.P(1), a = rig.P(2);
-            rig.Place(rig.P(3), 2500f, 2500f);
-            rig.Place(a, 2500f, -2500f);
+            rig.Place(rig.P(3), 1800f, 1800f);
+            rig.Place(a, 1800f, -1800f);
             rig.Sim.Gens[0].Progress = 0.5f;
             rig.Place(zach, 640f, 0f);
             rig.Run(2);
@@ -471,7 +471,7 @@ namespace Vision.Tests
             Assert.AreEqual(0.5f - Balance.Objectives.DamageRegressInstant, after, 0.01f, "8% off at once");
             Assert.IsTrue(rig.Sim.Gens[0].Regressing);
             Assert.AreEqual(1, zach.Stats.GensDamaged);
-            rig.Place(zach, 2500f, -2400f);
+            rig.Place(zach, 1800f, -1700f);
             rig.Run(Secs(60f));
             Assert.AreEqual(after - Balance.Objectives.RegressPerSec * 60f, rig.Sim.Gens[0].Progress, 0.01f, "then it keeps running down");
             rig.Place(a, 640f, 0f);
@@ -560,7 +560,7 @@ namespace Vision.Tests
             Assert.AreEqual(Health.Staked, dummy.Health, "and staked");
 
             // A survivor cuts it down, then heals it.
-            rig.Place(zach, 2500f, -2500f);
+            rig.Place(zach, 1800f, -1800f);
             rig.Place(me, Scale.ToUnits(stake.x) - 40f, Scale.ToUnits(stake.y));
             rig.Run(2);
             Assert.AreEqual(Prompt.Unstake, me.Prompt);

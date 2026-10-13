@@ -23,6 +23,8 @@ namespace Vision.Game
         public float BeamAng, BeamLen, BeamAge;
         public int Attacks;
         int hp = Balance.Sexton.Hp, target;
+        /// <summary>Only Zach can slay him.</summary>
+        public override float? HealthFor(Role viewer) => alive && viewer == Role.Hunter ? hp / (float)Balance.Sexton.Hp : (float?)null;
         float talkT, handT, phaseT, awayT, turnT;
         Vector2 leaveFrom;
         readonly HashSet<int> beamHit = new HashSet<int>();

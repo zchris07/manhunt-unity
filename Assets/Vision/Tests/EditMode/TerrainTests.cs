@@ -10,7 +10,7 @@ namespace Vision.Tests
     {
         static TerrainField Field()
         {
-            var f = new TerrainField(1337, 20f);
+            var f = new TerrainField(1337, 32f);
             f.AddPad(new Rect(3.5f, 2.5f, 11f, 10f), 6f);
             f.AddPad(new Vector2(0f, -5f), 1.5f, 4f);
             return f;
@@ -48,17 +48,18 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Pads_AreFlat_AndTheWallsStandOnLevelGround()
+        public void Pads_AreFlat_AndTheGroundIsLevelAtTheEdgeOfTheWorld()
         {
             TerrainField f = Field();
             float cabin = f.Height(9f, 7.5f);
             for (float x = 3.6f; x < 14.4f; x += 0.5f)
                 for (float z = 2.6f; z < 12.4f; z += 0.5f)
                     Assert.AreEqual(cabin, f.Height(x, z), 1e-4f, "cabin pad");
-            for (float t = -20f; t <= 20f; t += 0.5f)
+            // The world is a circle: the ground settles flat at its edge, all the way round.
+            for (float a = 0f; a < 360f; a += 7.5f)
             {
-                Assert.AreEqual(0f, f.Height(t, 19.5f), 1e-4f, "north wall");
-                Assert.AreEqual(0f, f.Height(-19.5f, t), 1e-4f, "west wall");
+                var d = new Vector2(Mathf.Cos(a * Mathf.Deg2Rad), Mathf.Sin(a * Mathf.Deg2Rad));
+                Assert.AreEqual(0f, f.Height(d.x * 31.5f, d.y * 31.5f), 1e-4f, "flat at the edge of the world");
             }
         }
 

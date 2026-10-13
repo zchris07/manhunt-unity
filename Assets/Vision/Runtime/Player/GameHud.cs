@@ -44,10 +44,10 @@ namespace Vision.Player
         UiKit kit;
         Canvas canvas;
         RectTransform root;
-        RectTransform healthFill, shieldFill, staminaFill, holdFill, vitalsBox;
-        RawImage healthImage, staminaImage;
-        Text healthLabel, staminaLabel, healthValue, shieldValue, staminaValue, prompt, objectiveTitle, objectiveSub, compass, notices, modeLine;
-        GameObject promptBox, holdBar, downedScreen, shieldRow, generating, fxPanel;
+        RectTransform staminaFill, holdFill, staminaBox;
+        RawImage staminaImage;
+        Text staminaLabel, prompt, objectiveTitle, objectiveSub, compass, notices, modeLine;
+        GameObject promptBox, holdBar, downedScreen, generating, fxPanel;
         MapHud map;
         bool needsMapBind;
         /// <summary>The minimap and full map.</summary>
@@ -67,6 +67,8 @@ namespace Vision.Player
         static readonly string[] SlotKeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
         int shownLimit = -1;
         RawImage vignette;
+        int lastBoundaryHits;
+        float edgePulse;
         readonly List<(string text, float until)> noticeList = new List<(string, float)>();
         float flash;
         PlayerController player;
@@ -139,7 +141,7 @@ namespace Vision.Player
             return t;
         }
 
-        Texture2D survivorHp, zachHp, shieldTex, staminaTex, staminaLocked, staminaBoost;
+        Texture2D staminaTex, staminaLocked, staminaBoost;
 
         void Build()
         {
@@ -160,9 +162,6 @@ namespace Vision.Player
             }
             root = (RectTransform)canvasGo.transform;
 
-            survivorHp = HGradient(UiKit.Hex(0x3e7a2a), UiKit.Hex(0x6fbf3a));
-            zachHp = HGradient(UiKit.Hex(0x8a0f1c), UiKit.Hex(0xd8283a));
-            shieldTex = HGradient(UiKit.Hex(0x1a6ad8), UiKit.Hex(0x4ab8ff));
             staminaTex = HGradient(UiKit.Bone, UiKit.Bone);
             staminaLocked = HGradient(UiKit.Red, UiKit.Red);
             staminaBoost = HGradient(UiKit.Cyan, UiKit.Cyan);
@@ -173,12 +172,20 @@ namespace Vision.Player
             vignette.color = new Color(0.55f, 0.02f, 0.02f, 0f);
             vignette.raycastTarget = false;
 
-            // Health, shield and stamina, bottom left.
-            vitalsBox = Node("Vitals", root, Vector2.zero, Vector2.zero, new Vector2(28f, 28f), new Vector2(380f, 132f));
-            HudPanel(vitalsBox);
-            healthFill = Bar(vitalsBox, "Health", new Vector2(18f, -16f), survivorHp, out healthValue, out healthImage, out healthLabel, out _);
-            shieldFill = Bar(vitalsBox, "Shield", new Vector2(18f, -52f), shieldTex, out shieldValue, out _, out _, out shieldRow);
-            staminaFill = Bar(vitalsBox, "Stamina", new Vector2(18f, -88f), staminaTex, out staminaValue, out staminaImage, out staminaLabel, out _);
+            // Health and shield are over the players' heads (GameHud.Bars); stamina is the original's wide sprint bar, centred
+            // just above the inventory: 460 x 14 on a near-black track, cyan when boosted, red when locked, labelled inside.
+            staminaBox = Node("Stamina", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 118f), new Vector2(460f, 14f));
+            UiKit.Box(staminaBox, UiKit.Hex(0x0a0a08));
+            UiKit.Frame(staminaBox, UiKit.Line);
+            staminaFill = UiKit.Fill("Fill", staminaBox, 1f);
+            staminaImage = staminaFill.gameObject.AddComponent<RawImage>();
+            staminaImage.texture = staminaTex;
+            staminaImage.raycastTarget = false;
+            staminaLabel = kit.Label(Node("Label", staminaBox, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(460f, 16f)), "", 12, TextAnchor.LowerCenter, UiKit.Bone, UiKit.Face.Display, 0.14f);
+            var labelShadow = staminaLabel.gameObject.AddComponent<Outline>();
+            labelShadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            labelShadow.effectDistance = new Vector2(1f, -1f);
+            BuildHeadBars(root);
 
             // Inventory, bottom centre: eight slots, twelve in testing mode; the selected one is outlined (left mouse uses it).
             strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(Inventory.Slots * 82f, 86f));
@@ -205,7 +212,7 @@ namespace Vision.Player
             BuildInventoryEditor();
 
             // Interaction prompt above the inventory.
-            RectTransform promptRt = Node("Prompt", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 128f), new Vector2(560f, 42f));
+            RectTransform promptRt = Node("Prompt", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 158f), new Vector2(560f, 42f));
             HudPanel(promptRt);
             prompt = kit.Label(UiKit.Fill("Text", promptRt), "", 19, TextAnchor.MiddleCenter, UiKit.Bone);
             promptBox = promptRt.gameObject;
@@ -259,23 +266,6 @@ namespace Vision.Player
             Effects.world = world;
             ItemsInPlay = GetComponent<ItemViews>() ?? gameObject.AddComponent<ItemViews>();
             ItemsInPlay.world = world;
-        }
-
-        RectTransform Bar(RectTransform parent, string name, Vector2 pos, Texture2D fillTex, out Text value, out RawImage fillImage, out Text label, out GameObject row)
-        {
-            RectTransform rowRt = Node(name + " Row", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), pos, new Vector2(350f, 28f));
-            row = rowRt.gameObject;
-            label = kit.Label(Node(name + " Label", rowRt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(96f, 26f)), name.ToUpperInvariant(), 16, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.Display, 0.12f);
-            RectTransform back = Node(name + " Bar", rowRt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(100f, 0f), new Vector2(190f, 14f));
-            UiKit.Box(back, new Color(0.04f, 0.04f, 0.035f, 0.95f));
-            UiKit.Frame(back, UiKit.Line);
-            RectTransform fill = UiKit.Fill("Fill", back, 1f);
-            fill.offsetMax = new Vector2(-1f, -1f);
-            fillImage = fill.gameObject.AddComponent<RawImage>();
-            fillImage.texture = fillTex;
-            fillImage.raycastTarget = false;
-            value = kit.Label(Node(name + " Value", rowRt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(298f, 0f), new Vector2(50f, 26f)), "", 16, TextAnchor.MiddleRight, UiKit.Bone, UiKit.Face.Display);
-            return fill;
         }
 
         static void SetFill(RectTransform fill, float k)
@@ -424,29 +414,21 @@ namespace Vision.Player
             bool zach = me.Role == Role.Hunter;
             bool downed = me.Health == Game.Health.Downed;
 
-            // Vitals: a survivor's health is green; Zach's is his red 100 hp bar, with no shield.
-            healthLabel.text = zach ? "ZACH" : "HEALTH";
-            healthImage.texture = zach ? zachHp : survivorHp;
-            SetFill(healthFill, me.Hp);
-            healthValue.text = zach ? Mathf.CeilToInt(me.Hp * Balance.Hunter.Health.Max - 0.01f).ToString() : Mathf.CeilToInt(me.Hp * 100f - 0.01f).ToString();
-            shieldRow.SetActive(!zach);
-            SetFill(shieldFill, me.Shield);
-            shieldValue.text = Mathf.CeilToInt(me.Shield * 100f - 0.01f).ToString();
+            // Stamina (the original's SPRINT bar); hidden, it's your breath.
             float maxStamina = MoveState.MaxStamina(me.Role, me.Move.BoostT);
             if (me.HideState == 2)
             {
                 // Hidden: the bar shows your breath (Space holds it; run out and you gasp).
-                staminaLabel.text = "BREATH";
+                staminaLabel.text = "BREATH " + Mathf.RoundToInt(me.Breath * 100f);
                 SetFill(staminaFill, me.Breath);
                 staminaImage.texture = me.HoldingBreath ? staminaBoost : me.GaspCd > 0f ? staminaLocked : staminaTex;
-                staminaValue.text = Mathf.RoundToInt(me.Breath * 100f).ToString();
             }
             else
             {
-                staminaLabel.text = "STAMINA";
+                bool locked = me.Move.StaminaLock > 0f || me.Move.SprintBlocked;
+                staminaLabel.text = locked ? "SPRINT LOCKED " + Mathf.Max(me.Move.StaminaLock, 0f).ToString("0.0") + "s" : "SPRINT " + me.Move.Stamina.ToString("0.0") + "s";
                 SetFill(staminaFill, me.Move.Stamina / maxStamina);
-                staminaImage.texture = me.Move.StaminaLock > 0f || me.Move.SprintBlocked ? staminaLocked : me.Move.BoostT > 0f ? staminaBoost : staminaTex;
-                staminaValue.text = me.Move.Stamina.ToString("0.0");
+                staminaImage.texture = locked ? staminaLocked : me.Move.BoostT > 0f ? staminaBoost : staminaTex;
             }
 
             // Inventory (survivors).
@@ -512,12 +494,21 @@ namespace Vision.Player
             notices.text = sb.ToString();
 
             flash = Mathf.Max(0f, flash - Time.unscaledDeltaTime * 2.5f);
+            // Each bite of the dark past the edge of the woods: the screen's edges pulse red.
+            if (me.BoundaryHits != lastBoundaryHits)
+            {
+                if (me.BoundaryHits > lastBoundaryHits) edgePulse = 1f;
+                lastBoundaryHits = me.BoundaryHits;
+            }
+            edgePulse = Mathf.Max(0f, edgePulse - Time.unscaledDeltaTime * 1.2f);
             float hurt = zach ? 0f : Mathf.Clamp01(1f - me.Hp / 0.45f);
-            vignette.color = me.GogglesOn ? new Color(0.25f, 0.9f, 0.35f, 0.1f) : new Color(0.55f, 0.02f, 0.02f, Mathf.Clamp01(hurt * 0.85f + flash * 0.5f));
+            float pulse = edgePulse * edgePulse * (3f - 2f * edgePulse);
+            vignette.color = me.GogglesOn ? new Color(0.25f, 0.9f, 0.35f, 0.1f) : new Color(Mathf.Lerp(0.55f, 0.85f, pulse), 0.02f, 0.02f, Mathf.Clamp01(Mathf.Max(hurt * 0.85f + flash * 0.5f, pulse)));
             downedScreen.SetActive(downed);
             fxPanel.SetActive(host != null && host.Sim != null && host.Sim.TestMode && me.Role != Role.Spectator && !MainMenuOpen);
             if (host != null && host.Sim != null) RefreshHunter(me, host.Sim);
             RefreshNpcTags(me);
+            RefreshHeadBars(me);
             RefreshMatch(me);
         }
 

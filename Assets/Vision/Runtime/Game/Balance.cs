@@ -172,7 +172,8 @@ namespace Vision.Game
             public static class Pistol
             {
                 public const int Shots = 10;
-                public const float Reload = 0.35f, Range = BeamRange, SpreadDeg = 1.5f, Damage = 0.1f, ZachDamage = 10f, Stun = 0.1f, KbPeak = 300f, KbDuration = 0.2f;
+                // Each shot strays up to 2.5 degrees either side of the aim (the original's 1.5, at the user's request).
+                public const float Reload = 0.35f, Range = BeamRange, SpreadDeg = 2.5f, Damage = 0.1f, ZachDamage = 10f, Stun = 0.1f, KbPeak = 300f, KbDuration = 0.2f;
             }
 
             public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 5f; }
@@ -186,6 +187,11 @@ namespace Vision.Game
             {
                 public const int Shots = 3;
                 public const float Reload = 1.2f, PelletSpeed = 4000f, Speed = 8000f, ZachHp = 25f, KbPeak = 1100f, KbDuration = 0.5f, SprintLock = 3f, GenDamage = 0.3f, HitRadius = 5f, LaserMax = 6000f;
+                /// <summary>
+                /// Right click aims it (the user's rule): the scope at the eye, the laser on, the view 15% wider, movement 30%
+                /// slower, and the round goes exactly where it's aimed; fired from the hip it strays up to 5 degrees either side.
+                /// </summary>
+                public const float AimSlowMul = 0.7f, AimZoom = 1.15f, HipSpreadDeg = 5f;
             }
 
             public static class ZachPump
@@ -201,11 +207,26 @@ namespace Vision.Game
                 public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f, GasRadius = HunterWidth * 10f * 0.65f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
                 /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s.</summary>
                 public const float ZachConeCut = 0.3f, BlurAfter = 2f;
+                /// <summary>An armed trap a shot or a thrown item passes over (within the trap's own size) bursts.</summary>
+                public const float HitRadius = 20f;
             }
 
             public const float StunImmunity = 2.5f;
 
             public static class Barricade { public const float Stun = 3f, SlamRadius = 60f, DropTime = 0.2f; }
+        }
+
+        /// <summary>
+        /// The edge of the woods (the user's rule, not the original's): three rings round the map's centre, the first at the
+        /// playable radius and each Gap metres further out. Past the second the light dies over ShutdownTime s; once it's
+        /// out a survivor loses TickDamage of health (straight through the shield) every TickEvery s. Zach crossing the third
+        /// costs CrossCost health and can't be done again for CrossLockout s; a blocked ring stops him WallSkin inside it,
+        /// and he arrives ArriveInside inside it on the far side.
+        /// </summary>
+        public static class Boundary
+        {
+            public const float Gap = 12f, ShutdownTime = 3f, TickEvery = 3f, TickDamage = 0.2f, CrossCost = 20f, CrossLockout = 10f;
+            public const float WallSkin = 0.05f, ArriveInside = 1.5f;
         }
 
         /// <summary>

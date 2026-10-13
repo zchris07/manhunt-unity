@@ -66,7 +66,7 @@ namespace Vision.Tests
             {
                 Assert.AreEqual(512, map.width);
                 float mpp = MapPainter.MetresPerPixel(world, 512);
-                Color At(Vector2 p) => map.GetPixel(Mathf.FloorToInt((p.x + world.halfExtent) / mpp), Mathf.FloorToInt((p.y + world.halfExtent) / mpp));
+                Color At(Vector2 p) => map.GetPixel(Mathf.FloorToInt((p.x + world.MapExtent) / mpp), Mathf.FloorToInt((p.y + world.MapExtent) / mpp));
                 // An exterior wall is drawn dark; the lake is water.
                 BuildingPlan.WallRun outer = world.Layout.Plan.Walls.First(w => w.Exterior && Vector2.Distance(w.A, w.B) > 3f);
                 Color wall = At((outer.A + outer.B) * 0.5f);
@@ -169,7 +169,7 @@ namespace Vision.Tests
             hud.Refresh();
             hud.SyncMap();
             MapHud map = hud.Map;
-            float full = MapHud.FullPx / (2f * world.halfExtent), mini = MapHud.MiniPx / MapHud.MiniSpan;
+            float full = MapHud.FullPx / (2f * world.MapExtent), mini = MapHud.MiniPx / MapHud.MiniSpan;
 
             void CheckAt(Vector2 at, string when)
             {
@@ -219,11 +219,19 @@ namespace Vision.Tests
             GameSession.TestingMode = true;
             hud.Map.RevealAll();
             Assert.AreEqual(hud.Map.Fog.Size * hud.Map.Fog.Size, hud.Map.Fog.SeenCount, "testing: reveal all");
+            MatchHost host = MatchHost.For(world);
+            host.Begin();
             hud.Map.Update(true);
             int icons = hudGo.GetComponentsInChildren<UnityEngine.UI.Image>(true).Count(i => i.name == "Icon" && (i.transform.parent.name == "Content" || i.transform.parent.name == "Map"));
+            int pictures = hudGo.GetComponentsInChildren<UnityEngine.UI.RawImage>(true).Count(i => i.name == "Item" && i.texture != null && (i.transform.parent.name == "Content" || i.transform.parent.name == "Map"));
             int gens = GeneratorObjective.All.Count(g => g != null && g.transform.IsChildOf(world.transform));
             Assert.AreEqual(5, gens);
-            Assert.AreEqual(2 * (world.Pickups.Count + gens + 1), icons, "every supply, generator and the gate, on the minimap and the full map");
+            Assert.AreEqual(2 * (gens + 1), icons, "every generator and the gate, on the minimap and the full map");
+            Assert.AreEqual(2 * world.Pickups.Count, pictures, "every supply by its own picture, on both maps");
+            // Testing mode's NPC dots turn and scroll with the minimap's content, like everything else on it.
+            var npcDots = hudGo.GetComponentsInChildren<RectTransform>(true).Where(t => t.name == "NPC" && t.sizeDelta.x < 10f).ToList();
+            if (host.Sim.Npcs.Count > 0) Assert.Greater(npcDots.Count, 0, "the NPCs are on the minimap");
+            foreach (RectTransform d in npcDots) Assert.AreSame(hud.Map.MiniContent, d.parent, "an NPC dot in the minimap's turning content");
         }
     }
 }

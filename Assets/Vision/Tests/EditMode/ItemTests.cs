@@ -55,7 +55,7 @@ namespace Vision.Tests
             var rig = new SimRig(2, 1);
             rig.Place(rig.P(2), 0f, 0f);
             rig.Place(rig.P(1), dist, 0f);
-            rig.Place(rig.P(3), -2500f, 2500f);
+            rig.Place(rig.P(3), -1800f, 1800f);
             return rig;
         }
 
@@ -76,7 +76,7 @@ namespace Vision.Tests
                 SimPlayer s = rig.P(2);
                 rig.Place(s, 0f, 0f);
                 rig.Place(rig.P(1), 0f, 2500f);
-                rig.Place(rig.P(3), -2500f, -2500f);
+                rig.Place(rig.P(3), -1800f, -1800f);
                 s.Inv.Add(item, 1);
                 Use(rig, s, item);
                 rig.Run(Secs(1.5f));

@@ -114,6 +114,15 @@ namespace Vision.Game
         /// <summary>Selected slot, 0-based (-1 none).</summary>
         public int SelSlot = -1;
         public bool GogglesOn;
+        /// <summary>Aiming the 0.50 cal (right click held with it selected): the scope at the eye and its laser on.</summary>
+        public bool Aiming;
+        /// <summary>
+        /// The edge of the woods (MatchSim.Boundary): the zone (0 inside, 1 past the first ring, 2 past the second), how long
+        /// the light has been dying, the countdown to the next bite of the dark, how many bites so far (the red pulse), and
+        /// Zach's lockout before he can cross the outer ring again.
+        /// </summary>
+        public int Zone, BoundaryHits;
+        public float ShutdownT, BoundaryTickT, CrossCd;
         public float ReloadT;
         /// <summary>JARVIS: 0 none, 1 tablet in hand, 2 used, 3 infinite (testing mode).</summary>
         public int Jarvis;

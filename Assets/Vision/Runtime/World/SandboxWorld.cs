@@ -23,7 +23,12 @@ namespace Vision.World
     {
         public int seed = 1337;
         [Tooltip("Half the map's width in design units: the original's 6000 units at 3 cm each.")]
+        /// <summary>The playable radius (design units): the map is a circle, its first boundary ring here.</summary>
         public float halfExtent = 90f;
+        /// <summary>Where the world ends: the outermost boundary ring (MatchSim.Boundary), as far as anything is generated.</summary>
+        public float WorldRadius => halfExtent + 2f * Game.Balance.Boundary.Gap;
+        /// <summary>Half the side of the square the maps show (the whole circle of the world).</summary>
+        public float MapExtent => WorldRadius;
         [Tooltip("Build the level when Play starts.")]
         public bool generateOnAwake = true;
 
@@ -164,7 +169,7 @@ namespace Vision.World
         /// </summary>
         public TerrainField CreateTerrain(MapLayout layout)
         {
-            var f = new TerrainField(seed, halfExtent);
+            var f = new TerrainField(seed, WorldRadius);
             f.AddPad(Expand(layout.Building, 1.5f), 6f);
             f.AddPad(Expand(layout.Yard, 1f), 4f);
             foreach (MapLayout.Cabin c in layout.Cabins) f.AddPad(Expand(c.Area, 1.2f), 5f);
@@ -183,6 +188,8 @@ namespace Vision.World
             foreach (MapLayout.Cabin c in layout.Cabins) cabins.Add(Expand(c.Area, 0.4f));
             bool Blocked(Vector2 p)
             {
+                // The paths keep to the playable circle.
+                if (p.magnitude > halfExtent - 3f) return true;
                 if ((building.Contains(p) && !(layout.Plan != null && layout.Plan.InNotch(p, 1.4f))) || yard.Contains(p) || layout.LakeDepth(p) > -1.5f) return true;
                 foreach (Rect r in cabins) if (r.Contains(p)) return true;
                 if (layout.Graveyard.Contains(p) || layout.Playground.Contains(p)) return true;
@@ -195,6 +202,13 @@ namespace Vision.World
                     float t = Mathf.Clamp01(Vector2.Dot(p - fence.A, ab) / ab.sqrMagnitude);
                     if (t > fence.GapStart && t < fence.GapEnd) continue;   // through the gap
                     if ((fence.A + ab * t - p).sqrMagnitude < 0.8f * 0.8f) return true;
+                }
+                // The logs lying in the clearings.
+                foreach (MapLayout.Segment log in layout.Logs)
+                {
+                    Vector2 ab = log.B - log.A;
+                    float t = Mathf.Clamp01(Vector2.Dot(p - log.A, ab) / ab.sqrMagnitude);
+                    if ((log.A + ab * t - p).sqrMagnitude < 1.6f * 1.6f) return true;
                 }
                 return false;
             }
@@ -256,7 +270,6 @@ namespace Vision.World
             entityRoot = new GameObject("Entities").transform;
             entityRoot.SetParent(transform, false);
 
-            Step("walls", BuildPerimeter);
             Step("building", BuildBuilding);
             Step("cabins", BuildCabins);
             Step("kits", BuildKits);
@@ -273,6 +286,8 @@ namespace Vision.World
             Step("entities", () => { BuildCrows(); BuildWanderer(); BuildPlayer(); });
             LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees";
             Debug.Log($"[Vision] Generated {LastGenerationReport}");
+            // The gas's noise volume takes a moment to make: do it with the level, not on the first cloud.
+            if (Application.isPlaying) Vision.Effects.VolumetricGas.Prepare();
             Generated?.Invoke();
             Built?.Invoke(this);
         }
@@ -298,8 +313,8 @@ namespace Vision.World
         /// <summary>Somewhere a solid prop may stand: inside the walls, off the paths, the lake and every reserved site.</summary>
         bool Free(Vector2 p, float radius, float spacing)
         {
-            float lim = halfExtent - 1.5f - radius;
-            if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
+            // Anywhere in the world's circle: the woods go on into the dark past the playable ring.
+            if (p.magnitude > WorldRadius - 1.5f - radius) return false;
             if (Layout.Blocked(p) || Layout.LakeDepth(p) > -2f - radius) return false;
             PathNetwork paths = Terrain.Paths;
             if (paths != null && Terrain.PathClearance(p.x, p.y) < radius + 0.4f) return false;
@@ -434,7 +449,7 @@ namespace Vision.World
 
         void BuildGround()
         {
-            float e = halfExtent + 4f;
+            float e = WorldRadius + 3f;
             var cabinZones = new List<Rect>();
             foreach (MapLayout.Cabin c in Layout.Cabins) cabinZones.Add(Expand(c.Area, 0.5f));
             Rect buildingZone = Expand(Layout.Building, 0.5f), yardZone = Layout.Yard;
@@ -460,8 +475,9 @@ namespace Vision.World
                 for (int ci = 0; ci < chunks; ci++)
                 {
                     builders[ci, cj] = new LowPolyMeshBuilder(rng);
+                    // The ground ends with the world's circle.
                     builders[ci, cj].AddTerrainPatch(grid, ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
-                        cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), GroundColorVaried);
+                        cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), GroundColorVaried, c => c.x * c.x + c.z * c.z <= (WorldRadius + 1f) * (WorldRadius + 1f));
                 }
             LowPolyMeshBuilder ChunkAt(Vector2 p)
             {
@@ -472,14 +488,14 @@ namespace Vision.World
             PathNetwork paths = Terrain.Paths;
             float OnPath(Vector2 p) => paths != null ? Terrain.PathClearance(p.x, p.y) : float.MaxValue;
             bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p);
-            float lim = halfExtent - 0.8f;
+            float lim = WorldRadius - 0.8f;
 
-            // Short grass blades (dead or green with the ground), pebbles and bone-pale debris.
-            int total = Mathf.RoundToInt(700f * (halfExtent * halfExtent) / 400f);
+            // Short grass blades (dead or green with the ground), pebbles and bone-pale debris, over the world's circle.
+            int total = Mathf.RoundToInt(700f / 1600f * Mathf.PI * WorldRadius * WorldRadius);
             for (int i = 0; i < total; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (Bare(p) || OnPath(p) < -0.2f) continue;
+                if (p.magnitude > lim || Bare(p) || OnPath(p) < -0.2f) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
                 Color grass = Color.Lerp(GroundColor(p.x, p.y), new Color(0.36f, 0.36f, 0.26f), 0.5f) * 1.1f;
                 int blades = 2 + rng.Next(4);
@@ -607,11 +623,11 @@ namespace Vision.World
                 }
 
             // Plant life: shrubs, ferns, tall grass, reeds in ditches and by the lake, dead shrubs, flowers, mushrooms.
-            int plants = Mathf.RoundToInt(260f * (halfExtent * halfExtent) / 400f);
+            int plants = Mathf.RoundToInt(260f / 1600f * Mathf.PI * WorldRadius * WorldRadius);
             for (int i = 0; i < plants; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (Bare(p) || OnPath(p) < 0.2f || blocked.AnyWithin(p, 0.7f)) continue;
+                if (p.magnitude > lim || Bare(p) || OnPath(p) < 0.2f || blocked.AnyWithin(p, 0.7f)) continue;
                 float dead = Deadness(p.x, p.y), moist = Moisture(p.x, p.y), wood = Woodland(p.x, p.y);
                 bool wet = Terrain.Natural(p.x, p.y) < -1.3f || Layout.LakeDepth(p) > -4f;
                 float roll = (float)rng.NextDouble();
@@ -724,19 +740,6 @@ namespace Vision.World
         }
 
         // ---------------------------------------------------------------- walls
-
-        void BuildPerimeter()
-        {
-            float h = halfExtent;
-            const float seg = 4f;
-            for (float t = -h; t < h - 0.01f; t += seg)
-            {
-                StoneWall(new Vector2(t, -h), new Vector2(t + seg, -h));
-                StoneWall(new Vector2(t, h), new Vector2(t + seg, h));
-                StoneWall(new Vector2(-h, t), new Vector2(-h, t + seg));
-                StoneWall(new Vector2(h, t), new Vector2(h, t + seg));
-            }
-        }
 
         void StoneWall(Vector2 a, Vector2 b)
         {
@@ -1025,7 +1028,7 @@ namespace Vision.World
                 var occ = go.AddComponent<Vision.Visibility.Occluder>();
                 occ.shape = Vision.Visibility.Occluder.Shape.Box;
                 occ.size = new Vector2(len * 0.95f, 0.5f);
-                occ.low = true;
+                // MakeLow marks it low and re-registers it, so it is seen over from the first frame.
                 MakeLow(go, box);
                 blocked.Add(mid);
             }
@@ -1263,15 +1266,17 @@ namespace Vision.World
             for (int i = 1; i < Layout.Clearings.Count; i++)
             {
                 MapLayout.Clearing c = Layout.Clearings[i];
-                for (int k = 0; k < 3; k++)
+                // Spots round each clearing, nearer and further from its middle, so one with a generator or a fire in it
+                // still has room for a stake.
+                for (int k = 0; k < 6; k++)
                 {
                     float a = R(0f, Mathf.PI * 2f);
-                    candidates.Add(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * c.Radius * 0.55f);
+                    candidates.Add(c.Centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * c.Radius * (k % 2 == 0 ? 0.55f : 0.8f));
                 }
             }
             bool Ok(Vector2 p)
             {
-                if (Mathf.Abs(p.x) > halfExtent - 3f || Mathf.Abs(p.y) > halfExtent - 3f) return false;
+                if (p.magnitude > halfExtent - 3f) return false;
                 if (Layout.LakeDepth(p) > -1f || Layout.Yard.Contains(p) || Layout.Building.Contains(p)) return false;
                 foreach (Transform g in Generators)
                 {
@@ -1386,11 +1391,12 @@ namespace Vision.World
         /// <summary>Trees: denser where the land is wooded, dead or evergreen by <see cref="Deadness"/>.</summary>
         void BuildTrees()
         {
-            int target = Mathf.RoundToInt(TreeDensity * (2f * halfExtent) * (2f * halfExtent));
+            // The woods fill the world's circle, on into the dark past the playable ring.
+            int target = Mathf.RoundToInt(TreeDensity * Mathf.PI * WorldRadius * WorldRadius);
             int placed = 0;
             for (int attempt = 0; attempt < target * 60 && placed < target; attempt++)
             {
-                var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
+                var p = new Vector2(Range(-WorldRadius, WorldRadius), Range(-WorldRadius, WorldRadius));
                 float wood = Woodland(p.x, p.y);
                 if ((float)rng.NextDouble() > 0.2f + 0.8f * wood) continue;
                 if (!Free(p, PropFactory.TreeTrunkRadius, Mathf.Lerp(2.7f, 1.9f, wood))) continue;
@@ -1398,6 +1404,7 @@ namespace Vision.World
                 GameObject go;
                 float dead = Deadness(p.x, p.y);
                 bool isDead = (float)rng.NextDouble() < Mathf.Lerp(0.06f, 0.9f, dead);
+                bool fallen = false;
                 if (isDead)
                 {
                     var kind = PickDeadTree();
@@ -1405,6 +1412,7 @@ namespace Vision.World
                     if (kind == LowPolyModels.DeadTreeKind.Fallen && Terrain.Paths != null && Terrain.Paths.Distance(p) < 6f)
                         kind = LowPolyModels.DeadTreeKind.PineSnag;
                     int size = rng.Next(3);
+                    fallen = kind == LowPolyModels.DeadTreeKind.Fallen;
                     go = Prop(library != null ? library.trees : null, (int)kind * 3 + size, staticRoot,
                         () => PropFactory.CreateDeadTree(LowPolyModels.DeadTree(kind, size), lowPolyMaterial, kind));
                 }
@@ -1424,7 +1432,8 @@ namespace Vision.World
                 // Each tree gets its own height and girth: some shorter, some taller, some skinnier, some thicker.
                 Vector2 hg = TreeScale(rng, isDead);
                 go.transform.localScale = new Vector3(hg.y, hg.x, hg.y);
-                if (go.name.StartsWith("Fallen"))
+                // By its kind, not its name: the baked prop library's copies are named after their slot (DeadTree_33...).
+                if (fallen)
                 {
                     Conform(go.transform, p, 1.5f, Range(0f, 360f), 0.9f, 0.05f);
                     MakeLow(go, go.GetComponent<BoxCollider>());
@@ -1454,7 +1463,7 @@ namespace Vision.World
         /// <summary>A dead tree design, weighted: snags, oaks and spruces common; the fallen tree and hollow trunk rarer.</summary>
         LowPolyModels.DeadTreeKind PickDeadTree()
         {
-            float[] weight = { 1.2f, 1.4f, 0.9f, 1.2f, 0.6f, 0.7f, 0.9f, 0.8f, 0.9f, 0.6f, 0.45f, 0.45f };
+            float[] weight = { 1.2f, 1.4f, 0.9f, 1.2f, 0.6f, 0.7f, 0.9f, 0.8f, 0.9f, 0.6f, 0.45f, 0.45f, 1.2f };
             float total = 0f;
             foreach (float w in weight) total += w;
             float roll = (float)rng.NextDouble() * total;
@@ -1477,11 +1486,11 @@ namespace Vision.World
 
         void BuildRocks()
         {
-            int target = Mathf.RoundToInt(70f * (halfExtent * halfExtent) / 1600f);
+            int target = Mathf.RoundToInt(70f / 6400f * Mathf.PI * WorldRadius * WorldRadius);
             int placed = 0;
             for (int attempt = 0; attempt < target * 40 && placed < target; attempt++)
             {
-                var p = new Vector2(Range(-halfExtent, halfExtent), Range(-halfExtent, halfExtent));
+                var p = new Vector2(Range(-WorldRadius, WorldRadius), Range(-WorldRadius, WorldRadius));
                 // Small stones are common, boulders rare; steep ground and dead woods get more of them.
                 float roll = (float)rng.NextDouble();
                 int variant = roll < 0.45f ? rng.Next(3) : roll < 0.85f ? 3 + rng.Next(3) : 6 + rng.Next(2);
@@ -1505,8 +1514,21 @@ namespace Vision.World
         /// rooms, in the cabins, around the clearings and beside the paths, shuffled, each item taking the first spot
         /// at least 4.8 m (160 units) from the others, or 1.8 m when the map runs short.
         /// </summary>
+        /// <summary>Items keep this far inside the first (flicker) ring, and those beside paths this far from the path's edge.</summary>
+        public const float PickupEdgeMargin = 10f, PathSpotNear = 2f, PathSpotFar = 12f, WildFromPaths = 20f;
+        /// <summary>The share of all items that spawn out in the open woods, away from the paths.</summary>
+        public const float WildShare = 0.25f;
+
+        /// <summary>
+        /// Supplies: a quarter of all the items lie out in the open woods, at least 20 m from any path, spread evenly over
+        /// the map (each picked as the candidate farthest from those already placed). The rest go where the original puts
+        /// them, the building's loot spots, the cabins and the clearings, and beside the paths, now anywhere 2-12 m from a
+        /// path's edge instead of right on it. Nothing spawns within 10 m of the first boundary ring.
+        /// </summary>
         void BuildPickups()
         {
+            float limit = halfExtent - PickupEdgeMargin;
+            bool Open(Vector2 p) => p.magnitude <= limit && !(Layout.LakeDepth(p) > -1f) && !Layout.Yard.Contains(p) && !Layout.Building.Contains(p) && !blocked.AnyWithin(p, 0.6f);
             var inside = new List<Vector2>();
             if (Layout.Plan != null) inside.AddRange(Layout.Plan.LootSpots);
             var outside = new List<Vector2>();
@@ -1525,36 +1547,66 @@ namespace Vision.World
                 }
             }
             PathNetwork paths = Terrain.Paths;
+            // Beside the paths: 2-12 m out from the edge, either side.
             if (paths != null)
                 foreach (List<Vector2> path in paths.Paths)
                 {
                     if (path.Count < 4) continue;
-                    for (int k = 0; k < 11; k++)
+                    for (int k = 0; k < 16; k++)
                     {
                         int s = rng.Next(1, path.Count - 2);
                         Vector2 a = path[s], b = path[s + 1], d = (b - a).normalized;
-                        Vector2 at = Vector2.Lerp(a, b, Range(0f, 1f)) + new Vector2(-d.y, d.x) * (rng.Next(2) == 0 ? 1f : -1f) * (42f * MapLayout.Unit + paths.HalfWidth * 0.5f);
-                        outside.Add(at);
+                        Vector2 on = Vector2.Lerp(a, b, Range(0f, 1f));
+                        Vector2 at = on + new Vector2(-d.y, d.x) * (rng.Next(2) == 0 ? 1f : -1f) * (paths.HalfWidth * 1.4f + Range(PathSpotNear, PathSpotFar));
+                        float edge = Terrain.PathClearance(at.x, at.y);
+                        if (edge >= PathSpotNear && edge <= PathSpotFar + 1f) outside.Add(at);
                     }
                 }
             var pool = new List<(Vector2 p, bool inside)>();
             foreach (Vector2 p in inside) pool.Add((p, true));
             foreach (Vector2 p in outside)
-            {
-                if (Mathf.Abs(p.x) > halfExtent - 2f || Mathf.Abs(p.y) > halfExtent - 2f) continue;
-                if (Layout.LakeDepth(p) > -1f || Layout.Yard.Contains(p) || Layout.Building.Contains(p) || blocked.AnyWithin(p, 0.6f)) continue;
-                pool.Add((p, false));
-            }
+                if (Open(p)) pool.Add((p, false));
             for (int i = pool.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
                 (pool[i], pool[j]) = (pool[j], pool[i]);
             }
 
+            // Every item to place, shuffled; the first quarter go out into the woods.
+            var all = new List<ItemType>();
+            foreach (ItemType item in Items.All)
+                for (int n = 0; n < Items.Info(item).mapCount; n++) all.Add(item);
+            for (int i = all.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (all[i], all[j]) = (all[j], all[i]);
+            }
+            int wild = Mathf.RoundToInt(all.Count * WildShare);
+
             Transform parent = Group("Supplies");
             var placed = new List<Vector2>();
-            foreach (ItemType item in Items.All)
-                for (int n = 0; n < Items.Info(item).mapCount; n++)
+            for (int n = 0; n < all.Count; n++)
+            {
+                ItemType item = all[n];
+                Vector2 p;
+                bool indoors = false;
+                if (n < wild)
+                {
+                    // The best of a few random open spots far from the paths: the one farthest from everything placed.
+                    float best = -1f;
+                    p = Vector2.zero;
+                    for (int tries = 0; tries < 60; tries++)
+                    {
+                        float ang = Range(0f, Mathf.PI * 2f), r = limit * Mathf.Sqrt(Range(0f, 1f));
+                        var c = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * r;
+                        if (!Open(c) || Terrain.PathClearance(c.x, c.y) < WildFromPaths) continue;
+                        float near = float.MaxValue;
+                        foreach (Vector2 q in placed) near = Mathf.Min(near, (q - c).sqrMagnitude);
+                        if (near > best) { best = near; p = c; }
+                    }
+                    if (best < 0f) continue;
+                }
+                else
                 {
                     int idx = -1;
                     foreach (float spacing in new[] { 160f * MapLayout.Unit, 60f * MapLayout.Unit })
@@ -1562,22 +1614,23 @@ namespace Vision.World
                         idx = pool.FindIndex(c => placed.TrueForAll(q => (q - c.p).sqrMagnitude > spacing * spacing));
                         if (idx >= 0) break;
                     }
-                    if (idx < 0) break;
-                    (Vector2 p, bool indoors) = pool[idx];
+                    if (idx < 0) continue;
+                    (p, indoors) = pool[idx];
                     pool.RemoveAt(idx);
-                    placed.Add(p);
-                    var go = new GameObject($"Pickup {item}");
-                    go.transform.SetParent(parent, false);
-                    go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, item);
-                    PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
-                    var pickup = go.AddComponent<Pickup>();
-                    pickup.item = item;
-                    pickup.count = 1;
-                    if (indoors) go.transform.SetLocalPositionAndRotation(new Vector3(p.x, BuildingFloor + 0.015f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
-                    else Conform(go.transform, p, 0.1f, Range(0f, 360f), 0.8f, 0f);
-                    go.transform.localScale = Vector3.one * 1.6f;
-                    Pickups.Add(pickup);
                 }
+                placed.Add(p);
+                var go = new GameObject($"Pickup {item}");
+                go.transform.SetParent(parent, false);
+                go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Item(rng, item);
+                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+                var pickup = go.AddComponent<Pickup>();
+                pickup.item = item;
+                pickup.count = 1;
+                if (indoors) go.transform.SetLocalPositionAndRotation(new Vector3(p.x, BuildingFloor + 0.015f, p.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));
+                else Conform(go.transform, p, 0.1f, Range(0f, 360f), 0.8f, 0f);
+                go.transform.localScale = Vector3.one * 1.6f;
+                Pickups.Add(pickup);
+            }
         }
 
         // ---------------------------------------------------------------- entities

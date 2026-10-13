@@ -16,11 +16,11 @@ namespace Vision.World
         static readonly Color DeadTree = new Color(0.32f, 0.29f, 0.25f);
         static readonly Color Rock = new Color(0.45f, 0.44f, 0.42f);
 
-        public static float MetresPerPixel(SandboxWorld world, int size) => 2f * world.halfExtent / size;
+        public static float MetresPerPixel(SandboxWorld world, int size) => 2f * world.MapExtent / size;
 
         public static Texture2D Paint(SandboxWorld world, int size = 768)
         {
-            float ext = world.halfExtent, mpp = 2f * ext / size;
+            float ext = world.MapExtent, mpp = 2f * ext / size, edge = world.WorldRadius;
             var px = new Color32[size * size];
             TerrainField terrain = world.Terrain;
             MapLayout layout = world.Layout;
@@ -31,6 +31,8 @@ namespace Vision.World
                 for (int i = 0; i < size; i++)
                 {
                     float x = -ext + (i + 0.5f) * mpp;
+                    // Past the end of the world there is nothing.
+                    if (x * x + z * z > edge * edge) { px[j * size + i] = new Color32(4, 4, 5, 255); continue; }
                     Color c = world.GroundColor(x, z);
                     // Paths and trails stand out a little, so the web of them reads on the map.
                     if (terrain.Paths != null)

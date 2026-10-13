@@ -6,7 +6,7 @@ namespace Vision.Player
     /// Orthographic 2.5D top-down camera, pitched 55° (5° flatter than the first 60°) so the fronts of walls, trunks and characters
     /// show clearly. Follows the target with smoothing and keeps it at the centre of the view. Z and C turn the view 45°
     /// at a time (eased over a quarter of a second), so walls never run square to the screen and the doors and windows
-    /// on every side of a building show; each match starts facing north.
+    /// on every side of a building show; each match starts turned 45 degrees off the world's grid, walls diagonal.
     /// </summary>
     [DefaultExecutionOrder(100)]
     [RequireComponent(typeof(Camera))]
@@ -30,7 +30,12 @@ namespace Vision.Player
 
         /// <summary>The step one press of Z or C turns the view, and how long the turn takes.</summary>
         public const float TurnStep = 45f, TurnTime = 0.25f;
-        float yawTarget, yaw, yawVelocity;
+        /// <summary>
+        /// The view a match starts with: turned 45 degrees off the world's grid, so walls and buildings run diagonally
+        /// across the screen (the map's north and the compass stay on the world's grid; Z / C turn it from here).
+        /// </summary>
+        public const float DefaultYaw = 45f;
+        float yawTarget = DefaultYaw, yaw = DefaultYaw, yawVelocity;
 
         /// <summary>The view's turn about the vertical (degrees clockwise from north, as drawn now; eased toward the target).</summary>
         public float Yaw => yaw;
@@ -39,10 +44,10 @@ namespace Vision.Player
         /// <summary>Turns the view by whole steps (negative: left), easing round; presses queue up.</summary>
         public void Turn(int steps) => yawTarget += steps * TurnStep;
 
-        /// <summary>Back to facing north at once (a new match).</summary>
+        /// <summary>Back to the starting view at once (a new match): 45 degrees off the world's grid.</summary>
         public void ResetYaw()
         {
-            yawTarget = yaw = 0f;
+            yawTarget = yaw = DefaultYaw;
             yawVelocity = 0f;
         }
 

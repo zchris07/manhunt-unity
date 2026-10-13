@@ -31,8 +31,10 @@ namespace Vision.Tests
                 Assert.AreEqual(3, m.Cabins.Count, "three cabins");
                 Assert.AreEqual(3, m.WoodsGenerators.Count, "three generators in the woods (two more in the building)");
                 Assert.That(m.LakeRadius, Is.InRange(480f * MapLayout.Unit, 580f * MapLayout.Unit));
-                Assert.Greater(Mathf.Abs(m.LakeCentre.x), 50f, "lake in a corner");
-                Assert.Greater(Mathf.Abs(m.LakeCentre.y), 50f);
+                // Toward one of the diagonals, its far shore inside the playable circle.
+                Assert.Greater(Mathf.Abs(m.LakeCentre.x), 30f, "lake toward a diagonal");
+                Assert.Greater(Mathf.Abs(m.LakeCentre.y), 30f);
+                Assert.Less(m.LakeCentre.magnitude + m.LakeRadius * 1.1f, m.HalfExtent, "inside the playable circle");
                 Assert.LessOrEqual(m.GrassPatches.Count, 12);
                 Assert.Greater(m.GrassPatches.Count, 6);
                 Assert.LessOrEqual(m.Fences.Count, 7);

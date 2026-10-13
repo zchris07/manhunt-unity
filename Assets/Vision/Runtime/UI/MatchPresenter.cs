@@ -28,7 +28,7 @@ namespace Vision.UI
         /// <summary>The Hemp Battery is announced once ever on a machine, as in the original.</summary>
         public const string HempAnnouncedKey = "manhunt.hempAnnounced";
 
-        float zoomK;
+        float zoomK, aimK;
 
         /// <summary>Who the camera follows while you are out of the match (escaped, sacrificed or spectating), or 0.</summary>
         public int Spectating { get; private set; }
@@ -54,7 +54,7 @@ namespace Vision.UI
         }
 
         /// <summary>
-        /// The camera: the Hemp Battery zooms Zach out (eased in and out), Waz's field of view widens or narrows it, and once
+        /// The camera: the Hemp Battery zooms Zach out (eased in and out), aiming the 0.50 cal widens the view 15%, Waz's field of view widens or narrows it, and once
         /// you are out of the match it follows someone still in it (click or the arrow keys switch who).
         /// </summary>
         void UpdateCamera(SimPlayer me)
@@ -63,8 +63,11 @@ namespace Vision.UI
             float dt = Time.deltaTime;
             zoomK = Mathf.MoveTowards(zoomK, me.Role == Role.Hunter && me.HempOn ? 1f : 0f, dt * Balance.Hunter.Hemp.ZoomRate);
             float e = zoomK * zoomK * (3f - 2f * zoomK);
+            // Aiming the 0.50 cal widens the view 15%, eased over about a quarter of a second like the scope coming up.
+            aimK = Mathf.MoveTowards(aimK, me.Aiming ? 1f : 0f, dt * 4f);
+            float ae = aimK * aimK * (3f - 2f * aimK);
             float fov = me.FovMul > 0f ? me.FovMul : 1f;
-            cameraRig.zoom = (1f + (Balance.Hunter.Hemp.ZoomOut - 1f) * e) / fov;
+            cameraRig.zoom = (1f + (Balance.Hunter.Hemp.ZoomOut - 1f) * e) * (1f + (Balance.Items.Sniper.AimZoom - 1f) * ae) / fov;
 
             bool out_ = me.Role == Role.Spectator || me.Health == Health.Escaped || me.Health == Health.Eliminated;
             Transform target = player.transform;
@@ -140,8 +143,8 @@ namespace Vision.UI
                     bool cut = i == pts.Count || pts[i].T - pts[i - 1].T > 0.7f || Vector2.Distance(pts[i].Pos, pts[i - 1].Pos) > Scale.D(160f);
                     if (!cut) continue;
                     int n = i - start;
-                    // The scent: a low trail of red smoke where they ran, fresh wisps dense and close to the ground, older
-                    // ones risen a little, spread wider and thinning away, each sitting on the ground under it.
+                    // The scent: a low trail of red smoke where they ran (the same billowing volumetric smoke as the gases),
+                    // fresh puffs dense and close to the ground, older ones risen a little, spread wider and thinning away.
                     if (n >= 2)
                         for (int k = 0; k < n; k += 2)
                         {
@@ -151,9 +154,19 @@ namespace Vision.UI
                             float age = Mathf.Clamp01((sim.Time - t.T) / Balance.Trails.MaxAgeSec);
                             int seed = Mathf.RoundToInt(t.T * 37f) + kv.Key * 7;
                             float wob = Mathf.Sin(t.T * 3.1f + kv.Key + sim.Time * 0.7f) * Scale.D(5f + 8f * age);
-                            float sizeD = Scale.D(6f + 9f * age);
-                            Color c = new Color(0.86f, 0.12f + 0.1f * (seed % 3) / 2f, 0.14f, Mathf.Pow(1f - age, 1.2f) * 0.34f);
-                            fx.Smoke(Ground(t.Pos + side * wob, sizeD * (0.3f + 0.25f * age)), sizeD * S, c, seed, seed * 0.7f + sim.Time * 0.3f * (seed % 2 == 0 ? 1f : -1f), true);
+                            float radius = Scale.D(9f + 12f * age) * S;
+                            var look = new VolumetricGas.Look
+                            {
+                                TintA = new Color(0.75f, 0.2f + 0.08f * (seed % 3) / 2f, 0.18f),
+                                TintB = new Color(0.4f, 0.05f, 0.06f),
+                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.85f,
+                                Extinction = 2.2f / S,
+                                NoiseScale = 1.1f / S,
+                                Erosion = 0.8f,
+                                Drift = new Vector3(0f, 0.15f, 0f) * S,
+                                Seed = seed,
+                            };
+                            VolumetricGas.Blob(Ground(t.Pos + side * wob, Scale.D(2f + 6f * age)), radius, radius * 1.1f, look, true, false);
                         }
                     start = i;
                 }

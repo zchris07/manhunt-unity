@@ -22,6 +22,9 @@ namespace Vision.Game
 
         float fireCd, shotAge = 9f, dealt, startHp = 1f;
         int hits, zachHits;
+        /// <summary>Three survivor hits, or Zach's six points, slay him.</summary>
+        public override float? HealthFor(Role viewer) => !alive ? (float?)null
+            : viewer == Role.Hunter ? 1f - zachHits / (float)Balance.Jaden.ZachHp : 1f - hits / (float)Balance.Jaden.Hp;
 
         public override string Name => "Jaden Nguyen";
         public override int Kind => 5;

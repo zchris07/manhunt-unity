@@ -447,15 +447,16 @@ namespace Vision.World
         }
 
         /// <summary>Flat-shaded triangles for cells [i0, i1) x [j0, j1) of <paramref name="grid"/>.</summary>
-        public void AddTerrainPatch(in TerrainGrid grid, int i0, int i1, int j0, int j1, Func<float, float, Color> color)
+        /// <param name="keep">Which triangles to build, by their centroid (null: all).</param>
+        public void AddTerrainPatch(in TerrainGrid grid, int i0, int i1, int j0, int j1, Func<float, float, Color> color, Func<Vector3, bool> keep = null)
         {
             for (int j = j0; j < j1; j++)
             {
                 for (int i = i0; i < i1; i++)
                 {
                     grid.Cell(i, j, out Vector3 a0, out Vector3 b0, out Vector3 c0, out Vector3 a1, out Vector3 b1, out Vector3 c1);
-                    AddGroundTriangle(a0, b0, c0, color);
-                    AddGroundTriangle(a1, b1, c1, color);
+                    if (keep == null || keep((a0 + b0 + c0) / 3f)) AddGroundTriangle(a0, b0, c0, color);
+                    if (keep == null || keep((a1 + b1 + c1) / 3f)) AddGroundTriangle(a1, b1, c1, color);
                 }
             }
         }

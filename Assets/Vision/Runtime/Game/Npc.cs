@@ -57,6 +57,12 @@ namespace Vision.Game
         public virtual void CancelTalk(MatchSim sim, SimPlayer p) { }
         public virtual void Answer(MatchSim sim, SimPlayer p, bool yes) { }
 
+        /// <summary>
+        /// How much of its life is left (0-1) as players of <paramref name="viewer"/>'s role can take it, for the health bar
+        /// over its head; null when that role can't slay it (no bar).
+        /// </summary>
+        public virtual float? HealthFor(Role viewer) => null;
+
         /// <summary>A survivor's thrown item or shot (kind "bottle" or "shot").</summary>
         public virtual void ItemHit(MatchSim sim, SimPlayer by, string kind) { }
         /// <summary>Zach's machete, lunge, beam or Penjamin can hit it (in this priority order after survivors).</summary>

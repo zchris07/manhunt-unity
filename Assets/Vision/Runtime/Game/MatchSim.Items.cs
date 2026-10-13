@@ -325,6 +325,7 @@ namespace Vision.Game
                 float t = RayCircle(s, d, n.Pos, n.HitRadius);
                 if (t < best) { best = t; hitN = n; hitP = null; }
             }
+            HitTraps(s, d, best, p.Name);
             Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = p.Id, B = (int)ItemType.Pistol, Pos = p.Pos, F = a, G = best + p.RadiusD + R(2f), Text = hitP != null ? "hit" : "" });
             Noise(p.Pos, 1000f, "shot");
             if (hitN != null) hitN.ItemHit(this, p, "shot");
@@ -392,6 +393,7 @@ namespace Vision.Game
                     float t = RayCircle(s, d, n.Pos, n.HitRadius);
                     if (t < best) { best = t; hitN = n; hitP = null; }
                 }
+                HitTraps(s, d, best, p.Name);
                 pellets.Add(a);
                 pellets.Add(best + p.RadiusD + R(2f));
                 if (hitN != null) npcs.Add(hitN);
@@ -506,10 +508,18 @@ namespace Vision.Game
                     if (t < best) { best = t; hitN = n; hitP = null; }
                 }
                 float adv = hitP != null || hitN != null ? Mathf.Min(move, best) : move;
-                b.Pos += b.Dir * adv;
-                b.Travelled += adv;
                 SimPlayer owner = Get(b.Owner);
                 string sound = book ? "book" : piss ? "piss" : "glass";
+                float onTrap = HitTraps(b.Pos, b.Dir, adv, owner?.Name ?? "Someone");
+                if (onTrap <= adv)
+                {
+                    b.Pos += b.Dir * onTrap;
+                    Noise(b.Pos, 900f, sound);
+                    Thrown.RemoveAt(k);
+                    continue;
+                }
+                b.Pos += b.Dir * adv;
+                b.Travelled += adv;
                 if (hitN != null)
                 {
                     Noise(b.Pos, 900f, sound);
@@ -561,10 +571,7 @@ namespace Vision.Game
                     foreach (Npc n in Npcs)
                         if (n.TripsTraps && Vector2.Distance(n.Pos, t.Pos) <= trigger) { who = n.Name; break; }
                 if (who == null) continue;
-                Gases.Add(new GasCloud { Id = AllocEntityId(), Pos = t.Pos });
-                Emit(Near(t.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Gas, Pos = t.Pos });
-                Feed($"{who} tripped a galaxy gas trap");
-                Traps.RemoveAt(k);
+                BurstTrap(k, who);
             }
             foreach (SimPlayer p in Order) p.Gassed = false;
             for (int k = Gases.Count - 1; k >= 0; k--)
@@ -597,8 +604,15 @@ namespace Vision.Game
                 p.JarvisT = Mathf.Max(0f, p.JarvisT - dt);
                 // Night vision is on only while left click is held with the goggles selected.
                 Inventory.Slot s = p.Selected;
+                // Right click with the 0.50 cal aims it: the scope up, the laser on, and slower on the feet.
+                p.Aiming = p.LastCmd.Has(Btn.Lunge) && s != null && s.item == ItemType.Sniper && p.CanAct && p.HideState == 0 && p.Action == ActionKind.None;
+                if (p.Aiming)
+                {
+                    p.Move.SlowT = Mathf.Max(p.Move.SlowT, 0.1f);
+                    p.Move.SlowMul = Mathf.Min(p.Move.SlowMul, Balance.Items.Sniper.AimSlowMul);
+                }
                 bool holding = p.LastCmd.Has(Btn.Primary) && s != null && s.item == ItemType.Goggles;
-                p.GogglesOn = s != null && holding && (p.CanAct || p.Health == Health.Downed) && p.HideState == 0 && (TestMode || p.Inv.AmountAt(p.SelSlot) > 0f);
+                p.GogglesOn = s != null && holding && (p.CanAct || p.Health == Health.Downed) && p.HideState == 0 && p.Zone == 0 && (TestMode || p.Inv.AmountAt(p.SelSlot) > 0f);
                 if (s != null && p.GogglesOn && !TestMode)
                 {
                     float left = p.Inv.AmountAt(p.SelSlot) - dt;
@@ -611,6 +625,34 @@ namespace Vision.Game
                     }
                 }
             }
+        }
+
+        /// <summary>A trap bursts into galaxy gas.</summary>
+        void BurstTrap(int k, string who)
+        {
+            Trap t = Traps[k];
+            Gases.Add(new GasCloud { Id = AllocEntityId(), Pos = t.Pos });
+            Emit(Near(t.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Gas, Pos = t.Pos });
+            Feed($"{who} tripped a galaxy gas trap");
+            Traps.RemoveAt(k);
+        }
+
+        /// <summary>
+        /// A shot or a thrown item from <paramref name="from"/> along <paramref name="dir"/> for <paramref name="len"/>: every
+        /// armed trap it passes over (within the trap's own size) bursts. Returns how far along the first one was (+inf if none).
+        /// </summary>
+        float HitTraps(Vector2 from, Vector2 dir, float len, string who)
+        {
+            float r = R(Balance.Items.Trap.HitRadius), first = float.PositiveInfinity;
+            for (int k = Traps.Count - 1; k >= 0; k--)
+            {
+                if (Traps[k].ArmT > 0f) continue;
+                float t = RayCircle(from, dir, Traps[k].Pos, r);
+                if (t > len) continue;
+                first = Mathf.Min(first, t);
+                BurstTrap(k, who);
+            }
+            return first;
         }
 
         /// <summary>The Grapes of Wrath hits Zach: a picture flashes over his screen with the vine boom; stunned; abilities off.</summary>

@@ -132,11 +132,11 @@ namespace Vision.Characters
             Inventory.Slot s = p.Selected;
             if (s != null)
             {
-                // Each gun held the way it is in real life: a pistol in a two-handed Weaver grip, the shotgun and the
-                // 0.50 cal shouldered (the rifle with the cheek down on the scope).
+                // Each gun held the way it is in real life: a pistol in a two-handed Weaver grip, the shotgun shouldered,
+                // the 0.50 cal at the hip until right click brings the scope up to the eye.
                 if (s.item == ItemType.Pistol) return ActionClips.AimPistol;
                 if (s.item == ItemType.Shotgun) return ActionClips.AimLong;
-                if (s.item == ItemType.Sniper) return ActionClips.AimRifle;
+                if (s.item == ItemType.Sniper) return p.Aiming ? ActionClips.AimRifle : ActionClips.HipRifle;
             }
             return null;
         }
@@ -189,7 +189,7 @@ namespace Vision.Characters
                     if (e.A == self.Id)
                     {
                         var gun = (Vision.Player.ItemType)e.B;
-                        PlayOnce(gun == ItemType.Pistol ? ActionClips.RecoilPistol : gun == ItemType.Sniper ? ActionClips.RecoilRifle
+                        PlayOnce(gun == ItemType.Pistol ? ActionClips.RecoilPistol : gun == ItemType.Sniper ? (self.Aiming ? ActionClips.RecoilRifle : ActionClips.RecoilHip)
                             : self.Role == Role.Hunter ? ActionClips.RecoilPump : ActionClips.RecoilLong);
                     }
                     break;

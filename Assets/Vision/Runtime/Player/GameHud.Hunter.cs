@@ -71,8 +71,8 @@ namespace Vision.Player
             jarvisSlot = MakeAbility(survivorStrip, "Q", "JARVIS", "tablet", 14f, 76f);
             beamSlot = MakeAbility(survivorStrip, "R", "Hemp Beam", "leaf", 14f + 82f, 76f);
             survivorStrip.gameObject.SetActive(false);
-            // Zach's speed loss and Hemp recovery sit in the shield's place under his health bar.
-            zachRates = kit.Label(Node("Zach Rates", vitalsBox, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(18f, -45f), new Vector2(350f, 38f)), "", 14, TextAnchor.UpperLeft, UiKit.Bone, UiKit.Face.Mono, 0f);
+            // Zach's speed loss and Hemp recovery sit beside his stamina bar.
+            zachRates = kit.Label(Node("Zach Rates", staminaBox, new Vector2(1f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 0f), new Vector2(380f, 38f)), "", 14, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.Mono, 0f);
             zachRates.supportRichText = true;
             zachRates.lineSpacing = 1.15f;
             zachRates.gameObject.SetActive(false);

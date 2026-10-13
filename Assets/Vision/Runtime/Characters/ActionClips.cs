@@ -153,6 +153,14 @@ namespace Vision.Characters
         static ActionPose RifleHold(float sx = 6f, float sy = 14f, float raise = 0f, float flip = 0f) =>
             Shouldered(sx, sy, 3f, 10f, 13f, (-35.4f, -65f, 26.9f), -103.9f, (49.2f, 28.1f, 43.6f), (-62.5f, -5.1f, 14.5f), -54.5f, (3.4f, -27.3f, 2.7f), raise, flip);
 
+        /// <summary>
+        /// The 0.50 cal at the hip (not aimed): the grip low by the right hip with the elbow tucked back, the stock under the
+        /// forearm, the support hand under the forend with a soft elbow, the muzzle level out in front; the body a little
+        /// bladed, the head up and looking over the gun (solved in scratchpad poses_hip.py).
+        /// </summary>
+        static ActionPose HipHold(float sx = 3f, float sy = 10f, float raise = 0f, float flip = 0f) =>
+            Shouldered(sx, sy, 1f, 6f, 2f, (9.4f, -54.8f, 8.7f), -76.8f, (-13.7f, 14.8f, 35.2f), (-32f, 47.7f, -13.3f), -20.5f, (-39.9f, 5.7f, -25.8f), raise, flip);
+
         /// <summary>A pistol in a Weaver grip: the gun arm out with a soft elbow, the support arm bent, its hand cupping the grip.</summary>
         static ActionPose PistolHold(float sx = 2f, float raise = 0f, float flip = 0f, float give = 0f) => P()
             .R(Bone.Spine, sx, 8f).R(Bone.Chest, 1f, 6f).R(Bone.Neck, 1f, -4f).R(Bone.Head, 3f, -10f)
@@ -183,10 +191,27 @@ namespace Vision.Characters
             .Event(0.3f, "rack")
             .Blend(0.03f, 0.12f);
 
-        /// <summary>The 0.50 cal at the shoulder: leaning into it, the cheek down on the scope, the support hand far out.</summary>
+        /// <summary>
+        /// Aiming the 0.50 cal (right click): the stock comes up into the shoulder and the cheek down onto it, the eye behind
+        /// the scope, the support hand far out; the upper body stays steady over the walking legs, as a rifleman glides
+        /// on the move. Eased in and out over about a quarter of a second from the hip.
+        /// </summary>
         public static readonly ActionClip AimRifle = new ActionClip("AimRifle", 1f, true)
             .Key(0f, RifleHold())
-            .Blend(0.3f, 0.3f);
+            .Blend(0.26f, 0.26f);
+
+        /// <summary>The 0.50 cal carried at the hip while it isn't aimed.</summary>
+        public static readonly ActionClip HipRifle = new ActionClip("HipRifle", 1f, true)
+            .Key(0f, HipHold())
+            .Blend(0.26f, 0.26f);
+
+        /// <summary>A 0.50 cal shot from the hip: the gun bucks up and the body rocks back, then settles.</summary>
+        public static readonly ActionClip RecoilHip = new ActionClip("RecoilHip", 0.6f)
+            .Key(0f, HipHold())
+            .Key(0.05f, HipHold(-6f, 18f, -12f, -4f))
+            .Key(0.2f, HipHold(-1f, 13f, -5f, -1f))
+            .Key(0.6f, HipHold())
+            .Blend(0.03f, 0.15f);
 
         /// <summary>The 0.50 cal's heavy kick: the body shoved back a step's worth, the muzzle climbing; a slow settle.</summary>
         public static readonly ActionClip RecoilRifle = new ActionClip("RecoilRifle", 0.6f)
@@ -266,11 +291,12 @@ namespace Vision.Characters
 
         // ---------------------------------------------------------------- Zach
 
-        // Zach's machete cuts in an X, back and forth along a figure 8, always in his right hand: the forehand falls from
-        // high over his right shoulder, diagonally down across his chest to his left hip, and the blade loops on up over
+        // Zach's machete cuts in a wide X, back and forth along a figure 8, always in his right hand: the forehand falls from
+        // high beside his right shoulder, about 35 degrees below level, across his chest to his left waist, and the blade loops on up over
         // his left shoulder; the backhand falls from there down across to his right hip and loops back up over his right
         // shoulder, ready for the next forehand. The hand's path, the blade's direction (pointing out from him through the
-        // cut, the tip trailing the hand) and its edge (leading) are solved key by key in scratchpad poses_x.py. The torso
+        // cut, the tip trailing the hand) and its edge (leading) are solved key by key in scratchpad poses_x35.py: a flat,
+        // side-to-side cut with a wide arc out in front, the torso turning further and the shoulders leading the arm. The torso
         // winds up toward the shoulder the cut starts from and unwinds through it, leaning in as it falls; the free arm
         // reaches forward as a guard while the blade is up, as in the user's reference stance, and swings back against
         // the cut; the head stays on the target. Charged cuts are the same X, wound tighter, low and wide on bent knees,
@@ -290,32 +316,32 @@ namespace Vision.Characters
         static readonly (float, float, float) Guard = (-56f, 10f, -24f), Tucked = (6f, 0f, -30f);
 
         // The light X (forehand F, backhand B): cocked, early in the cut, the hit in front, late, the end at the hip, the loop.
-        static ActionPose CockF() => Cut(-4f, 26f, (-107.4f, 49.2f, -29.2f), -99.2f, (27.8f, 45.2f, -53f), Guard, -40f);
-        static ActionPose F1() => Cut(4f, 14f, (-60.7f, 15.8f, -43.9f), -96.1f, (90f, 14.9f, -22.7f), (-45f, 5f, -22f), -34f);
-        static ActionPose F2() => Cut(10f, 0f, (-32.8f, 20.2f, -57.6f), -85f, (90f, -3.2f, -4.6f), (-25f, 0f, -22f), -30f);
-        static ActionPose F3() => Cut(14f, -14f, (-27.5f, 19.4f, -48.8f), -56.2f, (83.2f, 0.3f, -2.6f), (-5f, 0f, -25f), -24f);
-        static ActionPose EndF() => Cut(16f, -24f, (-36f, 22f, -48.6f), -6f, (84.6f, 2f, -6.1f), (10f, 0f, -28f), -20f);
-        static ActionPose LoopF() => Cut(8f, -20f, (-36.5f, -49.2f, -10.9f), -92.4f, (26.7f, -52.1f, -5.6f), (5f, 0f, -28f), -28f);
-        static ActionPose CockB() => Cut(-2f, -22f, (-97.6f, -53.3f, -25.4f), -75.5f, (12f, -79f, 63.8f), Tucked, -35f);
-        static ActionPose B1() => Cut(4f, -12f, (-54.3f, 2.5f, -75.8f), -91.2f, (89.2f, -52.2f, 37.9f), (-10f, 0f, -28f), -32f);
-        static ActionPose B2() => Cut(10f, 0f, (-43.5f, 6.3f, -36.6f), -80.7f, (90f, -39f, 24.7f), (-30f, 0f, -24f), -32f);
-        static ActionPose B3() => Cut(14f, 14f, (-31.2f, 23.5f, -39.9f), -60.8f, (82.4f, -22.1f, 31.3f), (-45f, 5f, -24f), -36f);
-        static ActionPose EndB() => Cut(14f, 22f, (-29.8f, 70.5f, -44f), -6f, (41.6f, 36.9f, 75.8f), Guard, -40f);
-        static ActionPose LoopB() => Cut(6f, 24f, (-27.5f, 13.1f, -36.6f), -124.6f, (37.3f, -1.4f, 41.6f), Guard, -40f);
+        static ActionPose CockF() => Cut(-2f, 38f, (-66.7f, -1.3f, 11.3f), -98.3f, (0f, 42.2f, -66.6f), Guard, -40f);
+        static ActionPose F1() => Cut(4f, 22f, (-66.2f, 8.2f, -15f), -75.9f, (90f, 16.5f, -40.9f), (-45f, 5f, -22f), -34f);
+        static ActionPose F2() => Cut(8f, 0f, (-33.6f, 31.2f, -70.2f), -70.1f, (90f, -9.4f, -15f), (-25f, 0f, -22f), -30f);
+        static ActionPose F3() => Cut(11f, -22f, (-25.5f, 30.8f, -65.2f), -43.2f, (76.7f, -3.6f, -8.2f), (-5f, 0f, -25f), -24f);
+        static ActionPose EndF() => Cut(13f, -34f, (-45f, 21.8f, -58.5f), -6f, (78.3f, -17.5f, -27f), (10f, 0f, -28f), -20f);
+        static ActionPose LoopF() => Cut(6f, -28f, (-43.6f, -43.9f, -13.5f), -93.2f, (33.9f, -57.5f, -18.3f), (5f, 0f, -28f), -28f);
+        static ActionPose CockB() => Cut(-2f, -32f, (-71.7f, -55.5f, -13.3f), -83f, (2.9f, -82.6f, 68.1f), Tucked, -35f);
+        static ActionPose B1() => Cut(4f, -18f, (-40.3f, 11.8f, -85.3f), -71.2f, (80.2f, -38.1f, 56.4f), (-10f, 0f, -28f), -32f);
+        static ActionPose B2() => Cut(8f, 0f, (-50f, 19.5f, -52.2f), -64.1f, (90f, -26f, 44.3f), (-30f, 0f, -24f), -32f);
+        static ActionPose B3() => Cut(11f, 22f, (-39.7f, 24f, -40f), -55.3f, (80.9f, -9.4f, 52.9f), (-45f, 5f, -24f), -36f);
+        static ActionPose EndB() => Cut(12f, 34f, (-47.7f, 57.8f, -45.2f), -6f, (40.5f, 40.8f, 83f), Guard, -40f);
+        static ActionPose LoopB() => Cut(5f, 34f, (-41f, 12.4f, -32.7f), -114.1f, (44.5f, 11.2f, 42.2f), Guard, -40f);
 
         // The charged X: wound further, the blade higher, the cut deeper.
-        static ActionPose HCockF(float tremble = 0f) => Cut(-6f, 35f + tremble, (-113.5f - tremble, 28.3f, -20.6f + tremble * 0.5f), -78.9f, (19.7f, 41.4f, -57.4f), (-60f, 12f, -24f), -42f);
-        static ActionPose HF1() => Cut(4f, 19f, (-71.5f, 17.5f, -47.2f), -84.6f, (90f, 13.6f, -29.6f), (-45f, 5f, -22f), -34f);
-        static ActionPose HF2() => Cut(12f, 0f, (-33.3f, 20.4f, -57.3f), -84.4f, (90f, -7f, -9f), (-20f, 0f, -24f), -28f);
-        static ActionPose HF3() => Cut(18f, -19f, (-28f, 23f, -42f), -50.2f, (77f, -1.6f, -9.5f), (0f, 0f, -26f), -22f);
-        static ActionPose HEndF() => Cut(24f, -32f, (-46.7f, 14.3f, -35.5f), -6f, (72.8f, -15.9f, -25.9f), (14f, 0f, -30f), -18f);
-        static ActionPose HLoopF() => Cut(8f, -27f, (-33.8f, -45.5f, -5.6f), -101f, (32.5f, -50.5f, -18.7f), (5f, 0f, -28f), -28f);
-        static ActionPose HCockB(float tremble = 0f) => Cut(-4f, -30f - tremble, (-114.2f - tremble, -24.7f, -38.2f - tremble * 0.5f), -62.5f, (22f, -70.8f, 58f), Tucked, -35f);
-        static ActionPose HB1() => Cut(4f, -16f, (-54.6f, 16.5f, -90.6f), -89.8f, (90f, -53.9f, 41.1f), (-10f, 0f, -28f), -32f);
-        static ActionPose HB2() => Cut(12f, 0f, (-43.1f, 8.9f, -40f), -80.1f, (90f, -39.1f, 26.3f), (-34f, 0f, -24f), -34f);
-        static ActionPose HB3() => Cut(18f, 19f, (-40.4f, 19.5f, -37.5f), -35.4f, (68.6f, -1.1f, 48.8f), (-50f, 8f, -24f), -38f);
-        static ActionPose HEndB() => Cut(22f, 30f, (-32.2f, 60.8f, -47.4f), -6f, (37.7f, 33.4f, 60.2f), (-60f, 12f, -24f), -42f);
-        static ActionPose HLoopB() => Cut(6f, 32f, (-30.3f, 7.1f, -44f), -115.6f, (33.5f, -8.6f, 40.4f), Guard, -40f);
+        static ActionPose HCockF(float tremble = 0f) => Cut(-2f, 45.6f + tremble, (-76.6f - tremble, 9.3f, -14.1f + tremble * 0.5f), -85.4f, (2.3f, 37.6f, -68.6f), (-60f, 12f, -24f), -42f);
+        static ActionPose HF1() => Cut(4f, 26.4f, (-72.7f, 16.1f, -30.6f), -66.6f, (90f, 11.5f, -42.6f), (-45f, 5f, -22f), -34f);
+        static ActionPose HF2() => Cut(8f, 0f, (-32.9f, 32.3f, -71.7f), -69.2f, (90f, -13.4f, -17.7f), (-20f, 0f, -24f), -28f);
+        static ActionPose HF3() => Cut(11f, -26.4f, (-24.7f, 33.2f, -60.9f), -46f, (76f, -6.6f, -13.5f), (0f, 0f, -26f), -22f);
+        static ActionPose HEndF() => Cut(18f, -40.8f, (-51.3f, 23.1f, -53.1f), -6f, (72.2f, -24.2f, -34.9f), (14f, 0f, -30f), -18f);
+        static ActionPose HLoopF() => Cut(6f, -33.6f, (-41.7f, -40.4f, -10.6f), -99f, (37.1f, -57.6f, -22.7f), (5f, 0f, -28f), -28f);
+        static ActionPose HCockB(float tremble = 0f) => Cut(-2f, -38.4f - tremble, (-78.5f - tremble, -54.2f, -7.3f - tremble * 0.5f), -81.4f, (5.5f, -84.8f, 64.2f), Tucked, -35f);
+        static ActionPose HB1() => Cut(4f, -21.6f, (-40.3f, 16.6f, -89.6f), -74.2f, (82.4f, -45.7f, 51f), (-10f, 0f, -28f), -32f);
+        static ActionPose HB2() => Cut(8f, 0f, (-49.5f, 20.4f, -53.4f), -64.1f, (90f, -32.8f, 38.1f), (-34f, 0f, -24f), -34f);
+        static ActionPose HB3() => Cut(11f, 26.4f, (-44.9f, 20.8f, -40.1f), -40.3f, (73.2f, -2.3f, 58.1f), (-50f, 8f, -24f), -38f);
+        static ActionPose HEndB() => Cut(17f, 40.8f, (-49.5f, 51.5f, -49.8f), -6f, (38.2f, 37.2f, 76.2f), (-60f, 12f, -24f), -42f);
+        static ActionPose HLoopB() => Cut(5f, 40.8f, (-43.2f, 8.3f, -39.8f), -105.8f, (41.1f, 4.1f, 42.7f), Guard, -40f);
 
         /// <summary>
         /// Charging a forehand: low and wide on bent knees, the machete cocked high over his right shoulder, the blade
@@ -538,7 +564,7 @@ namespace Vision.Characters
         public static IEnumerable<ActionClip> All => new[]
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, AimRifle, RecoilRifle,
-            AimPistol, RecoilPistol, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
+            AimPistol, RecoilPistol, HipRifle, RecoilHip, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
             Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes,
         };
     }

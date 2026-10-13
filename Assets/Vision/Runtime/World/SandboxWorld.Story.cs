@@ -57,8 +57,7 @@ namespace Vision.World
             PathNetwork paths = Terrain.Paths;
             bool Ok(Vector2 p, bool strictPaths)
             {
-                float lim = halfExtent - 450f * U;
-                if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
+                if (p.magnitude > halfExtent - 450f * U) return false;
                 if (Expand(Layout.Building, clear + 200f * U).Contains(p) || Expand(Layout.Yard, clear + 100f * U).Contains(p)) return false;
                 for (int k = 0; k < 8; k++)
                 {
@@ -177,8 +176,7 @@ namespace Vision.World
                 Vector2 on = Vector2.Lerp(a, b, R(0f, 1f));
                 Vector2 dir = (b - a).normalized, side = new Vector2(-dir.y, dir.x) * (r.Next(2) == 0 ? 1f : -1f);
                 Vector2 p = on + side * (paths.HalfWidth + R(30f, 70f) * U);
-                float lim = halfExtent - 300f * U;
-                if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) continue;
+                if (p.magnitude > halfExtent - 300f * U) continue;
                 if (Layout.LakeDepth(p) > -1.5f || Expand(Layout.Building, 40f * U).Contains(p) || Layout.Yard.Contains(p)) continue;
                 if (Vector2.Distance(Layout.Spawn, p) < 500f * U || Vector2.Distance(hunter, p) < 500f * U) continue;
                 if (placed.Exists(q => Vector2.Distance(q, p) < Game.Balance.Notes.Spacing * U)) continue;

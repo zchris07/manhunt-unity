@@ -131,9 +131,11 @@ namespace Vision.World
         void PlaceLake()
         {
             int corner = rng.Next(4);
-            float edge = HalfExtent - U(1050f);
-            LakeCentre = new Vector2((corner % 2 == 0 ? -1f : 1f) * edge + U(Range(-150f, 150f)), (corner < 2 ? 1f : -1f) * edge + U(Range(-150f, 150f)));
             LakeRadius = U(Range(480f, 580f));
+            // Toward one of the four diagonals, its far shore well inside the playable circle.
+            float reach = HalfExtent - LakeRadius * 1.2f - U(200f);
+            var dir = new Vector2(corner % 2 == 0 ? -1f : 1f, corner < 2 ? 1f : -1f).normalized;
+            LakeCentre = dir * reach + new Vector2(U(Range(-150f, 150f)), U(Range(-150f, 150f)));
             for (int i = 0; i < LakeShape.Length; i++) LakeShape[i] = 0.8f + (float)rng.NextDouble() * 0.28f;
             // The dock starts at the shore point facing the map centre and runs into the lake.
             Vector2 toCentre = (-LakeCentre).normalized;
@@ -176,18 +178,19 @@ namespace Vision.World
             for (int i = 0; i < 50; i++)
             {
                 var s = new Vector2(Range(-HalfExtent + U(1400f), HalfExtent - U(1400f)), -HalfExtent + U(Range(420f, 650f)));
-                if (!LakeClear(s, U(350f))) continue;
+                if (s.magnitude > HalfExtent - U(420f) || !LakeClear(s, U(350f))) continue;
                 Spawn = s;
                 break;
             }
             Clearings.Add(new Clearing { Centre = Spawn, Radius = U(230f) });
             const int want = 10;
-            float lim = HalfExtent - U(420f);
+            // Within the playable circle (a little further out than the square's limit was, for room).
+            float lim = HalfExtent - U(330f);
             for (int tries = 0; tries < 4000 && Clearings.Count < want + 1; tries++)
             {
                 float r = U(Range(220f, 300f));
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (NearBuilding(p, r + U(300f)) || InRect(Yard, p, r + U(200f)) || !LakeClear(p, r + U(150f))) continue;
+                if (p.magnitude > lim || NearBuilding(p, r + U(300f)) || InRect(Yard, p, r + U(200f)) || !LakeClear(p, r + U(150f))) continue;
                 float minD = U(tries < 2500 ? 820f : 650f);
                 bool close = false;
                 foreach (Clearing c in Clearings) if ((c.Centre - p).magnitude < minD) { close = true; break; }
@@ -281,8 +284,7 @@ namespace Vision.World
                 float ang = a + Mathf.PI + (placed == 0 ? -1f : 1f) * Range(0.6f, 1.6f) + (tries > 20 ? Range(-2f, 2f) : 0f);
                 float dist = r + U(95f) + U(Range(0f, 40f));
                 Vector2 k = g + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * dist;
-                float lim = HalfExtent - r - U(60f);
-                if (Mathf.Abs(k.x) > lim || Mathf.Abs(k.y) > lim) continue;
+                if (k.magnitude > HalfExtent - r - U(60f)) continue;
                 if (NearBuilding(k, r + U(160f)) || !LakeClear(k, r + U(80f)) || InRect(Yard, k, r + U(120f))) continue;
                 bool bad = false;
                 foreach (Cabin cb in Cabins) if (InRect(cb.Area, k, r + U(90f))) bad = true;
@@ -300,8 +302,7 @@ namespace Vision.World
 
         bool FreeSite(Vector2 p, float r)
         {
-            float lim = HalfExtent - r - 4f;
-            if (Mathf.Abs(p.x) > lim || Mathf.Abs(p.y) > lim) return false;
+            if (p.magnitude > HalfExtent - r - 4f) return false;
             if (NearBuilding(p, r + 10f) || InRect(Yard, p, r + 6f) || !LakeClear(p, r + 6f)) return false;
             if ((p - Spawn).magnitude < r + 18f) return false;
             foreach (Clearing c in Clearings) if ((c.Centre - p).magnitude < c.Radius + r + 6f) return false;
@@ -349,7 +350,7 @@ namespace Vision.World
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
                 float r = U(Range(80f, 125f));
-                if (Blocked(p) || !LakeClear(p, r + U(60f))) continue;
+                if (p.magnitude > lim || Blocked(p) || !LakeClear(p, r + U(60f))) continue;
                 bool close = false;
                 foreach (Clearing g in GrassPatches) if ((g.Centre - p).magnitude < U(600f)) close = true;
                 if (close || (Spawn - p).magnitude < U(500f)) continue;
@@ -366,7 +367,7 @@ namespace Vision.World
                 var a = new Vector2(Range(-lim, lim), Range(-lim, lim));
                 float ang = Range(0f, Mathf.PI), len = U(Range(260f, 440f));
                 Vector2 b = a + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * len;
-                bool ok = true;
+                bool ok = a.magnitude <= lim && b.magnitude <= lim;
                 for (float t = 0f; t <= 1.001f && ok; t += 0.1f)
                 {
                     Vector2 q = Vector2.Lerp(a, b, t);
@@ -434,7 +435,7 @@ namespace Vision.World
                 // Step a pole off anything it would stand in.
                 for (int k = 0; k < 12 && (Blocked(p) || !LakeClear(p, 2f)); k++)
                     p += (alongX ? Vector2.up : Vector2.right) * 2.5f * (k % 2 == 0 ? 1f : -1f) * (k / 2 + 1);
-                if (Blocked(p) || !LakeClear(p, 2f) || NearBuilding(p, 4f)) continue;
+                if (p.magnitude > HalfExtent - 4f || Blocked(p) || !LakeClear(p, 2f) || NearBuilding(p, 4f)) continue;
                 PowerPoles.Add(p);
                 KeepCircles.Add((p, 1.2f));
             }

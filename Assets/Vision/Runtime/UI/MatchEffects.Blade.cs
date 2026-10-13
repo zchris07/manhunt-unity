@@ -7,15 +7,17 @@ using Vision.Game;
 namespace Vision.UI
 {
     /// <summary>
-    /// The machete's trail: a swept band through the air that follows the real blade of Zach's model as it cuts, from
-    /// near the guard out to the tip, sampled every frame while the cut falls and smoothed between frames. A light cut
-    /// leaves a pale steel sheen with a crisp bone-white edge along the tip's path, gone in about an eighth of a second;
-    /// a charged cut a wider band, dark blood red at its heart and brighter toward the edge, lingering a little longer, and
-    /// flinging red droplets off the tip when it connects.
+    /// The machete's swipe line: a swept band through the air that starts near the tip of the real blade of Zach's model
+    /// and reaches out, the way the blade points, to the swing's actual attack radius, so its outer edge shows how far the
+    /// cut hits; it sweeps across with the blade as it cuts, sampled every frame and smoothed between frames. A light cut
+    /// leaves a pale steel sheen with a crisp bone-white edge along the reach, gone in about an eighth of a second; a
+    /// charged cut (with its longer reach) a band dark blood red at its heart and brighter toward the edge, lingering a
+    /// little longer, and flinging red droplets off the tip when it connects.
     /// </summary>
     public sealed partial class MatchEffects
     {
-        struct BladeSample { public Vector3 Inner, Tip; public float T; }
+        /// <summary>Near the blade's tip, out at the attack radius, the blade's own tip (for the droplets), when.</summary>
+        struct BladeSample { public Vector3 Inner, Tip, Blade; public float T; }
 
         sealed class Trail
         {
@@ -32,9 +34,8 @@ namespace Vision.UI
         readonly List<(Vector3 inner, Vector3 tip, float age)> smooth = new List<(Vector3, Vector3, float)>(128);
 
         // The machete as PropModels builds it: the blade runs from 0.10 m past the grip to its tip at about 0.575 m, the
-        // edge along its lower side. The trail spans from a point along the blade to just past the tip.
-        static readonly Vector3 TipLocal = new Vector3(0f, -0.012f, 0.578f);
-        static readonly Vector3 InnerLight = new Vector3(0f, -0.016f, 0.24f), InnerHeavy = new Vector3(0f, -0.016f, 0.13f);
+        // edge along its lower side. The swipe line starts a little inside the tip.
+        static readonly Vector3 TipLocal = new Vector3(0f, -0.012f, 0.578f), NearTip = new Vector3(0f, -0.014f, 0.46f);
         const float LightLife = 0.13f, HeavyLife = 0.2f;
 
         static Color Hex(int rgb, float a) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, a);
@@ -49,7 +50,8 @@ namespace Vision.UI
                 if (p.Role != Role.Hunter || p.Health == Health.Eliminated) continue;
                 GameObject go = CharacterOf(p);
                 ActionLayer layer = go != null ? go.GetComponent<ActionLayer>() : null;
-                if (layer != null) TrackBlade(p.Id, layer);
+                float reach = Scale.D(Balance.Hunter.Attack.Range * (p.JadenBonus > 0 ? Balance.Hunter.JadenSlainRangeMul : 1f)) * S;
+                if (layer != null) TrackBlade(p.Id, layer, reach, Balance.Hunter.Attack.ChargeRangeMul);
             }
             for (int i = trails.Count - 1; i >= 0; i--)
             {
@@ -65,8 +67,11 @@ namespace Vision.UI
             }
         }
 
-        /// <summary>Takes this frame's sample of a model's machete while it is cutting (a new trail for each new cut).</summary>
-        public void TrackBlade(int owner, ActionLayer layer)
+        /// <summary>
+        /// Takes this frame's sample of a model's machete while it is cutting (a new swipe line for each new cut):
+        /// <paramref name="reach"/> is a light swing's attack radius in the world, times <paramref name="heavyMul"/> when charged.
+        /// </summary>
+        public void TrackBlade(int owner, ActionLayer layer, float reach, float heavyMul)
         {
             if (layer == null || layer.HeldRight != PropKind.Machete) return;
             Transform blade = layer.PropTransform();
@@ -85,7 +90,13 @@ namespace Vision.UI
             }
             tr.ClipT = ct;
             tr.Live = true;
-            tr.Samples.Add(new BladeSample { Inner = blade.TransformPoint(tr.Heavy ? InnerHeavy : InnerLight), Tip = blade.TransformPoint(TipLocal), T = Time.time });
+            // Out from the body's centre through the blade's tip, to the attack radius, at the tip's height.
+            Vector3 tip = blade.TransformPoint(TipLocal), centre = layer.transform.position;
+            Vector3 flat = tip - centre;
+            flat.y = 0f;
+            float r = reach * (tr.Heavy ? heavyMul : 1f);
+            Vector3 outer = flat.sqrMagnitude > 1e-6f && flat.magnitude < r ? centre + flat.normalized * r + Vector3.up * (tip.y - centre.y) : tip;
+            tr.Samples.Add(new BladeSample { Inner = blade.TransformPoint(NearTip), Tip = outer, Blade = tip, T = Time.time });
         }
 
         /// <summary>Red droplets flung off the tip of a charged cut where it connects, along the blade's swing.</summary>
@@ -96,11 +107,11 @@ namespace Vision.UI
                 Trail tr = trails[i];
                 if (tr.Owner != owner || tr.Samples.Count < 2) continue;
                 BladeSample a = tr.Samples[tr.Samples.Count - 2], b = tr.Samples[tr.Samples.Count - 1];
-                Vector3 swing = (b.Tip - a.Tip) / Mathf.Max(1f / 240f, b.T - a.T);
+                Vector3 swing = (b.Blade - a.Blade) / Mathf.Max(1f / 240f, b.T - a.T);
                 for (int k = 0; k < 9; k++)
                 {
                     Vector3 v = swing * Random.Range(0.25f, 0.6f) + Random.insideUnitSphere * 1.6f * S + Vector3.up * Random.Range(0.4f, 1.6f) * S;
-                    Vector3 at = Vector3.Lerp(b.Inner, b.Tip, Random.Range(0.55f, 1f));
+                    Vector3 at = Vector3.Lerp(b.Inner, b.Blade, Random.Range(0.3f, 1f));
                     Fx.Emit(at, v, Random.Range(0.35f, 0.6f), Hex(0x6a0a0c, 0.95f), Random.Range(0.035f, 0.06f) * S, 9.8f * S, 0.6f, true, false, 1f, true, false, Vfx.Blend.Alpha);
                 }
                 return;
@@ -130,18 +141,18 @@ namespace Vision.UI
             if (tr.Heavy)
             {
                 // Blood: dark at the heart of the band, redder toward the edge, a hot thin edge on the tip's path.
-                Band(0f, 0.45f, Hex(0x3a0406, 0f), Hex(0x5a0808, 0.42f), life, Vfx.Blend.Alpha);
-                Band(0.45f, 0.86f, Hex(0x5a0808, 0.42f), Hex(0xb01818, 0.6f), life, Vfx.Blend.Alpha);
-                Band(0.86f, 1f, Hex(0xb01818, 0.6f), Hex(0xd84030, 0.5f), life, Vfx.Blend.Alpha);
-                Band(0.955f, 1.012f, Hex(0xffb8a0, 0.0f), Hex(0xffd8c8, 0.85f), life, Vfx.Blend.Additive);
+                Band(0f, 0.45f, Hex(0x3a0406, 0f), Hex(0x5a0808, 0.2f), life, Vfx.Blend.Alpha);
+                Band(0.45f, 0.86f, Hex(0x5a0808, 0.2f), Hex(0xb01818, 0.36f), life, Vfx.Blend.Alpha);
+                Band(0.86f, 1f, Hex(0xb01818, 0.36f), Hex(0xd84030, 0.42f), life, Vfx.Blend.Alpha);
+                Band(0.97f, 1.008f, Hex(0xffb8a0, 0.0f), Hex(0xffd8c8, 0.6f), life, Vfx.Blend.Additive);
             }
             else
             {
                 // Steel: a faint pale sheen deepening toward the tip, a soft glow just inside the edge, the edge itself crisp.
-                Band(0f, 0.55f, Hex(0x9aa4ae, 0f), Hex(0xb8c0c8, 0.12f), life, Vfx.Blend.Alpha);
-                Band(0.55f, 1f, Hex(0xb8c0c8, 0.12f), Hex(0xe0e4e6, 0.26f), life, Vfx.Blend.Alpha);
-                Band(0.8f, 1f, Hex(0xc8d4e0, 0f), Hex(0xc8d4e0, 0.12f), life, Vfx.Blend.Additive);
-                Band(0.965f, 1.01f, Hex(0xe8e2d0, 0.06f), Hex(0xf4efe2, 0.6f), life, Vfx.Blend.Additive);
+                Band(0f, 0.55f, Hex(0x9aa4ae, 0f), Hex(0xb8c0c8, 0.05f), life, Vfx.Blend.Alpha);
+                Band(0.55f, 1f, Hex(0xb8c0c8, 0.05f), Hex(0xe0e4e6, 0.13f), life, Vfx.Blend.Alpha);
+                Band(0.85f, 1f, Hex(0xc8d4e0, 0f), Hex(0xc8d4e0, 0.06f), life, Vfx.Blend.Additive);
+                Band(0.975f, 1.008f, Hex(0xe8e2d0, 0.04f), Hex(0xf4efe2, 0.45f), life, Vfx.Blend.Additive);
             }
         }
 

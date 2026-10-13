@@ -26,6 +26,9 @@ namespace Vision.Game
         readonly Chaser chaser;
 
         public override string Name => "Plasma.TTV";
+        /// <summary>Only the beast can be slain: six hits from either side.</summary>
+        public override float? HealthFor(Role viewer) => !alive || !Beast ? (float?)null
+            : viewer == Role.Hunter ? 1f - ZachHits / (float)Balance.Plasma.ZachHits : 1f - SurvivorHits / (float)Balance.Plasma.SurvivorHits;
         public override int Kind => 4;
         public override float RadiusUnits => State == Mode.Rage || State == Mode.Revert ? Balance.Plasma.BeastRadius : Balance.Plasma.Radius;
         /// <summary>The beast is as easy to hit as he is big, but squeezes through doorways like a man (his model keeps its size).</summary>

@@ -20,7 +20,7 @@ namespace Vision.Player
         public static bool ShouldApply(string[] args)
         {
             foreach (string a in args)
-                if (a.StartsWith("-screen-", StringComparison.OrdinalIgnoreCase) || a == "-visionCapture" || a == "-popupwindow") return false;
+                if (a.StartsWith("-screen-", StringComparison.OrdinalIgnoreCase) || a == "-visionCapture" || a == "-visionGasLab" || a == "-popupwindow") return false;
             return true;
         }
     }

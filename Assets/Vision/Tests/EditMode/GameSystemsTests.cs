@@ -97,8 +97,9 @@ namespace Vision.Tests
                 me.Inv.Add(ItemType.MiniShield, 2);
                 hud.Refresh();
                 var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true);
-                Assert.IsTrue(texts.Any(t => t.name == "Health Value" && t.text == "60"), "health shows 60");
-                Assert.IsTrue(texts.Any(t => t.name == "Shield Value" && t.text == "0"), "the shield went first");
+                Assert.AreEqual(0.6f, me.Hp, 1e-3f, "health 60");
+                Assert.AreEqual(0f, me.Shield, 1e-5f, "the shield went first");
+                Assert.IsTrue(texts.Any(t => t.name == "Label" && t.text.StartsWith("SPRINT")), "the original's sprint bar above the inventory");
                 Assert.IsTrue(texts.Any(t => t.name == "Name" && t.text == "MINI SHIELD"), "the mini shields are in a slot");
                 Assert.AreEqual(8, texts.Count(t => t.name == "Key" && t.gameObject.activeInHierarchy), "eight slots");
                 Assert.IsTrue(texts.Any(t => t.name.StartsWith("Objective") && t.text.Contains($"Generators 0/{host.Sim.Bal.RequiredGenerators}")), "the objective counts the generators");

@@ -22,6 +22,8 @@ namespace Vision.Game
         public override int Kind => 7;
         public override float RadiusUnits => Balance.Chacko.Radius;
         public override bool Alive => alive;
+        /// <summary>One hit from anyone slays him.</summary>
+        public override float? HealthFor(Role viewer) => alive ? 1f : (float?)null;
         public override bool Solid => alive;
         /// <summary>Slain, he stays slumped on the couch (exploded, he's gone).</summary>
         public override bool Gone => exploded;

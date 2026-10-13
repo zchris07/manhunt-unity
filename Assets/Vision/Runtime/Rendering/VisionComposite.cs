@@ -84,6 +84,8 @@ namespace Vision.Rendering
         [Range(0f, 1f)] public float fogScale = 1f;
         [Tooltip("Gassed (Penjamin on a survivor, galaxy gas on Zach): blurs the whole view, 0-1 (set by the player).")]
         [Range(0f, 1f)] public float gasBlur;
+        [Tooltip("The whole screen darkened (1: black), past the edge of the woods.")]
+        [Range(0f, 1f)] public float blackout;
         /// <summary>The gas blur's radius at full strength, in pixels at 1080 lines.</summary>
         public const float GasBlurPx = 9f;
         [Tooltip("Near-neutral so unlit areas carry almost no colour.")]
@@ -151,7 +153,7 @@ namespace Vision.Rendering
             bool fx = l.cameraEffects;
             VisionLight.FlickerEnabled = fx;
             material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness * fogScale));
-            material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, 0f));
+            material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, blackout));
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, gasBlur * GasBlurPx * cam.pixelHeight / 1080f));
             material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);

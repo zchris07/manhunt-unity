@@ -311,6 +311,9 @@ namespace Vision.Game
             SimPlayer p = Get(id);
             if (p == null) return;
             if (p.Health == Health.Carried || p.Health == Health.Staked || p.HideState != 0) return;
+            // The outer ring stops Zach while he can't cross it.
+            if (p.Role == Role.Hunter && CrossingBlocked(p) && pos.magnitude > Ring3 - Balance.Boundary.WallSkin)
+                pos = pos.normalized * (Ring3 - Balance.Boundary.WallSkin);
             p.Pos = pos;
             if (MoveModeFor(p) != MoveMode.Locked) p.Facing = facing;
             p.Gait = gait;
@@ -366,6 +369,7 @@ namespace Vision.Game
             UpdateCombat(dt);
             UpdateItems(dt);
             UpdateAbilities(dt);
+            UpdateBoundary(dt);
             foreach (Npc n in Npcs) n.Update(this, dt);
             UpdateVengeance(dt);
             foreach (SimPlayer p in Order) if (p.ArrowT > 0f) p.ArrowT = Mathf.Max(0f, p.ArrowT - dt);
@@ -509,7 +513,7 @@ namespace Vision.Game
             p.Spectating = DefaultSpectateTarget(p.Id);
             if (credit != null) credit.Stats.Eliminations++;
             Emit(null, new GameEvent { Kind = EventKind.Eliminated, A = p.Id });
-            Feed(why == "disconnected" ? $"{p.Name} disconnected" : $"{p.Name} was sacrificed");
+            Feed(why == "disconnected" ? $"{p.Name} disconnected" : why == "woods" ? $"{p.Name} wandered into the woods" : $"{p.Name} was sacrificed");
         }
 
         /// <summary>Grace period expired: survivors are eliminated, hunters leave the match.</summary>

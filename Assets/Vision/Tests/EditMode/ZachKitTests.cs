@@ -34,7 +34,7 @@ namespace Vision.Tests
             var rig = new SimRig(2, 1);
             rig.Place(rig.P(1), 0f, 0f);
             rig.Place(rig.P(2), dist, 0f);
-            rig.Place(rig.P(3), 2500f, 2500f);
+            rig.Place(rig.P(3), 1800f, 1800f);
             rig.P(1).Facing = 0f;
             return rig;
         }
@@ -179,7 +179,7 @@ namespace Vision.Tests
                 layer.Wire();
                 layer.Hold(Vision.Characters.PropKind.Machete);
                 layer.Play(Vision.Characters.ActionClips.SwingHeavy, 1f, true, 0.1f);
-                for (int i = 0; i < 5; i++) { layer.Step(0.02f); effects.TrackBlade(z.Id, layer); effects.Draw(); }
+                for (int i = 0; i < 5; i++) { layer.Step(0.02f); effects.TrackBlade(z.Id, layer, 3f, 1.3f); effects.Draw(); }
                 Assert.AreEqual(1, effects.TrailCount, "the blade's trail");
                 Object.DestroyImmediate(body);
                 effects.OnEvent(new GameEvent { Kind = EventKind.Swing, A = z.Id, B = 2, F = 1f });
@@ -194,7 +194,7 @@ namespace Vision.Tests
                 effects.Draw();
                 Vfx.Instance.Step(0.016f, null);
                 int verts = Vfx.Instance.GetComponentsInChildren<MeshFilter>().Sum(m => m.sharedMesh.vertexCount);
-                Assert.Greater(verts, 100, "charge ring, battery disc, the wave's lens");
+                Assert.Greater(verts, 100, "the wave's lens and the swipe line");
                 Object.DestroyImmediate(fxGo);
             }
             finally

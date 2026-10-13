@@ -12,10 +12,10 @@ namespace Vision.World
     {
         public enum DeadTreeKind
         {
-            Oak, PineSnag, Birch, Spruce, Juniper, Stump, Maple, Cedar, Elm, AspenCluster, HollowTrunk, Fallen,
+            Oak, PineSnag, Birch, Spruce, Juniper, Stump, Maple, Cedar, Elm, AspenCluster, HollowTrunk, Fallen, Spar,
         }
 
-        public const int DeadTreeKinds = 12;
+        public const int DeadTreeKinds = 13;
 
         /// <summary>Size steps per design (index into <see cref="DeadTreeSizes"/>).</summary>
         public static readonly float[] DeadTreeSizes = { 0.75f, 1f, 1.3f };
@@ -44,6 +44,7 @@ namespace Vision.World
         static readonly Color BirchMark = new Color(0.16f, 0.14f, 0.13f);
         static readonly Color CedarBark = new Color(0.36f, 0.25f, 0.19f);
         static readonly Color RotWood = new Color(0.27f, 0.20f, 0.14f);
+        static readonly Color CharBark = new Color(0.17f, 0.15f, 0.14f);
 
         public static DeadTreeInfo DeadTreeInfoFor(DeadTreeKind kind) => kind switch
         {
@@ -58,6 +59,7 @@ namespace Vision.World
             DeadTreeKind.Elm => new DeadTreeInfo("Dead Elm", 0.36f, Palette.Bark),
             DeadTreeKind.AspenCluster => new DeadTreeInfo("Dead Aspens", 0.55f, BirchBark),
             DeadTreeKind.HollowTrunk => new DeadTreeInfo("Hollow Trunk", 0.52f, Palette.BarkDark),
+            DeadTreeKind.Spar => new DeadTreeInfo("Bare Spar", 0.2f, CharBark),
             _ => new DeadTreeInfo("Fallen Tree", 0.32f, Palette.Bark, true),
         };
 
@@ -80,6 +82,7 @@ namespace Vision.World
                 case DeadTreeKind.Elm: Elm(b, s, info.Bark); break;
                 case DeadTreeKind.AspenCluster: Aspens(b, s); break;
                 case DeadTreeKind.HollowTrunk: Hollow(b, s, info.Bark); break;
+                case DeadTreeKind.Spar: Spar(b, s, info.Bark); break;
                 default: Fallen(b, s, info.Bark); break;
             }
             return b.ToMesh(info.Name);
@@ -266,6 +269,45 @@ namespace Vision.World
                 {
                     if (b.Next() < 0.25f) continue;   // lost twigs
                     Limb(b, p, Dir(w * 47f + k * 90f, -b.Range(15f, 30f)), len * b.Range(0.7f, 1.1f), 0.03f * s, bark * 1.05f, new Vector3(0f, -0.08f, 0f), 2);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Bare spar (from the user's drawing): a tall, nearly black, slightly kinked trunk tapering to a broken, forked top,
+        /// with short jagged branches in irregular whorls all the way up. Each branch reaches out and a little up, kinks
+        /// down at an elbow and ends in a small upturned hook, with a splinter or two off it; longer low down, shorter high.
+        /// </summary>
+        static void Spar(LowPolyMeshBuilder b, float s, Color bark)
+        {
+            Roots(b, 3, 0.5f * s, 0.1f * s, bark);
+            float h = 6.6f * s;
+            Vector3[] trunk = Trunk(b, h, 0.2f * s, 0.05f * s, bark, new Vector3(b.Range(-0.04f, 0.04f), 0f, b.Range(-0.04f, 0.04f)), 6, false);
+            Vector3 top = trunk[trunk.Length - 1];
+            // The broken, forked top: two or three short prongs angled up and out.
+            int prongs = 2 + b.Rng.Next(2);
+            for (int i = 0; i < prongs; i++)
+                Limb(b, top - Vector3.up * 0.15f * s, Dir(i * 360f / prongs + b.Range(-30f, 30f), b.Range(55f, 75f)), b.Range(0.35f, 0.6f) * s, 0.045f * s, bark, Vector3.zero, 1);
+            int whorls = 12;
+            for (int w = 0; w < whorls; w++)
+            {
+                float t = Mathf.Lerp(0.22f, 0.9f, w / (float)(whorls - 1)) + b.Range(-0.02f, 0.02f);
+                Vector3 p = Along(trunk, t);
+                float len = Mathf.Lerp(1.5f, 0.45f, t) * s * b.Range(0.8f, 1.15f);
+                int n = 2 + b.Rng.Next(2);
+                for (int k = 0; k < n; k++)
+                {
+                    if (b.Next() < 0.15f) continue;   // lost limbs
+                    float yaw = w * 73f + k * 360f / n + b.Range(-25f, 25f);
+                    // Out and a little up, kinked down at the elbow, a hooked tip.
+                    Vector3 c0 = p, c1 = c0 + Dir(yaw, b.Range(10f, 28f)) * len * 0.45f;
+                    Vector3 c2 = c1 + Dir(yaw + b.Range(-20f, 20f), -b.Range(30f, 55f)) * len * 0.35f;
+                    Vector3 c3 = c2 + Dir(yaw + b.Range(-25f, 25f), b.Range(15f, 45f)) * len * 0.2f;
+                    float r0 = Mathf.Lerp(0.06f, 0.035f, t) * s;
+                    b.AddTube(new[] { c0, c1, c2, c3 }, new[] { r0, r0 * 0.65f, r0 * 0.4f, 0f }, 4, b.Jitter(bark, 0.05f), 0.1f, 0.06f, 0f, null, false, false);
+                    // A splinter off the elbow.
+                    if (b.Next() < 0.6f)
+                        Limb(b, c1, Dir(yaw + (b.Next() < 0.5f ? -50f : 50f), b.Range(-25f, 20f)), len * b.Range(0.18f, 0.3f), r0 * 0.45f, bark, Vector3.zero, 1);
                 }
             }
         }

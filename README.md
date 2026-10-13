@@ -5,7 +5,8 @@ map, objectives, items and rules: a top-down 2.5D horror game on an orthographic
 pitch camera over a flat-shaded low-poly world, lit by a 3D port of the 2D visibility-polygon
 illumination system. It opens on the title screen: **Create lobby** or **Join** to play online, or **Testing mode** alone.
 
-The map is the original's at **3 cm per original unit**: a 180 x 180 m forest (6000 units) with the
+The map is the original's at **3 cm per original unit**: a round forest 180 m across (6000 units; no wall round it, the
+woods running on into the dark to the end of the world 24 m further out, see **The edge of the woods**) with the
 procedural 36 m central building (1200 units) in the middle, its north exit gate and fenced yard, the
 survivors' spawn in the south, clearings joined by footpaths, three cabins, a lake with a dock, fences,
 logs, tall grass to hide in, power lines, a graveyard, an abandoned playground and a hanging tree, and
@@ -60,12 +61,12 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | WASD or arrows | Left stick | Move (crawl while downed) |
 | Shift | Left stick press | Run (Zach: sprint) |
 | Ctrl | B / Circle | Crouch |
-| Z / C | – | Turn the view 45° left / right (eased over a quarter of a second; W keeps moving up the screen, the minimap turns with it, each match starts facing north) |
+| Z / C | – | Turn the view 45° left / right (eased over a quarter of a second; W keeps moving up the screen, the minimap and full map turn with it; each match starts turned 45° off the world's grid, so walls and buildings run diagonally across the screen) |
 | Mouse | Right stick | Aim the light cone (whichever moved last) |
 | E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
 | 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode) |
 | Left mouse | Right trigger | Use the selected item (survivors); swing the machete, hold to charge a heavy swing (Zach) |
-| Right mouse | Left trigger | Zach: lunge |
+| Right mouse | Left trigger | Zach: lunge; survivors: aim the 0.50 cal (hold) |
 | Space | A / Cross | Slam a pallet down |
 | G | D-pad down | Drop the selected item |
 | F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam; survivors: R fires the Hemp Beam once Thomas gives it |
@@ -138,9 +139,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   original's 4.3 and 6.8, slowed by 30%), and about 53% is this port's earlier 1.6 m/s walk. The choice is saved;
   online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
-  map (M) show the level painted from above, under a fog of war that stays black until your own light
-  has been there. Supplies, generators and the gate appear once seen; the **YOU** arrow and ring follow
-  you on both. Testing mode shows everything, and a click on the full map teleports you there.
+  map (M) show the whole round world painted from above (black past its end), under a fog of war that stays black
+  until your own light has been there; both turn with the view, so up on the map is up on the screen (labels and
+  pictures stay upright). Every supply shows as its own inventory picture once seen, and generators and the gate
+  appear once seen; the **YOU** arrow and ring follow you on both. Testing mode shows everything (the NPCs' dots
+  turning and scrolling with the minimap like the rest of it), and a click on the full map teleports you there.
 
 ### HUD and game systems
 
@@ -153,20 +156,40 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   rules move a player only by placing them. This is the seam online play plugs into.
 - **No clock**: the night ends when no survivor is left standing (survivors win if at least half
   escaped) or every hunter has left.
-- **Health and shield**, bottom left. A survivor's health never regenerates; the blue shield takes damage
-  first. Zach's machete takes a third (two thirds charged; it reaches 15% less far than the original's 124 units, and
+- **Health and shield** over heads, as the original draws them: over every player you can see (yourself included) a
+  health bar 5 units tall and 38 wide (46 for Zach, drawn at 60% against these slimmer models), with an ink border, a pale
+  trail draining behind fresh damage, ticks at the thirds and the fill olive, amber or red; survivors have a thin blue
+  shield bar above it. A player's bars are opaque for five seconds after their health or shield last changed, then fade
+  to 35%. NPCs your role can slay carry the same health bar (always opaque) over their heads, under their names.
+  **Stamina** is the original's wide sprint bar centred above the inventory (SPRINT and the seconds left, cyan when
+  boosted, red when locked; BREATH while hiding), with Zach's exact speed and recovery lines beside it. A survivor's
+  health never regenerates; the blue shield takes damage first. Zach's machete takes a third (two thirds charged; it reaches 15% less far than the original's 124 units, and
   a charge takes a second longer: heavy at 1.85 s, letting go on its own at 4 s); at zero you are **downed** and crawl. Zach
   carries the downed to a stake; a teammate can cut them down, and the second staking (or a minute on the
   stake) eliminates.
 - **Stamina**: eight seconds of sprint (Zach six); running dry locks it for 1.5 s while it refills.
-- **Supplies** (`Pickup`, `Inventory`): the original's twelve kinds at its counts (96 in all, and five more beside the ambulance). Eight
+- **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre, 12 m apart. Past the
+  first (the playable circle, 90 m out) your light flickers and stutters, and night vision, JARVIS and the Hemp Battery
+  stop working (a JARVIS running ends; Zach's Hemp Beam won't fire either). Past the second your light sputters and
+  dies over three seconds until the whole screen is black; then a survivor loses 20 health straight through the shield
+  every three seconds, the screen's edges pulsing red with each bite, and at zero is gone at once, not downed ("NAME
+  wandered into the woods"). The third is where the world ends: a survivor who reaches it is gone the same way. Zach's
+  light dies too but the dark never hurts him; he walks through the third ring and comes out on the far side of the map,
+  mirrored through the centre (out on the left, in on the right), 20 health poorer, with "Zach crossed over" for
+  everyone, at most once every ten seconds; while he can't cross (locked out, or 20 health or less) the ring stops him
+  like a wall. Nothing tells anyone to turn back.
+- **Supplies** (`Pickup`, `Inventory`): the original's twelve kinds at its counts (96 in all, and five more beside the
+  ambulance). A quarter of them lie out in the open woods, at least 20 m from any path, spread evenly over the map (each
+  placed at the spot farthest from those already down); the rest are where the original puts them, in the building,
+  the cabins and the clearings and beside the paths, now anywhere 2-12 m from a path's edge; none within 10 m of the
+  first ring. Eight
   slots; identical items stack; each gun takes its own slot and keeps its rounds; a full inventory drops
   the last slot's item for the new one. Select a slot, left click to use it. Duck confit heals to full,
   a Mr Beast bar gives 20%, a mini shield is drunk over 2 s for 25% shield.
 - **Generators and the gate**: hold E for the original's repair time (70 s, scaled to the player count;
   +25% for each extra survivor on it). With enough running, hold E at the lever for 20 s and the gate
   opens onto the yard; walking out escapes.
-- **Stakes**: the original's scarecrow stakes, three candidate spots per clearing (not the spawn's), away from
+- **Stakes**: the original's scarecrow stakes, six candidate spots per clearing (not the spawn's), away from
   generators, cabins, campfires and the spawn, spread out by farthest-first picking; a match uses survivors + 4 of
   them (6 to 12). Zach carries the downed there; teammates see a pulsing red ring over a staked survivor anywhere.
 - **Generators under attack**: Zach kicks a part-repaired generator (2 s): 8% off at once, then it keeps running
@@ -180,7 +203,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Pallets, doors and windows**: Space slams a pallet (Zach caught under it is stunned); two machete hits break a
   dropped pallet, two break a closed door (it stays open for good, the panel gone), one smashes a window, which
   anyone can then climb through slowly. **Crouching** (Ctrl) lowers the hips and bends the knees. **Fallen logs and
-  fallen trees** are knee-high: everyone sees, lights and shoots over them (the ground past one shows in the dimmer
+  fallen trees** (found by kind, so the baked prop library's fallen trees count too) are knee-high: everyone sees, lights and shoots over them (the ground past one shows in the dimmer
   see-through shade, as behind a wall with night vision, while people standing behind it show in full), Zach's Burst
   and thrown items fly over them, and every player vaults them automatically at the window-climbing pace, hands
   planted, knees tucked, the body lifted up and over the top (and over a broken window's sill the same way); NPCs walk
@@ -192,39 +215,44 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   wisps where they ran and blood where the hurt have been, fading over ten seconds.
 - **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
   golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, icons, cooldown shades, charges and
-  meters (the Hemp Beam's is the leaf), under his health bar the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
-  heard being repaired. His machete (always in his right hand) cuts in an **X**, back and forth along a figure 8: the
-  forehand falls from high over his right shoulder diagonally down across his chest to his left hip and loops on up over
-  his left shoulder; the backhand falls from there down across to his right hip and loops back up over his right
-  shoulder. Swings started within a second of the last one alternate, charged ones too; after a longer pause he starts
+  meters (the Hemp Beam's is the leaf), beside his stamina bar the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
+  heard being repaired. His machete (always in his right hand) cuts in a wide **X**, back and forth along a figure 8:
+  the forehand falls from high beside his right shoulder, about 35 degrees below level and mostly side to side, across
+  his chest to his left waist, the arc swinging wide out in front, and loops on up over his left shoulder; the backhand
+  falls from there across to his right waist and loops back up over his right shoulder; the torso turns well round
+  with each cut, the shoulders leading the arm. Swings started within a second of the last one alternate, charged ones too; after a longer pause he starts
   again with the forehand. The torso winds toward the shoulder the cut starts from and unwinds through it, leaning in,
   the free arm reaching forward as a guard while the blade is up and swinging back against the cut. Charging, he sinks
-  low and wide on bent knees with the blade cocked over the shoulder the next cut falls from, trembling, over a red
-  ring at his feet; a charged cut drives his weight onto his front foot. Each swing comes with a swish (heavier when
-  charged), and the blade leaves a trail through the air that follows the model's real machete from near the guard to
-  its tip: a pale steel sheen with a crisp bone-white edge along the tip's path for a light cut, gone in about an
-  eighth of a second; a wider band, dark blood red at its heart and brighter toward the edge, for a charged one,
-  flinging red droplets off the tip when it connects. The lunge leaves speed lines. The Burst is a translucent purple
+  low and wide on bent knees with the blade cocked over the shoulder the next cut falls from, trembling (no ring at his
+  feet); a charged cut drives his weight onto his front foot. Each swing comes with a swish (heavier when charged) and
+  a swipe line through the air that shows the cut's reach: a band starting near the tip of the model's real machete and
+  reaching out, the way the blade points, to the swing's actual attack radius (longer when charged), sweeping across with
+  the blade: a pale steel sheen with a crisp bone-white edge along the reach for a light cut, gone in about an eighth of
+  a second; dark blood red at its heart and brighter toward the edge for a charged one, flinging red droplets off the
+  tip when it connects. The lunge leaves speed lines. The Burst is a translucent purple
   sound wave racing through walls on the rules' concave front: a bright trembling crest, a soft body, pressure bands
-  rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin streams out yellow wisps
-  along a narrow cone (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes while their
+  rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin rolls out a cone of yellow smoke
+  (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes while their
   light narrows and the dark goes pitch black, easing in and out over the original's 0.6 s; their whole view blurs,
   strongly while they're in it and clearing as the gas wears off. Penjamin reaches 30% less far than the original's,
   then 20% further than that (92.4% of the original's reach, the same width) and goes straight through a shield to the health bar. Galaxy gas narrows Zach's light by 30% and
-  blurs his view the same way. Penjamin's gas and galaxy gas are wispy and streaky: long thin streaks of fine
-  procedural strands that drift along themselves and curl, tapering away at both ends, over a few broad faint streaks
-  that give the cloud its body. Penjamin's stream outward along the cone from his mouth, darker near him and paler
-  toward the far end; galaxy gas's swirl slowly round the cloud's middle. Both are about a quarter more visible than
-  the puffs they replace. The scent trail is still small procedural smoke puffs. Every streak and puff sits on the
-  terrain beneath it and thins softly wherever it meets the ground or anything solid, so it never shows a line cutting
-  into them. The indicator rings on the ground (the Hemp Battery's, Plasma's colour-cycling rings, the breath rings
-  spreading from a hiding spot) are 30% smaller and 30% thinner than at first and 40% dimmer, and are laid on the
-  ground's own facets every 2.5 degrees round and every few centimetres across, so they follow each slope, bump and
-  crease of the drawn terrain exactly. The Hemp Battery's ring lies round Zach: a dim full ring, the charge left as a bright arc from twelve o'clock shrinking clockwise as the
-  battery drains, and a faint slice filling it (no pulse). The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
+  blurs his view the same way. **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
+  `Vision/Gas` shader) are volumetric smoke after Black Ops Cold War's smoke grenade: each cloud is a box over the scene
+  through which the view ray is marched, gathering a participating medium whose density is the cloud's shape (a cone for
+  Penjamin, a blob sitting on the ground for galaxy gas and each puff of the scent) eroded by a tiling 3D Perlin-Worley
+  noise made at load, so its surface billows in round lobes like cauliflower and frays into wisps, churning and drifting
+  (Penjamin's rolling out along the cone). Light is absorbed as it passes through (Beer-Lambert); each sample is lit by a
+  short march toward a key light low to one side, so every lobe has a bright face and a shaded one, with a
+  forward-scattering phase and ambient light. Each keeps its colour: Penjamin yellow, 50 Nic blue, galaxy gas purple,
+  pink and blue (with its stars), the scent red. The gas never touches the scene: no collision, nothing conforming to the
+  ground or objects; it simply covers the screen where it is (Penjamin even in the dark, galaxy gas and the scent inside
+  the viewer's light). The indicator rings left on the ground (Plasma's colour-cycling rings, the breath rings spreading
+  from a hiding spot) are laid on the ground's own facets every 2.5 degrees round and every few centimetres across, so
+  they follow each slope, bump and crease of the drawn terrain; the Hemp Battery and Zach's charge have no ring. The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
   outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
   charges, then a layered beam (white-hot core, green body, wide glow, two twisting energy threads, shimmer flecks)
-  runs to whatever stops it and splashes there with sparks spraying back and falling, embers, smoke and chips, to the
+  runs to whatever stops it and splashes there with sparks spraying back and falling, embers, smoke and chips (drawn in
+  the scene, so a wall or a tree between it and the camera hides it, as it does the bullets), to the
   original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Every
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
   side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once
@@ -241,9 +269,16 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; gas traps sit on the ground
-  and blink once armed; galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
+  and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
+  jar passes over it, the thrown item landing there); galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
   fell (with models for the P250, the 0.50 cal, the jar of piss and the golden pump). G drops the item in hand; **Tab**
   opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
+  Each pistol shot strays up to 2.5 degrees either side of the aim. Holding right click with the 0.50 cal aims it: the
+  view widens 15%, you move 30% slower, and a thin red laser (the original's, a faint wide line and a bright thin one)
+  runs from the barrel along the aim to the first solid thing in its way, seen by everyone; aimed, the round goes
+  exactly where it points, while from the hip it strays up to 5 degrees. Its round races out as the original's bright
+  streak (8000 units a second, a 380-unit tail) and throws sparks, dust and chips out of every wall, tree or object it
+  punches into and out of.
   JARVIS shows the user the whole map; night vision tints the view green and the goggles go on over the eyes (the hands
   stay free). Night vision and the Hemp Battery's x-ray fill the whole vision cone and run on past the edge of the
   screen whichever way you turn; as they come on, the light grows out of the torch to its full reach in half a second
@@ -418,7 +453,9 @@ junctions out in the woods tied into the network (some by two trails), and cross
 other. Each path has its own width, swelling and narrowing along it, and its own look drifting into a second one along
 its length (packed dirt, gravel, leaf litter, moss, clay, rutted mud), worn lighter down the middle, with ruts on the
 main paths, damp patches and puddles, and litter by look (pebbles, leaves, twigs, moss, puddles, stones by the edges). The land changes gradually: slow
-noise fields choose between evergreens (seven forms, including spiky ones, full-bodied with short, soft-edged sprays) and twelve dead-tree designs,
+noise fields choose between evergreens (seven forms, including ragged spiky ones bristling with sharp needle-spikes and
+smaller spikes off them) and thirteen dead-tree designs (the newest a tall, nearly black bare spar with short jagged
+branches in whorls, each kinked down at an elbow and hooked at the tip, and a broken, forked top),
 and colour the ground from earth and clay to moss and straw, with rock grey on steep slopes, mud in the
 ditches and packed dirt on the paths.
 
@@ -449,7 +486,9 @@ ditches and packed dirt on the paths.
   reviving, picking up, hiding, drinking, eating, talking, planting a trap, a quick throw (whipped back behind the head,
   snapped over the shoulder), each gun held as it is in real life (the pistol in a two-handed Weaver grip, the support
   arm bent and its hand cupping the grip; the shotgun shouldered with the trigger elbow out and the support hand under
-  the forend, the body bladed; the 0.50 cal leaned into with the cheek down on the scope and the support hand far out)
+  the forend, the body bladed; the 0.50 cal carried at the hip, its grip low by the right hip and the support hand
+  under the forend, until right click brings it up: the stock into the shoulder, the cheek down on it and the eye to the
+  scope, the support hand far out, the upper body steady over the walking legs, eased in over a quarter of a second)
   and its kick (the pistol's muzzle flip, the shotgun's shove, the rifle's heavy slam, Zach racking the golden pump),
   JARVIS,
   stunned, coughing in Penjamin's gas, the scare, staked, carried, crawling; Zach's charge, light and heavy swings,
@@ -529,7 +568,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 221 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 229 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and
@@ -557,7 +596,8 @@ lever and the open gate, the nine supplies, testing mode with the minimap, the g
 under its fog and revealed, the title screen and a New map) and the tree and gait sheets, saves a
 screenshot of each plus `perf.txt` and
 `characters.txt` (renderer state of each character and the feet's gaps to the ground on a slope) to
-`Captures/`, then quits.
+`Captures/`, then quits. `-visionGasLab <folder>` instead runs only the gases (galaxy gas and Penjamin as they grow,
+hang and fade, and Zach's scent trail), about a minute, for tuning their look.
 
 ```bash
 unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindowsDev

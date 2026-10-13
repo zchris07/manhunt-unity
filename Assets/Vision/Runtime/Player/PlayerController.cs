@@ -330,6 +330,18 @@ namespace Vision.Player
             }
             step.y = verticalSpeed * dt;
             cc.Move(step);
+            // The outer ring of the woods stops Zach like a wall while he can't cross it.
+            if (p.Role == Role.Hunter && MatchSim.CrossingBlocked(p))
+            {
+                Vector3 lp = world.transform.InverseTransformPoint(transform.position);
+                var flat = new Vector2(lp.x, lp.z);
+                float limit = h.Sim.Ring3 - Balance.Boundary.WallSkin;
+                if (flat.magnitude > limit)
+                {
+                    flat = flat.normalized * limit;
+                    Teleport(world.transform.TransformPoint(new Vector3(flat.x, lp.y, flat.y)), false);
+                }
+            }
             KeepOnGround();
         }
 
@@ -359,6 +371,28 @@ namespace Vision.Player
             if (viewCamera == null || Pointer.current == null) return 0f;
             Vector2 a = PointerAim(aimPoint.ReadValue<Vector2>());
             return a.magnitude;
+        }
+
+        float flickT, edgeDark;
+
+        /// <summary>
+        /// The light at the edge of the woods (MatchSim.Boundary): past the first ring it flickers, stuttering out for an
+        /// instant now and then; past the second it sputters and dies over 3 s and the whole screen goes dark with it
+        /// (<see cref="edgeDark"/>). Returns the light's strength (0-1).
+        /// </summary>
+        float BoundaryLight(SimPlayer p, float dt)
+        {
+            float dying = Mathf.Clamp01(p.ShutdownT / Balance.Boundary.ShutdownTime);
+            edgeDark = dying * dying * (3f - 2f * dying);
+            if (p.Zone == 0 && dying <= 0f) return 1f;
+            flickT += dt;
+            // Two noises: a slow waver and fast stutters that drop the light out for a few frames.
+            float waver = Mathf.PerlinNoise(flickT * 2.3f, 0.37f);
+            float stutter = Mathf.PerlinNoise(flickT * 17f, 4.1f);
+            float flick = 0.8f + 0.2f * waver;
+            if (stutter > 0.68f) flick *= 0.15f;
+            else if (stutter > 0.6f) flick *= 0.55f;
+            return Mathf.Clamp01(flick * (1f - edgeDark));
         }
 
         /// <summary>The flashlight and body for the role and state: cone, reach, x-ray, crawling, hidden.</summary>
@@ -394,7 +428,10 @@ namespace Vision.Player
                 viewer.reachScreenEdge = !peeking;
                 if (peeking) viewer.coneRange = Scale.D(grass ? Balance.Hiding.GrassPeekRange : Balance.Hiding.PeekRange);
                 viewer.proximityRadius = Scale.D(peeking ? (grass ? Balance.Hiding.GrassPeekProximity : Balance.Hiding.PeekProximity) : zach ? Balance.Hunter.Proximity : Balance.Survivor.Proximity) * Mathf.Sqrt(p.FovMul);
-                viewer.visionMultiplier = Mathf.Clamp(downed ? Balance.Survivor.DownedVisionMul : 1f, 0.1f, 1f);
+                viewer.visionMultiplier = Mathf.Clamp(downed ? Balance.Survivor.DownedVisionMul : 1f, 0.1f, 1f) * BoundaryLight(p, dt0);
+                viewer.proximityRadius *= 1f - edgeDark;
+                if (composite != null) composite.blackout = edgeDark;
+                Vision.Effects.SensesCamera.Blackout = edgeDark;
                 // Goggles and the Hemp Battery: the see-through light grows in over 0.5 s, out in 1/6 s (the battery's as slowly as in).
                 bool xrayOn = p.GogglesOn || (zach && p.HempOn);
                 if (xrayOn) xrayHemp = zach && p.HempOn;

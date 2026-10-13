@@ -32,7 +32,6 @@ namespace Vision.Tests
             ["Barricade.DropTime"] = "unused in the original too",
             ["Items.AnywhereShare"] = "the original's map generator; Unity places supplies by its own room table",
             ["Sniper.PelletSpeed"] = "unused in the original too",
-            ["Sniper.LaserMax"] = "the 0.50 cal's laser is drawn to the edge of the view",
             ["Xray.Range"] = "the see-through light runs past the edge of the screen whichever way you look (asked for by the user)",
             ["Sexton.JarvisMinimapMul"] = "unused in the original too",
             ["Shane.StepsNear"] = "Shane's steps use the audio manager's distance falloff",

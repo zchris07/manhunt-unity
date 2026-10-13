@@ -135,6 +135,8 @@ namespace Vision.Game
     public sealed class Waz : Walker
     {
         int hp = Balance.Waz.Hp;
+        /// <summary>A survivor's item slays him at once; Zach takes three hits.</summary>
+        public override float? HealthFor(Role viewer) => !alive ? (float?)null : viewer == Role.Hunter ? hp / (float)Balance.Waz.Hp : 1f;
         bool fleeing;
         float turnT;
         SimPlayer fleeBy;

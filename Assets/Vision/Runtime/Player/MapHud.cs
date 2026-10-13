@@ -3,12 +3,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Vision.Rendering;
+using Vision.UI;
 using Vision.World;
 
 namespace Vision.Player
 {
     /// <summary>
-    /// The minimap (top right, north up, about 57 m across like the original's) and the full map (M). Both show the
+    /// The minimap (top right, about 57 m across like the original's) and the full map (M), both turned with the view
+    /// (up on the map is up on the screen). Both show the
     /// painted map under the fog of war: black until the player's own light has been there. Supplies, generators
     /// (yellow, green once running) and the gate (grey, yellow with power, green open) appear once seen; an arrow shows
     /// where you face. Testing mode adds Reveal all and click-to-teleport on the full map.
@@ -21,7 +23,7 @@ namespace Vision.Player
         public const float MiniPx = 250f, FullPx = 860f;
 
         readonly Font font;
-        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniView, miniSpin;
+        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniSpin;
 
         /// <summary>The 3D view's turn (degrees clockwise from north): the minimap turns with it, so its up is the screen's up.</summary>
         public static float ViewYaw;
@@ -32,7 +34,7 @@ namespace Vision.Player
         readonly GameObject full, revealButton, teleportHint;
         readonly Text revealLabel, title;
         readonly Sprite dot, arrow, ring;
-        readonly Dictionary<Object, (Image mini, Image full)> icons = new Dictionary<Object, (Image, Image)>();
+        readonly Dictionary<Object, (Graphic mini, Graphic full)> icons = new Dictionary<Object, (Graphic, Graphic)>();
         readonly HashSet<Object> seen = new HashSet<Object>();
 
         SandboxWorld world;
@@ -105,9 +107,8 @@ namespace Vision.Player
             Image(fullArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
             fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
             // Testing mode: the NPCs, as the original shows them (made as needed, see NpcDot).
-            miniView = view;
             Label(Node("Legend", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -16f), new Vector2(580f, 26f)),
-                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   <color=#4cff6a>●</color> supply   <color=#8a8aa0>▬</color> gate   <color=#ff3a5a>■</color> stake", 16, TextAnchor.MiddleRight, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
+                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   items by their pictures   <color=#8a8aa0>▬</color> gate   <color=#ff3a5a>■</color> stake", 16, TextAnchor.MiddleRight, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
             RectTransform reveal = Node("Reveal all", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -12f), new Vector2(170f, 34f));
             Image(reveal, new Color(0.16f, 0.16f, 0.17f, 1f)).raycastTarget = true;
             reveal.gameObject.AddComponent<Button>().onClick.AddListener(RevealAll);
@@ -129,7 +130,7 @@ namespace Vision.Player
             Kill(art);
             art = MapPainter.Paint(w);
             if (Fog != null) Kill(Fog.Texture);
-            Fog = new FogOfWar(w.halfExtent);
+            Fog = new FogOfWar(w.MapExtent);
             miniArt.texture = fullArt.texture = art;
             miniFog.texture = fullFog.texture = Fog.Texture;
             foreach (var pair in icons.Values)
@@ -139,7 +140,7 @@ namespace Vision.Player
             }
             icons.Clear();
             seen.Clear();
-            float px = MiniPx * 2f * w.halfExtent / MiniSpan;
+            float px = MiniPx * 2f * w.MapExtent / MiniSpan;
             miniContent.sizeDelta = new Vector2(px, px);
             markerDirty = true;
             if (GameSession.TestingMode) Fog.RevealAll();
@@ -173,7 +174,8 @@ namespace Vision.Player
         {
             while (npcDots.Count <= i)
             {
-                RectTransform mini = Node("NPC", miniView, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(9f, 9f));
+                // In the minimap's content, so the dots turn and scroll with the map like everything else on it.
+                RectTransform mini = Node("NPC", miniContent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(9f, 9f));
                 Image(mini, new Color(0.71f, 0.54f, 1f)).sprite = dot;
                 RectTransform fullDot = Node("NPC", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(12f, 12f));
                 Image(fullDot, new Color(0.71f, 0.54f, 1f)).sprite = dot;
@@ -248,7 +250,7 @@ namespace Vision.Player
             }
 
             Vector2 me = PlayerOnMap(out Vector2 facing);
-            float miniScale = MiniPx / MiniSpan, fullScale = FullPx / (2f * world.halfExtent);
+            float miniScale = MiniPx / MiniSpan, fullScale = FullPx / (2f * world.MapExtent);
             float yaw = -Mathf.Atan2(facing.x, facing.y) * Mathf.Rad2Deg;
             // Only touch the UI when something moved (every change re-batches the canvas), or the map was rebuilt or opened.
             if (markerDirty || (me - lastMe).sqrMagnitude > 0.0004f || Mathf.Abs(Mathf.DeltaAngle(yaw, lastYaw)) > 0.5f || Mathf.Abs(Mathf.DeltaAngle(ViewYaw, lastViewYaw)) > 0.1f)
@@ -259,10 +261,15 @@ namespace Vision.Player
                 lastViewYaw = ViewYaw;
                 miniContent.anchoredPosition = -me * miniScale;
                 miniSpin.localRotation = Quaternion.Euler(0f, 0f, ViewYaw);
+                UprightPictures();
                 miniArrow.localRotation = Quaternion.Euler(0f, 0f, yaw + ViewYaw);
+                // The full map turns with the view too; its labels stay upright and above what they name.
+                Quaternion upright = Quaternion.Euler(0f, 0f, -ViewYaw);
+                fullMap.localRotation = Quaternion.Euler(0f, 0f, ViewYaw);
                 fullArrow.localRotation = Quaternion.Euler(0f, 0f, yaw);
                 fullArrow.anchoredPosition = youRing.anchoredPosition = me * fullScale;
-                youLabel.anchoredPosition = me * fullScale + new Vector2(0f, 38f);
+                youLabel.localRotation = upright;
+                youLabel.anchoredPosition = me * fullScale + (Vector2)(upright * new Vector3(0f, 38f, 0f));
             }
             if (full.activeSelf)
             {
@@ -279,10 +286,13 @@ namespace Vision.Player
                 {
                     if (n.Gone) continue;
                     var d = NpcDot(shown++);
-                    d.mini.gameObject.SetActive(Mathf.Abs(n.Pos.x - me.x) < MiniSpan * 0.5f && Mathf.Abs(n.Pos.y - me.y) < MiniSpan * 0.5f);
+                    // Within the minimap's corners however it is turned (the mask clips the rest).
+                    d.mini.gameObject.SetActive((n.Pos - me).sqrMagnitude < MiniSpan * MiniSpan * 0.5f);
                     d.full.gameObject.SetActive(true);
-                    d.mini.anchoredPosition = (n.Pos - me) * miniScale;
+                    d.mini.anchoredPosition = n.Pos * miniScale;
                     d.full.anchoredPosition = n.Pos * fullScale;
+                    // A round dot: turning it against the map keeps its name upright above it.
+                    d.full.localRotation = Quaternion.Euler(0f, 0f, -ViewYaw);
                     string label = n.Alive ? n.Name : n.Name + " (dead)";
                     if (d.name.text != label) d.name.text = label;
                 }
@@ -302,7 +312,7 @@ namespace Vision.Player
         void UpdateIcons(float miniScale, float fullScale)
         {
             var alive = new HashSet<Object>();
-            void Show(Object key, Vector2 at, Color color, Vector2 size, bool round, bool always = false)
+            void Show(Object key, Vector2 at, Color color, Vector2 size, bool round, bool always = false, Texture2D picture = null)
             {
                 alive.Add(key);
                 if (!seen.Contains(key) && !always)
@@ -312,7 +322,7 @@ namespace Vision.Player
                 }
                 if (!icons.TryGetValue(key, out var pair))
                 {
-                    pair = (Icon(miniContent, round), Icon(fullMap, round));
+                    pair = picture != null ? (Picture(miniContent, picture), Picture(fullMap, picture)) : ((Graphic)Icon(miniContent, round), Icon(fullMap, round));
                     icons[key] = pair;
                 }
                 pair.mini.color = pair.full.color = color;
@@ -321,11 +331,12 @@ namespace Vision.Player
                 pair.full.rectTransform.anchoredPosition = at * fullScale;
                 pair.full.rectTransform.sizeDelta = size * 1.3f;
             }
+            // Each item by its own picture (the inventory's icon), upright however the map is turned.
             foreach (Pickup p in world.Pickups)
             {
                 if (p == null) continue;
                 Vector3 lp = world.transform.InverseTransformPoint(p.transform.position);
-                Show(p, new Vector2(lp.x, lp.z), Items.Info(p.item).color * 1.4f, new Vector2(7f, 7f), true);
+                Show(p, new Vector2(lp.x, lp.z), Color.white, new Vector2(16f, 16f), true, false, ItemIcons.For(p.item, p.golden));
             }
             foreach (GeneratorObjective g in GeneratorObjective.All)
             {
@@ -370,7 +381,7 @@ namespace Vision.Player
         public void ClickAt(Vector2 local)
         {
             if (!GameSession.TestingMode || world == null || world.Player == null) return;
-            float scale = FullPx / (2f * world.halfExtent);
+            float scale = FullPx / (2f * world.MapExtent);
             Vector2 at = local / scale;
             world.Player.Teleport(world.transform.TransformPoint(new Vector3(at.x, 0f, at.y)));
             world.Player.LeaveHiding();
@@ -383,6 +394,28 @@ namespace Vision.Player
             if (o == null) return;
             if (Application.isPlaying) Object.Destroy(o);
             else Object.DestroyImmediate(o);
+        }
+
+        /// <summary>An item's picture on a map, kept upright as the map turns (see <see cref="UprightPictures"/>).</summary>
+        RawImage Picture(RectTransform parent, Texture2D texture)
+        {
+            RectTransform rt = Node("Item", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f));
+            RawImage img = rt.gameObject.AddComponent<RawImage>();
+            img.texture = texture;
+            img.raycastTarget = false;
+            rt.localRotation = Quaternion.Euler(0f, 0f, -ViewYaw);
+            return img;
+        }
+
+        /// <summary>Turns the item pictures back against the maps' turn, so they read upright.</summary>
+        void UprightPictures()
+        {
+            Quaternion q = Quaternion.Euler(0f, 0f, -ViewYaw);
+            foreach (var pair in icons.Values)
+            {
+                if (pair.mini is RawImage) pair.mini.rectTransform.localRotation = q;
+                if (pair.full is RawImage) pair.full.rectTransform.localRotation = q;
+            }
         }
 
         Image Icon(RectTransform parent, bool round)

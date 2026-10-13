@@ -136,7 +136,7 @@ namespace Vision.Tests
                     // Let the gait settle, play the clip once through (or one loop), then stop and blend out.
                     // Clips that always follow another (a recoil follows the aim, the staking follows the carry, a charged cut the
                     // charge) start from it.
-                    ActionClip prelude = clip == ActionClips.RecoilLong || clip == ActionClips.RecoilPump ? ActionClips.AimLong : clip == ActionClips.RecoilRifle ? ActionClips.AimRifle
+                    ActionClip prelude = clip == ActionClips.RecoilLong || clip == ActionClips.RecoilPump ? ActionClips.AimLong : clip == ActionClips.RecoilRifle ? ActionClips.AimRifle : clip == ActionClips.RecoilHip ? ActionClips.HipRifle
                         : clip == ActionClips.RecoilPistol ? ActionClips.AimPistol : clip == ActionClips.StakeBody ? ActionClips.Carry
                         : clip == ActionClips.SwingHeavy ? ActionClips.Charge : clip == ActionClips.SwingHeavyBack ? ActionClips.ChargeBack : null;
                     if (prelude != null) layer.Play(prelude, 1f, true);
@@ -215,6 +215,11 @@ namespace Vision.Tests
             Check("0.50 cal: points straight ahead", rifle.propDir.z > 0.95f, rifle.propDir);
             Check("0.50 cal: the support hand far out along it", rifle.l.z > rifle.r.z + 0.18f, rifle.l);
             Check("0.50 cal: the muzzle a long way out", rifleMuzzle.z > 1f, rifleMuzzle);
+            var hip = HandsIn(ActionClips.HipRifle, 0f, PropKind.Sniper, out Vector3 hipMuzzle);
+            Check("0.50 cal at the hip: points ahead", hip.propDir.z > 0.95f, hip.propDir);
+            Check("0.50 cal at the hip: the grip low by the right hip", hip.r.y < 1.15f && hip.r.x > 0.05f, hip.r);
+            Check("0.50 cal at the hip: the support hand out under it", hip.l.z > hip.r.z + 0.12f, hip.l);
+            Check("0.50 cal at the hip: lower than when aimed", hipMuzzle.y < rifleMuzzle.y - 0.25f, new Vector2(hipMuzzle.y, rifleMuzzle.y));
             var pistol = HandsIn(ActionClips.AimPistol, 0f, PropKind.Pistol, out Vector3 pistolMuzzle);
             Check("pistol: points straight ahead", pistol.propDir.z > 0.95f, pistol.propDir);
             Check("pistol: out in front at chest height", pistol.r.z > 0.35f && pistol.r.y > 1.25f && Mathf.Abs(pistol.r.x) < 0.15f, pistol.r);
@@ -237,19 +242,20 @@ namespace Vision.Tests
                                                        (ActionClips.SwingBack, -1f, "backhand"), (ActionClips.SwingHeavyBack, -1f, "charged backhand") })
             {
                 var cocked = HandsIn(clip, 0.07f, PropKind.Machete);
-                Check($"{name}: cocked high over the shoulder", cocked.r.y > 1.6f && cocked.r.x * side > -0.15f, cocked.r);
+                Check($"{name}: cocked high beside the shoulder", cocked.r.y > 1.45f && cocked.r.x * side > -0.15f, cocked.r);
                 var hit = HandsIn(clip, 0.15f, PropKind.Machete);
                 Vector3 tip = hit.r + hit.propDir * 0.56f;
                 Check($"{name}: through the middle in front at chest height", hit.r.z > 0.35f && Mathf.Abs(hit.r.x) < 0.2f && hit.r.y > 1.1f && hit.r.y < 1.45f, hit.r);
                 Check($"{name}: the blade out in front at the hit", tip.z > 0.8f, tip);
                 var end = HandsIn(clip, 0.24f, PropKind.Machete);
-                Check($"{name}: down to the other hip", end.r.x * side < -0.2f && end.r.y < 1.08f, end.r);
-                Check($"{name}: a falling diagonal", cocked.r.y - end.r.y > 0.6f, new Vector3(cocked.r.y, hit.r.y, end.r.y));
+                Check($"{name}: down to the other side of the waist", end.r.x * side < -0.25f && end.r.y < 1.15f, end.r);
+                float slope = Mathf.Atan2(cocked.r.y - end.r.y, Mathf.Abs(cocked.r.x - end.r.x)) * Mathf.Rad2Deg;
+                Check($"{name}: a wide, falling cut about 35 degrees below level", slope > 25f && slope < 45f, new Vector3(cocked.r.y, end.r.y, slope));
             }
             var charge = HandsIn(ActionClips.Charge, 0f, PropKind.Machete);
-            Check("charge: machete cocked over the right shoulder", charge.r.y > 1.65f && charge.r.x > 0f, charge.r);
+            Check("charge: machete cocked beside the right shoulder", charge.r.y > 1.5f && charge.r.x > 0f, charge.r);
             var chargeBack = HandsIn(ActionClips.ChargeBack, 0f, PropKind.Machete);
-            Check("charging a backhand: cocked over the left shoulder", chargeBack.r.y > 1.65f && chargeBack.r.x < 0.05f, chargeBack.r);
+            Check("charging a backhand: cocked over the left shoulder", chargeBack.r.y > 1.5f && chargeBack.r.x < 0.05f, chargeBack.r);
             var foreEnd = HandsIn(ActionClips.Swing, ActionClips.Swing.Length - 0.002f, PropKind.Machete);
             var backStart = HandsIn(ActionClips.SwingBack, 0f, PropKind.Machete);
             Check("the forehand's loop ends where the backhand starts", (foreEnd.r - backStart.r).magnitude < 0.02f, foreEnd.r - backStart.r);
@@ -334,7 +340,11 @@ namespace Vision.Tests
                 p.SelSlot = 1;
                 view.Present(p);
                 Assert.AreEqual(PropKind.Sniper, layer.HeldRight);
-                Assert.AreSame(ActionClips.AimRifle, layer.Current, "the 0.50 cal shouldered, cheek on the scope");
+                Assert.AreSame(ActionClips.HipRifle, layer.Current, "the 0.50 cal at the hip until it's aimed");
+                p.Aiming = true;
+                view.Present(p);
+                Assert.AreSame(ActionClips.AimRifle, layer.Current, "aimed (right click): shouldered, cheek on the scope");
+                p.Aiming = false;
                 p.SelSlot = -1;
                 // Night vision: worn over the eyes, the arms left alone (the light stays in hand).
                 p.Inv.Add(ItemType.Goggles);

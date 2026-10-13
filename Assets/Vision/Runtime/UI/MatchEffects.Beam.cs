@@ -93,7 +93,7 @@ namespace Vision.UI
                     col.a = c.a * flicker * Mathf.Lerp(1f, taper, t);
                     beamCols.Add(col);
                 }
-                Fx.Ribbon(beamPts, beamCols, width * s, false, true, Vfx.Blend.Additive, true);
+                Fx.Ribbon(beamPts, beamCols, width * s, false, false, Vfx.Blend.Additive, true);
             }
             Layer(0.95f, new Color(BeamGlow.r, BeamGlow.g, BeamGlow.b, 0.16f), 0.7f);
             Layer(0.42f, new Color(BeamBody.r, BeamBody.g, BeamBody.b, 0.5f), 0.85f);
@@ -111,13 +111,13 @@ namespace Vision.UI
                     beamPts.Add(palm + axis * t + side * (Mathf.Sin(ph) * 0.13f * s) + Vector3.up * (Mathf.Cos(ph) * 0.06f * s));
                     beamCols.Add(new Color(0.85f, 1f, 0.85f, 0.55f * (1f - t * 0.4f)));
                 }
-                Fx.Ribbon(beamPts, beamCols, 0.035f * s, false, true, Vfx.Blend.Additive, true);
+                Fx.Ribbon(beamPts, beamCols, 0.035f * s, false, false, Vfx.Blend.Additive, true);
             }
 
             // At the palm: a blinding flare and a ring of light round the hand.
-            Fx.Glow(palm, 0.55f * s * flicker, new Color(0.75f, 1f, 0.75f, 0.85f));
-            Fx.Glow(palm, 1.2f * s * flicker, new Color(0.35f, 1f, 0.4f, 0.3f));
-            Fx.Glow(palm, 0.22f * s, new Color(1f, 1f, 1f, 1f));
+            Fx.Glow(palm, 0.55f * s * flicker, new Color(0.75f, 1f, 0.75f, 0.85f), false, false);
+            Fx.Glow(palm, 1.2f * s * flicker, new Color(0.35f, 1f, 0.4f, 0.3f), false, false);
+            Fx.Glow(palm, 0.22f * s, new Color(1f, 1f, 1f, 1f), false, false);
 
             // Shimmer: flecks peeling off the beam.
             float dt = Time.deltaTime;
@@ -129,7 +129,7 @@ namespace Vision.UI
                 float t = Random.value;
                 Vector3 at = palm + axis * t + side * Random.Range(-0.08f, 0.08f) * s;
                 Vector3 v = (side * Random.Range(-1f, 1f) + Vector3.up * Random.Range(0.2f, 1f)) * Random.Range(0.6f, 1.6f) * s + dir * Random.Range(0.5f, 2f) * s;
-                Fx.Emit(at, v, Random.Range(0.2f, 0.45f), Random.value < 0.3f ? BeamCore : BeamBody, Random.Range(0.025f, 0.05f) * s, 0f, 3f, true, false, 1f, false, true);
+                Fx.Emit(at, v, Random.Range(0.2f, 0.45f), Random.value < 0.3f ? BeamCore : BeamBody, Random.Range(0.025f, 0.05f) * s, 0f, 3f, true, false, 1f, false, false);
                 if (!blocked) continue;
                 Impact(end, dir, s);
             }
@@ -138,9 +138,9 @@ namespace Vision.UI
             if (blocked)
             {
                 // Where it hits: a white-hot spot and a green bloom.
-                Fx.Glow(end, 0.7f * s * flicker, new Color(1f, 1f, 0.9f, 0.9f));
-                Fx.Glow(end, 1.6f * s * flicker, new Color(0.4f, 1f, 0.45f, 0.35f));
-                Fx.Glow(end - dir * 0.1f * s, 0.35f * s, new Color(1f, 0.85f, 0.5f, 0.8f));
+                Fx.Glow(end, 0.7f * s * flicker, new Color(1f, 1f, 0.9f, 0.9f), false, false);
+                Fx.Glow(end, 1.6f * s * flicker, new Color(0.4f, 1f, 0.45f, 0.35f), false, false);
+                Fx.Glow(end - dir * 0.1f * s, 0.35f * s, new Color(1f, 0.85f, 0.5f, 0.8f), false, false);
             }
         }
 
@@ -153,20 +153,20 @@ namespace Vision.UI
             {
                 Vector3 v = (back + Random.insideUnitSphere * 0.9f + Vector3.up * 0.4f).normalized * Random.Range(3f, 8f) * s;
                 Color c = Color.Lerp(new Color(1f, 0.95f, 0.7f, 1f), new Color(0.6f, 1f, 0.55f, 1f), Random.value);
-                Fx.Emit(at, v, Random.Range(0.25f, 0.6f), c, Random.Range(0.03f, 0.06f) * s, 9.8f * s, 1.2f, true, false, 1f, false, true);
+                Fx.Emit(at, v, Random.Range(0.25f, 0.6f), c, Random.Range(0.03f, 0.06f) * s, 9.8f * s, 1.2f, true, false, 1f, false, false);
             }
             // Embers: slow, orange, drifting up and out.
             if (Random.value < 0.35f)
                 Fx.Emit(at + Random.insideUnitSphere * 0.1f * s, (back * 0.6f + Vector3.up + Random.insideUnitSphere * 0.5f) * Random.Range(0.4f, 1f) * s,
-                    Random.Range(0.6f, 1.2f), new Color(1f, 0.55f, 0.2f, 0.9f), Random.Range(0.025f, 0.045f) * s, -0.6f * s, 1.5f, false, true, 1f, false, true);
+                    Random.Range(0.6f, 1.2f), new Color(1f, 0.55f, 0.2f, 0.9f), Random.Range(0.025f, 0.045f) * s, -0.6f * s, 1.5f, false, true, 1f, false, false);
             // Smoke: soft grey puffs curling up and swelling, in front of the hot spot.
             if (Random.value < 0.18f)
                 Fx.Emit(at + back * 0.15f * s, (Vector3.up * Random.Range(0.6f, 1.1f) + back * 0.3f + Random.insideUnitSphere * 0.3f) * s,
-                    Random.Range(1f, 1.8f), new Color(0.32f, 0.34f, 0.3f, 0.32f), Random.Range(0.18f, 0.28f) * s, 0f, 1.2f, false, false, 3.2f, false, true, Vfx.Blend.Alpha);
+                    Random.Range(1f, 1.8f), new Color(0.32f, 0.34f, 0.3f, 0.32f), Random.Range(0.18f, 0.28f) * s, 0f, 1.2f, false, false, 3.2f, false, false, Vfx.Blend.Alpha);
             // Chips of whatever it hit, thrown back and dropping.
             if (Random.value < 0.12f)
                 Fx.Emit(at, (back + Random.insideUnitSphere * 0.6f + Vector3.up * 0.8f).normalized * Random.Range(2f, 4.5f) * s,
-                    Random.Range(0.5f, 0.9f), new Color(0.22f, 0.2f, 0.17f, 1f), Random.Range(0.03f, 0.05f) * s, 12f * s, 0.5f, false, false, 1f, false, true, Vfx.Blend.Alpha);
+                    Random.Range(0.5f, 0.9f), new Color(0.22f, 0.2f, 0.17f, 1f), Random.Range(0.03f, 0.05f) * s, 12f * s, 0.5f, false, false, 1f, false, false, Vfx.Blend.Alpha);
         }
 
         /// <summary>
@@ -191,18 +191,18 @@ namespace Vision.UI
                 float r = Mathf.Lerp(1.1f, 0.02f, travel) * s;
                 Vector3 at = palm + d * r;
                 float a = Mathf.Clamp01(u * 3f) * (1f - travel * 0.3f);
-                Fx.Glow(at, (0.08f + 0.04f * h1) * s, new Color(0.7f, 1f, 0.7f, 0.9f * a));
+                Fx.Glow(at, (0.08f + 0.04f * h1) * s, new Color(0.7f, 1f, 0.7f, 0.9f * a), false, false);
                 // A short trail behind it, toward where it came from.
                 beamPts.Clear(); beamCols.Clear();
                 beamPts.Add(at + d * 0.22f * s * (1f - travel)); beamPts.Add(at);
                 beamCols.Add(new Color(0.4f, 1f, 0.45f, 0f)); beamCols.Add(new Color(0.8f, 1f, 0.8f, 0.6f * a));
-                Fx.Ribbon(beamPts, beamCols, 0.03f * s, false, true, Vfx.Blend.Additive, true);
+                Fx.Ribbon(beamPts, beamCols, 0.03f * s, false, false, Vfx.Blend.Additive, true);
             }
             // The point it all condenses into: tiny at first, swelling, pulsing faster, burning white.
             float pulse = 0.8f + 0.2f * Mathf.Sin(now * Mathf.Lerp(12f, 40f, k));
-            Fx.Glow(palm, (0.06f + 0.34f * k * k) * s * pulse, new Color(1f, 1f, 0.95f, 0.5f + 0.5f * k));
-            Fx.Glow(palm, (0.2f + 0.9f * k) * s * pulse, new Color(0.35f, 1f, 0.4f, 0.12f + 0.3f * k));
-            if (k > 0.8f) Fx.Circle(palm - Vector3.up * 0.02f, (1.4f - k) * 2.2f * s, 0.04f * s, new Color(0.7f, 1f, 0.7f, (k - 0.8f) * 3f), false, true);
+            Fx.Glow(palm, (0.06f + 0.34f * k * k) * s * pulse, new Color(1f, 1f, 0.95f, 0.5f + 0.5f * k), false, false);
+            Fx.Glow(palm, (0.2f + 0.9f * k) * s * pulse, new Color(0.35f, 1f, 0.4f, 0.12f + 0.3f * k), false, false);
+            if (k > 0.8f) Fx.Circle(palm - Vector3.up * 0.02f, (1.4f - k) * 2.2f * s, 0.04f * s, new Color(0.7f, 1f, 0.7f, (k - 0.8f) * 3f), false, false);
         }
 
         static float Hash(int i)

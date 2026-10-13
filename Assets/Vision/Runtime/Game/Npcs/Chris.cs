@@ -20,6 +20,8 @@ namespace Vision.Game
         public int Target;
         public float AscendT, WorkT, WorkDur;
         int hp = Balance.Chris.Hp, wp, dir = 1;
+        /// <summary>Only Zach can slay him.</summary>
+        public override float? HealthFor(Role viewer) => alive && viewer == Role.Hunter ? hp / (float)Balance.Chris.Hp : (float?)null;
         float turnT, pathT;
         readonly Vector2[] beat = new Vector2[4];
         readonly Dictionary<int, float> downFor = new Dictionary<int, float>();

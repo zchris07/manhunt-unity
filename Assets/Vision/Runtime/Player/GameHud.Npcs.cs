@@ -7,8 +7,9 @@ using Vision.UI;
 namespace Vision.Player
 {
     /// <summary>
-    /// Over the NPCs you can see: their name, what they're saying (a speech bubble), and how close Shane or Jaden is to
-    /// being set off (an alert bar that turns red, then a red "!" once they're after someone).
+    /// Over the NPCs you can see: their name, what they're saying (a speech bubble), how close Shane or Jaden is to
+    /// being set off (an alert bar that turns red, then a red "!" once they're after someone), and, for those your role
+    /// can slay, their health (the players' head bar, always opaque).
     /// </summary>
     public sealed partial class GameHud
     {
@@ -16,6 +17,7 @@ namespace Vision.Player
         {
             public RectTransform Root, Bubble, AlertBack, AlertFill;
             public Text Name, Say, Bang;
+            public HeadBar Bar;
         }
 
         RectTransform npcTagRoot;
@@ -41,6 +43,8 @@ namespace Vision.Player
             UiKit.Box(t.Bubble, new Color(0.94f, 0.92f, 0.86f, 0.94f));
             t.Say = kit.Label(UiKit.Fill("Text", t.Bubble, 6f), "", 15, TextAnchor.MiddleCenter, UiKit.Hex(0x14140f), UiKit.Face.Mono, 0f, false);
             t.Say.horizontalOverflow = HorizontalWrapMode.Wrap;
+            t.Bar = MakeHeadBar(npcTagRoot);
+            t.Bar.Group.alpha = 1f;
             npcTags.Add(t);
             return t;
         }
@@ -64,7 +68,7 @@ namespace Vision.Player
             MatchSim sim = host != null ? host.Sim : null;
             Camera cam = Camera.main;
             int used = 0;
-            if (sim != null && cam != null && world != null && !MainMenuOpen && !map.FullOpen)
+            if (sim != null && cam != null && world != null && !MainMenuOpen && !map.FullOpen && Vision.Effects.SensesCamera.Blackout < 0.9f)
             {
                 bool testing = sim.TestMode;
                 foreach (Npc n in sim.Npcs)
@@ -80,6 +84,15 @@ namespace Vision.Player
                     t.Root.gameObject.SetActive(true);
                     RectTransformUtility.ScreenPointToLocalPointInRectangle(npcTagRoot, sp, null, out Vector2 local);
                     t.Root.anchoredPosition = local;
+                    // Health, for an NPC this role can slay: just over the head, the name lifted above it.
+                    float? health = n.HealthFor(me.Role);
+                    bool bar = health.HasValue && PlaceBar(t.Bar, npcTagRoot, cam, wp, 38f, false);
+                    t.Bar.Root.gameObject.SetActive(bar);
+                    if (bar)
+                    {
+                        SetBar(t.Bar, health.Value, 0f, Time.unscaledDeltaTime);
+                        t.Root.anchoredPosition = local + new Vector2(0f, t.Bar.Root.sizeDelta.y + 4f);
+                    }
                     t.Name.text = n.Name;
                     float alert = n.AlertLevel;
                     bool chasing = (n.Flags & NpcFlags.Chasing) != 0;
@@ -98,7 +111,11 @@ namespace Vision.Player
                     }
                 }
             }
-            for (int i = used; i < npcTags.Count; i++) npcTags[i].Root.gameObject.SetActive(false);
+            for (int i = used; i < npcTags.Count; i++)
+            {
+                npcTags[i].Root.gameObject.SetActive(false);
+                npcTags[i].Bar.Root.gameObject.SetActive(false);
+            }
         }
     }
 }

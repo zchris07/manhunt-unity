@@ -41,7 +41,7 @@ Shader "Hidden/Vision/Composite"
             float _VisDebug;
             float _VisShadow;      // character shadow darkening
             float4 _VisGrade;      // x = contrast, y = saturation, z = lit brightness, w = unlit brightness
-            float4 _VisBeam;       // x = flashlight beam intensity, y = back-side light share, z = back-side reach (world)
+            float4 _VisBeam;       // x = flashlight beam intensity, y = back-side light share, z = back-side reach (world), w = blackout (the edge of the woods)
             float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px, w = gas blur over the whole screen (px)
             float4 _VisionViewerPos;
 
@@ -142,6 +142,8 @@ Shader "Hidden/Vision/Composite"
                 half luma = dot(c, half3(0.2126, 0.7152, 0.0722));
                 c = max(lerp(luma.xxx, c, _VisGrade.y), 0);
                 c = pow(max(c / 0.18, 1e-5), _VisGrade.x) * 0.18;
+                // Out past the edge of the woods the whole screen goes dark, every light with it.
+                c *= 1.0 - saturate(_VisBeam.w);
                 return half4(c, 1);
             }
             ENDHLSL

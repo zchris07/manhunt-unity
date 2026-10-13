@@ -23,18 +23,80 @@ namespace Vision.Player
         public GameHud gameHud;
 
         /// <summary>True when the player was launched to take the captures (it skips the title screen).</summary>
-        public static bool Requested => Array.IndexOf(Environment.GetCommandLineArgs(), "-visionCapture") >= 0;
+        public static bool Requested => Array.IndexOf(Environment.GetCommandLineArgs(), "-visionCapture") >= 0 || Array.IndexOf(Environment.GetCommandLineArgs(), "-visionGasLab") >= 0;
 
         string folder;
+        bool gasLab;
+
+        /// <summary>
+        /// A short run of the gases alone (<c>-visionGasLab &lt;folder&gt;</c>), for tuning their look: galaxy gas and Penjamin
+        /// as they grow, hang and fade, close and far, and Zach's scent trail.
+        /// </summary>
+        IEnumerator GasLab()
+        {
+            if (hud != null) hud.visible = false;
+            composite.look = VisionComposite.Look.Defaults;
+            PlayerController player = world.Player;
+            Wanderer wanderer = world.Wanderer;
+            wanderer.enabled = false;
+            MapLayout L = world.Layout;
+            Vector3 away = new Vector3(L.Spawn.x + 60f, 0f, L.Spawn.y);
+            Vector3 V(Vector2 p) => new Vector3(p.x, 0f, p.y);
+            yield return Wait(10);
+            gameHud.visible = true;
+            gameHud.StartTesting(false);
+            MatchHost host = MatchHost.For(world);
+            yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+            yield return new WaitForSeconds(0.5f);
+            gameHud.PlayTestFx(TestFx.Gas);
+            foreach (float t in new[] { 0.3f, 1.2f, 3f, 6.2f })
+            {
+                yield return new WaitForSeconds(t - (t > 0.3f ? 0f : 0f));
+                yield return Shot($"gas_galaxy_{t:0.0}");
+            }
+            yield return new WaitForSeconds(2f);
+            if (host.SwitchRole())
+            {
+                yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                yield return new WaitForSeconds(0.5f);
+                player.ExtraButtons = Btn.Vape;
+                yield return Wait(3);
+                player.ExtraButtons = Btn.None;
+                foreach (float t in new[] { 0.3f, 0.8f, 2f, 4.5f })
+                {
+                    yield return new WaitForSeconds(t);
+                    yield return Shot($"gas_penjamin_{t:0.0}");
+                }
+                // The scent: a survivor dummy running a loop ahead of Zach.
+                SimPlayer d = host.SpawnDummy(Role.Survivor);
+                if (d != null)
+                {
+                    for (int i = 0; i < 40; i++)
+                    {
+                        float a = i / 40f * Mathf.PI * 1.5f;
+                        host.Sim.Teleport(d.Id, host.Local.Pos + new Vector2(Mathf.Cos(a) * 4f, 3f + Mathf.Sin(a) * 3f));
+                        host.Sim.Trails.Add(new TrailPoint { Id = 900000 + i, Pos = d.Pos, T = host.Sim.Time, Kind = 0, Who = d.Id });
+                        yield return new WaitForSeconds(0.05f);
+                    }
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot("gas_scent");
+                }
+            }
+            File.WriteAllText(Path.Combine(folder, "perf.txt"), "gas lab");
+            Application.Quit();
+        }
 
         void Start()
         {
             string[] args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; i++)
+            {
                 if (args[i] == "-visionCapture") folder = args[i + 1];
+                if (args[i] == "-visionGasLab") { folder = args[i + 1]; gasLab = true; }
+            }
             if (folder == null) return;
             Directory.CreateDirectory(folder);
-            StartCoroutine(Run());
+            StartCoroutine(gasLab ? GasLab() : Run());
         }
 
         IEnumerator Run()
@@ -486,6 +548,22 @@ namespace Vision.Player
                         gameHud.Refresh();
                         yield return Shot(name);
                     }
+                    // The 0.50 cal aimed: right click brings the scope to the eye and the laser on; then a round.
+                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Sniper);
+                    cameraRig.orthographicSize = o * 0.7f;
+                    player.ExtraButtons = Btn.Lunge;
+                    yield return new WaitForSeconds(0.8f);
+                    gameHud.Refresh();
+                    yield return Shot("131_sniper_aimed_laser");
+                    player.ExtraButtons = Btn.Lunge | Btn.Primary;
+                    yield return new WaitForSeconds(0.12f);
+                    player.ExtraButtons = Btn.Lunge;
+                    yield return new WaitForSeconds(0.05f);
+                    yield return Shot("132_sniper_round_through");
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot("133_sniper_at_the_hip");
+                    cameraRig.orthographicSize = o * 0.38f;
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Shotgun);
                     yield return new WaitForSeconds(0.5f);
                     player.ExtraButtons = Btn.Primary;
@@ -769,7 +847,43 @@ namespace Vision.Player
                     player.SelectedSlot = -1;
                     player.AimOverride = null;
                 }
-                // Zach's kit: his HUD, the charge ring, a swing, the Burst, Penjamin, the Hemp Battery and Beam.
+                // Health over heads (fresh, then faded), and the edge of the woods: the light flickering past the first ring,
+                // dying past the second, the dark, and its bite pulsing red.
+                {
+                    SimPlayer meB = host.Local;
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 3f)), Vector2.up, wanderer, away);
+                    SimPlayer dummyB = host.SpawnDummy(Role.Survivor);
+                    if (dummyB != null)
+                    {
+                        host.Sim.Teleport(dummyB.Id, meB.Pos + new Vector2(1.6f, 2.2f));
+                        yield return new WaitForSeconds(0.3f);
+                        host.Sim.HurtSurvivor(dummyB, 0.3f, null, "test");
+                        yield return new WaitForSeconds(0.25f);
+                        gameHud.Refresh();
+                        yield return Shot("134_head_bars_fresh");
+                        yield return new WaitForSeconds(6f);
+                        yield return Shot("135_head_bars_faded");
+                        host.Sim.ClearDummies();
+                    }
+                    Vector2 edgeOut = new Vector2(0.6f, -0.8f).normalized;
+                    yield return Stage(player, V(edgeOut * (host.Sim.Ring1 + 5f)), edgeOut, wanderer, away);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot("136_edge_flicker");
+                    yield return Stage(player, V(edgeOut * (host.Sim.Ring2 + 5f)), edgeOut, wanderer, away);
+                    yield return new WaitForSeconds(1.5f);
+                    yield return Shot("137_edge_light_dying");
+                    yield return new WaitForSeconds(1.8f);
+                    yield return Shot("138_edge_dark");
+                    int hits = meB.BoundaryHits;
+                    float until = Time.time + 5f;
+                    while (meB.BoundaryHits == hits && Time.time < until) yield return null;
+                    yield return new WaitForSeconds(0.1f);
+                    yield return Shot("139_edge_red_pulse");
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 3f)), Vector2.up, wanderer, away);
+                    host.Sim.Get(meB.Id).Hp = 1f;
+                    yield return new WaitForSeconds(2f);
+                }
+                // Zach's kit: his HUD, a swing, the Burst, Penjamin, the Hemp Battery and Beam.
                 if (host.SwitchRole())
                 {
                     SimPlayer z = host.Local;
@@ -867,6 +981,20 @@ namespace Vision.Player
                     player.AimOverride = Vector2.up;
                     yield return new WaitForSeconds(3.5f);
                     yield return Press(Btn.Ability);
+                    // Through the end of the world and out on the far side.
+                    {
+                        Vector2 crossOut = new Vector2(-0.8f, 0.6f).normalized;
+                        yield return Stage(player, V(crossOut * (host.Sim.Ring3 - 1f)), crossOut, wanderer, away);
+                        player.MoveOverride = crossOut;
+                        float until = Time.time + 4f;
+                        while (z.CrossCd <= 0f && Time.time < until) yield return null;
+                        player.MoveOverride = null;
+                        yield return new WaitForSeconds(0.4f);
+                        gameHud.Refresh();
+                        yield return Shot("140_zach_crossed_over");
+                        yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
+                        yield return new WaitForSeconds(1.5f);
+                    }
                     host.Sim.ClearDummies();
                     host.SwitchRole();
                 }
@@ -1362,15 +1490,17 @@ namespace Vision.Player
                 return go;
             }
 
-            // Dead trees: three sheets of four designs, each design with its three sizes side by side; then the
+            // Dead trees: sheets of four designs, each design with its three sizes side by side; then the
             // evergreens on two sheets, each form at short-thick, medium and tall-thin. Every sheet has its own spot.
             var sheets = new System.Collections.Generic.List<(string name, Vector3 centre)>();
-            for (int sheet = 0; sheet < 3; sheet++)
+            int deadSheets = (LowPolyModels.DeadTreeKinds + 3) / 4;
+            for (int sheet = 0; sheet < deadSheets; sheet++)
             {
-                float x0 = sheet * 200f;
+                float x0 = sheet < 3 ? sheet * 200f : -200f * (sheet - 2);
                 for (int d = 0; d < 4; d++)
                 {
                     int k = sheet * 4 + d;
+                    if (k >= LowPolyModels.DeadTreeKinds) break;
                     for (int size = 0; size < 3; size++)
                         Place(LowPolyModels.DeadTree((LowPolyModels.DeadTreeKind)k, size), new Vector3(x0 + d * 11.5f + size * 3.4f, 0f, 0f), Vector3.one)
                             .transform.localRotation = Quaternion.Euler(0f, 20f, 0f);

@@ -45,10 +45,14 @@ namespace Vision.Effects
             overlay.farClipPlane = main.farClipPlane;
         }
 
+        /// <summary>Past the edge of the woods the screen goes black: the senses go with everything else.</summary>
+        public static float Blackout;
+
         void LateUpdate()
         {
             if (overlay == null) Ensure();
             Match();
+            overlay.enabled = Blackout < 0.9f;
         }
 
         void OnDestroy()
