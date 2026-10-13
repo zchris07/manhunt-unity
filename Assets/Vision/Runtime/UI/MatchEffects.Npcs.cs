@@ -146,14 +146,14 @@ namespace Vision.UI
         void Aura(Plasma p)
         {
             float hue = Mathf.Repeat(Time.time * 0.6f, 1f);
-            float r = Scale.D(Balance.Plasma.BeastRadius * 1.8f) * S;
-            Vector3 at = Ground(p.Pos, 0.05f);
+            float r = Scale.D(Balance.Plasma.BeastRadius * 1.8f) * RingSize;
             Color a = Color.HSVToRGB(hue, 0.85f, 1f), b = Color.HSVToRGB(Mathf.Repeat(hue + 0.33f, 1f), 0.85f, 1f);
-            a.a = 0.55f;
-            b.a = 0.3f;
-            Fx.Circle(at, r, 0.05f * S, a);
-            Fx.Circle(at, r * 1.25f, 0.035f * S, b);
-            Fx.Disc(at, r, new Color(a.r, a.g, a.b, 0.08f));
+            a.a = 0.55f * RingBright;
+            b.a = 0.3f * RingBright;
+            float wa = 0.025f * RingSize, wb = 0.0175f * RingSize;
+            GroundArc(p.Pos, r - wa, r + wa, 0f, Mathf.PI * 2f, a);
+            GroundArc(p.Pos, r * 1.25f - wb, r * 1.25f + wb, 0f, Mathf.PI * 2f, b);
+            GroundArc(p.Pos, 0f, r - wa, 0f, Mathf.PI * 2f, new Color(a.r, a.g, a.b, 0.08f * RingBright));
         }
 
         /// <summary>The ambulance's light bar, flashing red then blue.</summary>

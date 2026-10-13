@@ -115,7 +115,7 @@ namespace Vision.Tests
         }
 
         /// <summary>A throw or a light slash whips the arm faster than anything else (a real throwing arm passes 5000 deg/s).</summary>
-        static bool Whip(ActionClip c) => c == ActionClips.Throw || c == ActionClips.Swing || c == ActionClips.SwingBack;
+        static bool Whip(ActionClip c) => c == ActionClips.Throw || c == ActionClips.Swing || c == ActionClips.SwingBack || c == ActionClips.SwingHeavy || c == ActionClips.SwingHeavyBack;
 
         static bool Fast(ActionClip c) => c.Name.StartsWith("Swing") || c.Name.StartsWith("Recoil") || c == ActionClips.Throw || c == ActionClips.Burst || c == ActionClips.Lunge || c == ActionClips.Slam || c == ActionClips.Push || c == ActionClips.Cringe;
 
@@ -134,9 +134,11 @@ namespace Vision.Tests
                     void OnFire(ActionClip c, string n) { if (c == clip) fired[n] = fired.TryGetValue(n, out int k) ? k + 1 : 1; }
                     layer.EventFired += OnFire;
                     // Let the gait settle, play the clip once through (or one loop), then stop and blend out.
-                    // Clips that always follow another (a recoil follows the aim, the staking follows the carry) start from it.
+                    // Clips that always follow another (a recoil follows the aim, the staking follows the carry, a charged cut the
+                    // charge) start from it.
                     ActionClip prelude = clip == ActionClips.RecoilLong || clip == ActionClips.RecoilPump ? ActionClips.AimLong : clip == ActionClips.RecoilRifle ? ActionClips.AimRifle
-                        : clip == ActionClips.RecoilPistol ? ActionClips.AimPistol : clip == ActionClips.StakeBody ? ActionClips.Carry : null;
+                        : clip == ActionClips.RecoilPistol ? ActionClips.AimPistol : clip == ActionClips.StakeBody ? ActionClips.Carry
+                        : clip == ActionClips.SwingHeavy ? ActionClips.Charge : clip == ActionClips.SwingHeavyBack ? ActionClips.ChargeBack : null;
                     if (prelude != null) layer.Play(prelude, 1f, true);
                     else layer.Stop();
                     for (int i = 0; i < 180; i++) { animator.Step(dt); layer.Step(dt); }
@@ -228,15 +230,32 @@ namespace Vision.Tests
             Check("staked: hands overhead", staked.r.y > 1.75f && staked.l.y > 1.75f, staked.r);
             var stunned = HandsIn(ActionClips.Stunned, 0f, PropKind.None);
             Check("stunned: hands at the head", stunned.r.y > 1.45f && Mathf.Abs(stunned.r.x) < 0.25f, stunned.r);
+            // The X: each cut falls diagonally across his chest from high over one shoulder to the other hip, the blade out
+            // in front through the hit; the forehand from the right, the backhand from the left, each ending where the
+            // other begins.
+            foreach (var (clip, side, name) in new[] { (ActionClips.Swing, 1f, "forehand"), (ActionClips.SwingHeavy, 1f, "charged forehand"),
+                                                       (ActionClips.SwingBack, -1f, "backhand"), (ActionClips.SwingHeavyBack, -1f, "charged backhand") })
+            {
+                var cocked = HandsIn(clip, 0.07f, PropKind.Machete);
+                Check($"{name}: cocked high over the shoulder", cocked.r.y > 1.6f && cocked.r.x * side > -0.15f, cocked.r);
+                var hit = HandsIn(clip, 0.15f, PropKind.Machete);
+                Vector3 tip = hit.r + hit.propDir * 0.56f;
+                Check($"{name}: through the middle in front at chest height", hit.r.z > 0.35f && Mathf.Abs(hit.r.x) < 0.2f && hit.r.y > 1.1f && hit.r.y < 1.45f, hit.r);
+                Check($"{name}: the blade out in front at the hit", tip.z > 0.8f, tip);
+                var end = HandsIn(clip, 0.24f, PropKind.Machete);
+                Check($"{name}: down to the other hip", end.r.x * side < -0.2f && end.r.y < 1.08f, end.r);
+                Check($"{name}: a falling diagonal", cocked.r.y - end.r.y > 0.6f, new Vector3(cocked.r.y, hit.r.y, end.r.y));
+            }
             var charge = HandsIn(ActionClips.Charge, 0f, PropKind.Machete);
-            Check("charge: machete raised over the shoulder", charge.r.y > 1.6f && charge.r.x > 0f, charge.r);
-            var wind = HandsIn(ActionClips.Swing, 0.075f, PropKind.Machete);
-            Check("forehand: drawn back out to his right", wind.r.x > 0.3f && wind.r.z < 0.25f, wind.r);
-            var strike = HandsIn(ActionClips.Swing, 0.15f, PropKind.Machete);
-            Check("forehand: the hand comes across in front at chest height", strike.r.z > 0.35f && strike.r.x < 0.25f && strike.r.y > 1.1f, strike.r);
-            var follow = HandsIn(ActionClips.Swing, 0.24f, PropKind.Machete);
-            Check("forehand: across to his left", follow.r.x < -0.2f, follow.r);
-            Check("forehand: a flat slash (the hand stays level)", Mathf.Abs(follow.r.y - wind.r.y) < 0.2f && Mathf.Abs(strike.r.y - wind.r.y) < 0.2f, new Vector3(wind.r.y, strike.r.y, follow.r.y));
+            Check("charge: machete cocked over the right shoulder", charge.r.y > 1.65f && charge.r.x > 0f, charge.r);
+            var chargeBack = HandsIn(ActionClips.ChargeBack, 0f, PropKind.Machete);
+            Check("charging a backhand: cocked over the left shoulder", chargeBack.r.y > 1.65f && chargeBack.r.x < 0.05f, chargeBack.r);
+            var foreEnd = HandsIn(ActionClips.Swing, ActionClips.Swing.Length - 0.002f, PropKind.Machete);
+            var backStart = HandsIn(ActionClips.SwingBack, 0f, PropKind.Machete);
+            Check("the forehand's loop ends where the backhand starts", (foreEnd.r - backStart.r).magnitude < 0.02f, foreEnd.r - backStart.r);
+            var backEnd = HandsIn(ActionClips.SwingBack, ActionClips.SwingBack.Length - 0.002f, PropKind.Machete);
+            var foreStart = HandsIn(ActionClips.Swing, 0f, PropKind.Machete);
+            Check("the backhand's loop ends where the forehand starts", (backEnd.r - foreStart.r).magnitude < 0.02f, backEnd.r - foreStart.r);
             var carry = HandsIn(ActionClips.Carry, 0f, PropKind.None);
             Check("carry: left hand up on the shoulder", carry.l.y > 1.45f && carry.l.x < 0f, carry.l);
             var beam = HandsIn(ActionClips.Beam, 0f, PropKind.None);
@@ -246,10 +265,6 @@ namespace Vision.Tests
             var eyes = HandsIn(ActionClips.CoverEyes, 0f, PropKind.None);
             Check("Penjamin: right hand over the eyes", eyes.r.y > 1.45f && eyes.r.y < 1.72f && eyes.r.z > 0.04f && Mathf.Abs(eyes.r.x) < 0.16f, eyes.r);
             Check("Penjamin: left hand over the eyes", eyes.l.y > 1.45f && eyes.l.y < 1.72f && eyes.l.z > 0.04f && Mathf.Abs(eyes.l.x) < 0.16f, eyes.l);
-            var back = HandsIn(ActionClips.SwingBack, 0.06f, PropKind.Machete);
-            Check("backhand: starts off to his left, where the forehand ended", back.r.x < -0.2f && back.r.y > 1.2f, back.r);
-            var backStrike = HandsIn(ActionClips.SwingBack, 0.195f, PropKind.Machete);
-            Check("backhand: cut back across to his right", backStrike.r.x > 0.3f && backStrike.r.z > 0.2f, backStrike.r);
             Assert.IsEmpty(problems, string.Join("; ", problems));
         }
 
@@ -349,6 +364,13 @@ namespace Vision.Tests
                 Assert.AreSame(ActionClips.Charge, layer.Current);
                 view.OnEvent(new GameEvent { Kind = EventKind.Swing, A = 2, B = 2, F = -1f }, z, null);
                 Assert.AreSame(ActionClips.SwingHeavy, layer.Current, "a heavy swing");
+                view.OnEvent(new GameEvent { Kind = EventKind.Swing, A = 2, B = 1, F = -1f, G = 1f }, z, null);
+                Assert.AreSame(ActionClips.SwingBack, layer.Current, "then the backhand of the X");
+                for (int i = 0; i < 100; i++) layer.Step(0.01f);
+                z.NextSide = 1;
+                view.Present(z);
+                Assert.AreSame(ActionClips.ChargeBack, layer.Current, "charging the backhand: cocked over the left shoulder");
+                z.NextSide = 0;
                 Vector2 before = layer.Reaction;
                 view.OnEvent(new GameEvent { Kind = EventKind.Hit, A = 2, F = 0.3f }, z, null);
                 layer.Step(0.03f);

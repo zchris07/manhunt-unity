@@ -177,6 +177,29 @@ namespace Vision.Tests
 
         // ---------------------------------------------------------------- the machete
 
+        [Test]
+        public void Swings_GoBackAndForthInAnX_ChargedOnesToo_AndStartOverAfterAPause()
+        {
+            SimRig rig = Duel(400f);
+            SimPlayer h = rig.P(1);
+            var sides = new System.Collections.Generic.List<int>();
+            void Swing(int holdTicks)
+            {
+                rig.Hold(1, Btn.Primary, holdTicks);
+                rig.Run(Secs(Balance.Hunter.Attack.Windup + Balance.Hunter.Attack.SwingTime) + 2);
+                sides.Add(h.SwingSide);
+            }
+            Swing(1);
+            Swing(1);
+            Assert.AreEqual(1, h.NextSide, "pressed again: cocked over the left shoulder");
+            Swing(Secs(Balance.Hunter.Attack.HeavyAt) + 2);
+            Swing(1);
+            CollectionAssert.AreEqual(new[] { 0, 1, 0, 1 }, sides, "forehand, backhand, a charged forehand, backhand");
+            rig.Run(Secs(Balance.Hunter.Attack.ComboWindow) + 5);
+            Swing(1);
+            Assert.AreEqual(0, h.SwingSide, "after a pause of a second, a forehand again");
+        }
+
         static SimRig Duel(float dist, int survivors = 1)
         {
             var rig = new SimRig(survivors, 1);
@@ -212,12 +235,19 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Swipe_Reaches124Units_InFront_NotBehind()
+        public void Swipe_Reaches15PercentLessThanTheOriginals124Units_InFront_NotBehind()
         {
+            Assert.AreEqual(124f * 0.85f, Balance.Hunter.Attack.Range, 1e-4f);
             SimRig rig = Duel(115f);
             rig.Tap(1, Btn.Primary);
             rig.Run(10);
             Assert.AreEqual(Health.Wounded, rig.P(2).Health, "115 u in front: a hit");
+
+            // 135 u: inside the original's reach (124 + its tolerance + the body), outside the shortened one.
+            rig = Duel(135f);
+            rig.Tap(1, Btn.Primary);
+            rig.Run(10);
+            Assert.AreEqual(Health.Healthy, rig.P(2).Health, "135 u: now out of reach");
 
             rig = Duel(-60f);
             rig.Tap(1, Btn.Primary);
@@ -234,6 +264,10 @@ namespace Vision.Tests
         [Test]
         public void HoldingTheSwing_ChargesAHeavyHit_ThatTakesTwoThirds()
         {
+            Assert.AreEqual(1.85f, Balance.Hunter.Attack.HeavyAt, 1e-5f, "a second longer than the original's 0.85 s");
+            Assert.AreEqual(1.9f, Balance.Hunter.Attack.ChargeMax, 1e-5f);
+            Assert.AreEqual(4f, Balance.Hunter.Attack.AutoRelease, 1e-5f, "a full charge can still be held 2.1 s");
+            Assert.AreEqual(1f / 3f + 1f / 6f, MatchSim.SwipeDamage(0.1f + 0.875f), 1e-4f, "the damage builds over the longer charge");
             SimRig rig = Duel(150f);
             SimPlayer h = rig.P(1), s = rig.P(2);
             rig.Hold(1, Btn.Primary, Secs(Balance.Hunter.Attack.ChargeMax) + 1);

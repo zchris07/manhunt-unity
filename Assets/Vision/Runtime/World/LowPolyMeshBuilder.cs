@@ -365,6 +365,43 @@ namespace Vision.World
                 return new Vector3(x, height(x, z), z);
             }
 
+            /// <summary>
+            /// The height of the drawn ground itself at a point: found on the very triangle of the grid it falls in (the
+            /// cells are jittered, so the cell it's listed under and its neighbours are tried), rather than the smooth
+            /// function the grid samples.
+            /// </summary>
+            public bool SurfaceHeight(float x, float z, out float h)
+            {
+                h = 0f;
+                if (vertices == null) return false;
+                int ci = Mathf.FloorToInt((x + HalfExtent) / Step), cj = Mathf.FloorToInt((z + HalfExtent) / Step);
+                for (int r = 0; r <= 1; r++)
+                    for (int dj = -r; dj <= r; dj++)
+                        for (int di = -r; di <= r; di++)
+                        {
+                            if (r == 1 && di == 0 && dj == 0) continue;
+                            int i = ci + di, j = cj + dj;
+                            if (i < 0 || j < 0 || i >= Cells || j >= Cells) continue;
+                            Cell(i, j, out Vector3 a0, out Vector3 b0, out Vector3 c0, out Vector3 a1, out Vector3 b1, out Vector3 c1);
+                            if (OnTriangle(a0, b0, c0, x, z, out h) || OnTriangle(a1, b1, c1, x, z, out h)) return true;
+                        }
+                return false;
+            }
+
+            static bool OnTriangle(Vector3 a, Vector3 b, Vector3 c, float x, float z, out float h)
+            {
+                h = 0f;
+                float d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z);
+                if (Mathf.Abs(d) < 1e-9f) return false;
+                float u = ((b.z - c.z) * (x - c.x) + (c.x - b.x) * (z - c.z)) / d;
+                float v = ((c.z - a.z) * (x - c.x) + (a.x - c.x) * (z - c.z)) / d;
+                float w = 1f - u - v;
+                const float eps = -1e-4f;
+                if (u < eps || v < eps || w < eps) return false;
+                h = u * a.y + v * b.y + w * c.y;
+                return true;
+            }
+
             /// <summary>The cell's two triangles, diagonals alternating in a checkerboard.</summary>
             public void Cell(int i, int j, out Vector3 a0, out Vector3 b0, out Vector3 c0, out Vector3 a1, out Vector3 b1, out Vector3 c1)
             {

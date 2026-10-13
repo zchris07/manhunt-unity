@@ -449,6 +449,9 @@ namespace Vision.World
             var grid = new LowPolyMeshBuilder.TerrainGrid(e, PolyBudget.Edge(PolyBudget.Class.Ground),
                 (x, z) => Terrain.Height(x, z), (x, z) => Flat(new Vector2(x, z)) ? 0f : 1f, 0.28f, seed);
             Color GroundColorVaried(float x, float z) => Vary(GroundColor(x, z), Flat(new Vector2(x, z)) ? 0.03f : 0.05f);
+            // Kept: markings on the ground (the indicator rings) sit on these very facets.
+            surface = grid;
+            hasSurface = true;
 
             int perChunk = Mathf.Max(1, Mathf.RoundToInt(ChunkSize / grid.Step));
             int chunks = Mathf.CeilToInt(grid.Cells / (float)perChunk);

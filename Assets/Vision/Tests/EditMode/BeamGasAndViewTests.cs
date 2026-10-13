@@ -88,7 +88,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Penjamin_GoesStraightThroughTheShield_AndReaches30PercentLess()
+        public void Penjamin_GoesStraightThroughTheShield_AndReaches20PercentFurtherThanItWas()
         {
             var rig = new SimRig(1, 1);
             SimPlayer s = rig.P(2);
@@ -98,7 +98,7 @@ namespace Vision.Tests
             Assert.AreEqual(0.9f, s.Hp, 1e-5f, "health takes it all");
             rig.Sim.HurtSurvivor(s, 0.1f, null, "slash");
             Assert.AreEqual(0.4f, s.Shield, 1e-5f, "anything else still hits the shield first");
-            Assert.AreEqual(1.1f * 0.7f, Balance.Hunter.Vape.ReachMul, 1e-5f);
+            Assert.AreEqual(1.1f * 0.7f * 1.2f, Balance.Hunter.Vape.ReachMul, 1e-5f, "30% less than the original's, then 20% more");
             Assert.AreEqual(10f, Balance.Hunter.Vape.HalfAngleDeg, "the same width");
             Assert.AreEqual(0.3f, Balance.Items.Trap.ZachConeCut, 1e-5f, "galaxy gas narrows Zach's cone by 30%");
         }

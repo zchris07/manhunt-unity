@@ -1,7 +1,7 @@
 # Manhunt (Unity)
 
 Unity port of the 2D browser game **Manhunt** (github.com/zchris07/manhunt, `main`), the blueprint for its
-map, objectives, items and rules: a top-down 2.5D horror game on an orthographic, 60°
+map, objectives, items and rules: a top-down 2.5D horror game on an orthographic, 55°
 pitch camera over a flat-shaded low-poly world, lit by a 3D port of the 2D visibility-polygon
 illumination system. It opens on the title screen: **Create lobby** or **Join** to play online, or **Testing mode** alone.
 
@@ -154,7 +154,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **No clock**: the night ends when no survivor is left standing (survivors win if at least half
   escaped) or every hunter has left.
 - **Health and shield**, bottom left. A survivor's health never regenerates; the blue shield takes damage
-  first. Zach's machete takes a third (two thirds charged); at zero you are **downed** and crawl. Zach
+  first. Zach's machete takes a third (two thirds charged; it reaches 15% less far than the original's 124 units, and
+  a charge takes a second longer: heavy at 1.85 s, letting go on its own at 4 s); at zero you are **downed** and crawl. Zach
   carries the downed to a stake; a teammate can cut them down, and the second staking (or a minute on the
   stake) eliminates.
 - **Stamina**: eight seconds of sprint (Zach six); running dry locks it for 1.5 s while it refills.
@@ -192,23 +193,34 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
   golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, icons, cooldown shades, charges and
   meters (the Hemp Beam's is the leaf), under his health bar the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
-  heard being repaired. Charging the machete, he coils like a spring (blade drawn back high over his shoulder, torso
-  wound away, weight on the back foot, trembling) over a red ring at his feet; swings come with a swish (heavier when
-  charged) and a smear (pale, or dark blood-red when heavy). Light swings are flat slashes across his body, back and
-  forth in a flurry: the forehand drawn back to his right and cut across to his left, the backhand straight back the
-  way it came, the torso winding and unwinding with each cut and the smear sweeping the way the blade goes; the lunge
-  leaves speed lines. The Burst is a translucent purple
+  heard being repaired. His machete (always in his right hand) cuts in an **X**, back and forth along a figure 8: the
+  forehand falls from high over his right shoulder diagonally down across his chest to his left hip and loops on up over
+  his left shoulder; the backhand falls from there down across to his right hip and loops back up over his right
+  shoulder. Swings started within a second of the last one alternate, charged ones too; after a longer pause he starts
+  again with the forehand. The torso winds toward the shoulder the cut starts from and unwinds through it, leaning in,
+  the free arm reaching forward as a guard while the blade is up and swinging back against the cut. Charging, he sinks
+  low and wide on bent knees with the blade cocked over the shoulder the next cut falls from, trembling, over a red
+  ring at his feet; a charged cut drives his weight onto his front foot. Each swing comes with a swish (heavier when
+  charged), and the blade leaves a trail through the air that follows the model's real machete from near the guard to
+  its tip: a pale steel sheen with a crisp bone-white edge along the tip's path for a light cut, gone in about an
+  eighth of a second; a wider band, dark blood red at its heart and brighter toward the edge, for a charged one,
+  flinging red droplets off the tip when it connects. The lunge leaves speed lines. The Burst is a translucent purple
   sound wave racing through walls on the rules' concave front: a bright trembling crest, a soft body, pressure bands
-  rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin rolls out soft yellow puffs
+  rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin streams out yellow wisps
   along a narrow cone (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes while their
   light narrows and the dark goes pitch black, easing in and out over the original's 0.6 s; their whole view blurs,
-  strongly while they're in it and clearing as the gas wears off. Penjamin reaches 30% less far than the original's
-  (the same width) and goes straight through a shield to the health bar. Galaxy gas narrows Zach's light by 30% and
-  blurs his view the same way. The gas itself (Penjamin, 50 Nic, galaxy gas and the scent trail) is a churning body of
-  procedural smoke puffs: dense, darker billows at the heart, paler wisps curling off the edges, a low haze along the
-  ground, every puff sitting on the terrain beneath it and thinning softly wherever it meets the ground or anything
-  solid, so it never shows a line cutting into them. The Hemp Battery's ring lies on the ground round Zach and follows
-  every rise and dip: a dim full ring, the charge left as a bright arc from twelve o'clock shrinking clockwise as the
+  strongly while they're in it and clearing as the gas wears off. Penjamin reaches 30% less far than the original's,
+  then 20% further than that (92.4% of the original's reach, the same width) and goes straight through a shield to the health bar. Galaxy gas narrows Zach's light by 30% and
+  blurs his view the same way. Penjamin's gas and galaxy gas are wispy and streaky: long thin streaks of fine
+  procedural strands that drift along themselves and curl, tapering away at both ends, over a few broad faint streaks
+  that give the cloud its body. Penjamin's stream outward along the cone from his mouth, darker near him and paler
+  toward the far end; galaxy gas's swirl slowly round the cloud's middle. Both are about a quarter more visible than
+  the puffs they replace. The scent trail is still small procedural smoke puffs. Every streak and puff sits on the
+  terrain beneath it and thins softly wherever it meets the ground or anything solid, so it never shows a line cutting
+  into them. The indicator rings on the ground (the Hemp Battery's, Plasma's colour-cycling rings, the breath rings
+  spreading from a hiding spot) are 30% smaller and 30% thinner than at first and 40% dimmer, and are laid on the
+  ground's own facets every 2.5 degrees round and every few centimetres across, so they follow each slope, bump and
+  crease of the drawn terrain exactly. The Hemp Battery's ring lies round Zach: a dim full ring, the charge left as a bright arc from twelve o'clock shrinking clockwise as the
   battery drains, and a faint slice filling it (no pulse). The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
   outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
   charges, then a layered beam (white-hot core, green body, wide glow, two twisting energy threads, shimmer flecks)
@@ -441,7 +453,10 @@ ditches and packed dirt on the paths.
   and its kick (the pistol's muzzle flip, the shotgun's shove, the rifle's heavy slam, Zach racking the golden pump),
   JARVIS,
   stunned, coughing in Penjamin's gas, the scare, staked, carried, crawling; Zach's charge, light and heavy swings,
-  lunge, carry, lift, stake, search, kicks, burst, Penjamin, Hemp Battery and beam.
+  lunge, carry, lift, stake, search, kicks, burst, Penjamin, Hemp Battery and beam. One-shot clips (a swing, a throw, a
+  gun's kick, a swig) come from the match's events; the player's own character hears them from the moment the match
+  host exists (it is enabled before the level hands it its world, so listening only in `OnEnable` used to leave the
+  local model deaf to them, while other players' models played them).
 - **Animation lab** (`CharacterTests`): every clip is played through at 240 Hz and checked for pops (bone speeds under
   1000 deg/s, 2600 for strikes, 3200 for the throw and the slashes), single-firing events and a clean end; key poses
   are checked for where the hands go (in front for the lever, at the mouth when drinking, overhead on a stake, both
@@ -514,7 +529,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 220 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 221 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

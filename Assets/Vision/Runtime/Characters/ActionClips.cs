@@ -266,77 +266,138 @@ namespace Vision.Characters
 
         // ---------------------------------------------------------------- Zach
 
-        static ActionPose Raised() => P().R(Bone.UpperArmR, -158f, 0f, 45f).R(Bone.ForearmR, -95f).R(Bone.HandR, 25f).R(Bone.Spine, -2f, -26f).R(Bone.Chest, 0f, -10f).R(Bone.UpperArmL, -30f, 0f, -18f).R(Bone.ForearmL, -30f);
+        // Zach's machete cuts in an X, back and forth along a figure 8, always in his right hand: the forehand falls from
+        // high over his right shoulder, diagonally down across his chest to his left hip, and the blade loops on up over
+        // his left shoulder; the backhand falls from there down across to his right hip and loops back up over his right
+        // shoulder, ready for the next forehand. The hand's path, the blade's direction (pointing out from him through the
+        // cut, the tip trailing the hand) and its edge (leading) are solved key by key in scratchpad poses_x.py. The torso
+        // winds up toward the shoulder the cut starts from and unwinds through it, leaning in as it falls; the free arm
+        // reaches forward as a guard while the blade is up, as in the user's reference stance, and swings back against
+        // the cut; the head stays on the target. Charged cuts are the same X, wound tighter, low and wide on bent knees,
+        // with the weight driving onto the front foot as the blade falls.
 
-        /// <summary>
-        /// Charging the machete: coiled like a spring, the blade drawn back high over the right shoulder, the torso wound
-        /// away from the target while the head stays on it, knees bent and the weight on the back foot, the free arm out
-        /// in front for balance; the whole body trembles with the strain (hold).
-        /// </summary>
-        static ActionPose Coiled(float ux, float uy, float uz, float spineYaw, float drop) => P().Lower(drop)
-            .R(Bone.UpperArmR, ux, uy, uz).R(Bone.ForearmR, -105f).R(Bone.HandR, 34f)
-            .R(Bone.Spine, -5f, spineYaw).R(Bone.Chest, -3f, spineYaw * 0.42f).R(Bone.Head, 6f, -spineYaw * 1.1f)
-            .R(Bone.UpperArmL, -58f, 10f, -24f).R(Bone.ForearmL, -42f).R(Bone.HandL, 12f)
-            .R(Bone.ThighR, -6f).R(Bone.ShinR, 16f).R(Bone.ThighL, -20f).R(Bone.ShinL, 26f);
-
-        public static readonly ActionClip Charge = new ActionClip("Charge", 0.32f, true)
-            .Key(0f, Coiled(-131f, -18f, 20f, 22f, 0.03f))
-            .Key(0.08f, Coiled(-134f, -20f, 22f, 24f, 0.035f))
-            .Key(0.16f, Coiled(-129f, -17f, 19f, 21f, 0.03f))
-            .Key(0.24f, Coiled(-133f, -21f, 23f, 25f, 0.04f))
-            .Blend(0.34f, 0.25f);
-
-        // The light swipes are flat slashes across the body, back and forth in a flurry: the forehand comes in from his
-        // right and sweeps across to his left; the backhand goes straight back the way it came, left to right. The hand
-        // travels a level arc at chest height in front of him (solved in scratchpad poses_slash3.py), the blade trailing
-        // it with the edge leading, the torso winding up and unwinding with the cut, the free arm swinging against it
-        // for balance and the head staying on the target. Each one's end is where the other begins, so a flurry flows.
-
-        /// <summary>The right arm on the slash arc, with the torso turned by <paramref name="yaw"/> (the chest takes 40%).</summary>
-        static ActionPose Slash(float yaw, (float x, float y, float z) u, float f, (float x, float y, float z) h, (float x, float y, float z) free, float freeF) => P()
-            .R(Bone.Spine, 6f, yaw).R(Bone.Chest, 2f, yaw * 0.42f).R(Bone.Head, 2f, -yaw * 1.2f)
+        /// <summary>A key of the X: the torso's pitch and yaw (the chest takes 40% and 42%), the right arm, the free arm.</summary>
+        static ActionPose Cut(float pitch, float yaw, (float x, float y, float z) u, float f, (float x, float y, float z) h, (float x, float y, float z) free, float freeF) => P()
+            .R(Bone.Spine, pitch, yaw).R(Bone.Chest, pitch * 0.4f, yaw * 0.42f).R(Bone.Head, -pitch * 0.5f, -yaw * 1.1f)
             .R(Bone.UpperArmR, u.x, u.y, u.z).R(Bone.ForearmR, f).R(Bone.HandR, h.x, h.y, h.z)
             .R(Bone.UpperArmL, free.x, free.y, free.z).R(Bone.ForearmL, freeF);
 
-        static readonly (float, float, float) Fore = (90f, 30.5f, -56.2f), Back = (90f, -30.3f, 56.7f);
+        /// <summary>The low, wide, weighted stance of a charged cut: knees bent, the front (left) knee taking the weight as it lands.</summary>
+        static ActionPose Low(ActionPose p, float drop, float lunge) => p.Lower(drop)
+            .R(Bone.ThighR, -8f + 16f * lunge).R(Bone.ShinR, 22f + 8f * lunge).R(Bone.FootR, -4f * lunge)
+            .R(Bone.ThighL, -24f - 12f * lunge).R(Bone.ShinL, 32f + 12f * lunge).R(Bone.FootL, -6f);
 
-        /// <summary>A light machete slash, forehand: drawn back to his right, cut flat across to his left ("hit" in front).</summary>
-        public static readonly ActionClip Swing = new ActionClip("Swing", 0.44f)
-            .Key(0f, Stand())
-            .Key(0.04f, Slash(12f, (-6f, 46f, -30f), -45f, (45f, 15f, -28f), (-30f, 0f, -16f), -20f))
-            .Key(0.075f, Slash(24f, (-9.6f, 91.9f, -60f), -85.5f, Fore, (-58f, 0f, -20f), -30f))
-            .Key(0.113f, Slash(10f, (-26.3f, 68.1f, -60f), -64.2f, Fore, (-45f, 0f, -20f), -28f))
-            .Key(0.15f, Slash(-2f, (-36.8f, 46.2f, -60f), -57f, Fore, (-28f, 0f, -20f), -26f))
-            .Key(0.19f, Slash(-16f, (-38.1f, 20.4f, -60f), -52.1f, Fore, (-6f, 0f, -22f), -24f))
-            .Key(0.24f, Slash(-26f, (-37.5f, -6.5f, -60f), -44.9f, Fore, (8f, 0f, -24f), -22f))
-            .Key(0.44f, P().R(Bone.Spine, 4f, -10f).R(Bone.Chest, 2f, -4f).R(Bone.Head, 0f, 12f).R(Bone.UpperArmR, -30f, -20f, -30f).R(Bone.ForearmR, -40f).R(Bone.HandR, 40f, 10f, -20f))
-            .Event(0.15f, "hit")
-            .Blend(0.05f, 0.2f);
+        static readonly (float, float, float) Guard = (-56f, 10f, -24f), Tucked = (6f, 0f, -30f);
+
+        // The light X (forehand F, backhand B): cocked, early in the cut, the hit in front, late, the end at the hip, the loop.
+        static ActionPose CockF() => Cut(-4f, 26f, (-107.4f, 49.2f, -29.2f), -99.2f, (27.8f, 45.2f, -53f), Guard, -40f);
+        static ActionPose F1() => Cut(4f, 14f, (-60.7f, 15.8f, -43.9f), -96.1f, (90f, 14.9f, -22.7f), (-45f, 5f, -22f), -34f);
+        static ActionPose F2() => Cut(10f, 0f, (-32.8f, 20.2f, -57.6f), -85f, (90f, -3.2f, -4.6f), (-25f, 0f, -22f), -30f);
+        static ActionPose F3() => Cut(14f, -14f, (-27.5f, 19.4f, -48.8f), -56.2f, (83.2f, 0.3f, -2.6f), (-5f, 0f, -25f), -24f);
+        static ActionPose EndF() => Cut(16f, -24f, (-36f, 22f, -48.6f), -6f, (84.6f, 2f, -6.1f), (10f, 0f, -28f), -20f);
+        static ActionPose LoopF() => Cut(8f, -20f, (-36.5f, -49.2f, -10.9f), -92.4f, (26.7f, -52.1f, -5.6f), (5f, 0f, -28f), -28f);
+        static ActionPose CockB() => Cut(-2f, -22f, (-97.6f, -53.3f, -25.4f), -75.5f, (12f, -79f, 63.8f), Tucked, -35f);
+        static ActionPose B1() => Cut(4f, -12f, (-54.3f, 2.5f, -75.8f), -91.2f, (89.2f, -52.2f, 37.9f), (-10f, 0f, -28f), -32f);
+        static ActionPose B2() => Cut(10f, 0f, (-43.5f, 6.3f, -36.6f), -80.7f, (90f, -39f, 24.7f), (-30f, 0f, -24f), -32f);
+        static ActionPose B3() => Cut(14f, 14f, (-31.2f, 23.5f, -39.9f), -60.8f, (82.4f, -22.1f, 31.3f), (-45f, 5f, -24f), -36f);
+        static ActionPose EndB() => Cut(14f, 22f, (-29.8f, 70.5f, -44f), -6f, (41.6f, 36.9f, 75.8f), Guard, -40f);
+        static ActionPose LoopB() => Cut(6f, 24f, (-27.5f, 13.1f, -36.6f), -124.6f, (37.3f, -1.4f, 41.6f), Guard, -40f);
+
+        // The charged X: wound further, the blade higher, the cut deeper.
+        static ActionPose HCockF(float tremble = 0f) => Cut(-6f, 35f + tremble, (-113.5f - tremble, 28.3f, -20.6f + tremble * 0.5f), -78.9f, (19.7f, 41.4f, -57.4f), (-60f, 12f, -24f), -42f);
+        static ActionPose HF1() => Cut(4f, 19f, (-71.5f, 17.5f, -47.2f), -84.6f, (90f, 13.6f, -29.6f), (-45f, 5f, -22f), -34f);
+        static ActionPose HF2() => Cut(12f, 0f, (-33.3f, 20.4f, -57.3f), -84.4f, (90f, -7f, -9f), (-20f, 0f, -24f), -28f);
+        static ActionPose HF3() => Cut(18f, -19f, (-28f, 23f, -42f), -50.2f, (77f, -1.6f, -9.5f), (0f, 0f, -26f), -22f);
+        static ActionPose HEndF() => Cut(24f, -32f, (-46.7f, 14.3f, -35.5f), -6f, (72.8f, -15.9f, -25.9f), (14f, 0f, -30f), -18f);
+        static ActionPose HLoopF() => Cut(8f, -27f, (-33.8f, -45.5f, -5.6f), -101f, (32.5f, -50.5f, -18.7f), (5f, 0f, -28f), -28f);
+        static ActionPose HCockB(float tremble = 0f) => Cut(-4f, -30f - tremble, (-114.2f - tremble, -24.7f, -38.2f - tremble * 0.5f), -62.5f, (22f, -70.8f, 58f), Tucked, -35f);
+        static ActionPose HB1() => Cut(4f, -16f, (-54.6f, 16.5f, -90.6f), -89.8f, (90f, -53.9f, 41.1f), (-10f, 0f, -28f), -32f);
+        static ActionPose HB2() => Cut(12f, 0f, (-43.1f, 8.9f, -40f), -80.1f, (90f, -39.1f, 26.3f), (-34f, 0f, -24f), -34f);
+        static ActionPose HB3() => Cut(18f, 19f, (-40.4f, 19.5f, -37.5f), -35.4f, (68.6f, -1.1f, 48.8f), (-50f, 8f, -24f), -38f);
+        static ActionPose HEndB() => Cut(22f, 30f, (-32.2f, 60.8f, -47.4f), -6f, (37.7f, 33.4f, 60.2f), (-60f, 12f, -24f), -42f);
+        static ActionPose HLoopB() => Cut(6f, 32f, (-30.3f, 7.1f, -44f), -115.6f, (33.5f, -8.6f, 40.4f), Guard, -40f);
 
         /// <summary>
-        /// The backhand, in a quick flurry: from where the forehand finished (the blade off to his left) it cuts straight
-        /// back across to his right ("hit" in front).
+        /// Charging a forehand: low and wide on bent knees, the machete cocked high over his right shoulder, the blade
+        /// lying back over his head, the torso wound away from the target while the head stays on it, the free arm reaching
+        /// out in front as a guard; the whole body trembles with the strain (hold).
         /// </summary>
-        public static readonly ActionClip SwingBack = new ActionClip("SwingBack", 0.44f)
-            .Key(0f, Slash(-22f, (-70.9f, -70.1f, -15.3f), -21.4f, Back, (8f, 0f, -24f), -22f))
-            .Key(0.06f, Slash(-24f, (-71.5f, -72f, -16f), -23f, Back, (6f, 0f, -24f), -22f))
-            .Key(0.105f, Slash(-10f, (-66.8f, -69.5f, 19.2f), -31.1f, Back, (-20f, 0f, -20f), -26f))
-            .Key(0.15f, Slash(4f, (-67.6f, -50.2f, 21.5f), -33.6f, Back, (-40f, 0f, -18f), -28f))
-            .Key(0.195f, Slash(16f, (-61.2f, 1f, -4.4f), -50.9f, Back, (-52f, 0f, -18f), -30f))
-            .Key(0.245f, Slash(24f, (-42.6f, 46.4f, -25.1f), -77.3f, Back, (-58f, 0f, -20f), -30f))
-            .Key(0.44f, P().R(Bone.Spine, 4f, 10f).R(Bone.Chest, 2f, 4f).R(Bone.Head, 0f, -12f).R(Bone.UpperArmR, -30f, 20f, 10f).R(Bone.ForearmR, -40f).R(Bone.HandR, 40f, -10f, 20f))
-            .Event(0.15f, "hit")
-            .Blend(0.08f, 0.2f);
+        public static readonly ActionClip Charge = new ActionClip("Charge", 0.32f, true)
+            .Key(0f, Low(HCockF(0f), 0.05f, 0f))
+            .Key(0.08f, Low(HCockF(2f), 0.055f, 0f))
+            .Key(0.16f, Low(HCockF(-1f), 0.05f, 0f))
+            .Key(0.24f, Low(HCockF(2.5f), 0.06f, 0f))
+            .Blend(0.3f, 0.25f);
 
-        /// <summary>A heavy swipe: everything behind it, a long follow-through.</summary>
-        public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.7f)
-            .Key(0f, Stand())
-            .Key(0.12f, With(Raised(), p => p.R(Bone.Spine, -6f, -34f).R(Bone.UpperArmR, -165f, 0f, 50f)))
-            .Key(0.15f, With(Raised(), p => p.R(Bone.Spine, -6f, -34f).R(Bone.UpperArmR, -165f, 0f, 50f)))
-            .Key(0.27f, P().Lower(0.06f).R(Bone.UpperArmR, -64f, -45f, -38f).R(Bone.ForearmR, -8f).R(Bone.HandR, 30f).R(Bone.Spine, 18f, 40f).R(Bone.Chest, 6f, 16f).Both(Bone.ThighR, -12f).Both(Bone.ShinR, 18f))
-            .Key(0.7f, P().R(Bone.UpperArmR, -36f, -12f, -6f).R(Bone.ForearmR, -30f).R(Bone.Spine, 6f, 10f))
-            .Event(0.22f, "hit")
-            .Blend(0.04f, 0.22f);
+        /// <summary>Charging a backhand: the same, the blade cocked over his left shoulder, the right arm across his face (hold).</summary>
+        public static readonly ActionClip ChargeBack = new ActionClip("ChargeBack", 0.32f, true)
+            .Key(0f, Low(HCockB(0f), 0.05f, 0f))
+            .Key(0.08f, Low(HCockB(2f), 0.055f, 0f))
+            .Key(0.16f, Low(HCockB(-1f), 0.05f, 0f))
+            .Key(0.24f, Low(HCockB(2.5f), 0.06f, 0f))
+            .Blend(0.3f, 0.25f);
+
+        /// <summary>
+        /// A light forehand: cocked over the right shoulder, falling diagonally across his chest ("hit" in front) to his
+        /// left hip, and looping on up over his left shoulder, ready for the backhand.
+        /// </summary>
+        public static readonly ActionClip Swing = new ActionClip("Swing", 0.46f)
+            .Key(0f, CockF())
+            .Key(0.07f, CockF())
+            .Key(0.11f, F1())
+            .Key(0.15f, F2())
+            .Key(0.19f, F3())
+            .Key(0.24f, EndF())
+            .Key(0.34f, LoopF())
+            .Key(0.46f, CockB())
+            .Event(0.15f, "hit")
+            .Blend(0.08f, 0.22f);
+
+        /// <summary>
+        /// A light backhand, the other half of the X: from over his left shoulder, falling diagonally across his chest
+        /// ("hit" in front) to his right hip, and looping back up over his right shoulder, ready for the next forehand.
+        /// </summary>
+        public static readonly ActionClip SwingBack = new ActionClip("SwingBack", 0.46f)
+            .Key(0f, CockB())
+            .Key(0.07f, CockB())
+            .Key(0.11f, B1())
+            .Key(0.15f, B2())
+            .Key(0.19f, B3())
+            .Key(0.24f, EndB())
+            .Key(0.34f, LoopB())
+            .Key(0.46f, CockF())
+            .Event(0.15f, "hit")
+            .Blend(0.08f, 0.22f);
+
+        /// <summary>A charged forehand: from the charge's coil, a last wind, then the whole body behind the fall, landing low.</summary>
+        public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.75f)
+            .Key(0f, Low(HCockF(), 0.05f, 0f))
+            .Key(0.05f, Low(HCockF(4f), 0.06f, 0f))
+            .Key(0.1f, Low(HF1(), 0.07f, 0.3f))
+            .Key(0.15f, Low(HF2(), 0.08f, 0.6f))
+            .Key(0.2f, Low(HF3(), 0.09f, 0.85f))
+            .Key(0.265f, Low(HEndF(), 0.1f, 1f))
+            .Key(0.45f, Low(HEndF(), 0.09f, 0.9f))
+            .Key(0.75f, Low(HLoopF(), 0.03f, 0.3f))
+            .Event(0.15f, "hit")
+            .Blend(0.05f, 0.25f);
+
+        /// <summary>A charged backhand: the same from over his left shoulder, down across to his right hip.</summary>
+        public static readonly ActionClip SwingHeavyBack = new ActionClip("SwingHeavyBack", 0.75f)
+            .Key(0f, Low(HCockB(), 0.05f, 0f))
+            .Key(0.05f, Low(HCockB(4f), 0.06f, 0f))
+            .Key(0.1f, Low(HB1(), 0.07f, 0.3f))
+            .Key(0.15f, Low(HB2(), 0.08f, 0.6f))
+            .Key(0.2f, Low(HB3(), 0.09f, 0.85f))
+            .Key(0.265f, Low(HEndB(), 0.1f, 1f))
+            .Key(0.45f, Low(HEndB(), 0.09f, 0.9f))
+            .Key(0.75f, Low(HLoopB(), 0.03f, 0.3f))
+            .Event(0.15f, "hit")
+            .Blend(0.05f, 0.25f);
+
+        /// <summary>The swings of the X, light and charged, and the clip time over which each one's blade is cutting.</summary>
+        public static bool IsCut(ActionClip c) => c == Swing || c == SwingBack || c == SwingHeavy || c == SwingHeavyBack;
+        public const float CutFrom = 0.085f, CutTo = 0.265f;
 
         /// <summary>The lunge: leaning in, machete out ahead.</summary>
         public static readonly ActionClip Lunge = new ActionClip("Lunge", 0.5f)
@@ -477,7 +538,7 @@ namespace Vision.Characters
         public static IEnumerable<ActionClip> All => new[]
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, AimRifle, RecoilRifle,
-            AimPistol, RecoilPistol, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, Swing, SwingHeavy, Lunge, Carry, LiftBody, StakeBody,
+            AimPistol, RecoilPistol, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
             Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes,
         };
     }

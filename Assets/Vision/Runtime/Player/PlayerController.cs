@@ -148,15 +148,28 @@ namespace Vision.Player
             gameObject.layer = SandboxWorld.CharacterLayer;
         }
 
-        void OnEnable()
-        {
-            if (Host != null) Host.EventRaised += OnEvent;
-        }
+        void OnEnable() => Subscribe();
 
         void OnDisable()
         {
-            if (host != null) host.EventRaised -= OnEvent;
+            if (subscribed != null) subscribed.EventRaised -= OnEvent;
+            subscribed = null;
         }
+
+        /// <summary>
+        /// Hears the match's events (the player's own one-shot clips: swings, throws, recoils...). Also called every frame:
+        /// the player is enabled before the level hands it its world, when there is no match to listen to yet.
+        /// </summary>
+        void Subscribe()
+        {
+            MatchHost h = Host;
+            if (h == subscribed) return;
+            if (subscribed != null) subscribed.EventRaised -= OnEvent;
+            subscribed = h;
+            if (h != null) h.EventRaised += OnEvent;
+        }
+
+        MatchHost subscribed;
 
         void OnEvent(GameEvent e)
         {
@@ -183,6 +196,7 @@ namespace Vision.Player
         void Update()
         {
             if (move == null) return;
+            Subscribe();
             MatchHost h = Host;
             SimPlayer p = Me;
             if (h == null || p == null) return;

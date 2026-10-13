@@ -9,6 +9,8 @@ namespace Vision.Effects
     /// like characters, shows only inside the viewer's own light (splinters, glass, the scent trail), and a "senses"
     /// variant on the overlay layer that shows through the dark (breath rings, the Burst wave). Positions are world space.
     /// </summary>
+    // Last in the frame (after the camera and everything that draws effects), so this frame's effects show this frame.
+    [DefaultExecutionOrder(150)]
     public sealed class Vfx : MonoBehaviour
     {
         public enum Blend { Additive, Alpha }
@@ -44,6 +46,7 @@ namespace Vision.Effects
             public readonly List<(int start, int count, float width, bool soft)> Ribbons = new List<(int, int, float, bool)>();
             public readonly List<(Vector3 pos, float size, Color color, bool glow)> Dots = new List<(Vector3, float, Color, bool)>();
             public readonly List<(Vector3 pos, float size, Color color, int seed, float spin)> Smokes = new List<(Vector3, float, Color, int, float)>();
+            public readonly List<(Vector3 pos, Vector3 dir, float length, float width, Color color, int seed)> Wisps = new List<(Vector3, Vector3, float, float, Color, int)>();
             // Triangles for this frame (three vertices and colours each).
             public readonly List<Vector3> TriV = new List<Vector3>();
             public readonly List<Color> TriC = new List<Color>();
@@ -216,6 +219,17 @@ namespace Vision.Effects
             Get(masked, senses, blend).Smokes.Add((at, size, color, seed & 63, spin));
         }
 
+        /// <summary>
+        /// A wisp of gas for this frame only: a long, thin streak lying along <paramref name="dir"/> (as the screen shows
+        /// it), <paramref name="length"/> long and <paramref name="width"/> across, made of fine strands that drift along
+        /// it and curl (the shader's noise, chosen by <paramref name="seed"/>), tapering away at both ends; set clear of
+        /// the ground and thinning against anything solid, as smoke puffs are.
+        /// </summary>
+        public void Wisp(Vector3 at, Vector3 dir, float length, float width, Color color, int seed, bool masked = true, bool senses = false, Blend blend = Blend.Alpha)
+        {
+            Get(masked, senses, blend).Wisps.Add((at, dir, length, width, color, seed & 63));
+        }
+
         /// <summary>A soft glow for this frame only: bright in the middle, falling off smoothly (an orb, a flare, a hot spot).</summary>
         public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive)
         {
@@ -229,6 +243,25 @@ namespace Vision.Effects
             bt.TriV.Add(a); bt.TriV.Add(b); bt.TriV.Add(c);
             bt.TriV.Add(a); bt.TriV.Add(c); bt.TriV.Add(d);
             for (int i = 0; i < 6; i++) bt.TriC.Add(color);
+        }
+
+        /// <summary>
+        /// A band between two lines of points for this frame, shaded from colour to colour along both and across (a blade's
+        /// trail, a strand of something), as triangles.
+        /// </summary>
+        public void Strip(IReadOnlyList<Vector3> a, IReadOnlyList<Vector3> b, IReadOnlyList<Color> ca, IReadOnlyList<Color> cb, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        {
+            int n = Mathf.Min(a.Count, b.Count);
+            if (n < 2) return;
+            Batch bt = Get(masked, senses, blend);
+            for (int i = 0; i < n - 1; i++)
+            {
+                if (ca[i].a <= 0.001f && cb[i].a <= 0.001f && ca[i + 1].a <= 0.001f && cb[i + 1].a <= 0.001f) continue;
+                bt.TriV.Add(a[i]); bt.TriV.Add(b[i]); bt.TriV.Add(b[i + 1]);
+                bt.TriC.Add(ca[i]); bt.TriC.Add(cb[i]); bt.TriC.Add(cb[i + 1]);
+                bt.TriV.Add(a[i]); bt.TriV.Add(b[i + 1]); bt.TriV.Add(a[i + 1]);
+                bt.TriC.Add(ca[i]); bt.TriC.Add(cb[i + 1]); bt.TriC.Add(ca[i + 1]);
+            }
         }
 
         /// <summary>A band on the ground between two radii, from an angle (radians, on the ground plane) for a sweep.</summary>
@@ -264,6 +297,8 @@ namespace Vision.Effects
                 b.TriC.Clear();
                 b.Dots.Clear();
                 b.Particles.Clear();
+                b.Smokes.Clear();
+                b.Wisps.Clear();
                 b.Rings.Clear();
                 b.Ribbons.Clear();
                 b.RibbonPts.Clear();
@@ -333,6 +368,24 @@ namespace Vision.Effects
                     SmokeQuad(b, pos, (right * cs + up * sn) * size, (up * cs - right * sn) * size, color, seed);
                 }
                 b.Smokes.Clear();
+                Vector3 view = cam != null ? cam.transform.forward : Vector3.down;
+                foreach (var (at, dir, length, width, color0, seed) in b.Wisps)
+                {
+                    if (SkipSmoke) continue;
+                    Vector3 pos = at;
+                    float size = width * 1.6f;
+                    Color color = color0;
+                    ConformSmoke(ref pos, ref size, ref color, up);
+                    if (color.a <= 0.002f) continue;
+                    // Along the streak as the screen shows it; across, in the screen's plane.
+                    Vector3 along = right * Vector3.Dot(dir, right) + up * Vector3.Dot(dir, up);
+                    if (along.sqrMagnitude < 1e-6f) along = right;
+                    along.Normalize();
+                    Vector3 across = Vector3.Cross(view, along).normalized;
+                    float w = width * Mathf.Min(1f, size / (width * 1.6f));
+                    WispQuad(b, pos, along * (length * 0.5f), across * w, color, seed);
+                }
+                b.Wisps.Clear();
                 for (int i = 0; i < b.TriV.Count; i++)
                 {
                     b.T.Add(b.V.Count);
@@ -399,6 +452,16 @@ namespace Vision.Effects
             b.V.Add(c - r - u); b.V.Add(c + r - u); b.V.Add(c + r + u); b.V.Add(c - r + u);
             for (int k = 0; k < 4; k++) b.C.Add(col);
             b.U.Add(new Vector2(8f, seed)); b.U.Add(new Vector2(9f, seed)); b.U.Add(new Vector2(9f, seed + 0.999f)); b.U.Add(new Vector2(8f, seed + 0.999f));
+            b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 1); b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
+        }
+
+        /// <summary>A wisp's quad: uv.x 10-11 runs along it (tail to head) for the shader's wisp, uv.y across, its whole part the seed.</summary>
+        static void WispQuad(Batch b, Vector3 c, Vector3 half, Vector3 side, Color col, int seed)
+        {
+            int i = b.V.Count;
+            b.V.Add(c - half - side); b.V.Add(c + half - side); b.V.Add(c + half + side); b.V.Add(c - half + side);
+            for (int k = 0; k < 4; k++) b.C.Add(col);
+            b.U.Add(new Vector2(10f, seed)); b.U.Add(new Vector2(11f, seed)); b.U.Add(new Vector2(11f, seed + 0.999f)); b.U.Add(new Vector2(10f, seed + 0.999f));
             b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 1); b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
         }
 

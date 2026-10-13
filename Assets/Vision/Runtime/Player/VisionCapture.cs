@@ -782,20 +782,58 @@ namespace Vision.Player
                         yield return Wait(frames);
                         player.ExtraButtons = Btn.None;
                     }
+                    // The X, up close: a charged forehand (cocked over his right shoulder, then its blood-red trail), a
+                    // charged backhand straight after (cocked over his left), then after a pause a light forehand and its
+                    // backhand (steel trails).
                     player.ExtraButtons = Btn.Primary;
-                    yield return new WaitForSeconds(0.6f);
+                    yield return new WaitForSeconds(0.9f);
                     gameHud.Refresh();
                     yield return Shot("86_zach_charge_and_hud");
+                    float zoomX = cameraRig.orthographicSize;
+                    cameraRig.orthographicSize = zoomX * 0.5f;
+                    yield return new WaitForSeconds(1.15f);
+                    yield return Shot("124_charged_forehand_cocked");
                     player.ExtraButtons = Btn.None;
-                    yield return new WaitForSeconds(0.12f);
+                    yield return new WaitForSeconds(0.2f);
                     yield return Shot("87_zach_heavy_swing");
-                    yield return new WaitForSeconds(0.8f);
-                    // A quick flurry: the second swing comes back the other way.
+                    yield return new WaitForSeconds(0.4f);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot("125_charging_backhand");
+                    yield return new WaitForSeconds(1.4f);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.2f);
+                    yield return Shot("126_charged_backhand_trail");
+                    yield return new WaitForSeconds(1.6f);
                     yield return Press(Btn.Primary, 2);
-                    yield return new WaitForSeconds(0.45f);
+                    yield return new WaitForSeconds(0.17f);
+                    yield return Shot("127_light_forehand_trail");
+                    yield return new WaitForSeconds(0.35f);
                     yield return Press(Btn.Primary, 2);
                     yield return new WaitForSeconds(0.17f);
                     yield return Shot("110_zach_backhand");
+                    // Facing the camera, a burst of frames through each cut of the X: a light forehand, its backhand, then a
+                    // charged forehand.
+                    player.AimOverride = Vector2.down;
+                    // Fixed steps of game time, so a frame spent saving a screenshot doesn't skip part of a cut.
+                    Time.captureFramerate = 240;
+                    yield return new WaitForSeconds(1.5f);
+                    yield return Press(Btn.Primary, 2);
+                    for (int f = 0; f < 8; f++)
+                    {
+                        yield return new WaitForSeconds(0.035f);
+                        yield return Shot($"128_x_forehand_{f}");
+                    }
+                    yield return Press(Btn.Primary, 2);
+                    for (int f = 0; f < 8; f++) { yield return new WaitForSeconds(0.035f); yield return Shot($"129_x_backhand_{f}"); }
+                    yield return new WaitForSeconds(1.5f);
+                    player.ExtraButtons = Btn.Primary;
+                    yield return new WaitForSeconds(2.1f);
+                    player.ExtraButtons = Btn.None;
+                    for (int f = 0; f < 8; f++) { yield return new WaitForSeconds(0.035f); yield return Shot($"130_x_charged_{f}"); }
+                    Time.captureFramerate = 0;
+                    player.AimOverride = Vector2.up;
+                    cameraRig.orthographicSize = zoomX;
                     yield return new WaitForSeconds(0.8f);
                     yield return Press(Btn.Secondary, 1);
                     yield return new WaitForSeconds(0.1f);

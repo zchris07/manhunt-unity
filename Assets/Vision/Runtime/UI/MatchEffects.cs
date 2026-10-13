@@ -10,9 +10,9 @@ namespace Vision.UI
 {
     /// <summary>
     /// The match's effects and sounds in the world, after the original's look: Zach's machete (charge ring at his feet,
-    /// the swing's smear, the slash), the lunge's speed lines, the Soundcloud Burst (a purple concave lens racing across
-    /// the map through walls, with fading echoes), Penjamin's gas (soft yellow puffs rolling out along a narrow cone, blue
-    /// for 50 Nic), the Hemp Battery's pulsing green disc, the Hemp Beam (a charging orb, then a white-green beam with an
+    /// the trail off the blade's tip, the slash), the lunge's speed lines, the Soundcloud Burst (a purple concave lens
+    /// racing across the map through walls, with fading echoes), Penjamin's gas (yellow wisps streaming out along a narrow
+    /// cone, blue for 50 Nic), the Hemp Battery's ring on the ground, the Hemp Beam (a charging orb, then a white-green beam with an
     /// impact glow), guns (muzzle flash, pellet tracers), and the sounds of all of it, placed where it happens.
     /// </summary>
     [DefaultExecutionOrder(100)]
@@ -22,11 +22,12 @@ namespace Vision.UI
 
         MatchHost host;
 
-        struct Arc { public Vector2 At; public float Angle, Radius, ArcDeg; public bool Heavy, Back; public float Born; }
         struct Wave { public Vector2 At; public float Angle, Born; }
         struct Tracer { public Vector3 From, To; public Color Color; public float Born, Life, Width; }
 
-        readonly List<Arc> arcs = new List<Arc>();
+        struct Breath { public Vector2 At; public bool Gasp; public float Born; }
+        readonly List<Breath> breaths = new List<Breath>();
+        readonly List<Vector3> arcGrid = new List<Vector3>(2048);
         readonly List<Wave> waves = new List<Wave>();
         readonly List<Tracer> tracers = new List<Tracer>();
         readonly HashSet<int> beamLoops = new HashSet<int>();
@@ -89,11 +90,11 @@ namespace Vision.UI
                         Audio.PlayCue(e.B >= 2 ? "swing_heavy" : "swing", Units(by.Pos));
                         charging.Remove(by.Id);
                     }
-                    else if (e.G <= 0f)
+                    else if (e.G <= 0f && e.F > 0f)
                     {
-                        float reach = Balance.Hunter.Attack.Range * (e.B >= 2 ? Balance.Hunter.Attack.ChargeRangeMul : 1f);
-                        arcs.Add(new Arc { At = by.Pos, Angle = by.Facing, Radius = reach, ArcDeg = Balance.Hunter.Attack.ArcDeg * (e.B >= 2 ? Balance.Hunter.Attack.ChargeArcMul : 1f), Heavy = e.B >= 2, Back = e.Text == "back", Born = Now });
-                        if (e.F > 0f) Audio.PlayCue("slash", Units(by.Pos));
+                        // It connected: the slash, and a charged cut flings blood off the tip of the blade.
+                        Audio.PlayCue("slash", Units(by.Pos));
+                        if (e.B >= 2) BladeDroplets(by.Id);
                     }
                     break;
                 case EventKind.Hit:
@@ -109,6 +110,10 @@ namespace Vision.UI
                     break;
                 case EventKind.Throw:
                     Audio.PlayCue("throw", Units(e.Pos));
+                    break;
+                case EventKind.Breath:
+                    // Breathing heard through a hiding spot's door (a gasp is louder): a ring spreading over the ground.
+                    breaths.Add(new Breath { At = e.Pos, Gasp = e.F > 0f, Born = Time.time });
                     break;
                 case EventKind.Gas:
                     if (string.IsNullOrEmpty(e.Text))
@@ -227,7 +232,8 @@ namespace Vision.UI
                 LungeLines(p);
                 HempDisc(p);
             }
-            DrawArcs();
+            BladeTrails(sim);
+            DrawBreaths();
             DrawWaves(sim);
             DrawVapes(sim);
             DrawTracers();
@@ -275,7 +281,6 @@ namespace Vision.UI
             }
         }
 
-        /// <summary>The Hemp Battery: a green disc pulsing under him while it's on.</summary>
         /// <summary>
         /// The Hemp Battery's ring, a battery gauge lying on the ground round Zach and following its rise and fall: a dim
         /// full ring, the charge left as a bright arc from twelve o'clock (as the screen is turned) that shrinks clockwise as
@@ -285,34 +290,60 @@ namespace Vision.UI
         {
             if (!p.HempOn) return;
             float k = p.Hemp == 2 ? 1f : Mathf.Clamp01(p.HempLeft / Balance.Hunter.Hemp.Duration);
-            float r = Scale.D(Balance.HunterRadius * 2.8f), w = Scale.D(Balance.HunterRadius * 0.16f);
+            float r = Scale.D(Balance.HunterRadius * 2.8f) * RingSize, w = Scale.D(Balance.HunterRadius * 0.16f) * RingSize;
             var green = new Color(0x6d / 255f, 1f, 0x6a / 255f, 1f);
             float twelve = (90f - Vision.Player.MapHud.ViewYaw) * Mathf.Deg2Rad;
-            GroundArc(p.Pos, r - w, r + w, 0f, Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.14f));
+            GroundArc(p.Pos, r - w, r + w, 0f, Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.14f * RingBright));
             if (k <= 0f) return;
-            GroundArc(p.Pos, r - w, r + w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.62f));
-            GroundArc(p.Pos, 0f, r - w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.07f));
+            GroundArc(p.Pos, r - w, r + w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.62f * RingBright));
+            GroundArc(p.Pos, 0f, r - w, twelve, -k * Mathf.PI * 2f, new Color(green.r, green.g, green.b, 0.07f * RingBright));
         }
 
         /// <summary>
-        /// A band on the ground between two radii (design units) about a point, from an angle for a sweep, every vertex set
-        /// on the terrain just above it, so it lies on slopes and bumps instead of floating flat or sinking into them.
+        /// The indicator rings on the ground (the Hemp Battery's, Plasma's, the breath rings) are drawn 30% smaller and 30%
+        /// thinner than they were, and 40% dimmer (at the user's request).
         /// </summary>
-        void GroundArc(Vector2 centre, float r0, float r1, float start, float sweep, Color color)
+        const float RingSize = 0.7f, RingBright = 0.6f;
+
+        /// <summary>
+        /// A band on the ground between two radii (design units) about a point, from an angle for a sweep. Every 2.5 degrees
+        /// round and every few centimetres across, each point is set on the ground's own facets (the very triangles the
+        /// terrain is drawn with, or the building's floor), just above them, so it lies on every slope, bump and crease
+        /// instead of floating over them or sinking into them.
+        /// </summary>
+        void GroundArc(Vector2 centre, float r0, float r1, float start, float sweep, Color color, bool masked = true, bool senses = false)
         {
-            if (Mathf.Abs(sweep) < 1e-4f) return;
-            int n = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(sweep) / (Mathf.PI / 24f)));
-            int rings = r0 <= 1e-4f ? 4 : 1;
-            for (int i = 0; i < n; i++)
+            if (Mathf.Abs(sweep) < 1e-4f || color.a <= 0.002f) return;
+            int n = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(sweep) / (Mathf.PI / 72f)));
+            int rows = Mathf.Clamp(Mathf.CeilToInt((r1 - r0) / 0.1f), 1, 12);
+            arcGrid.Clear();
+            for (int i = 0; i <= n; i++)
             {
-                float a0 = start + sweep * i / n, a1 = start + sweep * (i + 1) / n;
-                var d0 = new Vector2(Mathf.Cos(a0), Mathf.Sin(a0));
-                var d1 = new Vector2(Mathf.Cos(a1), Mathf.Sin(a1));
-                for (int j = 0; j < rings; j++)
-                {
-                    float ra = Mathf.Lerp(r0, r1, j / (float)rings), rb = Mathf.Lerp(r0, r1, (j + 1) / (float)rings);
-                    Fx.Quad(Ground(centre + d0 * ra, 0.06f), Ground(centre + d0 * rb, 0.06f), Ground(centre + d1 * rb, 0.06f), Ground(centre + d1 * ra, 0.06f), color, true);
-                }
+                float a = start + sweep * i / n;
+                var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                for (int j = 0; j <= rows; j++) arcGrid.Add(OnSurface(centre + d * Mathf.Lerp(r0, r1, j / (float)rows), 0.025f));
+            }
+            int w = rows + 1;
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < rows; j++)
+                    Fx.Quad(arcGrid[i * w + j], arcGrid[i * w + j + 1], arcGrid[(i + 1) * w + j + 1], arcGrid[(i + 1) * w + j], color, masked, senses);
+        }
+
+        /// <summary>A point just above the drawn ground (design units in, world out).</summary>
+        Vector3 OnSurface(Vector2 at, float up) => world.transform.TransformPoint(new Vector3(at.x, world.SurfaceHeight(at) + up, at.y));
+
+        /// <summary>Breathing heard from a hiding spot: a pale ring spreading out over the ground and fading (as the original's).</summary>
+        void DrawBreaths()
+        {
+            const float life = 1.4f;
+            for (int i = breaths.Count - 1; i >= 0; i--)
+            {
+                Breath b = breaths[i];
+                float k = (Time.time - b.Born) / life;
+                if (k >= 1f) { breaths.RemoveAt(i); continue; }
+                float rad = Scale.D(Mathf.Lerp(10f, b.Gasp ? 70f : 50f, 1f - (1f - k) * (1f - k))) * RingSize;
+                float half = 0.025f * RingSize;
+                GroundArc(b.At, Mathf.Max(0f, rad - half), rad + half, 0f, Mathf.PI * 2f, new Color(0.85f, 0.94f, 1f, 0.7f * RingBright * (1f - k)), false, true);
             }
         }
 
@@ -368,25 +399,6 @@ namespace Vision.UI
         }
 
         /// <summary>The swing's smear: a ten-slice arc in front of him, pale for a light swing, dark blood-red for a heavy one.</summary>
-        void DrawArcs()
-        {
-            float now = Now;
-            for (int i = arcs.Count - 1; i >= 0; i--)
-            {
-                Arc a = arcs[i];
-                float k = (now - a.Born) / 0.25f;
-                if (k >= 1f) { arcs.RemoveAt(i); continue; }
-                Color c = a.Heavy ? new Color(0x5a / 255f, 0x08 / 255f, 0x08 / 255f, 0.75f * (1f - k)) : new Color(0xb8 / 255f, 0xb0 / 255f, 0xa0 / 255f, 0.55f * (1f - k));
-                float half = a.ArcDeg * 0.5f * Mathf.Deg2Rad;
-                float r = Scale.D(a.Radius) * S;
-                // Sweeps across over the first part of its life.
-                float sweep = Mathf.Clamp01(k * 2.5f);
-                // A forehand sweeps from his right to his left, a backhand back the other way.
-                float start = a.Back ? a.Angle + half - half * 2f * sweep : a.Angle - half;
-                Fx.Arc(Ground(a.At, 0.9f), r * 0.55f, r, start, half * 2f * sweep, c, true, Vfx.Blend.Alpha);
-            }
-        }
-
         /// <summary>
         /// The Soundcloud Burst: a sound wave racing straight on through walls, purple and translucent. Its crest follows
         /// the concave lens the rules hit with: a thin bright leading edge, a soft violet body, and pressure bands rippling
@@ -436,17 +448,16 @@ namespace Vision.UI
         }
 
         /// <summary>
-        /// Penjamin's gas, as the original builds it: soft puffs billowing out along a narrow cone, each swelling as the
-        /// front reaches it and drifting on, bigger and thinner the farther out; it rolls out in 0.6 s, hangs, then fades.
-        /// It shows above the dark: Zach sees the gas run to the edge of his screen.
-        /// </summary>
-        /// <summary>
-        /// Penjamin's cloud (yellow, or blue for 50 Nic): rolling out along its cone as the original's does, now a churning
-        /// body of smoke puffs (dense, darker billows at its heart, paler wisps curling off its edges and a low haze
-        /// creeping along the ground), every puff sitting on the terrain under it and thinning where it meets anything solid.
+        /// Penjamin's cloud (yellow, or blue for 50 Nic): rolling out along its cone as the original's does (out in 0.6 s,
+        /// hanging, then fading), drawn as wispy streaks of gas rather than puffs, each sitting on the terrain under it and
+        /// thinning where it meets anything solid. It shows above the dark: Zach sees the gas run to the edge of his screen.
         /// </summary>
         void DrawVapes(MatchSim sim)
         {
+            // Penjamin's gas as long, thin wisps streaming out along the cone from his mouth: each one drifts outward and
+            // fans a little wider as it goes, its strands curling, the streaks denser and darker near him, paler and
+            // sparser toward the cone's far end; a few broad, faint streaks underneath give the cloud its body. About a
+            // quarter more visible than the old puffs.
             float now = sim.Time;
             float halfAng = Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad;
             float grow = Balance.Hunter.Vape.GrowTime, linger = Balance.Hunter.Vape.LingerTime, fadeT = Balance.Hunter.Vape.FadeTime;
@@ -457,47 +468,49 @@ namespace Vision.UI
                 float k = Mathf.Min(1f, age / grow);
                 float ext = rUnits * (1f - (1f - k) * (1f - k));
                 float fade = Mathf.Clamp01((grow + linger + fadeT - age) / fadeT);
-                int n = Mathf.CeilToInt(rUnits / 13f);
+                int n = Mathf.CeilToInt(rUnits / 8f);
                 Color core = v.Nic ? Hex(0x4a8ed0) : Hex(0xb8a040), mid = v.Nic ? Hex(0x72bcf0) : Hex(0xdccb5a), pale = v.Nic ? Hex(0xbfe6ff) : Hex(0xf4eab0);
                 for (int i = 0; i < n; i++)
                 {
                     float h1 = Mathf.Sin(i * 12.9898f + v.Id * 1.3f) * 43758.5453f, r1 = h1 - Mathf.Floor(h1);
                     float h2 = Mathf.Sin(i * 78.233f + v.Id * 0.7f) * 12345.6789f, r2 = h2 - Mathf.Floor(h2);
                     float h3 = Mathf.Sin(i * 39.425f + v.Id * 2.9f) * 24634.6345f, r3 = h3 - Mathf.Floor(h3);
-                    float u = Mathf.Pow((i + r1 * 0.8f) / n, 0.9f);
+                    float u = Mathf.Pow((i + r1 * 0.8f) / n, 0.85f);
                     float bas = u * rUnits;
                     if (bas > ext) continue;
                     float reached = grow * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - bas / rUnits)));
                     float since = Mathf.Max(0f, age - reached);
                     float g = 1f - Mathf.Exp(-since * 5f);
-                    // Rolling on and spreading: puffs drift outward and sideways, curling as they go.
-                    float d = bas + since * (10f + 14f * u);
+                    // Streaming outward, faster further out, and fanning a little wider as it goes.
+                    float d = bas + since * (16f + 22f * u);
                     float width = Mathf.Tan(halfAng) * Mathf.Max(d, 30f);
-                    float side = (r2 * 2f - 1f) * width * 0.75f + Mathf.Sin(age * (0.6f + r1) + i * 1.9f) * width * 0.25f;
-                    float falloff = 1f - 0.6f * u;
-                    float size = (14f + width * 0.9f) * 0.5f * (0.5f + 0.5f * g) * (1f + since * 0.06f);
-                    float sizeW = Scale.D(size) * S;
+                    float lane = r2 * 2f - 1f;
+                    float side = lane * width * 0.8f + Mathf.Sin(age * (0.5f + r1) + i * 1.9f) * width * 0.18f;
+                    // Each streak points out along the cone, splayed toward its own side and curling, so the streaks cross.
+                    float ang = v.Angle + lane * halfAng * 1.3f + Mathf.Sin(age * (0.7f + r3 * 0.6f) + i * 2.3f) * 0.3f;
+                    float lenU = (34f + 0.32f * d) * (0.65f + 0.5f * r3) * (0.6f + 0.4f * g) * (1f + since * 0.05f);
+                    float wideU = (3.5f + width * 0.16f) * (0.7f + 0.6f * r1) * (1f + since * 0.08f);
+                    float falloff = 1f - 0.55f * u;
+                    Vector3 pos = Along(v.Origin, v.Angle, d, side, Scale.D(6f + 10f * r1 + since * 2f));
+                    Vector3 dir = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang));
                     int seed = v.Id * 13 + i;
-                    float spin = r3 * 6.28f + age * (r1 - 0.5f) * 0.6f;
-                    // The puff's centre rides above the ground under it by a little under half its size.
-                    Vector3 pos = Along(v.Origin, v.Angle, d, side, Scale.D(size) * 0.42f);
                     int layer = i % 3;
                     Color body = layer == 0 ? core : layer == 1 ? mid : pale;
-                    body.a = (layer == 0 ? 0.2f : layer == 1 ? 0.15f : 0.1f) * falloff * fade * (0.35f + 0.65f * g);
-                    Fx.Smoke(pos, sizeW * (layer == 2 ? 1.15f : 1f), body, seed, spin, false, true, Vfx.Blend.Alpha);
-                    // A low haze hugging the ground under the thicker puffs.
-                    if (layer == 0)
-                    {
-                        Color haze = mid;
-                        haze.a = 0.06f * falloff * fade * g;
-                        Fx.Smoke(Along(v.Origin, v.Angle, d + size * 0.3f, side * 0.8f, Scale.D(size) * 0.22f), sizeW * 1.5f, haze, seed + 31, -spin, false, true, Vfx.Blend.Alpha);
-                    }
-                    // A faint inner light, as the original's cloud glows a little.
+                    body.a = (layer == 0 ? 0.41f : layer == 1 ? 0.32f : 0.23f) * falloff * fade * (0.35f + 0.65f * g);
+                    Fx.Wisp(pos, dir, Scale.D(lenU) * S, Scale.D(wideU) * S, body, seed, false, true, Vfx.Blend.Alpha);
+                    // The body: a broad, faint streak under every fourth wisp.
                     if (i % 4 == 0)
                     {
+                        Color haze = mid;
+                        haze.a = 0.075f * falloff * fade * g;
+                        Fx.Wisp(Along(v.Origin, v.Angle, d + lenU * 0.2f, side * 0.7f, Scale.D(5f)), dir, Scale.D(lenU * 1.5f) * S, Scale.D(wideU * 3.2f) * S, haze, seed + 31, false, true, Vfx.Blend.Alpha);
+                    }
+                    // A faint inner light, as the original's cloud glows a little.
+                    if (i % 5 == 0)
+                    {
                         Color glow = v.Nic ? Hex(0xb8e6ff) : Hex(0xfff0a0);
-                        glow.a = 0.05f * falloff * fade * g;
-                        Fx.Smoke(pos, sizeW * 0.7f, glow, seed + 7, spin * 1.3f, false, true, Vfx.Blend.Additive);
+                        glow.a = 0.07f * falloff * fade * g;
+                        Fx.Wisp(pos, dir, Scale.D(lenU * 0.8f) * S, Scale.D(wideU * 1.4f) * S, glow, seed + 7, false, true, Vfx.Blend.Additive);
                     }
                 }
             }
@@ -522,7 +535,7 @@ namespace Vision.UI
 
         static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, 1f);
 
-        public int ArcCount => arcs.Count;
+        public int TrailCount => trails.Count;
         public int WaveCount => waves.Count;
         public int TracerCount => tracers.Count;
     }

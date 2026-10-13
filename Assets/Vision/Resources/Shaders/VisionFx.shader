@@ -98,10 +98,32 @@ Shader "Vision/Fx"
             half4 frag(Varyings i) : SV_Target
             {
                 half4 c = i.color;
+                // uv.x 10-11: a wisp of gas, a long thin streak (uv.x along it, tail to head; uv.y's fraction across, its
+                // whole part the seed): fine strands drawn out along it and drifting toward its head, the streak bending
+                // gently and slowly changing its bend, tapering away at both ends (the tail longer) and fading to its edges.
+                if (i.uv.x > 9.5)
+                {
+                    float seed = floor(i.uv.y);
+                    float along = i.uv.x - 10.0;
+                    float across = frac(i.uv.y) * 2.0 - 1.0;
+                    float t = _Time.y;
+                    float bend = (ValueNoise(float2(along * 2.2 + seed * 1.37, t * 0.25 + seed * 0.71)) - 0.5) * 0.9;
+                    float y = across - bend * sin(along * 3.14159);
+                    float ends = smoothstep(0.0, 0.4, along) * smoothstep(1.0, 0.72, along);
+                    float edge = saturate(1.0 - abs(y) * 1.15);
+                    edge *= edge;
+                    float2 p = float2(along * 2.4 - t * 0.32, y * 6.5) + float2(seed * 3.17, seed * 1.93);
+                    float s = Fbm(p);
+                    float s2 = ValueNoise(float2(along * 5.0 - t * 0.55, y * 15.0) + seed * 2.3);
+                    float dens = saturate((s * 0.85 + s2 * 0.4 - 0.42) * 2.2) * edge * ends;
+                    clip(dens - 0.002);
+                    c.rgb *= lerp(0.82, 1.15, s2);
+                    c.a *= dens;
+                }
                 // uv.x 8-9: a puff of smoke or gas (uv.y's whole part is its seed): billowing, ragged at the edges, lighter
                 // and darker as it folds, slowly churning (each puff is set clear of the ground and of solid things on
                 // the CPU, see Vfx.Step, and its lower edge is soft, so it never shows a hard line cutting into them).
-                if (i.uv.x > 7.5)
+                else if (i.uv.x > 7.5)
                 {
                     float seed = floor(i.uv.y);
                     float2 q = float2(i.uv.x - 8.0, frac(i.uv.y)) - 0.5;

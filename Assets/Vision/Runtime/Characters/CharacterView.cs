@@ -153,7 +153,8 @@ namespace Vision.Characters
             }
             if (p.BeamT > 0f) return ActionClips.Beam;
             if (p.Move.Climbing) return ActionClips.Climb;
-            if (p.ChargeT >= 0f) return ActionClips.Charge;
+            // Charging, the machete is cocked over the shoulder the next cut of the X falls from.
+            if (p.ChargeT >= 0f) return p.NextSide == 1 ? ActionClips.ChargeBack : ActionClips.Charge;
             if (p.Move.LungeT > 0f) return ActionClips.Lunge;
             if (p.Carrying != 0) return ActionClips.Carry;
             if (p.VapeT > 0f) return ActionClips.CoverEyes;
@@ -170,12 +171,14 @@ namespace Vision.Characters
             switch (e.Kind)
             {
                 case EventKind.Swing:
-                    // From a charge the machete is already raised: skip the windup.
+                    // The X: forehand or backhand (e.G), light or charged (e.B). From a charge the machete is already
+                    // cocked over that shoulder: a light cut skips its windup.
                     if (e.A == self.Id && e.F < 0f)
                     {
-                        if (e.B >= 2) PlayOnce(ActionClips.SwingHeavy, 1f, Layer.Current == ActionClips.Charge ? 0.13f : 0f);
-                        else if (e.G > 0.5f) PlayOnce(ActionClips.SwingBack);
-                        else PlayOnce(ActionClips.Swing, 1f, Layer.Current == ActionClips.Charge ? 0.13f : 0f);
+                        bool back = e.G > 0.5f;
+                        bool cocked = Layer.Current == ActionClips.Charge || Layer.Current == ActionClips.ChargeBack;
+                        if (e.B >= 2) PlayOnce(back ? ActionClips.SwingHeavyBack : ActionClips.SwingHeavy);
+                        else PlayOnce(back ? ActionClips.SwingBack : ActionClips.Swing, 1f, cocked ? 0.07f : 0f);
                     }
                     break;
                 case EventKind.Throw:

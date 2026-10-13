@@ -26,6 +26,20 @@ namespace Vision.World
             return Terrain != null ? Terrain.Height(at.x, at.y) : 0f;
         }
 
+        /// <summary>
+        /// The height of the ground as it is drawn (its low-poly facets, or the building's floor), for markings that lie
+        /// on it: <see cref="GroundHeight"/> is the smooth terrain the facets are cut from, a few centimetres off them.
+        /// </summary>
+        public float SurfaceHeight(Vector2 at)
+        {
+            if (Layout != null && Layout.Plan != null && Layout.Building.Contains(at)) return BuildingFloor + 0.015f;
+            if (hasSurface && surface.SurfaceHeight(at.x, at.y, out float h)) return h;
+            return GroundHeight(at);
+        }
+
+        LowPolyMeshBuilder.TerrainGrid surface;
+        bool hasSurface;
+
         void BuildAmbulance()
         {
             System.Random r = FeatureRng(9);

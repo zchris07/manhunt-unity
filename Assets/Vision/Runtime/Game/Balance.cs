@@ -60,13 +60,19 @@ namespace Vision.Game
 
             public static class Attack
             {
-                public const float Range = 124f, ArcDeg = 100f, Windup = 0.15f, SwingTime = 0.32f;
+                // The swipe reaches 15% less far than the original's 124 (at the user's request); the same arc.
+                public const float Range = 124f * 0.85f, ArcDeg = 100f, Windup = 0.15f, SwingTime = 0.32f;
                 public const float HitCooldown = 0f, HitSlowMul = 0.45f, MissCooldown = 0f, MissSlowMul = 0.7f;
                 public const int BarricadeHits = 2, DoorHits = 2;
-                public const float ChargeMax = 0.9f, HeavyAt = 0.85f, ChargeRangeMul = 1.3f, ChargeArcMul = 1.25f, ChargeSlowMul = 0.65f, AutoRelease = 3f;
+                // The charge takes a second longer than the original's (heavy at 1.85 s, full at 1.9 s), and a full
+                // charge can still be held as long before it lets go on its own (4 s from the press).
+                public const float ChargeMax = 0.9f + 1f, HeavyAt = 0.85f + 1f, ChargeRangeMul = 1.3f, ChargeArcMul = 1.25f, ChargeSlowMul = 0.65f, AutoRelease = 3f + 1f;
                 public const float DamageBase = 1f / 3f, DamageFull = 2f / 3f, TapGrace = 0.1f;
-                /// <summary>Light swings this soon after the last one come back the other way (forehand, backhand...).</summary>
-                public const float ComboWindow = 0.9f;
+                /// <summary>
+                /// Swings, charged or not, go back and forth in an X (forehand, backhand...) while each is started within this
+                /// long of the last one; after a longer pause the next starts again with the forehand.
+                /// </summary>
+                public const float ComboWindow = 1f;
             }
 
             public static class Lunge
@@ -93,8 +99,9 @@ namespace Vision.Game
             public static class Vape
             {
                 public const int Charges = 2;
-                // The cloud reaches 30% less far than the original's (ReachMul 1.1 x 0.7, at the user's request); same width.
-                public const float Cooldown = 25f, HalfAngleDeg = 10f, ReachMul = 1.1f * 0.7f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
+                // The cloud reaches 30% less far than the original's, then 20% further than that (ReachMul 1.1 x 0.7 x 1.2,
+                // at the user's requests); the same width.
+                public const float Cooldown = 25f, HalfAngleDeg = 10f, ReachMul = 1.1f * 0.7f * 1.2f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
                 public const float Dps = 0.05f, DpsFar = 0.01f, AfterTime = 2f, ConeCut = 0.6f, DarkAfter = 6f, DarkEase = 0.6f;

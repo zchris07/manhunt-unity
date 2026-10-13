@@ -30,6 +30,7 @@ namespace Vision.Game
             {
                 h.ChargeT = 0f;
                 h.ChargeHeld = 0f;
+                h.NextSide = NextSwingSide(h);
             }
         }
 
@@ -49,11 +50,17 @@ namespace Vision.Game
             h.SwingT = Balance.Hunter.Attack.SwingTime;
             h.Move.SlowT = Mathf.Max(h.Move.SlowT, Balance.Hunter.Attack.Windup);
             h.Move.SlowMul = Mathf.Min(h.Move.SlowMul, Balance.Hunter.WindupSlowMul);
-            // Swings in quick succession go back and forth; a charged one always comes from over the shoulder.
-            h.SwingSide = !heavy && Time - h.LastSwingAt < Balance.Hunter.Attack.ComboWindow ? 1 - h.SwingSide : 0;
+            h.SwingSide = h.NextSide;
             h.LastSwingAt = Time;
             Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = heavy ? 2 : 1, F = -1f, G = h.SwingSide });
         }
+
+        /// <summary>
+        /// Swings go back and forth in an X, charged ones too: the forehand falls from over his right shoulder to his left
+        /// hip, the backhand from over his left shoulder to his right hip. A swing started within the combo window of the
+        /// last comes from the other side; after a pause he starts again with the forehand.
+        /// </summary>
+        int NextSwingSide(SimPlayer h) => Time - h.LastSwingAt < Balance.Hunter.Attack.ComboWindow ? 1 - h.SwingSide : 0;
 
         static bool Hittable(SimPlayer q) => q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
 

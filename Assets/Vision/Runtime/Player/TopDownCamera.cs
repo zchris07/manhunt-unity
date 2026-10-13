@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Vision.Player
 {
     /// <summary>
-    /// Orthographic 2.5D top-down camera, pitched ~60° so the fronts of walls, trunks and characters
+    /// Orthographic 2.5D top-down camera, pitched 55° (5° flatter than the first 60°) so the fronts of walls, trunks and characters
     /// show clearly. Follows the target with smoothing and keeps it at the centre of the view. Z and C turn the view 45°
     /// at a time (eased over a quarter of a second), so walls never run square to the screen and the doors and windows
     /// on every side of a building show; each match starts facing north.
@@ -13,7 +13,7 @@ namespace Vision.Player
     public sealed class TopDownCamera : MonoBehaviour
     {
         public Transform target;
-        [Range(45f, 90f)] public float pitch = 60f;
+        [Range(45f, 90f)] public float pitch = 55f;
         [Tooltip("Distance back along the view direction. Ortho, so it only affects clipping and how much " +
                  "of the shadow distance is wasted on empty air; keep it just above the tallest geometry.")]
         public float distance = 32f;

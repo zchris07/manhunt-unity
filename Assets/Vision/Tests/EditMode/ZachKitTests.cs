@@ -173,8 +173,17 @@ namespace Vision.Tests
                 var fxGo = new GameObject("Effects");
                 var effects = fxGo.AddComponent<MatchEffects>();
                 effects.world = world;
+                // The trail follows the machete of Zach's model through the cut.
+                GameObject body = PropFactory.CreateCharacter("Zach", null, null);
+                var layer = body.GetComponent<Vision.Characters.ActionLayer>();
+                layer.Wire();
+                layer.Hold(Vision.Characters.PropKind.Machete);
+                layer.Play(Vision.Characters.ActionClips.SwingHeavy, 1f, true, 0.1f);
+                for (int i = 0; i < 5; i++) { layer.Step(0.02f); effects.TrackBlade(z.Id, layer); effects.Draw(); }
+                Assert.AreEqual(1, effects.TrailCount, "the blade's trail");
+                Object.DestroyImmediate(body);
                 effects.OnEvent(new GameEvent { Kind = EventKind.Swing, A = z.Id, B = 2, F = 1f });
-                Assert.AreEqual(1, effects.ArcCount, "the swing's smear");
+                Assert.Greater(Vfx.Instance.ParticleCount, 0, "blood flung off the tip");
                 effects.OnEvent(new GameEvent { Kind = EventKind.Talk, A = z.Id, Text = "burst", Pos = z.Pos, F = 0f });
                 Assert.AreEqual(1, effects.WaveCount, "the Burst's wave");
                 effects.OnEvent(new GameEvent { Kind = EventKind.Shot, A = z.Id, B = (int)Vision.Player.ItemType.Shotgun, Pos = z.Pos, F = 0f, G = 1f, Text = "hit|0:300,30:280,-30:290" });

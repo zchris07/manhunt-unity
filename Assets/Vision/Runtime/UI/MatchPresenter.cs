@@ -269,10 +269,6 @@ namespace Vision.UI
                     if (e.Text == "beam") Vfx.Instance.Burst(Ground(e.Pos, 0.9f), 14, 2.6f * S, 0.45f, new Color(0.94f, 1f, 0.94f, 1f), 0.06f * S);
                     else Vfx.Instance.Burst(Ground(e.Pos, 0.9f), e.Text == "pellet" ? 6 : 16, 2.2f * S, 0.5f, new Color(0.48f, 0.05f, 0.08f, 1f), 0.07f * S, true, Vfx.Blend.Alpha, 6f * S, 2f, 0.4f, new Color(0.3f, 0.02f, 0.03f, 1f));
                     break;
-                case EventKind.Breath:
-                    // Breathing heard through a hiding spot's door (a gasp is louder): rings through the dark.
-                    Vfx.Instance.RingAt(Ground(e.Pos, 0.1f), Scale.D(10f) * S, Scale.D(e.F > 0f ? 70f : 50f) * S, 1.4f, new Color(0.85f, 0.94f, 1f, 0.7f), 0.05f * S, true);
-                    break;
                 case EventKind.Shot:
                     Shake(9f * Near(e.Pos, 500f));
                     break;

@@ -69,7 +69,7 @@ namespace Vision.EditorTools
             RenderSettings.ambientLight = new Color(0.30f, 0.30f, 0.32f);
             RenderSettings.fog = false;
 
-            // Camera: orthographic, ~60° pitch, black background.
+            // Camera: orthographic, 55° pitch, black background.
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
@@ -82,7 +82,7 @@ namespace Vision.EditorTools
             var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
             camData.renderPostProcessing = true;
             var rig = camGo.AddComponent<TopDownCamera>();
-            camGo.transform.rotation = Quaternion.Euler(60f, 0f, 0f);
+            camGo.transform.rotation = Quaternion.Euler(rig.pitch, 0f, 0f);
 
             var composite = camGo.AddComponent<VisionComposite>();
             composite.targetCamera = cam;
