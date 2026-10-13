@@ -419,7 +419,8 @@ namespace Vision.UI
                 {
                     TintA = v.Nic ? new Color(0.62f, 0.78f, 0.88f) : new Color(0.8f, 0.74f, 0.5f),
                     TintB = v.Nic ? new Color(0.25f, 0.42f, 0.62f) : new Color(0.5f, 0.43f, 0.22f),
-                    Opacity = fade,
+                    // 60% less opaque than at first.
+                    Opacity = fade * 0.4f,
                     Extinction = 1.5f / S,
                     NoiseScale = 0.6f / S,
                     Erosion = 0.8f,
