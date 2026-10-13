@@ -113,6 +113,10 @@ namespace Vision.Game
         public Inventory Inv = new Inventory();
         /// <summary>Selected slot, 0-based (-1 none).</summary>
         public int SelSlot = -1;
+        /// <summary>The slot in hand when JARVIS came on: the tablet is held up until they take something else in hand.</summary>
+        public int JarvisSlot = -2;
+        /// <summary>Holding up JARVIS's tablet: it's running and they haven't switched to anything else since (it keeps running when they do).</summary>
+        public bool HoldingTablet => Jarvis > 0 && JarvisT > 0f && SelSlot == JarvisSlot;
         public bool GogglesOn;
         /// <summary>Aiming the 0.50 cal (right click held with it selected): the scope at the eye and its laser on.</summary>
         public bool Aiming;
@@ -170,8 +174,13 @@ namespace Vision.Game
         public Prompt Prompt2;
         public int Prompt2Target = -1;
         public float LastScent, NextBlood;
+        /// <summary>How far their scent trail has run (design units), and where its last point was.</summary>
+        public float ScentDist;
+        public Vector2 ScentAt;
         /// <summary>Where blood last started dripping from them, and how many drops have landed there since.</summary>
         public Vector2 BloodAt;
+        /// <summary>Eliminated by wandering into the woods (their light stays out where they fell).</summary>
+        public bool LostInWoods;
         public int BloodPool;
         public float Terror;
 

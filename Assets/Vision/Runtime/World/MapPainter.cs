@@ -131,6 +131,21 @@ namespace Vision.World
             Outline(layout.Playground, 0.15f, new Color32(120, 70, 50, 255));
             foreach (Vector2 pole in layout.PowerPoles) Disc(pole, 0.35f, new Color32(60, 46, 34, 255));
 
+            // The edge of the woods: from the playable circle out to the end of the world the map darkens smoothly into the
+            // black, rather than stopping at a hard line.
+            float inner = world.halfExtent;
+            for (int j = 0; j < size; j++)
+            {
+                float z = -ext + (j + 0.5f) * mpp;
+                for (int i = 0; i < size; i++)
+                {
+                    float x = -ext + (i + 0.5f) * mpp;
+                    float r = Mathf.Sqrt(x * x + z * z);
+                    if (r <= inner) continue;
+                    float k = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(inner, edge, r));
+                    px[j * size + i] = Color32.Lerp(px[j * size + i], new Color32(4, 4, 5, 255), k);
+                }
+            }
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Map", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             tex.SetPixels32(px);
             tex.Apply(false, false);

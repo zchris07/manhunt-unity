@@ -167,6 +167,20 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheScentTrail_KnowsHowFarAlongItEachPointIs_ForItsRepeatingSwell()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer s = rig.P(2);
+            rig.Place(rig.P(1), 2000f, 2000f);
+            rig.Run(Secs(3f), p => p.Id == 2 ? new InputCmd { Move = Vector2.right, Buttons = Btn.Run, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+            List<TrailPoint> scent = rig.Sim.Trails.Where(t => t.Kind == 0 && t.Who == s.Id).OrderBy(t => t.Id).ToList();
+            Assert.Greater(scent.Count, 10);
+            for (int i = 1; i < scent.Count; i++)
+                Assert.AreEqual(Vector2.Distance(scent[i].Pos, scent[i - 1].Pos), scent[i].Dist - scent[i - 1].Dist, 1e-3f, "measured along the trail");
+            Assert.AreEqual(2f, Balance.Trails.ScentWaveSprintSec, "peak to valley: two seconds of sprinting");
+        }
+
+        [Test]
         public void TheGasBlur_LastsASecondLonger()
         {
             Assert.AreEqual(Balance.Hunter.Vape.AfterTime + 1f, Balance.Hunter.Vape.BlurTime, 1e-5f, "a survivor's blur from Penjamin");
@@ -189,7 +203,52 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void RoundsAndSplatters_FollowTheGround()
+        public void LinesDrawnOverTheTerrain_AreCoveredOnlyByWhatStandsUpright_NeverByTheGroundOrWhatsBuriedInIt()
+        {
+            var made = new List<GameObject>();
+            try
+            {
+                var camGo = new GameObject("Cover Camera");
+                made.Add(camGo);
+                Camera cam = camGo.AddComponent<Camera>();
+                cam.orthographic = true;
+                cam.orthographicSize = 20f;
+                camGo.transform.SetPositionAndRotation(new Vector3(0f, 30f, -30f), Quaternion.Euler(45f, 0f, 0f));
+                Vector3 back = -camGo.transform.forward;
+                GameObject Box(Vector3 at, Vector3 size, int layer)
+                {
+                    var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    g.transform.position = at;
+                    g.transform.localScale = size;
+                    g.layer = layer;
+                    made.Add(g);
+                    return g;
+                }
+                // A hill of ground with a tree's buried foot in it, right in front of a point of the line under the hill.
+                Box(new Vector3(0f, -5f, 0f), new Vector3(40f, 10f, 40f), SandboxWorld.GroundLayer);
+                Vector3 under = new Vector3(0f, -3f, 0f);
+                Box(under + back * 1.5f, new Vector3(0.6f, 0.6f, 0.6f), 0);
+                Physics.SyncTransforms();
+                Assert.IsTrue(Vfx.Covered(cam, under), "judged from where it is, the buried foot covers it");
+                Assert.IsFalse(Vfx.Covered(cam, under, 0.5f), "lifted to just over the ground, nothing stands in front of it");
+                Assert.IsTrue(Vfx.UnderGround(cam, under), "the rise would hide it: it's drawn over the terrain");
+                // A wall standing on the ground in front of it does cover it; a fallen log lying there doesn't.
+                Vector3 lifted = under + back * ((0.5f - under.y) / back.y);
+                Box(lifted + back * 3f, new Vector3(4f, 3f, 0.4f), 12);
+                Physics.SyncTransforms();
+                Assert.IsFalse(Vfx.Covered(cam, under, 0.5f), "a fallen log never covers it");
+                Box(lifted + back * 3f, new Vector3(4f, 3f, 0.4f), 0);
+                Physics.SyncTransforms();
+                Assert.IsTrue(Vfx.Covered(cam, under, 0.5f), "something upright in front does");
+            }
+            finally
+            {
+                foreach (GameObject g in made) Object.DestroyImmediate(g);
+            }
+        }
+
+        [Test]
+        public void RoundsFlyLevel_AndSplattersLieOnTheGround()
         {
             var root = new GameObject("World");
             var mat = new Material(Shader.Find("Vision/LowPoly"));
@@ -230,7 +289,7 @@ namespace Vision.Tests
                 splats.End();
                 Assert.AreEqual(0, splats.Count, "forgotten once their drops are gone");
 
-                // A round's path: over the ground at the barrel's height wherever it goes, never under it.
+                // A round's path: perfectly straight and level at the barrel's height, whatever the ground does below.
                 var fxGo = new GameObject("Effects");
                 var effects = fxGo.AddComponent<MatchEffects>();
                 effects.world = world;
@@ -238,12 +297,9 @@ namespace Vision.Tests
                 {
                     effects.OnEvent(new GameEvent { Kind = EventKind.Shot, A = me.Id, B = (int)ItemType.Pistol, Pos = me.Pos, F = 0.3f, G = Scale.D(2000f) });
                     Assert.AreEqual(1, effects.RoundCount, "the round in flight");
-                    for (float s = 0f; s < 60f; s += 0.5f)
-                    {
-                        Vector2 at = me.Pos + new Vector2(Mathf.Cos(0.3f), Mathf.Sin(0.3f)) * s;
-                        Vector3 p = world.transform.InverseTransformPoint(effects.FlightPoint(me.Pos, new Vector2(Mathf.Cos(0.3f), Mathf.Sin(0.3f)), 1.2f, s));
-                        Assert.AreEqual(world.SurfaceHeight(at) + 1.2f, p.y, 1e-3f, "over the ground, at the barrel's height");
-                    }
+                    var (a0, a1) = effects.RoundLine(0);
+                    Assert.AreEqual(a0.y, a1.y, 1e-4f, "level: the same height all the way");
+                    Assert.Greater(Vector3.Distance(a0, a1), 10f, "out to where it stopped");
                 }
                 finally { Object.DestroyImmediate(fxGo); }
             }

@@ -147,9 +147,9 @@ namespace Vision.Effects
 
         /// <summary>A burst of particles from a point, flying out up to <paramref name="speed"/> world units a second.</summary>
         public void Burst(Vector3 at, int count, float speed, float life, Color color, float size = 0.08f, bool masked = true, Blend blend = Blend.Additive,
-            float gravity = 0f, float drag = 2.5f, float upward = 0.3f, Color? color2 = null)
+            float gravity = 0f, float drag = 2.5f, float upward = 0.3f, Color? color2 = null, bool senses = false)
         {
-            Batch b = Get(masked, false, blend);
+            Batch b = Get(masked && !senses, senses, blend);
             for (int i = 0; i < count; i++)
             {
                 Vector3 dir = Random.onUnitSphere;
@@ -372,6 +372,40 @@ namespace Vision.Effects
 
         /// <summary>Layers that are solid: everything but the ground, characters, raycast-ignored things and effects.</summary>
         public static int SolidMask = ~((1 << 8) | (1 << 9) | (1 << 2) | (1 << SensesLayer));
+        /// <summary>Things standing upright: the solid layers less what lies low on the ground (fallen logs and trees, layer 12).</summary>
+        public static int UprightMask => SolidMask & ~(1 << 12);
+
+        /// <summary>
+        /// Something standing upright (a wall, tree, rock or prop) is between the camera and <paramref name="p"/>; never the
+        /// ground, nor a fallen log. Effects drawn over the terrain (the laser, rounds, thrown items) can sit under a rise in
+        /// the ground, where a ray from them would pass up through the hill and catch the buried feet of the trees and
+        /// rocks on it. So the point is first lifted, along its own line of sight (the same spot on screen), to
+        /// <paramref name="floorY"/> (a world height just over the ground there), and only what stands in front of it
+        /// from there covers it.
+        /// </summary>
+        public static bool Covered(Camera cam, Vector3 p, float floorY = float.NegativeInfinity)
+        {
+            if (cam == null) return false;
+            Vector3 v = cam.WorldToViewportPoint(p);
+            if (v.x < -0.1f || v.x > 1.1f || v.y < -0.1f || v.y > 1.1f) return false;
+            Vector3 back = cam.orthographic ? -cam.transform.forward : (cam.transform.position - p).normalized;
+            if (p.y < floorY && back.y > 1e-3f) p += back * ((floorY - p.y) / back.y);
+            return Physics.Raycast(p + back * 0.05f, back, 400f, UprightMask, QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>
+        /// The ground (a rise of the terrain) is between the camera and <paramref name="p"/>, or <paramref name="p"/> is down
+        /// in it (a ray from inside the ground passes out through its surface from behind, which rays don't see, so the
+        /// ground above the point is checked as well).
+        /// </summary>
+        public static bool UnderGround(Camera cam, Vector3 p)
+        {
+            if (cam == null) return false;
+            if (Physics.Raycast(p + Vector3.up * 500f, Vector3.down, out RaycastHit top, 500f, 1 << 8, QueryTriggerInteraction.Ignore) && top.point.y > p.y)
+                return true;
+            Vector3 back = cam.orthographic ? -cam.transform.forward : (cam.transform.position - p).normalized;
+            return Physics.Raycast(p + back * 0.05f, back, 400f, 1 << 8, QueryTriggerInteraction.Ignore);
+        }
         /// <summary>Diagnostics (the perf run's -perfNoSmoke): draw no gas.</summary>
         public static bool SkipSmoke;
 

@@ -373,26 +373,66 @@ namespace Vision.Player
             return a.magnitude;
         }
 
-        float flickT, edgeDark;
+        float flickT, edgeDark, woodsT;
+        Vision.Visibility.VisionLight halo;
+
+        /// <summary>Zach's halo in the dark past the second ring: a small, faint light of his own, coming up as his light dies.</summary>
+        void Halo(float k)
+        {
+            if (k <= 0.001f)
+            {
+                if (halo != null && halo.enabled) halo.enabled = false;
+                return;
+            }
+            if (halo == null)
+            {
+                var go = new GameObject("Halo");
+                go.transform.SetParent(transform, false);
+                halo = go.AddComponent<Vision.Visibility.VisionLight>();
+                halo.isStatic = false;
+                halo.height = 1.2f;
+                halo.flickerAmount = 0.03f;
+            }
+            halo.range = Balance.Boundary.HaloRadius * world.transform.lossyScale.x / Mathf.Max(0.01f, transform.lossyScale.x);
+            halo.intensity = Balance.Boundary.HaloIntensity * k;
+            if (!halo.enabled) halo.enabled = true;
+        }
 
         /// <summary>
-        /// The light at the edge of the woods (MatchSim.Boundary): past the first ring it flickers, stuttering out for an
-        /// instant now and then; past the second it sputters and dies over 3 s and the whole screen goes dark with it
-        /// (<see cref="edgeDark"/>). Returns the light's strength (0-1).
+        /// The light at the edge of the woods (MatchSim.Boundary), as a brightness for the whole of the player's light at once
+        /// (the beam and the light round them dim together, evenly; the beam never shortens). Past the first ring it wavers
+        /// and now and then sags and recovers, each sag eased in and out over a few frames like a failing bulb rather than
+        /// strobing; past the second it grows fainter and fainter over 3 s while it flickers faster, deeper and more
+        /// erratically, until it's out; a survivor's whole screen goes black with it at the end (<see cref="edgeDark"/>).
+        /// Returns the light's brightness (0-1).
         /// </summary>
         float BoundaryLight(SimPlayer p, float dt)
         {
+            if (p.LostInWoods)
+            {
+                // Gone into the woods: their light stays out where they fell (no lit spot to come back to); the screen holds
+                // black while "Sacrificed" is written out, then lifts to the unlit dark so they can watch the rest.
+                woodsT += dt;
+                edgeDark = 1f - Mathf.Clamp01((woodsT - Balance.Boundary.SacrificedHold) / 1f);
+                return 0f;
+            }
+            woodsT = 0f;
             float dying = Mathf.Clamp01(p.ShutdownT / Balance.Boundary.ShutdownTime);
-            edgeDark = dying * dying * (3f - 2f * dying);
+            // The screen goes black only as the light finally gives out.
+            edgeDark = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, dying));
             if (p.Zone == 0 && dying <= 0f) return 1f;
-            flickT += dt;
-            // Two noises: a slow waver and fast stutters that drop the light out for a few frames.
-            float waver = Mathf.PerlinNoise(flickT * 2.3f, 0.37f);
-            float stutter = Mathf.PerlinNoise(flickT * 17f, 4.1f);
-            float flick = 0.8f + 0.2f * waver;
-            if (stutter > 0.68f) flick *= 0.15f;
-            else if (stutter > 0.6f) flick *= 0.55f;
-            return Mathf.Clamp01(flick * (1f - edgeDark));
+            // Time runs faster through the noise as it dies: the flicker quickens and turns erratic.
+            flickT += dt * (1f + 2.5f * dying);
+            float waver = Mathf.PerlinNoise(flickT * 1.3f, 0.37f);
+            // Sags: a smooth noise crossing a threshold, eased in and out (never a single-frame strobe), more often and
+            // deeper as it dies; and a fine tremor once it's dying.
+            float sagNoise = Mathf.PerlinNoise(flickT * 2.6f, 4.1f);
+            float sag = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.64f - 0.24f * dying, 0.8f - 0.16f * dying, sagNoise));
+            float tremor = (Mathf.PerlinNoise(flickT * 6.1f, 9.7f) - 0.5f) * 0.5f * dying;
+            float flick = (0.9f + 0.1f * waver) * (1f - Mathf.Lerp(0.45f, 0.85f, dying) * sag) * (1f + tremor);
+            // Fainter and fainter until it's out at 3 s.
+            float envelope = 1f - Mathf.SmoothStep(0f, 1f, dying);
+            return Mathf.Clamp01(flick * envelope);
         }
 
         /// <summary>The flashlight and body for the role and state: cone, reach, x-ray, crawling, hidden.</summary>
@@ -430,10 +470,17 @@ namespace Vision.Player
                 viewer.reachScreenEdge = !peeking;
                 if (peeking) viewer.coneRange = Scale.D(grass ? Balance.Hiding.GrassPeekRange : Balance.Hiding.PeekRange);
                 viewer.proximityRadius = Scale.D(peeking ? (grass ? Balance.Hiding.GrassPeekProximity : Balance.Hiding.PeekProximity) : zach ? Balance.Hunter.Proximity : Balance.Survivor.Proximity) * Mathf.Sqrt(p.FovMul);
-                viewer.visionMultiplier = Mathf.Clamp(downed ? Balance.Survivor.DownedVisionMul : 1f, 0.1f, 1f) * BoundaryLight(p, dt0);
-                viewer.proximityRadius *= 1f - edgeDark;
-                if (composite != null) composite.blackout = edgeDark;
-                Vision.Effects.SensesCamera.Blackout = edgeDark;
+                // The edge of the woods dims the whole light evenly; the beam keeps its full reach until the light is out.
+                float light = BoundaryLight(p, dt0);
+                bool lightOut = p.LostInWoods || p.ShutdownT >= Balance.Boundary.ShutdownTime;
+                viewer.visionMultiplier = lightOut ? 0f : Mathf.Clamp(downed ? Balance.Survivor.DownedVisionMul : 1f, 0.1f, 1f);
+                if (lightOut) viewer.proximityRadius = 0f;
+                if (composite != null) composite.viewerLight = light;
+                // A survivor's screen goes black; Zach's surroundings go pitch dark but a small halo stays round him.
+                if (composite != null) composite.blackout = zach ? 0f : edgeDark;
+                if (zach && composite != null) composite.fogScale *= 1f - edgeDark;
+                Vision.Effects.SensesCamera.Blackout = zach ? 0f : edgeDark;
+                Halo(zach && !p.LostInWoods ? edgeDark : 0f);
                 // Goggles and the Hemp Battery: the see-through light grows in over 0.5 s, out in 1/6 s (the battery's as slowly as in).
                 bool xrayOn = p.GogglesOn || (zach && p.HempOn);
                 if (xrayOn) xrayHemp = zach && p.HempOn;

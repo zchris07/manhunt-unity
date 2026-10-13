@@ -7,8 +7,10 @@ namespace Vision.Game
     {
         bool InWater(Vector2 p);
         bool InBrokenWindow(Vector2 p, float radius);
-        /// <summary>Over a fallen log or tree: the body is vaulting it.</summary>
+        /// <summary>Over a fallen log or tree, or a fence: the body is vaulting it.</summary>
         bool OverLow(Vector2 p, float radius);
+        /// <summary>How many times longer than usual vaulting what's here takes (1 for a log or a fence, 1.5 the graveyard's).</summary>
+        float VaultSlow(Vector2 p, float radius);
     }
 
     public struct MoveContext
@@ -125,6 +127,7 @@ namespace Vision.Game
             // Through a broken window or over a fallen log or tree: vaulting, at the climbing pace.
             bool inWindow = env != null && (env.InBrokenWindow(at, radius + Scale.D(4f)) || env.OverLow(at, radius * 0.5f));
             s.Climbing = inWindow;
+            float vaultSlow = inWindow ? Mathf.Max(1f, env.VaultSlow(at, radius * 0.5f)) : 1f;
             if (role == Role.Hunter)
             {
                 if ((pressed & Btn.Lunge) != 0 && !ctx.AbilitiesLocked && s.LungeCharges > 0 && s.LungeT <= 0f && !ctx.Carrying && s.Mode == MoveMode.Normal)
@@ -147,7 +150,7 @@ namespace Vision.Game
                 if (ctx.Carrying) speed *= Balance.Hunter.CarrySpeedMul;
                 if (s.HempT > 0f) speed *= Balance.Hunter.Hemp.SpeedMul;
                 if (s.SlowT > 0f) speed *= s.SlowMul;
-                if (inWindow) speed *= Balance.Hunter.WindowClimbMul;
+                if (inWindow) speed *= Balance.Hunter.WindowClimbMul / vaultSlow;
                 gait = moving ? (sprint ? Gait.Run : Gait.Walk) : Gait.Idle;
             }
             else
@@ -176,7 +179,7 @@ namespace Vision.Game
                 // Energy drink: walking and running up to 15% faster, fading with the drink.
                 if (boostK > 0f && (gait == Gait.Walk || gait == Gait.Run)) speed *= 1f + Balance.Items.Energy.SpeedMul * boostK;
                 if (s.SlowT > 0f) speed *= s.SlowMul;
-                if (inWindow) speed *= Balance.Survivor.WindowClimbMul;
+                if (inWindow) speed *= Balance.Survivor.WindowClimbMul / vaultSlow;
             }
             if (env != null && env.InWater(at)) speed *= Balance.WadeMul;
             if (ctx.SpeedMode) speed *= Vision.Player.GameSession.SpeedMultiplier;

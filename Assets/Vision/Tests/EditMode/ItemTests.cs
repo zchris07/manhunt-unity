@@ -231,6 +231,19 @@ namespace Vision.Tests
                 views.world = world;
                 views.Sync(0.016f);
                 Assert.AreEqual(1, views.ThrownCount);
+                // It flies level from the hand, but never shows inside the ground: carried onto the highest ground near the
+                // centre, it's drawn above it.
+                Vector2 peak = me.Pos;
+                for (int x = -80; x <= 80; x += 4)
+                    for (int y = -80; y <= 80; y += 4)
+                    {
+                        var at = new Vector2(x, y);
+                        if (world.SurfaceHeight(at) > world.SurfaceHeight(peak)) peak = at;
+                    }
+                Assert.Greater(world.SurfaceHeight(peak), world.SurfaceHeight(me.Pos) + 1.2f, "the test needs a hill above the throw");
+                sim.Thrown[0] = new ThrownItem { Id = 900, Pos = peak, Dir = Vector2.right, Owner = me.Id, Item = ItemType.Book };
+                for (int i = 0; i < 60; i++) views.Sync(0.016f);
+                Assert.Greater(views.ThrownLocal(900).y, world.SurfaceHeight(peak) + 0.8f, "lifted over the hill");
                 Assert.AreEqual(1, views.TrapCount);
                 Assert.AreEqual(1, views.DropCount);
                 sim.Thrown.Clear();

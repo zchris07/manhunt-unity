@@ -17,6 +17,8 @@ namespace Vision.Characters
     public static class CharacterBuilder
     {
         public const int MaxTriangles = 1000;
+        /// <summary>Zach's budget: 500 more for his jacket's thickness and his mask (the user's allowance).</summary>
+        public const int ZachMaxTriangles = 1500;
         const int TorsoSides = 14, HeadSides = 10, LimbSides = 8;
 
         struct Point
@@ -101,12 +103,27 @@ namespace Vision.Characters
 
         static Color Darker(Color c, float k) => new Color(c.r * k, c.g * k, c.b * k);
 
+        /// <summary>A stable pseudo-random 0-1 from an integer (patterns: stains, blotches).</summary>
+        static float Hash01(int i)
+        {
+            unchecked
+            {
+                uint h = (uint)i * 2654435761u;
+                h ^= h >> 15;
+                h *= 0x2c1b3c6du;
+                h ^= h >> 12;
+                return (h & 0xFFFF) / 65536f;
+            }
+        }
+
         static Builder Construct(CharacterSpec s)
         {
             var m = new Builder();
             Vector3 up = Vector3.up;
             bool jacket = s.Jacket.a > 0f;
-            Color outer = jacket ? s.Jacket : s.Shirt;
+            // A field jacket is a separate shell over the body: the body itself wears the shirt.
+            bool field = s.Has(Feature.FieldJacket);
+            Color outer = jacket && !field ? s.Jacket : s.Shirt;
             Color hands = s.Gloves.a > 0f ? s.Gloves : s.Skin;
             float hz = s.Hunch;
 
@@ -161,8 +178,16 @@ namespace Vision.Characters
             int[] neckHigh = m.Ring(new Vector3(0f, 1.61f, 0f), up, 8, 0.048f * ng, 0.05f * ng, 0.046f * ng, 22.5f, W(Bone.Neck, Bone.Head));
             m.Join(neckLow, neckHigh, new Vector3(0f, 1.52f, -0.01f));
 
+            if (field) FieldJacket(m, s, hz);
+
             // ---- Head (ten sides): chin, jaw, cheekbones, brow, crown, apex; a nose and ears.
             float k = s.Head;
+            if (s.Has(Feature.Decayed))
+            {
+                // Bald and rotten: a third of the scalp's and neck's facets blotched grey or raw red-brown.
+                Color raw = Color.Lerp(s.Skin, s.Hair, 0.7f), grey = Color.Lerp(s.Skin, new Color(0.45f, 0.45f, 0.42f), 0.5f);
+                m.Pattern = (c, i, paint) => paint == s.Skin && Hash01(i * 13 + 5) < 0.34f ? (Hash01(i * 7 + 1) < 0.55f ? raw : grey) : paint;
+            }
             Vector3 hc = new Vector3(0f, 1.69f, 0.005f);
             Vector3 HP(float y) => new Vector3(0f, hc.y + (y - hc.y) * k, 0f);
             int[] chin = m.Ring(HP(1.585f) + new Vector3(0f, 0f, 0.02f), up, HeadSides, 0.042f * k, 0.058f * k, 0.035f * k, 0f, W(Bone.Head));
@@ -204,6 +229,7 @@ namespace Vision.Characters
                 int c = m.Add(e0 + new Vector3(side * 0.012f, -0.005f, -0.025f * k), W(Bone.Head));
                 m.Tri(a, b, c, new Vector3(0f, hc.y, 0f));
             }
+            m.Pattern = null;
 
             // ---- Hair and hats.
             if (s.HairStyle == HairStyle.Short || s.HairStyle == HairStyle.Long || s.HairStyle == HairStyle.Curly || s.HairStyle == HairStyle.Cap || s.HairStyle == HairStyle.Bowl)
@@ -291,65 +317,119 @@ namespace Vision.Characters
                 }
             }
 
-            // ---- The hockey mask: a curved white plate, red chevrons, dark eye holes and vents.
+            // ---- The hockey mask (MKX Jason's): an ivory plate curving round the face and standing off it, its rim turned back
+            // to the face so it has thickness, rows of round vent holes, dark eye holes, red chevrons over the brows and on
+            // the cheeks, and black straps round the back of the head and over the top.
             if (s.Has(Feature.HockeyMask))
             {
-                m.Paint = s.Accent;
-                float[] ys = { 1.775f, 1.715f, 1.645f, 1.585f };
-                float[] xs = { -0.068f, 0f, 0.068f };
-                var grid = new int[4, 3];
-                for (int r = 0; r < 4; r++)
-                    for (int c = 0; c < 3; c++)
+                float[] ys = { 1.792f, 1.752f, 1.705f, 1.655f, 1.607f, 1.566f };
+                float[] xs = { -0.08f, -0.041f, 0f, 0.041f, 0.08f };
+                float MZ(float x, float y)
+                {
+                    float u = Mathf.Abs(x) / 0.08f;
+                    float z = 0.118f - u * u * 0.05f;
+                    if (y < 1.62f) z -= (1.62f - y) * 0.4f;
+                    if (y > 1.77f) z -= (y - 1.77f) * 0.7f;
+                    return z;
+                }
+                float MX(float x, float y) => x * (y < 1.607f ? Mathf.Lerp(0.7f, 1f, (y - 1.566f) / 0.041f) : 1f);
+                Vector3 MP(float x, float y, float lift) => new Vector3(MX(x, y) * k, hc.y + (y - hc.y) * k, (MZ(x, y) + lift) * k);
+                var grid = new int[6, 5];
+                var back = new int[6, 5];
+                for (int r = 0; r < 6; r++)
+                    for (int c = 0; c < 5; c++)
                     {
-                        float z = c == 1 ? 0.112f : 0.074f;
-                        if (r == 3) z -= 0.012f;
-                        float x = xs[c] * (r == 3 ? 0.75f : 1f);
-                        grid[r, c] = m.Add(new Vector3(x * k, hc.y + (ys[r] - hc.y) * k, (z + (r == 0 ? -0.006f : 0f)) * k), W(Bone.Head));
+                        grid[r, c] = m.Add(MP(xs[c], ys[r], 0f), W(Bone.Head));
+                        back[r, c] = m.Add(MP(xs[c], ys[r], -0.016f), W(Bone.Head));
                     }
                 Vector3 behind = new Vector3(0f, hc.y, -0.05f);
-                for (int r = 0; r < 3; r++)
-                    for (int c = 0; c < 2; c++)
+                Color ivory = s.Accent, worn = Darker(s.Accent, 0.86f);
+                for (int r = 0; r < 5; r++)
+                    for (int c = 0; c < 4; c++)
+                    {
+                        m.Paint = Hash01(r * 5 + c + 11) < 0.25f ? worn : ivory;
                         m.Quad(grid[r, c], grid[r, c + 1], grid[r + 1, c + 1], grid[r + 1, c], behind);
-                // Marks just proud of the mask, following its curve.
-                Vector3 OnMask(float x, float y)
-                {
-                    float z = Mathf.Lerp(0.112f, 0.074f, Mathf.Abs(x) / 0.068f) + 0.004f;
-                    return new Vector3(x * k, hc.y + (y - hc.y) * k, z * k);
-                }
+                    }
+                // The rim, all the way round.
+                m.Paint = worn;
+                Vector3 centre = new Vector3(0f, hc.y, 0.02f);
+                void Rim(int r0, int c0, int r1, int c1) => m.Quad(grid[r0, c0], grid[r1, c1], back[r1, c1], back[r0, c0], centre);
+                for (int c = 0; c < 4; c++) { Rim(0, c, 0, c + 1); Rim(5, c, 5, c + 1); }
+                for (int r = 0; r < 5; r++) { Rim(r, 0, r + 1, 0); Rim(r, 4, r + 1, 4); }
+                Vector3 OnMask(float x, float y) => MP(x, y, 0.004f);
                 void Chevron(float x, float y, float w, float h)
                 {
-                    // An upside-down V: two thin strokes meeting at the bottom.
+                    // An upside-down V: two strokes meeting at the bottom.
                     int tl = m.Add(OnMask(x - w, y + h), W(Bone.Head));
-                    int tl2 = m.Add(OnMask(x - w + 0.008f, y + h), W(Bone.Head));
+                    int tl2 = m.Add(OnMask(x - w + 0.009f, y + h), W(Bone.Head));
                     int bot = m.Add(OnMask(x, y), W(Bone.Head));
-                    int bot2 = m.Add(OnMask(x, y + 0.01f), W(Bone.Head));
+                    int bot2 = m.Add(OnMask(x, y + 0.011f), W(Bone.Head));
                     int tr = m.Add(OnMask(x + w, y + h), W(Bone.Head));
-                    int tr2 = m.Add(OnMask(x + w - 0.008f, y + h), W(Bone.Head));
+                    int tr2 = m.Add(OnMask(x + w - 0.009f, y + h), W(Bone.Head));
                     m.Quad(tl, tl2, bot2, bot, behind);
                     m.Quad(bot, bot2, tr2, tr, behind);
                 }
                 m.Paint = s.Accent2;
-                Chevron(-0.026f, 1.748f, 0.016f, 0.018f);
-                Chevron(0.026f, 1.748f, 0.016f, 0.018f);
-                Chevron(-0.047f, 1.655f, 0.012f, 0.014f);
-                Chevron(0.047f, 1.655f, 0.012f, 0.014f);
-                // Eye holes and breathing vents.
-                m.Paint = new Color(0.04f, 0.04f, 0.04f);
+                Chevron(-0.03f, 1.75f, 0.018f, 0.022f);
+                Chevron(0.03f, 1.75f, 0.018f, 0.022f);
+                Chevron(-0.052f, 1.66f, 0.014f, 0.018f);
+                Chevron(0.052f, 1.66f, 0.014f, 0.018f);
+                // Eye holes, and rows of round vents.
+                m.Paint = new Color(0.035f, 0.03f, 0.03f);
                 foreach (int side in new[] { -1, 1 })
                 {
-                    int a = m.Add(OnMask(side * 0.016f, 1.722f), W(Bone.Head));
-                    int b = m.Add(OnMask(side * 0.046f, 1.722f), W(Bone.Head));
-                    int c = m.Add(OnMask(side * 0.044f, 1.700f), W(Bone.Head));
-                    int d = m.Add(OnMask(side * 0.018f, 1.702f), W(Bone.Head));
+                    int a = m.Add(OnMask(side * 0.015f, 1.728f), W(Bone.Head));
+                    int b = m.Add(OnMask(side * 0.05f, 1.726f), W(Bone.Head));
+                    int c = m.Add(OnMask(side * 0.047f, 1.7f), W(Bone.Head));
+                    int d = m.Add(OnMask(side * 0.017f, 1.702f), W(Bone.Head));
                     m.Quad(a, b, c, d, behind);
                 }
-                for (int i = 0; i < 4; i++)
+                (float y, float[] x)[] vents =
                 {
-                    float x = -0.018f + i * 0.012f, y = 1.612f;
-                    int a = m.Add(OnMask(x - 0.004f, y + 0.006f), W(Bone.Head));
-                    int b = m.Add(OnMask(x + 0.004f, y + 0.006f), W(Bone.Head));
-                    int c = m.Add(OnMask(x, y - 0.006f), W(Bone.Head));
-                    m.Tri(a, b, c, behind);
+                    (1.782f, new[] { 0.012f, 0.034f, 0.058f }),
+                    (1.676f, new[] { 0.024f, 0.074f }),
+                    (1.64f, new[] { 0.014f, 0.036f, 0.06f }),
+                    (1.618f, new[] { 0.025f, 0.048f }),
+                    (1.592f, new[] { 0.012f, 0.032f }),
+                };
+                foreach (var (vy, vx) in vents)
+                    foreach (float x0 in vx)
+                        foreach (int side in new[] { -1, 1 })
+                        {
+                            float x = side * x0, r = 0.0058f;
+                            int a = m.Add(OnMask(x, vy + r), W(Bone.Head));
+                            int b = m.Add(OnMask(x + r, vy), W(Bone.Head));
+                            int c = m.Add(OnMask(x, vy - r), W(Bone.Head));
+                            int d = m.Add(OnMask(x - r, vy), W(Bone.Head));
+                            m.Quad(a, b, c, d, behind);
+                        }
+                // The straps: round the back of the head at the temples, and over the crown from the mask's top.
+                m.Paint = s.Gloves.a > 0f ? s.Gloves : new Color(0.08f, 0.08f, 0.08f);
+                float sy = hc.y + (1.752f - hc.y) * k;
+                int prevT = -1, prevB = -1;
+                for (int i = 0; i <= 6; i++)
+                {
+                    float a = Mathf.Lerp(Mathf.PI * 0.42f, Mathf.PI * 1.58f, i / 6f);
+                    float x = Mathf.Sin(a), z = Mathf.Cos(a);
+                    var p = new Vector3(x * (0.077f * k + 0.007f), 0f, z * ((z >= 0f ? 0.094f : 0.09f) * k + 0.007f));
+                    int t = m.Add(p + new Vector3(0f, sy + 0.012f, 0f), W(Bone.Head));
+                    int bb = m.Add(p + new Vector3(0f, sy - 0.012f, 0f), W(Bone.Head));
+                    if (prevT >= 0) m.Quad(prevT, t, bb, prevB, new Vector3(0f, sy, 0f));
+                    prevT = t;
+                    prevB = bb;
+                }
+                Vector3 crownC = new Vector3(0f, hc.y + 0.01f, -0.005f);
+                float ry = (1.81f - hc.y) * k + 0.008f, rz = 0.092f * k + 0.007f;
+                int prevL = -1, prevR = -1;
+                for (int i = 0; i <= 4; i++)
+                {
+                    float a = Mathf.Lerp(Mathf.PI * 0.32f, Mathf.PI * 0.95f, i / 4f);
+                    var p = crownC + new Vector3(0f, Mathf.Sin(a) * ry, Mathf.Cos(a) * rz);
+                    int l = m.Add(p + new Vector3(-0.012f, 0f, 0f), W(Bone.Head));
+                    int r = m.Add(p + new Vector3(0.012f, 0f, 0f), W(Bone.Head));
+                    if (prevL >= 0) m.Quad(prevL, l, r, prevR, crownC);
+                    prevL = l;
+                    prevR = r;
                 }
             }
 
@@ -421,7 +501,7 @@ namespace Vision.Characters
                 Vector3 shOut = sh + new Vector3(side * (0.225f * s.Shoulders - 0.215f), 0f, hz);
                 var knuckle = wr + new Vector3(side * 0.004f, -0.095f, 0.004f);
                 var tip = wr + new Vector3(side * 0.006f, -0.148f, 0.01f);
-                m.Paint = s.Has(Feature.TornShirt) ? s.Shirt : outer;
+                m.Paint = s.Has(Feature.TornShirt) ? s.Shirt : field ? s.Jacket : outer;
                 float cg = Mathf.Lerp(1f, ag, 0.55f);
                 int[] cap = m.Ring(new Vector3(side * (0.195f + (0.225f * s.Shoulders - 0.225f)), 1.478f, -0.008f + hz), up, LimbSides, 0.06f * cg, 0.06f * cg, 0.06f * cg, 22.5f, W(Bone.Chest, upper));
                 int capTop = m.Add(new Vector3(side * (0.172f + (0.225f * s.Shoulders - 0.225f)), 1.50f, -0.01f + hz), W(Bone.Chest, upper, 0.3f));
@@ -441,6 +521,28 @@ namespace Vision.Characters
                 if (s.Has(Feature.HiVis)) m.Paint = s.Accent;
                 m.Join(a2, a2b, (el + foreAt) * 0.5f);
                 m.Join(a2b, a3, (foreAt + wr) * 0.5f);
+                if (field)
+                {
+                    // The jacket's sleeve: a shell of cloth over the arm to just short of the wrist, its cuff showing its
+                    // thickness.
+                    const float th = 0.02f;
+                    Vector3 cuffAt = Vector3.Lerp(foreAt, wr, 0.72f);
+                    int[] s0 = m.Ring(shOut, el - sh, LimbSides, 0.056f * ag + th, 0.054f * ag + th, 0.054f * ag + th, 22.5f, W(upper, Bone.Chest, 0.3f));
+                    int[] s1 = m.Ring(bicepAt, el - sh, LimbSides, 0.054f * ag + th, 0.056f * ag + th, 0.05f * ag + th, 22.5f, W(upper));
+                    int[] s2 = m.Ring(el, wr - sh, LimbSides, 0.043f * ag + th, 0.044f * ag + th, 0.043f * ag + th, 22.5f, W(upper, fore));
+                    int[] s3 = m.Ring(foreAt, wr - el, LimbSides, 0.041f * ag + th, 0.042f * ag + th, 0.04f * ag + th, 22.5f, W(fore));
+                    int[] s4 = m.Ring(cuffAt, wr - el, LimbSides, 0.036f * ag + th, 0.038f * ag + th, 0.037f * ag + th, 22.5f, W(fore));
+                    int[] s4in = m.Ring(cuffAt, wr - el, LimbSides, 0.036f * ag + 0.003f, 0.038f * ag + 0.003f, 0.037f * ag + 0.003f, 22.5f, W(fore));
+                    m.Paint = s.Jacket;
+                    m.Pattern = JacketWear(s.Jacket);
+                    m.Join(s0, s1, (sh + bicepAt) * 0.5f);
+                    m.Join(s1, s2, (bicepAt + el) * 0.5f);
+                    m.Join(s2, s3, (el + foreAt) * 0.5f);
+                    m.Join(s3, s4, (foreAt + cuffAt) * 0.5f);
+                    m.Pattern = null;
+                    m.Paint = Darker(s.Jacket, 0.55f);
+                    m.Join(s4, s4in, foreAt);
+                }
                 m.Paint = hands;
                 int[] a4 = m.Ring(knuckle, knuckle - wr, LimbSides, 0.021f * ag, 0.05f * ag, 0.046f * ag, 22.5f, W(hand));
                 int fingertip = m.Add(tip, W(hand));
@@ -508,6 +610,125 @@ namespace Vision.Characters
                 m.Pattern = null;
             }
             return m;
+        }
+
+        /// <summary>The jacket's worn cloth: some facets stained darker, some faded lighter.</summary>
+        static System.Func<Vector3, int, Color, Color> JacketWear(Color cloth)
+        {
+            Color stain = Darker(cloth, 0.7f), faded = Color.Lerp(cloth, new Color(0.85f, 0.83f, 0.7f), 0.14f);
+            return (c, i, paint) => paint != cloth ? paint : Hash01(i * 31 + 7) < 0.16f ? stain : Hash01(i * 17 + 3) < 0.28f ? faded : paint;
+        }
+
+        /// <summary>
+        /// Zach's field jacket over the torso: a fourteen-sided shell of cloth standing a couple of centimetres off the body
+        /// from below the belt to the shoulders, open down the front over the shirt, with a stand-up collar round the back
+        /// and sides of the neck and four pocket flaps. Its thickness shows where it ends: the hem, both front edges, the
+        /// collar's top and inside, each a band of darker lining joining the outside to the inside of the cloth.
+        /// </summary>
+        static void FieldJacket(Builder m, CharacterSpec s, float hz)
+        {
+            const float th = 0.024f, tp = 180f / TorsoSides;
+            Vector3 up = Vector3.up;
+            Color cloth = s.Jacket, lining = Darker(s.Jacket, 0.5f);
+            // Each ring: height, forward shift, half width, front and back depth (of the shell's outside), weights.
+            var sec = new (float y, float z, float hw, float f, float b, BoneWeight w)[]
+            {
+                (0.84f, hz * 0.05f, 0.172f * s.Hips + th + 0.012f, 0.108f * s.Hips + th + 0.012f, 0.122f * s.Hips + th + 0.012f, W(Bone.Pelvis)),
+                (0.95f, hz * 0.15f, 0.16f * s.Hips + th, 0.102f * s.Hips + th, 0.11f * s.Hips + th, W(Bone.Pelvis, Bone.Spine, 0.2f)),
+                (1.12f, hz * 0.4f, 0.15f * s.Waist + th, 0.104f * s.Waist + th, 0.09f * s.Waist + th, W(Bone.Pelvis, Bone.Spine, 0.7f)),
+                (1.30f, -0.005f + hz * 0.7f, 0.17f * s.Chest + th, 0.12f * s.Chest + th, 0.10f * s.Chest + th, W(Bone.Spine, Bone.Chest, 0.7f)),
+                (1.45f, -0.012f + hz, 0.225f * s.Shoulders + th, 0.08f * s.Chest + th, 0.09f * s.Chest + th, W(Bone.Chest)),
+            };
+            int n = sec.Length;
+            var outside = new int[n][];
+            var inside = new int[n][];
+            for (int r = 0; r < n; r++)
+            {
+                var (y, z, hw, f, b, w) = sec[r];
+                outside[r] = m.Ring(new Vector3(0f, y, z), up, TorsoSides, hw, f, b, tp, w);
+                inside[r] = m.Ring(new Vector3(0f, y, z), up, TorsoSides, hw - th * 0.85f, f - th * 0.85f, b - th * 0.85f, tp, w);
+            }
+            // Open down the front: the three faces either side of the front centre (vertices 12 to 1).
+            bool Open(int face) => face == 12 || face == 13 || face == 0;
+            m.Paint = cloth;
+            m.Pattern = JacketWear(cloth);
+            for (int r = 0; r + 1 < n; r++)
+                for (int f = 0; f < TorsoSides; f++)
+                {
+                    if (Open(f)) continue;
+                    int f1 = (f + 1) % TorsoSides;
+                    m.Quad(outside[r][f], outside[r + 1][f], outside[r + 1][f1], outside[r][f1], new Vector3(0f, (sec[r].y + sec[r + 1].y) * 0.5f, sec[r].z));
+                }
+
+            // Over the shoulders to the collar's foot.
+            float ng = s.Neck;
+            Vector3 neckAt = new Vector3(0f, 1.5f, -0.016f + hz);
+            int[] foot = m.Ring(neckAt, up, TorsoSides, 0.06f * ng + th, 0.058f * ng + th, 0.062f * ng + th, tp, W(Bone.Chest));
+            for (int f = 0; f < TorsoSides; f++)
+            {
+                if (Open(f)) continue;
+                int f1 = (f + 1) % TorsoSides;
+                m.Quad(outside[n - 1][f], foot[f], foot[f1], outside[n - 1][f1], new Vector3(0f, 1.38f, hz));
+            }
+
+            // Pocket flaps: two on the chest, two low on the front, standing proud of the cloth with a thick lower edge.
+            float FrontZ(int r, float x)
+            {
+                var (_, z, hw, f, _, _) = sec[r];
+                float u = Mathf.Clamp01(Mathf.Abs(x) / hw);
+                return z + f * Mathf.Sqrt(1f - u * u);
+            }
+            foreach (int side in new[] { -1, 1 })
+                foreach (var (r, fy, fx, fw) in new[] { (3, 1.31f, 0.2f * s.Chest, 0.07f), (1, 0.98f, 0.17f * s.Hips, 0.08f) })
+                {
+                    float x0 = side * (fx - fw * 0.5f), x1 = side * (fx + fw * 0.5f);
+                    BoneWeight w = sec[r].w;
+                    float z0 = FrontZ(r, x0), z1 = FrontZ(r, x1);
+                    int a = m.Add(new Vector3(x0, fy + 0.02f, z0 + 0.002f), w), b = m.Add(new Vector3(x1, fy + 0.02f, z1 + 0.002f), w);
+                    int c = m.Add(new Vector3(x1, fy - 0.022f, z1 + 0.009f), w), d = m.Add(new Vector3(x0, fy - 0.022f, z0 + 0.009f), w);
+                    int c2 = m.Add(new Vector3(x1, fy - 0.022f, z1 - 0.004f), w), d2 = m.Add(new Vector3(x0, fy - 0.022f, z0 - 0.004f), w);
+                    Vector3 behindFlap = new Vector3(side * fx, fy, z0 - 0.1f);
+                    m.Paint = Darker(cloth, 0.86f);
+                    m.Quad(a, b, c, d, behindFlap);
+                    m.Paint = lining;
+                    m.Quad(d, c, c2, d2, new Vector3(side * fx, fy + 0.1f, z0));
+                }
+            m.Pattern = null;
+
+            // The thickness: a band of lining joining the outside to the inside along the hem and both front edges.
+            m.Paint = lining;
+            for (int f = 0; f < TorsoSides; f++)
+            {
+                if (Open(f)) continue;
+                int f1 = (f + 1) % TorsoSides;
+                m.Quad(outside[0][f], outside[0][f1], inside[0][f1], inside[0][f], new Vector3(0f, 1.1f, 0f));
+            }
+            for (int r = 0; r + 1 < n; r++)
+                foreach (int e in new[] { 12, 1 })
+                {
+                    Vector3 mid = (m.P(outside[r][e]) + m.P(outside[r + 1][e])) * 0.5f;
+                    m.Quad(outside[r][e], outside[r + 1][e], inside[r + 1][e], inside[r][e], new Vector3(-mid.x * 0.2f, mid.y, mid.z - 0.25f));
+                }
+
+            // The collar: standing up round the back and sides of the neck, open at the front, with its top edge and its
+            // inside showing.
+            bool CollarOpen(int face) => face >= 11 || face <= 1;
+            Vector3 topAt = new Vector3(0f, 1.585f, -0.024f + hz);
+            int[] top = m.Ring(topAt, up, TorsoSides, 0.066f * ng + th + 0.012f, 0.062f * ng + th + 0.01f, 0.07f * ng + th + 0.014f, tp, W(Bone.Chest, Bone.Neck, 0.25f));
+            int[] topIn = m.Ring(topAt, up, TorsoSides, 0.066f * ng + 0.012f, 0.062f * ng + 0.01f, 0.07f * ng + 0.014f, tp, W(Bone.Chest, Bone.Neck, 0.25f));
+            int[] footIn = m.Ring(neckAt, up, TorsoSides, 0.06f * ng + 0.004f, 0.058f * ng + 0.004f, 0.062f * ng + 0.004f, tp, W(Bone.Chest));
+            for (int f = 0; f < TorsoSides; f++)
+            {
+                if (CollarOpen(f)) continue;
+                int f1 = (f + 1) % TorsoSides;
+                Vector3 mid = (m.P(foot[f]) + m.P(top[f1])) * 0.5f;
+                Vector3 radial = new Vector3(mid.x, 0f, mid.z - topAt.z).normalized;
+                m.Paint = cloth;
+                m.Quad(foot[f], top[f], top[f1], foot[f1], mid - radial * 0.06f);
+                m.Paint = lining;
+                m.Quad(top[f], topIn[f], topIn[f1], top[f1], mid - up * 0.08f);
+                m.Quad(footIn[f], topIn[f], topIn[f1], footIn[f1], mid + radial * 0.06f);
+            }
         }
 
         /// <summary>

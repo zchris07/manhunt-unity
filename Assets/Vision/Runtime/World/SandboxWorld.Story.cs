@@ -112,6 +112,19 @@ namespace Vision.World
                 light.flickerAmount = 0.1f;
                 light.flickerSpeed = 3.1f;
             }
+            // The light bar's own light, up on the roof: it shows the roof and the ground just round the van, not far beyond
+            // (its red and blue tint is laid over what it lights by MatchEffects).
+            {
+                var bar = new GameObject("Ambulance Light Bar");
+                bar.transform.SetParent(parent, false);
+                bar.transform.localPosition = Upright(at + along * (size.z * 0.3f), 0f);
+                var light = bar.AddComponent<VisionLight>();
+                light.range = Game.Balance.Chris.BarLightRange;
+                light.intensity = Game.Balance.Chris.BarLightIntensity;
+                light.height = size.y + 0.4f;
+                light.flickerAmount = 0.05f;
+                light.flickerSpeed = 2f;
+            }
             Ambulance = van.transform;
             for (float t = -size.z * 0.5f; t <= size.z * 0.5f + 0.01f; t += 1.5f)
                 for (float s = -size.x * 0.5f; s <= size.x * 0.5f + 0.01f; s += size.x * 0.5f)

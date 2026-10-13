@@ -19,7 +19,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void EveryCharacter_IsLowPoly_AtMost1000Triangles_AndFullySkinned()
+        public void EveryCharacter_IsLowPoly_AtMost1000Triangles_Zach1500_AndFullySkinned()
         {
             foreach (CharacterSpec s in Everyone())
             {
@@ -27,8 +27,9 @@ namespace Vision.Tests
                 try
                 {
                     int tris = m.triangles.Length / 3;
-                    Assert.LessOrEqual(tris, CharacterBuilder.MaxTriangles, s.Name);
-                    Assert.Greater(tris, 800, $"{s.Name}: the finer body, near its 1000-triangle budget");
+                    Assert.AreEqual(s.Name == "Zach" ? 1500 : 1000, s.TriangleBudget, $"{s.Name}: Zach has 500 more");
+                    Assert.LessOrEqual(tris, s.TriangleBudget, s.Name);
+                    Assert.Greater(tris, s.TriangleBudget - 200, $"{s.Name}: the finer body, near its budget");
                     Assert.AreEqual(HumanoidSkeleton.BoneCount, m.bindposes.Length);
                     foreach (BoneWeight w in m.boneWeights)
                     {
@@ -56,7 +57,7 @@ namespace Vision.Tests
             Assert.GreaterOrEqual(tones, 4, "tonal greys: skin, shirt, trousers, gloves, soles");
 
             CharacterSpec z = CharacterSpec.Zach();
-            Assert.AreEqual(2.0f, z.Height, 1e-4f, "big: about 2 m");
+            Assert.AreEqual(2.2f, z.Height, 1e-4f, "big: 10% taller than his first 2 m");
             Assert.That(z.Shoulders, Is.InRange(1.05f, 1.2f), "broad, but not a wardrobe");
             Assert.Greater(z.Arms, 1.3f);
             Mesh zach = CharacterBuilder.Build(z);
@@ -71,6 +72,25 @@ namespace Vision.Tests
             for (int i = 0; i < t.Length; i += 3)
                 if (Close(col[t[i]], white) && v[t[i]].z > 0.06f && v[t[i]].y > 1.55f) front = true;
             Assert.IsTrue(front, "on the face");
+            // The field jacket is a shell standing off the body: at the chest its cloth lies outside the shirt under it,
+            // and its edges show a darker lining (the cloth's thickness).
+            Color cloth = z.Jacket.linear, shirt = z.Shirt.linear, lining = new Color(z.Jacket.r * 0.5f, z.Jacket.g * 0.5f, z.Jacket.b * 0.5f).linear;
+            float shirtOut = 0f, clothOut = 0f;
+            bool lined = false, sleeve = false;
+            for (int i = 0; i < t.Length; i++)
+            {
+                Vector3 p = v[t[i]];
+                if (Mathf.Abs(p.y - 1.3f) < 0.03f && p.z < 0f)
+                {
+                    if (Close(col[t[i]], shirt)) shirtOut = Mathf.Max(shirtOut, -p.z);
+                    if (Close(col[t[i]], cloth)) clothOut = Mathf.Max(clothOut, -p.z);
+                }
+                if (Close(col[t[i]], lining)) lined = true;
+                if (Close(col[t[i]], cloth) && p.y < 1.0f && Mathf.Abs(p.x) > 0.26f) sleeve = true;
+            }
+            Assert.Greater(clothOut, shirtOut + 0.015f, "the jacket stands off the shirt (its back at the chest)");
+            Assert.IsTrue(lined, "its edges show the cloth's thickness");
+            Assert.IsTrue(sleeve, "long sleeves down the forearms");
 
             var looks = new HashSet<string>();
             foreach (string n in Texts.NpcNames)
@@ -97,6 +117,7 @@ namespace Vision.Tests
                 Assert.Greater(tris, 0, k.ToString());
                 Assert.LessOrEqual(tris, PropModels.MaxTriangles, k.ToString());
                 Assert.Less(m.bounds.size.magnitude, 1.4f, $"{k} fits in a hand");
+                if (k == PropKind.Machete) Assert.Greater(m.bounds.max.z, 0.75f, "Jason's machete: a long blade");
                 Object.DestroyImmediate(m);
             }
             Assert.AreEqual(PropKind.GoldenPump, PropModels.ForItem(ItemType.Shotgun, true));
@@ -249,8 +270,18 @@ namespace Vision.Tests
                 Check($"{name}: the blade out in front at the hit", tip.z > 0.8f, tip);
                 var end = HandsIn(clip, 0.24f, PropKind.Machete);
                 Check($"{name}: down to the other side of the waist", end.r.x * side < -0.25f && end.r.y < 1.15f, end.r);
-                float slope = Mathf.Atan2(cocked.r.y - end.r.y, Mathf.Abs(cocked.r.x - end.r.x)) * Mathf.Rad2Deg;
-                Check($"{name}: a wide, falling cut about 35 degrees below level", slope > 25f && slope < 45f, new Vector3(cocked.r.y, end.r.y, slope));
+                // The fall: a backhand from its cock, a forehand from where it comes over the top (it starts higher, raised
+                // beside his head) down to the other hip.
+                var early = side > 0f ? HandsIn(clip, clip == ActionClips.SwingHeavy ? 0.065f : 0.075f, PropKind.Machete) : cocked;
+                float slope = Mathf.Atan2(early.r.y - end.r.y, Mathf.Abs(early.r.x - end.r.x)) * Mathf.Rad2Deg;
+                Check($"{name}: a wide, falling cut about 35-45 degrees below level", slope > 25f && slope < 50f, new Vector3(early.r.y, end.r.y, slope));
+                if (side > 0f)
+                {
+                    // The forehand starts raised up beside his head, the blade lying back behind it (the user's references).
+                    var start = HandsIn(clip, 0f, PropKind.Machete);
+                    Check($"{name}: raised up beside the head", start.r.y > 1.72f && start.r.x > 0.2f, start.r);
+                    Check($"{name}: the blade back behind the head", start.propDir.z < -0.5f && start.propDir.x < -0.3f, start.propDir);
+                }
             }
             var charge = HandsIn(ActionClips.Charge, 0f, PropKind.Machete);
             Check("charge: machete cocked beside the right shoulder", charge.r.y > 1.5f && charge.r.x > 0f, charge.r);
@@ -345,6 +376,20 @@ namespace Vision.Tests
                 view.Present(p);
                 Assert.AreSame(ActionClips.AimRifle, layer.Current, "aimed (right click): shouldered, cheek on the scope");
                 p.Aiming = false;
+                // JARVIS: the tablet held up while it runs, put away (JARVIS still running) once they take another item.
+                p.Jarvis = 2;
+                p.JarvisT = 5f;
+                p.JarvisSlot = p.SelSlot;
+                view.Present(p);
+                Assert.AreEqual(PropKind.Tablet, layer.HeldRight, "the tablet up");
+                Assert.AreSame(ActionClips.Tablet, layer.Current);
+                p.SelSlot = 0;
+                view.Present(p);
+                Assert.AreEqual(PropKind.Shotgun, layer.HeldRight, "switched: the new item in hand, the tablet put away");
+                Assert.AreNotSame(ActionClips.Tablet, layer.Current);
+                Assert.Greater(p.JarvisT, 0f, "JARVIS still running");
+                p.Jarvis = 0;
+                p.JarvisT = 0f;
                 p.SelSlot = -1;
                 // Night vision: worn over the eyes, the arms left alone (the light stays in hand).
                 p.Inv.Add(ItemType.Goggles);
@@ -366,7 +411,7 @@ namespace Vision.Tests
 
                 var z = new SimPlayer(2, "Z", Role.Hunter, Vector2.zero);
                 view.SetSpec(CharacterSpec.Zach());
-                Assert.AreEqual(2f / 1.8f, go.transform.localScale.x, 1e-4f, "Zach's size");
+                Assert.AreEqual(2.2f / 1.8f, go.transform.localScale.x, 1e-4f, "Zach's size: 10% larger than 2 m");
                 view.Present(z);
                 Assert.AreEqual(PropKind.Machete, layer.HeldRight, "his machete");
                 z.ChargeT = 0.3f;

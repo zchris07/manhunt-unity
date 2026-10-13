@@ -156,15 +156,24 @@ namespace Vision.UI
             GroundArc(p.Pos, 0f, r - wa, 0f, Mathf.PI * 2f, new Color(a.r, a.g, a.b, 0.08f * RingBright));
         }
 
-        /// <summary>The ambulance's light bar, flashing red then blue.</summary>
+        /// <summary>
+        /// The ambulance's light bar, flashing red then blue, and the tinted halo it casts: a soft red or blue wash over the
+        /// roof and the ground just round the van, only where its light falls (faint, and no further than the van's vicinity).
+        /// </summary>
         void AmbulanceBar(MatchSim sim)
         {
             if (world.Ambulance == null) return;
-            bool red = Mathf.Repeat(Time.time, 1f) < 0.5f;
+            float phase = Mathf.Repeat(Time.time, 1f);
+            bool red = phase < 0.5f;
             Vector3 bar = world.Ambulance.TransformPoint(new Vector3(red ? -0.6f : 0.6f, 2.8f, 1.88f));
             Color c = red ? new Color(1f, 0.15f, 0.12f, 0.9f) : new Color(0.2f, 0.4f, 1f, 0.9f);
             Fx.Dot(bar, 0.22f * S, c, false, true);
             Fx.Dot(bar, 0.7f * S, new Color(c.r, c.g, c.b, 0.18f), false, true);
+            // Each flash swells in and out (no hard switch), its tint washing over what the bar lights.
+            float swell = Mathf.Sin(Mathf.Repeat(phase, 0.5f) / 0.5f * Mathf.PI);
+            Vector3 roof = world.Ambulance.TransformPoint(new Vector3(0f, 2.6f, 0.9f));
+            Fx.Glow(roof, 2.4f * S, new Color(c.r, c.g, c.b, 0.3f * swell), true, false);
+            Fx.Glow(roof, 5.5f * S, new Color(c.r, c.g, c.b, 0.14f * swell), true, false);
         }
     }
 }

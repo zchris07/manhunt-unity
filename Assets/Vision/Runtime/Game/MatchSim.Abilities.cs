@@ -45,6 +45,8 @@ namespace Vision.Game
         /// <summary>0 scent, 1 blood.</summary>
         public int Kind;
         public int Who;
+        /// <summary>Scent: how far along that survivor's scent trail this point is (design units), so its pattern stays put.</summary>
+        public float Dist;
     }
 
     /// <summary>Zach's abilities, JARVIS, Penjamin, the Hemp Beam and the 0.50 cal (abilities.ts, vape.ts, zachBeam.ts, sniper.ts).</summary>
@@ -110,6 +112,7 @@ namespace Vision.Game
             if (p.Zone >= 1) return;
             if (p.Jarvis == 1) p.Jarvis = 2;
             p.JarvisT = Balance.Sexton.JarvisRadarSec;
+            p.JarvisSlot = p.SelSlot;
             RevealT = Balance.Sexton.JarvisRadarSec;
             Emit(null, new GameEvent { Kind = EventKind.Jarvis, A = p.Id });
         }
@@ -260,9 +263,11 @@ namespace Vision.Game
                 }
                 else p.VapeCd = 0f;
             }
-            Vapes.RemoveAll(v => Time - v.T0 >= VapeLife);
+            // Kept a little after it stops acting, only to be seen thinning away.
+            Vapes.RemoveAll(v => Time - v.T0 >= VapeLife + Balance.Hunter.Vape.SeenExtra);
             foreach (VapeCloud v in Vapes)
             {
+                if (Time - v.T0 >= VapeLife) continue;
                 float ext = VapeExtent(v);
                 SimPlayer by = Get(v.By);
                 foreach (SimPlayer p in Order)

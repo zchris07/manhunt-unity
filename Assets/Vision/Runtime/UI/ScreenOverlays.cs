@@ -17,6 +17,7 @@ namespace Vision.UI
         UiKit kit;
 
         RectTransform scare, scareImg, flash, flashImg, note, paper, photoRt, burnRt, big, center;
+        WrittenText written;
         RawImage scareRaw, flashRaw, photo, burn;
         Image scareBack;
         CanvasGroup scareGroup, flashGroup, noteGroup, bigGroup;
@@ -131,6 +132,12 @@ namespace Vision.UI
             centerText = kit.Label(UiKit.Fill("Text", center), "", 40, TextAnchor.MiddleCenter, UiKit.Bone, UiKit.Face.Display, 0.08f, false);
             Fringe(centerText, 2f, 0.8f, 0f);
             center.gameObject.SetActive(false);
+
+            // A word written out letter by letter in the middle of the screen (Sacrificed, gone into the woods).
+            RectTransform writtenRt = UiKit.Node("Written", announcements, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1600f, 200f));
+            Text wt = kit.Label(writtenRt, "", 120, TextAnchor.MiddleCenter, Color.white, UiKit.Face.DisplayBold, 0.06f, false);
+            written = wt.gameObject.AddComponent<WrittenText>();
+            writtenRt.gameObject.SetActive(false);
         }
 
         Vector2 Screen => root.rect.size;
@@ -195,6 +202,13 @@ namespace Vision.UI
             bigStart = Time.unscaledTime;
             bigEnd = bigStart + seconds;
             big.gameObject.SetActive(true);
+        }
+
+        /// <summary>Writes a word out letter by letter in the middle of the screen, holds it, then fades it (<see cref="WrittenText"/>).</summary>
+        public void WriteOut(string text, float holdSeconds)
+        {
+            EnsureBuilt();
+            written.Write(text, holdSeconds);
         }
 
         /// <summary>A short message in the middle of the upper screen.</summary>

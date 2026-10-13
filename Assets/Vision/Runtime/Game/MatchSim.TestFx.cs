@@ -95,12 +95,23 @@ namespace Vision.Game
         {
             if (step.sqrMagnitude < 1e-10f) return at;
             Vector2 to = at + step;
-            if (!Geo.Blocked(to, radiusDesign)) return to;
+            if (!Geo.Blocked(to, radiusDesign)) return InsideRing(at, to, radiusDesign);
             Vector2 x = at + new Vector2(step.x, 0f), y = at + new Vector2(0f, step.y);
             bool okX = Mathf.Abs(step.x) > 1e-6f && !Geo.Blocked(x, radiusDesign), okY = Mathf.Abs(step.y) > 1e-6f && !Geo.Blocked(y, radiusDesign);
-            if (okX && (!okY || Mathf.Abs(step.x) >= Mathf.Abs(step.y))) return x;
-            if (okY) return y;
+            if (okX && (!okY || Mathf.Abs(step.x) >= Mathf.Abs(step.y))) return InsideRing(at, x, radiusDesign);
+            if (okY) return InsideRing(at, y, radiusDesign);
             return at;
+        }
+
+        /// <summary>
+        /// NPCs never wander past the first ring (the user's rule): a step that would take one further out than the ring
+        /// slides along it instead (one already outside only ever moves back in).
+        /// </summary>
+        Vector2 InsideRing(Vector2 at, Vector2 to, float radiusDesign)
+        {
+            float lim = Ring1 - radiusDesign, r = to.magnitude;
+            if (r <= lim || r <= at.magnitude) return to;
+            return to * (Mathf.Max(lim, at.magnitude) / r);
         }
 
         /// <summary>A small shove away from a point (a punch, a blast): knockback on the player's own movement.</summary>

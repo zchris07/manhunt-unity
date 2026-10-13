@@ -43,7 +43,7 @@ Shader "Vision/Gas"
             float4 _GasTintA, _GasTintB;   // rgb tints (lit colour), a = overall opacity
             float4 _GasShape;              // x = kind (0 blob, 1 cone), y = extinction per metre, z = noise scale (per metre), w = erosion
             float4 _GasMotion;             // xyz = drift (metres per second, world), w = seed
-            float4 _GasCone;               // x = radius at the base (fraction of the end's), y = soft start, z = soft end
+            float4 _GasCone;               // x = radius at the base (fraction of the end's), y = soft start, z = soft end, w = patchiness
 
             struct Attributes
             {
@@ -95,18 +95,26 @@ Shader "Vision/Gas"
                 float s = Shape(o);
                 if (s <= 0.0) return 0.0;
                 float3 drift = _GasMotion.xyz * t;
-                float3 p = w * _GasShape.z + drift * _GasShape.z + _GasMotion.w * 0.137;
-                // A slow warp of the coordinates so the billows roll over each other.
-                float3 warp = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p * 0.31 + t * 0.013, 0).gba - 0.5;
+                // The noise is carried along with the drift (sampled where it was drift ago), so the billows roll the way
+                // the gas is blowing: Penjamin's out along the aim, whichever way that is.
+                float3 p = (w - drift) * _GasShape.z + _GasMotion.w * 0.137;
+                // A slow warp of the coordinates so the billows roll over each other (churning upward, not off in a
+                // fixed direction of its own).
+                float3 warp = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p * 0.31 + float3(0.0, t * 0.013, 0.0), 0).gba - 0.5;
                 float4 n = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p + warp * 0.35, 0);
                 float billow = n.r;
                 // Fine detail fraying the outer edges into wisps.
-                float detail = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p * 3.1 - drift * _GasShape.z * 1.7, 0).g;
+                float detail = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p * 3.1 - drift * _GasShape.z * 0.6, 0).g;
                 // Cauliflower billows: the noise eats the shape away from its edges inward, the finer detail fraying
                 // what's left near the surface into wisps.
                 float d = saturate((s * 1.15 - (1.0 - billow) * _GasShape.w) * 2.2);
                 d = saturate(d - (1.0 - detail) * 0.5 * (1.0 - s * s));
-                return d;
+                // Patchy: a much larger, slower pattern (riding the drift with the billows) splits the cloud into thick
+                // pockets and thin stretches, with clear gaps right through it between them.
+                // (The smooth warp noise, broad: about a quarter of the cloud thins to gaps, a fifth thickens into pockets.)
+                float clump = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p * 0.12 + float3(7.3, 2.1, 5.7) + float3(t * 0.004, 0.0, 0.0), 0).a;
+                float pockets = smoothstep(0.36, 0.5, clump) * lerp(0.75, 1.6, smoothstep(0.52, 0.66, clump));
+                return d * lerp(1.0, pockets, _GasCone.w);
             }
 
             half4 frag(Varyings i) : SV_Target

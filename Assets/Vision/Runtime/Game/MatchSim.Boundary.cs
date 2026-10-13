@@ -6,8 +6,8 @@ namespace Vision.Game
     /// The edge of the woods (the user's rule; the map is a circle with no wall round it). Three invisible rings round the
     /// centre:
     /// past the first (the playable radius) a player's light flickers, and night vision, JARVIS and the Hemp Battery stop
-    /// working (a JARVIS running ends), as does Zach's Hemp Beam;
-    /// past the second the light dies over 3 s until the screen is black, and then a survivor takes 20 damage straight
+    /// working (a JARVIS running ends), as does Zach's Hemp Beam (a survivor is told not to wander off, with an arrow back in);
+    /// past the second (15.6 m further out) the light dies over 3 s until the screen is black, and then a survivor takes 20 damage straight
     /// through the shield every 3 s, the screen's edges pulsing red with each (at 0 they are gone at once, not downed:
     /// "NAME wandered into the woods");
     /// the third is where the world ends: a survivor who reaches it is gone the same way, while Zach walks through it
@@ -20,7 +20,7 @@ namespace Vision.Game
         /// <summary>The rings' radii (design units) about the map's centre: flicker, shutdown, the end of the world.</summary>
         public float Ring1 => Map.HalfExtent;
         public float Ring2 => Map.HalfExtent + Balance.Boundary.Gap;
-        public float Ring3 => Map.HalfExtent + 2f * Balance.Boundary.Gap;
+        public float Ring3 => Map.HalfExtent + Balance.Boundary.Outer;
 
         /// <summary>Which zone a point is in: 0 inside, 1 past the first ring, 2 past the second.</summary>
         public int ZoneAt(Vector2 at)
@@ -102,6 +102,7 @@ namespace Vision.Game
         void Woods(SimPlayer p)
         {
             p.Hp = 0f;
+            p.LostInWoods = true;
             Eliminate(p, "woods");
         }
     }

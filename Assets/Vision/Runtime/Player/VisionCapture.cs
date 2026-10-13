@@ -712,6 +712,14 @@ namespace Vision.Player
                         yield return new WaitForSeconds(0.6f);
                         gameHud.Refresh();
                         yield return Shot("100_ambulance_and_chris");
+                        // The ambulance in its own light: the player's turned away, the camera on the van.
+                        Vector2 awayFromVan = (spot - world.AmbulanceCentre).normalized;
+                        yield return Stage(player, V(world.AmbulanceCentre + awayFromVan * 7.5f), awayFromVan, wanderer, away);
+                        player.AimOverride = awayFromVan;
+                        yield return new WaitForSeconds(0.9f);
+                        gameHud.Refresh();
+                        yield return Shot("149_ambulance_lights");
+                        player.AimOverride = null;
                     }
                     if (world.Layout.Plan != null && world.Layout.Plan.LoungeRoom >= 0)
                     {
@@ -925,6 +933,15 @@ namespace Vision.Player
                     while (meB.BoundaryHits == hits && Time.time < until) yield return null;
                     yield return new WaitForSeconds(0.1f);
                     yield return Shot("139_edge_red_pulse");
+                    // Gone into the woods: no lit spot where they fell, the word written out in the black. (Staged without
+                    // eliminating the capture's survivor, which would end the match for the shots that follow.)
+                    meB.LostInWoods = true;
+                    FindAnyObjectByType<Vision.UI.ScreenOverlays>()?.WriteOut("Sacrificed", 2.6f);
+                    yield return new WaitForSeconds(0.55f);
+                    yield return Shot("145_sacrificed_writing");
+                    yield return new WaitForSeconds(1.65f);
+                    yield return Shot("146_sacrificed_written");
+                    meB.LostInWoods = false;
                     yield return Stage(player, V(L.Spawn + new Vector2(0f, 3f)), Vector2.up, wanderer, away);
                     host.Sim.Get(meB.Id).Hp = 1f;
                     yield return new WaitForSeconds(2f);
@@ -1002,7 +1019,10 @@ namespace Vision.Player
                     yield return Press(Btn.Vape);
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot("89_penjamin");
-                    yield return new WaitForSeconds(5f);
+                    // Blown on its wind: drifted off, wider, taller and thinner, a few seconds on.
+                    yield return new WaitForSeconds(2.6f);
+                    yield return Shot("89b_penjamin_blown");
+                    yield return new WaitForSeconds(2.4f);
                     yield return Press(Btn.Ability);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot("90_hemp_battery");
@@ -1027,6 +1047,15 @@ namespace Vision.Player
                     player.AimOverride = Vector2.up;
                     yield return new WaitForSeconds(3.5f);
                     yield return Press(Btn.Ability);
+                    // Zach past the second ring: his light dies, but a small halo stays round him.
+                    {
+                        Vector2 haloOut = new Vector2(0.6f, -0.8f).normalized;
+                        yield return Stage(player, V(haloOut * (host.Sim.Ring2 + 4f)), haloOut, wanderer, away);
+                        yield return new WaitForSeconds(1.4f);
+                        yield return Shot("147_zach_light_dying");
+                        yield return new WaitForSeconds(2.6f);
+                        yield return Shot("148_zach_halo_in_the_dark");
+                    }
                     // Through the end of the world and out on the far side.
                     {
                         Vector2 crossOut = new Vector2(-0.8f, 0.6f).normalized;

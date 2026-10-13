@@ -197,7 +197,9 @@ namespace Vision.Game
                     if ((running || walking) && Time - p.LastScent >= Balance.Trails.ScentEvery)
                     {
                         p.LastScent = Time;
-                        Trails.Add(new TrailPoint { Id = trailSeq++, Pos = p.Pos, T = Time - (walking ? Balance.Trails.WalkHeadStart : 0f), Kind = 0, Who = p.Id });
+                        p.ScentDist += Vector2.Distance(p.Pos, p.ScentAt);
+                        p.ScentAt = p.Pos;
+                        Trails.Add(new TrailPoint { Id = trailSeq++, Pos = p.Pos, T = Time - (walking ? Balance.Trails.WalkHeadStart : 0f), Kind = 0, Who = p.Id, Dist = p.ScentDist });
                     }
                     if ((p.Health == Health.Wounded || p.Health == Health.Downed) && Time >= p.NextBlood)
                     {

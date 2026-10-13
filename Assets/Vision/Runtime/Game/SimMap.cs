@@ -144,5 +144,14 @@ namespace Vision.Game
             foreach (var (a, b, half) in Lows) if (SimMap.SegmentDistance(p, a, b) < half + radius) return true;
             return false;
         }
+        /// <summary>Optional: how much longer vaulting each of <see cref="Lows"/> takes (by index; 1 when missing).</summary>
+        public readonly List<float> LowSlow = new List<float>();
+        public float VaultSlow(Vector2 p, float radius)
+        {
+            float slow = 1f;
+            for (int i = 0; i < Lows.Count; i++)
+                if (i < LowSlow.Count && SimMap.SegmentDistance(p, Lows[i].a, Lows[i].b) < Lows[i].half + radius) slow = Mathf.Max(slow, LowSlow[i]);
+            return slow;
+        }
     }
 }

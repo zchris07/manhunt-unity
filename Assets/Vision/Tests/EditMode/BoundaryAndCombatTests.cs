@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using Vision.Effects;
 using Vision.Game;
 using Vision.Player;
 using Vision.Visibility;
@@ -49,8 +50,8 @@ namespace Vision.Tests
             SimPlayer z = rig.P(1), s = rig.P(2);
             rig.Place(z, 0f, 0f);
             Assert.AreEqual(90f, rig.Sim.Ring1, 1e-4f, "the first ring is the playable radius");
-            Assert.AreEqual(rig.Sim.Ring1 + 12f, rig.Sim.Ring2, 1e-4f);
-            Assert.AreEqual(rig.Sim.Ring1 + 24f, rig.Sim.Ring3, 1e-4f);
+            Assert.AreEqual(rig.Sim.Ring1 + 15.6f, rig.Sim.Ring2, 1e-4f, "the second ring 30% further out than its first 12 m");
+            Assert.AreEqual(rig.Sim.Ring2 + 18f, rig.Sim.Ring3, 1e-4f, "the end of the world 18 m past it (50% further than 12 m)");
             rig.Place(s, Scale.ToUnits(rig.Sim.Ring1) + 60f, 0f);
             rig.Run(2);
             Assert.AreEqual(1, s.Zone, "past the first ring");
@@ -81,6 +82,8 @@ namespace Vision.Tests
             List<GameEvent> ev = RunCollect(rig, 1);
             Assert.AreEqual(Health.Eliminated, s.Health);
             Assert.IsTrue(Fed(ev, "Survivor 1 wandered into the woods"));
+            Assert.IsTrue(s.LostInWoods, "lost in the woods: their light stays out where they fell");
+            Assert.IsTrue(ev.Exists(e => e.Kind == EventKind.Eliminated && e.A == s.Id && e.Text == "woods"), "the word is written out for them");
         }
 
         [Test]
@@ -268,13 +271,41 @@ namespace Vision.Tests
                     fallen++;
                     Assert.IsTrue(occ.low, $"{occ.name}: seen over");
                     Assert.AreEqual(SandboxWorld.LowLayer, occ.gameObject.layer, $"{occ.name}: on the low layer (vaulted, shot over)");
+                    // Its root mound: a solid disc of wall, not low, that bodies run into.
+                    Transform mound = mf.transform.Find("Root Mound");
+                    Assert.NotNull(mound, $"{occ.name}: a root mound at its base");
+                    var mo = mound.GetComponent<Occluder>();
+                    Assert.IsFalse(mo.low, "the mound blocks sight, shots and thrown things");
+                    Assert.AreEqual(Occluder.Shape.Circle, mo.shape, "a disc");
+                    Assert.NotNull(mound.GetComponent<CapsuleCollider>(), "and bodies collide with it");
+                    Assert.AreNotEqual(SandboxWorld.LowLayer, mound.gameObject.layer, "nobody vaults it");
                 }
+                Assert.AreEqual(fallen, world.RootMounds.Count);
+                foreach (var (c, r) in world.RootMounds)
+                    foreach (SandboxWorld.LowObstacle o in world.Lows)
+                        Assert.Greater(SimMap.SegmentDistance(c, o.A, o.B), r * 0.8f, "the log's vault strip starts past the mound");
                 Assert.Greater(fallen, 0, "the map has fallen trees");
-                Assert.AreEqual(world.Layout.Logs.Count + fallen, world.Lows.Count, "every log and fallen tree is a low obstacle");
+                Assert.AreEqual(world.Layout.Logs.Count + fallen, world.Lows.Count(o => !o.Fence), "every log and fallen tree is a low obstacle");
+
+                // Every fence is vaulted: on the vault layer (players pass through, NPCs don't), with a vault strip; the
+                // graveyard's spiked iron fence, 20% taller, takes half as long again.
+                var fences = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Fence" || t.name == "Iron Fence").ToList();
+                Assert.Greater(fences.Count, 0, "the map has fences");
+                foreach (Transform f in fences)
+                {
+                    Assert.AreEqual(SandboxWorld.VaultLayer, f.gameObject.layer, $"{f.name}: vaulted");
+                    Assert.IsTrue(Physics.GetIgnoreLayerCollision(SandboxWorld.CharacterLayer, SandboxWorld.VaultLayer), "players pass through to climb over");
+                    Assert.AreNotEqual(0, Vfx.UprightMask & (1 << SandboxWorld.VaultLayer), "it still stands upright, covering lines like a wall");
+                }
+                Assert.AreEqual(fences.Count, world.Lows.Count(o => o.Fence), "a vault strip per fence");
+                Assert.IsTrue(world.Lows.Any(o => o.Fence && Mathf.Approximately(o.Slow, 1.5f)), "the graveyard's takes 50% longer");
+                Transform iron = fences.First(t => t.name == "Iron Fence");
+                Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<MeshFilter>().sharedMesh.bounds.max.y, 0.12f, "20% taller, to its spikes");
+                Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<BoxCollider>().size.y, 1e-4f);
 
                 // A circle: no wall round it, the woods going on into the dark to the end of the world.
                 Assert.IsFalse(root.GetComponentsInChildren<Transform>(true).Any(t => t.name.StartsWith("Stone Wall")), "no wall round the map");
-                Assert.AreEqual(world.halfExtent + 24f, world.WorldRadius, 1e-4f);
+                Assert.AreEqual(world.halfExtent + 33.6f, world.WorldRadius, 1e-4f);
                 bool beyondRing = false;
                 foreach (var (p, _, _) in world.MapTrees)
                 {

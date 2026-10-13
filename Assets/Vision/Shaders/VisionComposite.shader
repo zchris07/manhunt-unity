@@ -46,6 +46,7 @@ Shader "Hidden/Vision/Composite"
             float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px, w = unused
             float4 _VisGas;        // gassed (Penjamin on a survivor, galaxy gas on Zach): x = strength 0-1, y = blur radius px, z = double vision px, w = warp px
             float4 _VisionViewerPos;
+            float4 _VisViewer;     // x = the player's own light dimmed evenly (flicker and dying at the edge of the woods)
 
             // Disc blur: 12 taps on a golden-angle spiral plus the centre.
             half3 DiscBlur(float2 uv, float radiusPx)
@@ -136,7 +137,7 @@ Shader "Hidden/Vision/Composite"
 
                 // Lit areas show whether or not the player has a line of sight to them.
                 half fromSources = m.r;
-                half beam = m.b * _VisBeam.x;
+                half beam = m.b * _VisBeam.x * _VisViewer.x;
 
                 // Upright faces turned away from a light (a trunk's or rock's back side) get part of the light on the
                 // object's lit side, found a little way through the object: a natural, soft darkness. The ground
@@ -146,7 +147,7 @@ Shader "Hidden/Vision/Composite"
                 {
                     half4 front = SampleVisionMask(ws.xz - normalize(n.xz + 1e-5) * _VisBeam.z);
                     half k = _VisBeam.y * upright;
-                    beam = max(beam, front.b * _VisBeam.x * k);
+                    beam = max(beam, front.b * _VisBeam.x * _VisViewer.x * k);
                     fromSources = max(fromSources, front.r * k);
                 }
                 half lit = max(beam, fromSources);

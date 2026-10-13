@@ -84,6 +84,8 @@ namespace Vision.Rendering
         [Range(0f, 1f)] public float fogScale = 1f;
         [Tooltip("Gassed (Penjamin on a survivor, galaxy gas on Zach): blurs the whole view, 0-1 (set by the player).")]
         [Range(0f, 1f)] public float gasBlur;
+        [Tooltip("The player's own light (beam and the light round them) dimmed evenly, 0-1: its flicker and dying at the edge of the woods.")]
+        [Range(0f, 1f)] public float viewerLight = 1f;
         [Tooltip("The whole screen darkened (1: black), past the edge of the woods.")]
         [Range(0f, 1f)] public float blackout;
         /// <summary>
@@ -131,6 +133,7 @@ namespace Vision.Rendering
         static readonly int BeamId = Shader.PropertyToID("_VisBeam");
         static readonly int BlurId = Shader.PropertyToID("_VisBlur");
         static readonly int GasId = Shader.PropertyToID("_VisGas");
+        static readonly int ViewerId = Shader.PropertyToID("_VisViewer");
 
         Material material;
         VisionCompositePass pass;
@@ -158,6 +161,7 @@ namespace Vision.Rendering
             VisionLight.FlickerEnabled = fx;
             material.SetVector(GradeId, new Vector4(l.contrast, l.saturation, l.litBrightness, l.unlitBrightness * fogScale));
             material.SetVector(BeamId, new Vector4(l.beamIntensity, backLight, backLightReach, blackout));
+            material.SetVector(ViewerId, new Vector4(viewerLight, 0f, 0f, 0f));
             float px = cam.pixelHeight / 1080f;
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
             material.SetVector(GasId, new Vector4(gasBlur, GasBlurPx * px * Mathf.Lerp(0.45f, 1f, gasBlur), GasSplitPx * px * gasBlur, GasWarpPx * px * gasBlur));

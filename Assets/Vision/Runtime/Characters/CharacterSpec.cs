@@ -30,12 +30,20 @@ namespace Vision.Characters
         TornShirt = 1 << 9,
         /// <summary>A short goatee on the chin, in the hair colour (Waz).</summary>
         Goatee = 1 << 10,
+        /// <summary>
+        /// MKX Jason's worn olive field jacket (Zach): a separate shell of cloth standing off the body, open down the front
+        /// over the shirt, with a stand-up collar, long sleeves to the wrist, pocket flaps, and its thickness showing at the
+        /// hem, the front edges, the collar and the cuffs.
+        /// </summary>
+        FieldJacket = 1 << 11,
+        /// <summary>A bald, decayed head: the scalp blotched grey and raw red-brown (Zach).</summary>
+        Decayed = 1 << 12,
     }
 
     /// <summary>
     /// What a character looks like: body proportions (as multiples of the survivor's), colours by region (the original's
     /// look table: skin, hair, shirt, jacket, trousers, shoes) and a few shape features. Every character is built on the
-    /// same 51-bone rig by <see cref="CharacterBuilder"/>, at most 1000 triangles.
+    /// same 51-bone rig by <see cref="CharacterBuilder"/>, at most 1000 triangles (Zach 1500).
     /// </summary>
     public sealed class CharacterSpec
     {
@@ -51,6 +59,8 @@ namespace Vision.Characters
         /// <summary>Gloves (clear: bare hands).</summary>
         public Color Gloves = Color.clear;
         public Color Accent = Color.white, Accent2 = Color.white;
+        /// <summary>Most triangles the body may have.</summary>
+        public int TriangleBudget = CharacterBuilder.MaxTriangles;
         public HairStyle HairStyle;
         public Feature Features;
 
@@ -68,17 +78,22 @@ namespace Vision.Characters
             HairStyle = HairStyle.None,
         };
 
-        /// <summary>Zach Branch, exactly Jason Voorhees: hulking, 2 m, a white hockey mask, a torn dark work shirt, gloves.</summary>
+        /// <summary>
+        /// Zach Branch, Jason Voorhees as Mortal Kombat X draws him: hulking, 2.2 m, bald with a decayed, blotched scalp,
+        /// the ivory hockey mask full of vent holes with red chevrons and black straps, a worn olive field jacket open over
+        /// a dark slate shirt, black gloves, dark trousers and boots.
+        /// </summary>
         public static CharacterSpec Zach() => new CharacterSpec
         {
             Name = "Zach",
-            Height = 2.0f,
+            Height = 2.2f,
             Shoulders = 1.12f, Chest = 1.3f, Waist = 1.25f, Hips = 1.12f, Arms = 1.38f, Legs = 1.4f, Neck = 1.5f, Head = 1.06f,
             Hunch = 0.035f,
-            Skin = H(0xc9b99a), Hair = H(0x6a5e50), Shirt = H(0x3b3f2a), Jacket = H(0x2c3024), Pants = H(0x23262e), Shoes = H(0x1a1614),
-            Gloves = H(0x3e3226), Accent = H(0xf2efe6), Accent2 = H(0xb3121b),
-            HairStyle = HairStyle.Buzz,
-            Features = Feature.HockeyMask | Feature.TornShirt,
+            Skin = H(0xb3a38f), Hair = H(0x7a4a3c), Shirt = H(0x3d404b), Jacket = H(0x6c6a4a), Pants = H(0x222328), Shoes = H(0x1c1a17),
+            Gloves = H(0x1b1a19), Accent = H(0xe4dcc8), Accent2 = H(0xb3121b),
+            HairStyle = HairStyle.None,
+            Features = Feature.HockeyMask | Feature.FieldJacket | Feature.Decayed,
+            TriangleBudget = CharacterBuilder.ZachMaxTriangles,
         };
 
         /// <summary>The NPCs, from the original's look table (features to be fine-tuned).</summary>

@@ -35,7 +35,7 @@ namespace Vision.UI
 
         // The machete as PropModels builds it: the blade runs from 0.10 m past the grip to its tip at about 0.575 m, the
         // edge along its lower side. The swipe line starts a little inside the tip.
-        static readonly Vector3 TipLocal = new Vector3(0f, -0.012f, 0.578f), NearTip = new Vector3(0f, -0.014f, 0.46f);
+        static readonly Vector3 TipLocal = new Vector3(0f, -0.019f, 0.76f), NearTip = new Vector3(0f, -0.02f, 0.6f);
         const float LightLife = 0.13f, HeavyLife = 0.2f;
 
         static Color Hex(int rgb, float a) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, a);

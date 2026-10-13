@@ -146,34 +146,52 @@ namespace Vision.UI
                     bool cut = i == pts.Count || pts[i].T - pts[i - 1].T > 0.7f || Vector2.Distance(pts[i].Pos, pts[i - 1].Pos) > Scale.D(160f);
                     if (!cut) continue;
                     int n = i - start;
-                    // The scent: a low trail of red smoke where they ran (the same billowing volumetric smoke as the gases),
-                    // fresh puffs dense and close to the ground, older ones risen a little, spread wider and thinning away.
+                    // The scent: a thin, faint, unbroken thread of red smoke along where they ran (the same billowing
+                    // volumetric smoke as the gases): a tube from each point of the trail to the next, overlapping its
+                    // neighbours so it flows on without a seam (one seed for the whole trail, so its billows run on through
+                    // the joins), swaying gently, thinning and fading as it ages. Along its length it swells and thins on a
+                    // strict repeat, thicker and more solid at the peaks, thinner and fainter in the valleys, peak to valley
+                    // as far as a survivor sprints in two seconds (laid by distance along the trail, so it stays put).
                     if (n >= 2)
-                        for (int k = 0; k < n; k += 2)
+                        for (int k = 0; k + 1 < n; k++)
                         {
-                            TrailPoint t = pts[start + k];
-                            Vector2 dir = k + 1 < n ? pts[start + k + 1].Pos - t.Pos : t.Pos - pts[start + k - 1].Pos;
-                            Vector2 side = new Vector2(-dir.y, dir.x).normalized;
-                            float age = Mathf.Clamp01((sim.Time - t.T) / Balance.Trails.MaxAgeSec);
-                            int seed = Mathf.RoundToInt(t.T * 37f) + kv.Key * 7;
-                            float wob = Mathf.Sin(t.T * 3.1f + kv.Key + sim.Time * 0.7f) * Scale.D(5f + 8f * age);
-                            float radius = Scale.D(9f + 12f * age) * S;
+                            TrailPoint t0 = pts[start + k], t1 = pts[start + k + 1];
+                            Vector2 a = Sway(t0, kv.Key, sim.Time), b = Sway(t1, kv.Key, sim.Time);
+                            Vector2 d = b - a;
+                            float len = d.magnitude;
+                            if (len < 1e-3f) continue;
+                            d /= len;
+                            float age = Mathf.Clamp01((sim.Time - (t0.T + t1.T) * 0.5f) / Balance.Trails.MaxAgeSec);
+                            float half = Scale.Speed(Balance.Survivor.Run) * Balance.Trails.ScentWaveSprintSec;
+                            float wave = 0.5f + 0.5f * Mathf.Cos(Mathf.PI * (t0.Dist + t1.Dist) * 0.5f / Mathf.Max(0.01f, half));
+                            float radius = Scale.D(3.5f + 3.5f * age) * S * Mathf.Lerp(0.45f, 1.3f, wave);
                             var look = new VolumetricGas.Look
                             {
-                                TintA = new Color(0.75f, 0.2f + 0.08f * (seed % 3) / 2f, 0.18f),
+                                TintA = new Color(0.75f, 0.22f, 0.18f),
                                 TintB = new Color(0.4f, 0.05f, 0.06f),
-                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.85f,
-                                Extinction = 2.2f / S,
+                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.4f * Mathf.Lerp(0.3f, 1.15f, wave),
+                                Extinction = 1.6f / S,
                                 NoiseScale = 1.1f / S,
-                                Erosion = 0.8f,
-                                Drift = new Vector3(0f, 0.15f, 0f) * S,
-                                Seed = seed,
+                                Erosion = 0.7f,
+                                Drift = new Vector3(0f, 0.12f, 0f) * S,
+                                Seed = kv.Key * 7,
                             };
-                            VolumetricGas.Blob(Ground(t.Pos + side * wob, Scale.D(2f + 6f * age)), radius, radius * 1.1f, look, true, false);
+                            // Each piece reaches a third of the way into the next and the last, so the soft ends overlap.
+                            float extra = len * 0.33f;
+                            Vector2 from = a - d * extra;
+                            Vector3 tip = Ground(from, 0f);
+                            VolumetricGas.Tube(tip, world.transform.TransformDirection(new Vector3(d.x, 0f, d.y)), (len + 2f * extra) * S, radius, radius * 0.6f + Scale.D(2f + 3f * age) * S, look, true, false);
                         }
                     start = i;
                 }
             }
+        }
+
+        /// <summary>A trail point swayed gently sideways (the same for the point whichever piece of the trail draws it).</summary>
+        static Vector2 Sway(TrailPoint t, int who, float now)
+        {
+            float k = Mathf.Sin(t.T * 1.7f + who + now * 0.6f);
+            return t.Pos + new Vector2(Mathf.Cos(t.T * 0.9f + who), Mathf.Sin(t.T * 0.9f + who)) * k * Scale.D(2.5f);
         }
 
         void Bind()
@@ -307,7 +325,9 @@ namespace Vision.UI
                     if (e.A == me) overlays?.Center(e.B >= 2 ? "Sacrificed." : "Staked", 4f);
                     break;
                 case EventKind.Eliminated:
-                    if (e.A == me) overlays?.Center("Sacrificed", 5f);
+                    // Gone into the woods: the word written out in the black (after the user's game Stroop).
+                    if (e.A == me && e.Text == "woods") overlays?.WriteOut("Sacrificed", 2.6f);
+                    else if (e.A == me) overlays?.Center("Sacrificed", 5f);
                     break;
                 case EventKind.Escaped:
                     if (e.A == me) overlays?.Center("Escaped", 5f);

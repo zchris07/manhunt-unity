@@ -404,30 +404,62 @@ namespace Vision.UI
         void DrawVapes(MatchSim sim)
         {
             // Penjamin's gas: a cone of dense, billowing smoke rolling out from his mouth along the aim (Cold War's smoke,
-            // tinted yellow, or blue for 50 Nic), growing out over the original's 0.6 s, hanging, then thinning away.
+            // tinted yellow, or blue for 50 Nic), growing out over the original's 0.6 s, hanging, then thinning away, seen
+            // 2 s longer than it acts. Patchy, thick pockets and thin stretches with gaps through it. From the moment it's
+            // fired the whole cloud drifts slowly off on a wind of its own (a random way for each cloud), spreading wider
+            // and taller and thinning as it goes. All of this is only how it looks: where it acts doesn't move or grow.
             float now = sim.Time;
             float tan = Mathf.Tan(Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad);
             float grow = Balance.Hunter.Vape.GrowTime, linger = Balance.Hunter.Vape.LingerTime, fadeT = Balance.Hunter.Vape.FadeTime;
+            float seen = fadeT + Balance.Hunter.Vape.SeenExtra;
             foreach (VapeCloud v in sim.Vapes)
             {
                 float age = now - v.T0;
                 float k = Mathf.Min(1f, age / grow);
                 float length = v.Range * (1f - (1f - k) * (1f - k)) * S;
-                float fade = Mathf.Clamp01((grow + linger + fadeT - age) / fadeT);
+                float fade = Mathf.Clamp01((grow + linger + seen - age) / seen);
                 float endRadius = Mathf.Max(0.35f * S, tan * length + 0.3f * S) * 1.15f;
+                // Its wind: a direction of its own, steady for the cloud's life.
+                float windAng = Hash01(v.Id * 7 + 3) * Mathf.PI * 2f;
+                Vector3 wind = new Vector3(Mathf.Cos(windAng), 0f, Mathf.Sin(windAng)) * (VapeWind * S);
+                // Blown: spreading out (wider and taller) and thinning, from the moment it leaves him.
+                float spread = 1f + VapeSpreadWide * age, tall = 1f + VapeSpreadTall * age;
+                float thin = 1f / (1f + VapeThin * age);
                 var look = new VolumetricGas.Look
                 {
                     TintA = v.Nic ? new Color(0.62f, 0.78f, 0.88f) : new Color(0.8f, 0.74f, 0.5f),
                     TintB = v.Nic ? new Color(0.25f, 0.42f, 0.62f) : new Color(0.5f, 0.43f, 0.22f),
-                    // 60% less opaque than at first.
-                    Opacity = fade * 0.4f,
+                    // 60% less opaque than at first, thinning as it's blown about.
+                    Opacity = fade * 0.4f * thin,
                     Extinction = 1.5f / S,
                     NoiseScale = 0.6f / S,
                     Erosion = 0.8f,
-                    Drift = WorldDir(v.Angle) * (0.9f * S) + Vector3.up * (0.12f * S),
+                    Drift = WorldDir(v.Angle) * (0.9f * S) + wind + Vector3.up * (0.12f * S),
                     Seed = v.Id,
+                    Clumps = 1f,
                 };
-                VolumetricGas.Cone(Ground(v.Origin, 0f), WorldDir(v.Angle), length, endRadius, 0.22f, endRadius * 0.5f, look, false, true);
+                Vector3 tip = Ground(v.Origin, 0f) + wind * age;
+                float r = endRadius * spread;
+                VolumetricGas.Cone(tip, WorldDir(v.Angle), length, r, 0.22f / spread, endRadius * 0.5f * tall, look, false, true, tall / spread);
+            }
+        }
+
+        /// <summary>
+        /// How Penjamin's cloud is blown about (only how it looks): its drift (metres a second, before the world's scale), how
+        /// fast it spreads wider and taller (a share of its size a second), and how fast it thins.
+        /// </summary>
+        public const float VapeWind = 0.35f, VapeSpreadWide = 0.07f, VapeSpreadTall = 0.12f, VapeThin = 0.09f;
+
+        /// <summary>A steady random number in [0, 1) for a whole number.</summary>
+        static float Hash01(int i)
+        {
+            unchecked
+            {
+                uint h = (uint)i * 2654435761u;
+                h ^= h >> 15;
+                h *= 0x2c1b3c6d;
+                h ^= h >> 12;
+                return (h & 0xFFFFFF) / (float)0x1000000;
             }
         }
 

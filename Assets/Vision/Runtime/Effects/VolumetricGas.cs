@@ -21,13 +21,17 @@ namespace Vision.Effects
         static readonly int TintAId = Shader.PropertyToID("_GasTintA"), TintBId = Shader.PropertyToID("_GasTintB"), ShapeId = Shader.PropertyToID("_GasShape");
         static readonly int MotionId = Shader.PropertyToID("_GasMotion"), ConeId = Shader.PropertyToID("_GasCone"), NoiseId = Shader.PropertyToID("_GasNoise");
 
-        /// <summary>How the medium looks: extinction per metre (how thick), the noise's scale per metre, how far the edges erode.</summary>
+        /// <summary>
+        /// How the medium looks: extinction per metre (how thick), the noise's scale per metre, how far the edges erode, and
+        /// how patchy it is (<see cref="Clumps"/> 0 even; 1 broken into thick pockets and thin stretches with gaps between).
+        /// </summary>
         public struct Look
         {
             public Color TintA, TintB;
             public float Opacity, Extinction, NoiseScale, Erosion;
             public Vector3 Drift;
             public float Seed;
+            public float Clumps;
         }
 
         /// <summary>Draws a cloud sitting on the ground at <paramref name="ground"/>, <paramref name="radius"/> across and <paramref name="height"/> tall.</summary>
@@ -35,23 +39,40 @@ namespace Vision.Effects
         {
             if (Vfx.SkipSmoke || radius <= 0.01f || look.Opacity <= 0.002f || !Ready()) return;
             Matrix4x4 m = Matrix4x4.TRS(ground + Vector3.up * height * 0.4f, Quaternion.identity, new Vector3(radius * 2f, height, radius * 2f));
-            Draw(m, look, 0f, Vector4.zero, maskedByLight, senses);
+            Draw(m, look, 0f, new Vector4(0f, 0f, 0f, look.Clumps), maskedByLight, senses);
         }
 
         /// <summary>
         /// Draws a cone of gas from <paramref name="tip"/> along <paramref name="dir"/> (on the ground plane) for
         /// <paramref name="length"/>, <paramref name="endRadius"/> wide at its open end and <paramref name="baseFraction"/>
-        /// of that at the tip, its middle <paramref name="height"/> above the ground.
+        /// of that at the tip, its middle <paramref name="height"/> above the ground; <paramref name="tall"/> stretches it
+        /// up (and down) by that much.
         /// </summary>
-        public static void Cone(Vector3 tip, Vector3 dir, float length, float endRadius, float baseFraction, float height, in Look look, bool maskedByLight, bool senses)
+        public static void Cone(Vector3 tip, Vector3 dir, float length, float endRadius, float baseFraction, float height, in Look look, bool maskedByLight, bool senses, float tall = 1f)
         {
             if (Vfx.SkipSmoke || length <= 0.01f || look.Opacity <= 0.002f || !Ready()) return;
             dir.y = 0f;
             if (dir.sqrMagnitude < 1e-6f) return;
             dir.Normalize();
             Quaternion q = Quaternion.FromToRotation(Vector3.right, dir);
-            Matrix4x4 m = Matrix4x4.TRS(tip + dir * length * 0.5f + Vector3.up * height, q, new Vector3(length, endRadius * 1.6f, endRadius * 2f));
-            Draw(m, look, 1f, new Vector4(baseFraction, 0.08f, 0.18f, 0f), maskedByLight, senses);
+            Matrix4x4 m = Matrix4x4.TRS(tip + dir * length * 0.5f + Vector3.up * height, q, new Vector3(length, endRadius * 1.6f * tall, endRadius * 2f));
+            Draw(m, look, 1f, new Vector4(baseFraction, 0.08f, 0.18f, look.Clumps), maskedByLight, senses);
+        }
+
+        /// <summary>
+        /// A tube of gas from <paramref name="from"/> along <paramref name="dir"/> (on the ground plane) for
+        /// <paramref name="length"/>, <paramref name="radius"/> thick, its middle <paramref name="height"/> above the ground; its
+        /// ends soft, so tubes laid end to end with a little overlap read as one unbroken thread (the scent).
+        /// </summary>
+        public static void Tube(Vector3 from, Vector3 dir, float length, float radius, float height, in Look look, bool maskedByLight, bool senses)
+        {
+            if (Vfx.SkipSmoke || length <= 0.01f || look.Opacity <= 0.002f || !Ready()) return;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 1e-6f) return;
+            dir.Normalize();
+            Quaternion q = Quaternion.FromToRotation(Vector3.right, dir);
+            Matrix4x4 m = Matrix4x4.TRS(from + dir * length * 0.5f + Vector3.up * height, q, new Vector3(length, radius * 1.6f, radius * 2f));
+            Draw(m, look, 1f, new Vector4(1f, 0.25f, 0.25f, 0f), maskedByLight, senses);
         }
 
         static void Draw(Matrix4x4 m, in Look look, float kind, Vector4 cone, bool maskedByLight, bool senses)

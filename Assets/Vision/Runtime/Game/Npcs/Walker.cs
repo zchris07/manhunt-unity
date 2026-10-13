@@ -42,6 +42,8 @@ namespace Vision.Game
             for (int i = 0; i < 500; i++)
             {
                 var p = new Vector2(Range(-half, half), Range(-half, half));
+                // Inside the first ring (the round map), well clear of it.
+                if (p.magnitude > half) continue;
                 if (s.Geo.Blocked(p, MoveRadius + Scale.D(clearUnits)) || s.Geo.InWater(p)) continue;
                 if (Vector2.Distance(p, a) < Scale.D(awayUnits) || Vector2.Distance(p, b) < Scale.D(awayUnits)) continue;
                 Pos = p;

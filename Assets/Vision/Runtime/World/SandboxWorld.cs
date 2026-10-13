@@ -26,7 +26,7 @@ namespace Vision.World
         /// <summary>The playable radius (design units): the map is a circle, its first boundary ring here.</summary>
         public float halfExtent = 90f;
         /// <summary>Where the world ends: the outermost boundary ring (MatchSim.Boundary), as far as anything is generated.</summary>
-        public float WorldRadius => halfExtent + 2f * Game.Balance.Boundary.Gap;
+        public float WorldRadius => halfExtent + Game.Balance.Boundary.Outer;
         /// <summary>Half the side of the square the maps show (the whole circle of the world).</summary>
         public float MapExtent => WorldRadius;
         [Tooltip("Build the level when Play starts.")]
@@ -63,8 +63,18 @@ namespace Vision.World
         /// <summary>Fallen logs and trees: players step over them (vaulting), NPCs walk round them; sight and shots pass over.</summary>
         public const int LowLayer = 12;
 
-        /// <summary>A knee-high thing lying on the ground that players vault (design units, the level's plane).</summary>
-        public struct LowObstacle { public Vector2 A, B; public float Half, Height; }
+        /// <summary>
+        /// Fences (the split-rail fences and the graveyard's iron fence): players climb over them like a fallen log, at the
+        /// vaulting pace, while NPCs walk round them. Unlike a log they stand upright: they don't block sight or shots (sight
+        /// and shots pass through their rails), but they still cover a line drawn over the terrain, as a wall does.
+        /// </summary>
+        public const int VaultLayer = 13;
+
+        /// <summary>
+        /// A thing players vault (design units, the level's plane): a fallen log or tree, or a fence. <see cref="Slow"/> is how
+        /// much longer it takes to get over than a log (1, or 0 meaning 1; the graveyard's spiked fence 1.5).
+        /// </summary>
+        public struct LowObstacle { public Vector2 A, B; public float Half, Height, Slow; public bool Fence; }
         public readonly List<LowObstacle> Lows = new List<LowObstacle>();
 
         /// <summary>
@@ -91,6 +101,20 @@ namespace Vision.World
 
         /// <summary>How high the body goes over a broken window's sill, and over a fallen log or tree (design units).</summary>
         public const float WindowVaultHeight = 0.55f, LogVaultHeight = 0.42f;
+        /// <summary>How high the body goes over a split-rail fence and over the graveyard's iron fence; how much longer the iron one takes.</summary>
+        public const float FenceVaultHeight = 0.8f, IronFenceVaultHeight = 1f, IronFenceVaultSlow = 1.5f;
+        /// <summary>A fence's vault strip reaches this far either side of it (the level's units), as far as a log's.</summary>
+        public const float FenceVaultHalf = 0.3f;
+
+        /// <summary>Makes a fence vaultable: players pass through its collider (climbing over it), NPCs don't.</summary>
+        void MakeVaultable(GameObject go, BoxCollider box, float height, float slow)
+        {
+            go.layer = VaultLayer;
+            Transform t = box.transform;
+            Vector3 c = box.center, e = new Vector3(box.size.x * 0.5f, 0f, 0f);
+            Vector3 a = transform.InverseTransformPoint(t.TransformPoint(c - e)), b = transform.InverseTransformPoint(t.TransformPoint(c + e));
+            Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = FenceVaultHalf, Height = height, Slow = slow, Fence = true });
+        }
 
         /// <summary>Records a lying obstacle from its box collider, and makes it low: vaulted, seen and shot over.</summary>
         void MakeLow(GameObject go, BoxCollider box)
@@ -109,6 +133,68 @@ namespace Vision.World
             float half = box.size.z * 0.5f * t.lossyScale.z / Mathf.Max(1e-4f, transform.lossyScale.x);
             Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = half, Height = LogVaultHeight });
         }
+        /// <summary>
+        /// The torn-up root plate and mound of dirt at a fallen tree's base: a solid disc of wall that players, NPCs, thrown
+        /// items and shots all run into and nobody vaults (unlike the log itself, which stays low: vaulted, seen and shot
+        /// over). The log's vault strip is cut back so it starts past the mound.
+        /// </summary>
+        void RootMound(GameObject tree, float s)
+        {
+            // The plate stands on edge at the trunk's base (DeadTrees.Fallen: centred about -0.2 s along the tree, 1.15 s
+            // across, roots reaching out behind it).
+            const float centreX = -0.3f, radiusK = 0.95f;
+            var mound = new GameObject("Root Mound");
+            mound.transform.SetParent(tree.transform, false);
+            mound.transform.localPosition = new Vector3(centreX * s, 0f, 0f);
+            mound.isStatic = tree.isStatic;
+            var col = mound.AddComponent<CapsuleCollider>();
+            col.radius = radiusK * s;
+            col.height = 3f * s;
+            col.center = new Vector3(0f, 1.1f * s, 0f);
+            var occ = mound.AddComponent<Vision.Visibility.Occluder>();
+            occ.shape = Vision.Visibility.Occluder.Shape.Circle;
+            occ.radius = radiusK * s;
+            // Its radius in the level's units (the tree is scaled), and the vault strip trimmed off it.
+            float r = radiusK * s * Mathf.Max(tree.transform.lossyScale.x, tree.transform.lossyScale.z) / Mathf.Max(1e-4f, transform.lossyScale.x);
+            Vector3 c3 = transform.InverseTransformPoint(mound.transform.position);
+            RootMounds.Add((new Vector2(c3.x, c3.z), r));
+        }
+
+        /// <summary>
+        /// Cuts every vault strip (its own log's, and any other log or fallen tree lying into it) back out of every root
+        /// mound, so nothing is ever vaulted into or over a mound. A strip running through a mound keeps its longer side.
+        /// </summary>
+        void TrimLowsAtMounds()
+        {
+            foreach (var (c, r0) in RootMounds)
+            {
+                float r = r0 + 0.05f;
+                for (int i = 0; i < Lows.Count; i++)
+                {
+                    LowObstacle o = Lows[i];
+                    Vector2 ab = o.B - o.A;
+                    float len = ab.magnitude;
+                    if (len < 1e-5f || Vision.Game.SimMap.SegmentDistance(c, o.A, o.B) > r) continue;
+                    // Where the strip's line enters and leaves the disc (as parts of the strip, 0 at A to 1 at B).
+                    Vector2 d = ab / len, f = o.A - c;
+                    float bq = Vector2.Dot(f, d), disc = bq * bq - (f.sqrMagnitude - r * r);
+                    float root = Mathf.Sqrt(Mathf.Max(0f, disc));
+                    float t0 = Mathf.Clamp01((-bq - root) / len), t1 = Mathf.Clamp01((-bq + root) / len);
+                    // Keep whichever side lies outside and is longer; a strip wholly inside shrinks to a point at the edge.
+                    if (t0 >= 1f - t1)
+                    {
+                        if (t0 > 1e-4f) o.B = o.A + ab * t0;
+                        else o.A = o.B = c + d * r;
+                    }
+                    else o.A = o.A + ab * t1;
+                    Lows[i] = o;
+                }
+            }
+        }
+
+        /// <summary>The fallen trees' root mounds (centre and radius, the level's units): solid, never vaulted.</summary>
+        public readonly List<(Vector2 c, float r)> RootMounds = new List<(Vector2, float)>();
+
         /// <summary>For the painted map: each tree's spot, its crown radius and whether it is dead; each rock's spot and radius.</summary>
         public readonly List<(Vector2 p, float r, bool dead)> MapTrees = new List<(Vector2, float, bool)>();
         public readonly List<(Vector2 p, float r)> MapRocks = new List<(Vector2, float)>();
@@ -230,7 +316,9 @@ namespace Vision.World
         public void Generate()
         {
             Lows.Clear();
+            RootMounds.Clear();
             Physics.IgnoreLayerCollision(CharacterLayer, LowLayer, true);
+            Physics.IgnoreLayerCollision(CharacterLayer, VaultLayer, true);
             rng = new System.Random(seed);
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
@@ -284,6 +372,7 @@ namespace Vision.World
             Step("supplies", () => { BuildPickups(); BuildNotes(); });
             Step("ground", BuildGround);   // last, so plants and grass grow around everything placed
             Step("entities", () => { BuildCrows(); BuildWanderer(); BuildPlayer(); });
+            TrimLowsAtMounds();
             LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees";
             Debug.Log($"[Vision] Generated {LastGenerationReport}");
             // The gas's noise volume takes a moment to make: do it with the level, not on the first cloud.
@@ -1009,7 +1098,8 @@ namespace Vision.World
                     Vector2 d = (b - a) / len;
                     float y = Mathf.Min(H(a), H(b), H((a + b) * 0.5f));
                     GameObject go = Piece("Fence", LowPolyModels.Fence(rng, len), parent, new Vector3(a.x, y, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                    AddBox(go, new Vector3(len * 0.5f, 0.7f, 0f), new Vector3(len, 1.4f, 0.2f));
+                    // Climbed over at the vaulting pace.
+                    MakeVaultable(go, AddBox(go, new Vector3(len * 0.5f, 0.7f, 0f), new Vector3(len, 1.4f, 0.2f)), FenceVaultHeight, 1f);
                 }
             }
         }
@@ -1112,7 +1202,9 @@ namespace Vision.World
                 float len = Vector2.Distance(a, b);
                 Vector2 d = (b - a) / len;
                 GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, len), parent, new Vector3(a.x, Mathf.Min(H(a), H(b)) - 0.05f, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                AddBox(f, new Vector3(len * 0.5f, 0.7f, 0f), new Vector3(len, 1.4f, 0.12f));
+                // Climbed over too, but the spiked iron takes half as long again as anything else.
+                float fh = LowPolyModels.IronFenceHeight;
+                MakeVaultable(f, AddBox(f, new Vector3(len * 0.5f, fh * 0.5f, 0f), new Vector3(len, fh, 0.12f)), IronFenceVaultHeight, IronFenceVaultSlow);
             }
             // Rows of graves facing the gate, some missing, some crooked.
             for (int row = 0; row < 4; row++)
@@ -1405,6 +1497,7 @@ namespace Vision.World
                 float dead = Deadness(p.x, p.y);
                 bool isDead = (float)rng.NextDouble() < Mathf.Lerp(0.06f, 0.9f, dead);
                 bool fallen = false;
+                int fallenSize = 0;
                 if (isDead)
                 {
                     var kind = PickDeadTree();
@@ -1413,6 +1506,7 @@ namespace Vision.World
                         kind = LowPolyModels.DeadTreeKind.PineSnag;
                     int size = rng.Next(3);
                     fallen = kind == LowPolyModels.DeadTreeKind.Fallen;
+                    fallenSize = size;
                     go = Prop(library != null ? library.trees : null, (int)kind * 3 + size, staticRoot,
                         () => PropFactory.CreateDeadTree(LowPolyModels.DeadTree(kind, size), lowPolyMaterial, kind));
                 }
@@ -1437,6 +1531,7 @@ namespace Vision.World
                 {
                     Conform(go.transform, p, 1.5f, Range(0f, 360f), 0.9f, 0.05f);
                     MakeLow(go, go.GetComponent<BoxCollider>());
+                    RootMound(go, LowPolyModels.DeadTreeSizes[Mathf.Clamp(fallenSize, 0, LowPolyModels.DeadTreeSizes.Length - 1)]);
                 }
                 else
                     go.transform.SetLocalPositionAndRotation(Upright(p, PropFactory.TreeTrunkRadius * hg.y), Quaternion.Euler(0f, Range(0f, 360f), 0f));

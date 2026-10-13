@@ -32,6 +32,35 @@ namespace Vision.UI
         Material material;
 
         public int ThrownCount => thrown.Count;
+        /// <summary>Each thrown item's flying height (the level's units), fixed when it left the hand.</summary>
+        readonly Dictionary<int, float> levels = new Dictionary<int, float>();
+        readonly List<int> levelGone = new List<int>();
+        /// <summary>Each thrown item's drawn height (the level's units): its level, lifted where the ground rises toward it.</summary>
+        readonly Dictionary<int, float> heights = new Dictionary<int, float>();
+        /// <summary>How high above the ground a thrown item leaves the hand, and the least it ever shows over the ground.</summary>
+        const float Lift = 1.2f, MinClear = 0.9f;
+
+        /// <summary>The height it must show at to clear the ground here and a little ahead along its flight.</summary>
+        float Clearance(Vector2 at, Vector2 dir)
+        {
+            float best = world.SurfaceHeight(at);
+            Vector2 d = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector2.zero;
+            for (int i = 1; i <= 4; i++) best = Mathf.Max(best, world.SurfaceHeight(at + d * (i * 0.75f)));
+            return best + MinClear;
+        }
+
+        /// <summary>Where a thrown item is drawn, in the level's units (tests).</summary>
+        public Vector3 ThrownLocal(int id) => thrown.TryGetValue(id, out View v) ? world.transform.InverseTransformPoint(v.Go.transform.position) : Vector3.zero;
+
+        /// <summary>
+        /// A rise of the ground would hide this point from the camera and nothing upright stands in front of it: it's drawn
+        /// over the terrain then. (Behind a wall, tree or prop it stays in the scene, where they hide it.)
+        /// </summary>
+        static bool OverHill(Vector3 p)
+        {
+            Camera cam = Camera.main;
+            return Vfx.UnderGround(cam, p) && !Vfx.Covered(cam, p);
+        }
         public int TrapCount => traps.Count;
         public int DropCount => drops.Count;
 
@@ -101,12 +130,17 @@ namespace Vision.UI
             if (sim == null)
             {
                 Sweep(thrown); Sweep(traps); Sweep(drops);
+                levels.Clear();
+                heights.Clear();
                 return;
             }
             float t = Time.time, s = S;
 
-            // Thrown: spinning end over end along the flight, lifted in a shallow arc, always over the ground as it's drawn
-            // (following its every rise and dip, so it never touches the ground or goes under it, and no hill hides it).
+            // Thrown: spinning end over end, flying level at the height it left the hand whatever the ground does below, until
+            // it hits something. It never looks to fly into the ground: where the ground ahead rises toward it, it's lifted
+            // smoothly to clear the rise (looking a little ahead, so it climbs before it gets there) and settles back to its
+            // level once past. Where a hill nearer the camera would cover it, it's drawn over the terrain (on the senses
+            // overlay) so no hill ever hides it; walls, trees and props still do.
             foreach (ThrownItem b in sim.Thrown)
             {
                 if (!thrown.TryGetValue(b.Id, out View v))
@@ -115,12 +149,27 @@ namespace Vision.UI
                     thrown[b.Id] = v = Make("Thrown " + b.Item, PropModels.Get(kind), 1.4f);
                 }
                 v.Seen = true;
-                float arc = Mathf.Sin(Mathf.Clamp01(Scale.ToUnits(b.Travelled) / 900f) * Mathf.PI) * 0.6f;
-                v.Go.transform.position = world.transform.TransformPoint(new Vector3(b.Pos.x, world.SurfaceHeight(b.Pos) + 1.2f + arc, b.Pos.y));
+                if (!levels.TryGetValue(b.Id, out float level)) levels[b.Id] = level = world.SurfaceHeight(b.Pos) + Lift;
+                float clear = Clearance(b.Pos, b.Dir);
+                float want = Mathf.Max(level, clear);
+                if (!heights.TryGetValue(b.Id, out float h)) h = want;
+                // Up quickly to clear a rise, back down gently to the level; never below the ground right under it.
+                h = want > h ? Mathf.MoveTowards(h, want, dt * 40f) : Mathf.MoveTowards(h, want, dt * 6f);
+                h = Mathf.Max(h, world.SurfaceHeight(b.Pos) + MinClear);
+                heights[b.Id] = h;
+                v.Go.transform.position = world.transform.TransformPoint(new Vector3(b.Pos.x, h, b.Pos.y));
+                int layer = OverHill(v.Go.transform.position) ? Vfx.SensesLayer : SandboxWorld.CharacterLayer;
+                if (v.Go.layer != layer) foreach (Transform c in v.Go.GetComponentsInChildren<Transform>(true)) c.gameObject.layer = layer;
                 Vector3 dir = new Vector3(b.Dir.x, 0f, b.Dir.y);
                 v.Go.transform.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(t * 720f + b.Id * 40f, 0f, 0f);
             }
             Sweep(thrown);
+            if (levels.Count > thrown.Count + 8)
+            {
+                levelGone.Clear();
+                foreach (int id in levels.Keys) if (!thrown.ContainsKey(id)) levelGone.Add(id);
+                foreach (int id in levelGone) { levels.Remove(id); heights.Remove(id); }
+            }
 
             // Traps: the canister on the ground; once armed a light blinks on it.
             foreach (Trap tr in sim.Traps)
@@ -168,6 +217,7 @@ namespace Vision.UI
                     Erosion = 0.8f,
                     Drift = new Vector3(0.12f, 0.08f, 0.1f) * s,
                     Seed = g.Id,
+                    Clumps = 0.8f,
                 };
                 VolumetricGas.Blob(Ground(g.Pos, 0f), radius, radius * 0.95f, look, true, false);
                 for (int i = 0; i < 10; i++)

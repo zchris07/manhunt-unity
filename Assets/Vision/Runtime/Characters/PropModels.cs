@@ -78,6 +78,53 @@ namespace Vision.Characters
             }
 
             /// <summary>
+            /// A traditional machete's blade along +Z from <paramref name="z0"/>: at each station (t 0-1 along it) the spine's
+            /// and the edge's heights; the spine is thick, the faces taper to a sharp edge, and the tip clips down to a point.
+            /// Each facet (two rows a side, both sides) is steel, or blood where <paramref name="blood"/> says so.
+            /// </summary>
+            public void Machete(float z0, float length, (float t, float spine, float edge)[] st, float thick, Color steel, Color edgeCol, System.Func<int, int, Color?> blood)
+            {
+                int n = st.Length;
+                var top = new Vector3[n]; var mid = new Vector3[n]; var bot = new Vector3[n];
+                var midT = new float[n];
+                for (int i = 0; i < n; i++)
+                {
+                    float z = z0 + st[i].t * length;
+                    top[i] = new Vector3(0f, st[i].spine, z);
+                    bot[i] = new Vector3(0f, st[i].edge, z);
+                    mid[i] = new Vector3(0f, Mathf.Lerp(st[i].spine, st[i].edge, 0.45f), z);
+                    // Thick at the spine, thinning toward the tip.
+                    midT[i] = thick * Mathf.Lerp(1f, 0.35f, st[i].t);
+                }
+                for (int i = 0; i + 1 < n; i++)
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        Vector3 s0 = new Vector3(side * midT[i], 0f, 0f), s1 = new Vector3(side * midT[i + 1], 0f, 0f);
+                        Vector3 m0 = new Vector3(side * midT[i] * 0.7f, 0f, 0f), m1 = new Vector3(side * midT[i + 1] * 0.7f, 0f, 0f);
+                        // The upper row (spine to the middle) and the lower, bevelled down to the edge.
+                        Color up = blood(i, side < 0f ? 0 : 2) ?? steel, low = blood(i, side < 0f ? 1 : 3) ?? edgeCol;
+                        Quad(top[i] + s0, top[i + 1] + s1, mid[i + 1] + m1, mid[i] + m0, up, side);
+                        Quad(mid[i] + m0, mid[i + 1] + m1, bot[i + 1], bot[i], low, side);
+                    }
+                // The spine: a narrow flat along the top.
+                for (int i = 0; i + 1 < n; i++)
+                {
+                    Vector3 l0 = top[i] - new Vector3(midT[i], 0f, 0f), r0 = top[i] + new Vector3(midT[i], 0f, 0f);
+                    Vector3 l1 = top[i + 1] - new Vector3(midT[i + 1], 0f, 0f), r1 = top[i + 1] + new Vector3(midT[i + 1], 0f, 0f);
+                    Tri(l0, r1, r0, steel * 0.85f);
+                    Tri(l0, l1, r1, steel * 0.85f);
+                }
+            }
+
+            /// <summary>A four-cornered face, wound so it faces <paramref name="side"/> (-1 left, +1 right along X).</summary>
+            void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color col, float side)
+            {
+                Vector3 n = Vector3.Cross(b - a, c - a);
+                if (n.x * side < 0f) { Tri(a, c, b, col); Tri(a, d, c, col); }
+                else { Tri(a, b, c, col); Tri(a, c, d, col); }
+            }
+
+            /// <summary>
             /// A solid of revolution about the Z axis through an axis point: rings at (z, radius), each band between two
             /// rings in its own colour, closed at both ends.
             /// </summary>
@@ -137,11 +184,31 @@ namespace Vision.Characters
             switch (kind)
             {
                 case PropKind.Machete:
-                    // A worn grip, a short guard, a long broad blade.
-                    b.Box(new Vector3(0f, 0f, 0.02f), new Vector3(0.014f, 0.018f, 0.07f), H(0x3a2a1e));
-                    b.Box(new Vector3(0f, 0f, 0.095f), new Vector3(0.018f, 0.028f, 0.006f), dark);
-                    b.Blade(new Vector3(0f, -0.006f, 0.1f), 0.46f, 0.07f, 0.004f, H(0x9a9c98), H(0xd8dad6));
+                {
+                    // Jason's: a long traditional machete. A wrapped grip with a steel pommel, a flat oval guard, then a blade
+                    // over 0.65 m long widening toward its belly, the spine straight until it clips down to the point, a
+                    // bevelled edge, and blood smeared and spattered over the middle and lower blade.
+                    Color wrap = H(0x3a2c22), wrap2 = H(0x5a4636), steel = H(0xa7aaa8), edgeCol = H(0xcfd2cf);
+                    Color blood = H(0x6e0e10), bloodDark = H(0x4a0709);
+                    b.Lathe(Vector3.zero, new[] { (-0.085f, 0.012f), (-0.078f, 0.021f), (-0.03f, 0.019f), (0.03f, 0.02f), (0.09f, 0.02f) },
+                        new[] { metal, wrap, wrap2, wrap }, 5);
+                    b.Box(new Vector3(0f, -0.004f, 0.097f), new Vector3(0.017f, 0.048f, 0.007f), H(0x9a9c98));
+                    (float, float, float)[] st =
+                    {
+                        (0f, 0.022f, -0.026f), (0.18f, 0.024f, -0.034f), (0.38f, 0.025f, -0.043f), (0.58f, 0.025f, -0.052f),
+                        (0.78f, 0.022f, -0.057f), (0.92f, 0.008f, -0.048f), (1f, -0.016f, -0.022f),
+                    };
+                    // Blood on the faces by (station, row): heavy over the middle, spattered elsewhere.
+                    Color? Blood(int i, int row)
+                    {
+                        float h = Mathf.Repeat(Mathf.Sin(i * 12.9898f + row * 78.233f) * 43758.5453f, 1f);
+                        bool heavy = i >= 1 && i <= 4 && (row == 1 || row == 3 || h < 0.6f);
+                        if (heavy) return h < 0.5f ? bloodDark : blood;
+                        return h < 0.3f ? blood : (Color?)null;
+                    }
+                    b.Machete(0.1f, 0.66f, st, 0.0045f, steel, edgeCol, Blood);
                     break;
+                }
                 case PropKind.Shotgun:
                     // The original's shotgun: side-by-side barrels over a wooden forend, a wooden stock.
                     b.Box(new Vector3(0f, -0.022f, -0.17f), new Vector3(0.018f, 0.04f, 0.13f), wood, Quaternion.Euler(8f, 0f, 0f));

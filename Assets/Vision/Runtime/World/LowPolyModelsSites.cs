@@ -216,24 +216,42 @@ namespace Vision.World
             b.AddHexahedron(c, color, 0.07f);
         }
 
-        /// <summary>A wrought-iron graveyard fence along +X: posts with finials and two rails, bars between.</summary>
+        /// <summary>How tall the graveyard fence stands to the tips of its bars (20% taller than at first).</summary>
+        public const float IronFenceHeight = 1.42f * 1.2f;
+
+        /// <summary>
+        /// A wrought-iron graveyard fence along +X, 20% taller than at first: posts crowned with tall four-sided spikes and a
+        /// collar of short thorns, two rails, and bars between that run up past the top rail into spear points.
+        /// </summary>
         public static Mesh IronFence(System.Random rng, float length)
         {
+            const float k = 1.2f;
             var b = new LowPolyMeshBuilder(rng);
             int bays = Mathf.Max(1, Mathf.RoundToInt(length / 1.6f));
             for (int i = 0; i <= bays; i++)
             {
                 float x = length * i / bays;
-                b.AddBox(new Vector3(x - 0.05f, 0f, -0.05f), new Vector3(0.1f, 1.25f, 0.1f), Site.Iron, 0.06f);
-                b.AddCone(new Vector3(x, 1.25f, 0f), new Vector3(x, 1.42f, 0f), 0.06f, 4, Site.Iron, 0.06f);
+                b.AddBox(new Vector3(x - 0.05f, 0f, -0.05f), new Vector3(0.1f, 1.25f * k, 0.1f), Site.Iron, 0.06f);
+                // A knob, then the spike, and four thorns about its foot.
+                b.AddBox(new Vector3(x - 0.065f, 1.25f * k - 0.02f, -0.065f), new Vector3(0.13f, 0.06f, 0.13f), Site.Iron, 0.06f);
+                b.AddCone(new Vector3(x, 1.25f * k + 0.04f, 0f), new Vector3(x, IronFenceHeight + 0.08f, 0f), 0.06f, 4, Site.Iron, 0.06f);
+                for (int t = 0; t < 4; t++)
+                {
+                    float a = t * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
+                    var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                    Vector3 foot = new Vector3(x, 1.25f * k + 0.05f, 0f) + o * 0.04f;
+                    b.AddCone(foot, foot + o * 0.1f + Vector3.up * 0.08f, 0.018f, 3, Site.Iron, 0.06f);
+                }
             }
-            float sag = 0f;
-            foreach (float y in new[] { 0.25f, 1.05f })
-                b.AddBox(new Vector3(0f, y - 0.025f + sag, -0.02f), new Vector3(length, 0.05f, 0.04f), Site.Iron, 0.06f);
+            foreach (float y in new[] { 0.25f * k, 1.05f * k })
+                b.AddBox(new Vector3(0f, y - 0.025f, -0.02f), new Vector3(length, 0.05f, 0.04f), Site.Iron, 0.06f);
             for (float x = 0.2f; x < length - 0.1f; x += 0.2f)
             {
                 if (b.Next() < 0.06f) continue;   // missing bars
-                b.AddBox(new Vector3(x - 0.012f, 0.25f, -0.012f), new Vector3(0.024f, 0.95f, 0.024f), Site.Iron, 0.06f);
+                // Each bar rises past the top rail into a spear point.
+                float top = 1.25f * k + 0.04f;
+                b.AddBox(new Vector3(x - 0.012f, 0.25f * k, -0.012f), new Vector3(0.024f, top - 0.25f * k, 0.024f), Site.Iron, 0.06f);
+                b.AddCone(new Vector3(x, top, 0f), new Vector3(x, top + 0.15f, 0f), 0.03f, 4, Site.Iron, 0.06f);
             }
             return b.ToMesh("Iron Fence");
         }

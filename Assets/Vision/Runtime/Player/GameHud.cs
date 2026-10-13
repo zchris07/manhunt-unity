@@ -186,6 +186,7 @@ namespace Vision.Player
             labelShadow.effectColor = new Color(0f, 0f, 0f, 0.85f);
             labelShadow.effectDistance = new Vector2(1f, -1f);
             BuildHeadBars(root);
+            BuildWander(root);
 
             // Inventory, bottom centre: eight slots, twelve in testing mode; the selected one is outlined (left mouse uses it).
             strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(Inventory.Slots * 82f, 86f));
@@ -503,12 +504,14 @@ namespace Vision.Player
             edgePulse = Mathf.Max(0f, edgePulse - Time.unscaledDeltaTime * 1.2f);
             float hurt = zach ? 0f : Mathf.Clamp01(1f - me.Hp / 0.45f);
             float pulse = edgePulse * edgePulse * (3f - 2f * edgePulse);
-            vignette.color = me.GogglesOn ? new Color(0.25f, 0.9f, 0.35f, 0.1f) : new Color(Mathf.Lerp(0.55f, 0.85f, pulse), 0.02f, 0.02f, Mathf.Clamp01(Mathf.Max(hurt * 0.85f + flash * 0.5f, pulse)));
+            // (Night vision puts no green halo round the screen.)
+            vignette.color = new Color(Mathf.Lerp(0.55f, 0.85f, pulse), 0.02f, 0.02f, Mathf.Clamp01(Mathf.Max(hurt * 0.85f + flash * 0.5f, pulse)));
             downedScreen.SetActive(downed);
             fxPanel.SetActive(host != null && host.Sim != null && host.Sim.TestMode && me.Role != Role.Spectator && !MainMenuOpen);
             if (host != null && host.Sim != null) RefreshHunter(me, host.Sim);
             RefreshNpcTags(me);
             RefreshHeadBars(me);
+            RefreshWander(me);
             RefreshMatch(me);
         }
 

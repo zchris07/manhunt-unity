@@ -99,10 +99,15 @@ namespace Vision.Game
             public static class Vape
             {
                 public const int Charges = 2;
-                // The cloud reaches 30% less far than the original's, then 20% further than that (ReachMul 1.1 x 0.7 x 1.2,
-                // at the user's requests); the same width.
-                public const float Cooldown = 25f, HalfAngleDeg = 10f, ReachMul = 1.1f * 0.7f * 1.2f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
+                // The cloud reaches 30% less far than the original's, then 20% further than that, then 10% further again
+                // (ReachMul 1.1 x 0.7 x 1.2 x 1.1, at the user's requests); its cone 20% narrower than the original's 10 deg.
+                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
+                /// <summary>
+                /// The cloud is seen this much longer before it's fully gone, thinning away over its fade and these extra
+                /// seconds; it does nothing in that time (its effect ends when it always did).
+                /// </summary>
+                public const float SeenExtra = 2f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
                 public const float Dps = 0.05f, DpsFar = 0.01f, AfterTime = 2f, ConeCut = 0.6f, DarkAfter = 6f, DarkEase = 0.6f;
                 /// <summary>The blur on a gassed survivor clears over this long once they're out (a second longer than the after-effect).</summary>
@@ -227,7 +232,17 @@ namespace Vision.Game
         /// </summary>
         public static class Boundary
         {
-            public const float Gap = 12f, ShutdownTime = 3f, TickEvery = 3f, TickDamage = 0.2f, CrossCost = 20f, CrossLockout = 10f;
+            /// <summary>
+            /// The second ring 15.6 m past the first (30% further than its first 12 m), and the end of the world 18 m past
+            /// the second (50% further than its first 12 m; <see cref="Outer"/> from the first ring in all, and the world is
+            /// made that much bigger).
+            /// </summary>
+            public const float Gap = 12f * 1.3f, KillGap = 12f * 1.5f, Outer = Gap + KillGap;
+            /// <summary>Zach's halo once his light has died past the second ring: its reach (m) and brightness.</summary>
+            public const float HaloRadius = 4f, HaloIntensity = 0.8f;
+            public const float ShutdownTime = 3f, TickEvery = 3f, TickDamage = 0.2f, CrossCost = 20f, CrossLockout = 10f;
+            /// <summary>Gone into the woods: the screen stays black this long while "Sacrificed" is written out, then lifts over a second.</summary>
+            public const float SacrificedHold = 5.2f;
             public const float WallSkin = 0.05f, ArriveInside = 1.5f;
         }
 
@@ -338,6 +353,8 @@ namespace Vision.Game
             public const int Hp = 2;
             public const float DownedAfter = 4f, StakedAfter = 4f, AscendTime = 3f, LightRadius = 110f, LightIntensity = 0.28f;
             public const float AmbulanceLength = 300f, AmbulanceWidth = 150f, AmbulanceLightRadius = 230f, AmbulanceLightIntensity = 0.35f;
+            /// <summary>The light bar's own light: it lights the roof and just round the van (metres, brightness), no further.</summary>
+            public const float BarLightRange = 6.5f, BarLightIntensity = 0.42f;
         }
 
         public static class Objectives
@@ -356,6 +373,11 @@ namespace Vision.Game
         public static class Trails
         {
             public const float ScentEvery = 0.12f, WalkHeadStart = 4f, MaxAgeSec = 10f;
+            /// <summary>
+            /// The scent trail swells and thins on a strict repeat along its length: from its thickest, most solid point to its
+            /// thinnest, faintest is as far as a survivor sprints in this many seconds, and back again the same.
+            /// </summary>
+            public const float ScentWaveSprintSec = 2f;
             /// <summary>
             /// Blood drips at random moments (every 0.15-0.75 s, 0.45 s on average, about the original's 0.4 s) and lands up to
             /// BloodSpread units about them. Standing still, no more than BloodPoolMax drops land within BloodPoolRadius of

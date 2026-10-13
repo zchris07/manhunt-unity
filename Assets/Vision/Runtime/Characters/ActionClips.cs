@@ -354,7 +354,10 @@ namespace Vision.Characters
         static readonly (float, float, float) Guard = (-56f, 10f, -24f), Tucked = (6f, 0f, -30f);
 
         // The light X (forehand F, backhand B): cocked, early in the cut, the hit in front, late, the end at the hip, the loop.
-        static ActionPose CockF() => Cut(-2f, 38f, (-66.7f, -1.3f, 11.3f), -98.3f, (0f, 42.2f, -66.6f), Guard, -40f);
+        // The forehand's cock (after the user's references of Jason): the machete raised up beside his head, further back and
+        // out to the side, the blade lying back behind his head; then it comes over the top into the cut.
+        static ActionPose CockF() => Cut(-6f, 50f, (-96.1f, 6.5f, -7.1f), -65.1f, (-10.4f, 24.9f, -27.9f), Guard, -40f);
+        static ActionPose OverF() => Cut(-2f, 40f, (-97f, 5.3f, -11.5f), -72.1f, (63.2f, 22.7f, -22.5f), (-50f, 8f, -23f), -37f);
         static ActionPose F1() => Cut(4f, 22f, (-66.2f, 8.2f, -15f), -75.9f, (90f, 16.5f, -40.9f), (-45f, 5f, -22f), -34f);
         static ActionPose F2() => Cut(8f, 0f, (-33.6f, 31.2f, -70.2f), -70.1f, (90f, -9.4f, -15f), (-25f, 0f, -22f), -30f);
         static ActionPose F3() => Cut(11f, -22f, (-25.5f, 30.8f, -65.2f), -43.2f, (76.7f, -3.6f, -8.2f), (-5f, 0f, -25f), -24f);
@@ -368,7 +371,8 @@ namespace Vision.Characters
         static ActionPose LoopB() => Cut(5f, 34f, (-41f, 12.4f, -32.7f), -114.1f, (44.5f, 11.2f, 42.2f), Guard, -40f);
 
         // The charged X: wound further, the blade higher, the cut deeper.
-        static ActionPose HCockF(float tremble = 0f) => Cut(-2f, 45.6f + tremble, (-76.6f - tremble, 9.3f, -14.1f + tremble * 0.5f), -85.4f, (2.3f, 37.6f, -68.6f), (-60f, 12f, -24f), -42f);
+        static ActionPose HCockF(float tremble = 0f) => Cut(-6f, 60f + tremble, (-104.1f - tremble, 1.9f, -13.4f + tremble * 0.5f), -47.6f, (-20.1f, 38.8f, -9f), (-60f, 12f, -24f), -42f);
+        static ActionPose HOverF() => Cut(-2f, 48f, (-105.5f, 7.6f, -19.5f), -57.5f, (58f, 25.5f, -22.9f), (-52f, 8f, -23f), -38f);
         static ActionPose HF1() => Cut(4f, 26.4f, (-72.7f, 16.1f, -30.6f), -66.6f, (90f, 11.5f, -42.6f), (-45f, 5f, -22f), -34f);
         static ActionPose HF2() => Cut(8f, 0f, (-32.9f, 32.3f, -71.7f), -69.2f, (90f, -13.4f, -17.7f), (-20f, 0f, -24f), -28f);
         static ActionPose HF3() => Cut(11f, -26.4f, (-24.7f, 33.2f, -60.9f), -46f, (76f, -6.6f, -13.5f), (0f, 0f, -26f), -22f);
@@ -383,7 +387,7 @@ namespace Vision.Characters
 
         /// <summary>
         /// Charging a forehand: low and wide on bent knees, the machete cocked high over his right shoulder, the blade
-        /// lying back over his head, the torso wound away from the target while the head stays on it, the free arm reaching
+        /// lying back behind his head, the torso wound away from the target while the head stays on it, the free arm reaching
         /// out in front as a guard; the whole body trembles with the strain (hold).
         /// </summary>
         public static readonly ActionClip Charge = new ActionClip("Charge", 0.32f, true)
@@ -402,12 +406,14 @@ namespace Vision.Characters
             .Blend(0.3f, 0.25f);
 
         /// <summary>
-        /// A light forehand: cocked over the right shoulder, falling diagonally across his chest ("hit" in front) to his
-        /// left hip, and looping on up over his left shoulder, ready for the backhand.
+        /// A light forehand: cocked high beside his head, the blade back behind it, brought over the top and falling
+        /// diagonally across his chest ("hit" in front) to his left hip, and looping on up over his left shoulder, ready for
+        /// the backhand.
         /// </summary>
         public static readonly ActionClip Swing = new ActionClip("Swing", 0.46f)
             .Key(0f, CockF())
-            .Key(0.07f, CockF())
+            .Key(0.04f, CockF())
+            .Key(0.075f, OverF())
             .Key(0.11f, F1())
             .Key(0.15f, F2())
             .Key(0.19f, F3())
@@ -436,7 +442,8 @@ namespace Vision.Characters
         /// <summary>A charged forehand: from the charge's coil, a last wind, then the whole body behind the fall, landing low.</summary>
         public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.75f)
             .Key(0f, Low(HCockF(), 0.05f, 0f))
-            .Key(0.05f, Low(HCockF(4f), 0.06f, 0f))
+            .Key(0.03f, Low(HCockF(4f), 0.06f, 0f))
+            .Key(0.065f, Low(HOverF(), 0.065f, 0.15f))
             .Key(0.1f, Low(HF1(), 0.07f, 0.3f))
             .Key(0.15f, Low(HF2(), 0.08f, 0.6f))
             .Key(0.2f, Low(HF3(), 0.09f, 0.85f))

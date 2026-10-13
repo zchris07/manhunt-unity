@@ -178,6 +178,14 @@ namespace Vision.Game
             return false;
         }
 
+        public float VaultSlow(Vector2 p, float radius)
+        {
+            float slow = 1f;
+            foreach (SandboxWorld.LowObstacle o in world.Lows)
+                if (SimMap.SegmentDistance(p, o.A, o.B) < o.Half + radius) slow = Mathf.Max(slow, o.Slow);
+            return slow;
+        }
+
         public bool InBrokenWindow(Vector2 p, float radius)
         {
             if (BrokenWindows == null) return false;

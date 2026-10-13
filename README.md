@@ -6,7 +6,7 @@ pitch camera over a flat-shaded low-poly world, lit by a 3D port of the 2D visib
 illumination system. It opens on the title screen: **Create lobby** or **Join** to play online, or **Testing mode** alone.
 
 The map is the original's at **3 cm per original unit**: a round forest 180 m across (6000 units; no wall round it, the
-woods running on into the dark to the end of the world 24 m further out, see **The edge of the woods**) with the
+woods running on into the dark to the end of the world 33.6 m further out, see **The edge of the woods**) with the
 procedural 36 m central building (1200 units) in the middle, its north exit gate and fenced yard, the
 survivors' spawn in the south, clearings joined by footpaths, three cabins, a lake with a dock, fences,
 logs, tall grass to hide in, power lines, a graveyard, an abandoned playground and a hanging tree, and
@@ -170,16 +170,26 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   stake) eliminates.
 - **Stamina**: eight seconds of sprint (Zach six); running dry locks it for 1.5 s while it refills. Zach can't sprint
   once he's more than halfway into a full charge (0.95 s of its 1.9 s); he can still lunge and use every ability.
-- **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre, 12 m apart. Past the
-  first (the playable circle, 90 m out) your light flickers and stutters, and night vision, JARVIS and the Hemp Battery
-  stop working (a JARVIS running ends; Zach's Hemp Beam won't fire either). Past the second your light sputters and
-  dies over three seconds until the whole screen is black; then a survivor loses 20 health straight through the shield
-  every three seconds, the screen's edges pulsing red with each bite, and at zero is gone at once, not downed ("NAME
-  wandered into the woods"). The third is where the world ends: a survivor who reaches it is gone the same way. Zach's
-  light dies too but the dark never hurts him; he walks through the third ring and comes out on the far side of the map,
-  mirrored through the centre (out on the left, in on the right), 20 health poorer, with "Zach crossed over" for
-  everyone, at most once every ten seconds; while he can't cross (locked out, or 20 health or less) the ring stops him
-  like a wall. Nothing tells anyone to turn back.
+- **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre: the playable circle
+  (90 m out), the second 15.6 m beyond it (30% further than at first) and the end of the world 18 m beyond that (50%
+  further than at first; the world is made that much bigger). NPCs never wander past the first. Past it a survivor sees
+  DON'T WANDER OFF and a big arrow pointing, on screen, the way back in; their light (the beam and the light round them
+  together, evenly, the beam keeping its full reach) wavers and now and then sags and recovers like a failing bulb, each
+  sag eased in and out rather than strobing; night vision, JARVIS and the Hemp Battery stop working (a JARVIS running
+  ends; Zach's Hemp Beam won't fire either). Past the second the light grows fainter and fainter over three seconds,
+  flickering faster, deeper and more erratically, until it's out and a survivor's whole screen is black; then a
+  survivor loses 20 health straight through the shield every three seconds, the screen's edges pulsing red with each
+  bite, and at zero is gone at once, not downed ("NAME wandered into the woods"). The third is where the world ends: a
+  survivor who reaches it is gone the same way. Gone into the woods, their light stays out where they fell (no lit spot
+  to come back to) and, in the black, "Sacrificed" is written out letter by letter in the middle of the screen
+  (`WrittenText`, after the boss lines in the user's game Stroop: each letter, 68 ms after the last, stroked on as a bright
+  pen line round its shape, then flooded with ink as the line thins, leaning in italic, each one morphing into place from
+  larger, leaning further and set off down and to the right), then fades as the screen lifts to the dark so they can
+  watch the rest. Zach's light dies too, but a small faint halo of light stays round him so he can see where he's going,
+  and the dark never hurts him; he walks through the third ring and comes out on the far side of the map, mirrored
+  through the centre (out on the left, in on the right), 20 health poorer, with "Zach crossed over" for everyone, at
+  most once every ten seconds; while he can't cross (locked out, or 20 health or less) the ring stops him like a wall.
+  On the maps the woods past the playable circle darken smoothly into the black of the world's end.
 - **Supplies** (`Pickup`, `Inventory`): the original's twelve kinds at its counts (96 in all, and five more beside the
   ambulance). A quarter of them lie out in the open woods, at least 20 m from any path, spread evenly over the map (each
   placed at the spot farthest from those already down); the rest are where the original puts them, in the building,
@@ -209,7 +219,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   see-through shade, as behind a wall with night vision, while people standing behind it show in full), Zach's Burst
   and thrown items fly over them, and every player vaults them automatically at the window-climbing pace, hands
   planted, knees tucked, the body lifted up and over the top (and over a broken window's sill the same way); NPCs walk
-  round them. The central building's doors are standard office steel doors in steel frames: light-grey slabs with a
+  round them. **Fences** are climbed the same way: the split-rail fences and the graveyard's iron fence are vaulted
+  automatically at the same pace, the body lifted up and over the top rail, while NPCs walk round them (they don't block
+  sight or shots, and still hide what's behind them as anything standing does). The graveyard's fence stands 20% taller
+  than at first, its posts crowned with tall spikes and a collar of thorns and every bar rising past the top rail into a
+  spear point, and getting over it takes half as long again as a log or another fence. (The building yard's tall
+  chain-link fence stays solid: the way out is through the gate.) A fallen tree's torn-up root plate and mound of dirt at its base is different: a solid disc of wall that
+  players, NPCs, thrown items and shots all run into and nobody vaults (the log's vault strip starts just past it). The central building's doors are standard office steel doors in steel frames: light-grey slabs with a
   lever handle, a kick plate and a narrow wired-glass vision panel.
 - **Effects** (`Vfx`, the `Vision/Fx` shader): particle bursts, rings and ribbons, either hidden outside the viewer's
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
@@ -224,13 +240,15 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, icons, cooldown shades, charges and
   meters (the Hemp Beam's is the leaf), beside his stamina bar the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
   heard being repaired. His machete (always in his right hand) cuts in a wide **X**, back and forth along a figure 8:
-  the forehand falls from high beside his right shoulder, about 35 degrees below level and mostly side to side, across
+  the forehand starts raised up beside his head, further back and out to the side, the blade lying back behind his
+  head (as Jason holds it), comes over the top and falls from beside his right shoulder, mostly side to side, across
   his chest to his left waist, the arc swinging wide out in front, and loops on up over his left shoulder; the backhand
   falls from there across to his right waist and loops back up over his right shoulder; the torso turns well round
   with each cut, the shoulders leading the arm. Swings started within a second of the last one alternate, charged ones too; after a longer pause he starts
   again with the forehand. The torso winds toward the shoulder the cut starts from and unwinds through it, leaning in,
   the free arm reaching forward as a guard while the blade is up and swinging back against the cut. Charging, he sinks
-  low and wide on bent knees with the blade cocked over the shoulder the next cut falls from, trembling (no ring at his
+  low and wide on bent knees with the blade cocked over the shoulder the next cut falls from (a forehand's raised beside
+  his head, the blade back behind it), trembling (no ring at his
   feet); a charged cut drives his weight onto his front foot. Each swing comes with a swish (heavier when charged) and
   a swipe line through the air that shows the cut's reach: a band starting near the tip of the model's real machete and
   reaching out, the way the blade points, to the swing's actual attack radius (longer when charged), sweeping across with
@@ -244,14 +262,23 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   thrown out of focus: it swims (a slow wobble through the whole image), splits into two images drifting apart and back
   together (double vision), and both are blurred hard, the blur breathing in and out, the colour washed out and the
   edges closing in, strongest while they're in it and clearing over three seconds once the gas has worn off (a second
-  longer than at first). Penjamin reaches 30% less far than the original's, then 20% further than that (92.4% of the
-  original's reach, the same width) and goes straight through a shield to the health bar. Galaxy gas narrows Zach's
+  longer than at first). Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
+  further again (101.6% of the original's reach), in a cone 20% narrower than the original's (8 degrees either side of
+  the aim), and goes straight through a shield to the health bar. Galaxy gas narrows Zach's
   light by 30% and blurs his view the same way, clearing three seconds after he's out of it. **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
   `Vision/Gas` shader) are volumetric smoke after Black Ops Cold War's smoke grenade: each cloud is a box over the scene
   through which the view ray is marched, gathering a participating medium whose density is the cloud's shape (a cone for
-  Penjamin, a blob sitting on the ground for galaxy gas and each puff of the scent) eroded by a tiling 3D Perlin-Worley
+  Penjamin, a blob sitting on the ground for galaxy gas, and for the scent a thin tube from each point of the trail to
+  the next, overlapping so it runs on as one faint, unbroken, swaying thread that swells and thins on a strict repeat,
+  thicker and more solid at its peaks, thinner and fainter in its valleys, peak to valley as far as a survivor sprints
+  in two seconds) eroded by a tiling 3D Perlin-Worley
   noise made at load, so its surface billows in round lobes like cauliflower and frays into wisps, churning and drifting
-  (Penjamin's rolling out along the cone). Light is absorbed as it passes through (Beer-Lambert); each sample is lit by a
+  (carried along the way the gas blows: Penjamin's rolling out along the cone, whichever way he aims it). It's patchy
+  rather than even: a much larger, slower pattern breaks Penjamin's, 50 Nic's and galaxy gas into thick pockets and thin
+  stretches with clear gaps through them. From the moment it's fired, Penjamin's whole cloud drifts slowly off on a wind of
+  its own (a random direction for each cloud), spreading wider and taller and thinning as it's blown, and it's seen for
+  2 seconds longer before it's fully gone; all of that is only how it looks: where it acts doesn't move or grow, and it
+  stops acting when it always did. Light is absorbed as it passes through (Beer-Lambert); each sample is lit by a
   short march toward a key light low to one side, so every lobe has a bright face and a shaded one, with a
   forward-scattering phase and ambient light. Each keeps its colour: Penjamin yellow, 50 Nic blue, galaxy gas purple,
   pink and blue (with its stars), the scent red. The gas never touches the scene: no collision, nothing conforming to the
@@ -269,11 +296,18 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once
   and a closed door it stays on for a second and a half is blown open. Guns flash
   at the end of the barrel and every round (a pistol's, Jaden's, each pellet, the 0.50 cal's) flies out of it as a small
-  fast projectile: a short bright streak with a short, thin, dim trail behind it (the pistol's at 6000 units a second,
+  fast projectile: a bright streak with a long, dim trail behind it, half again as big as they first were with twice
+  the trail (the look only: what they hit is unchanged) (the pistol's at 6000 units a second,
   pellets 5000, the 0.50 cal 8000), stopping where the shot stopped, pellets sparking there as they arrive (the sim's
-  rounds start just ahead of the shooter). Rounds and thrown bottles, books and jars fly over the ground at a steady
-  height, following every rise and dip of the terrain: they never strike the ground or pass under it, and no hill hides
-  them (walls, trees and objects still do). Guns make no sound, and the charge is silent. Sounds come from
+  rounds start just ahead of the shooter). Rounds and thrown bottles, books and jars fly perfectly straight and level at
+  the height they left the barrel or the hand, whatever the ground does below, until they hit something: they never
+  strike the ground, and where a rise would cover one it is drawn over the terrain, so no hill ever hides it (walls,
+  trees and objects still do, and only things standing upright: where the line runs under a rise of the ground it's
+  judged from just over the ground there, along the same line of sight, so the buried feet of the trees and rocks on the
+  rise never cut it, and fallen logs never cover it; the laser, every round, their sparks and bursts, and thrown items
+  all share this). A thrown item never even looks to go into the ground: where the ground ahead rises
+  toward it, it's lifted smoothly over the rise (it climbs a little before it gets there) and settles back to its level
+  once past. Guns make no sound, and the charge is silent. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
 - **Teammates**: a survivor sees the other survivors glow faintly, a soft light about each and a small bright disc that
   shows them through the fog, as in the original.
@@ -290,12 +324,14 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
   Each pistol shot strays up to 2.5 degrees either side of the aim. Holding right click with the 0.50 cal aims it: the
   view widens 15%, you move 30% slower, and a thin red laser (the original's, a faint wide line and a bright thin one)
-  runs from the barrel along the aim, over the rises and dips of the ground like the round, to the first solid thing in
-  its way (never the ground), seen by everyone; aimed, the round goes exactly where it points, while from the hip it
-  strays up to 5 degrees. Its round races out at 8000 units a second and throws sparks, dust and chips out of every
-  wall, tree or object it punches into and out of, as it gets there.
-  JARVIS shows the user the whole map; night vision tints the view green and the goggles go on over the eyes (the hands
-  stay free). Night vision and the Hemp Battery's x-ray fill the whole vision cone and run on past the edge of the
+  runs from the barrel along the aim to the first solid thing in its way (never the ground), seen by everyone: a
+  perfectly straight line, drawn above the terrain so no hill ever covers it, and broken only where a wall, tree or prop
+  stands between it and the camera; aimed, the round goes exactly where it points, while from the hip it strays up to
+  5 degrees. Its round races out along that same straight line at 8000 units a second and throws sparks, dust and chips
+  out of every wall, tree or object it punches into and out of, as it gets there.
+  JARVIS shows the user the whole map, its tablet held up until they take another item in hand (it keeps running, the
+  tablet put away and the new item shown); night vision tints the view green, with no green halo round the screen,
+  and the goggles go on over the eyes (the hands stay free). Night vision and the Hemp Battery's x-ray fill the whole vision cone and run on past the edge of the
   screen whichever way you turn; as they come on, the light grows out of the torch to its full reach in half a second
   (the original's animation, quickened), and the Hemp Battery's zoom out and back in takes half a second too. Every attack item but galaxy
   gas breaks windows: a thrown bottle, book or jar smashes the glass and drops there, rounds go through it, and anyone
@@ -340,7 +376,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **JARVIS**: for its ten seconds every survivor's whole screen is lit and everyone on it shows (the original's
   reveal), and its user's map is revealed.
 - **The ambulance, the lounge and the Four Notes** (`SandboxWorld.Story`): Chris's ambulance parks in the woods off the
-  paths with a row of supplies beside it and a flashing light bar; the building's biggest room without a generator is
+  paths with a row of supplies beside it and a flashing light bar, whose light shows the van's roof and the ground just
+  round it (no further) under a soft red then blue tint that swells with each flash; the building's biggest room without a generator is
   the lounge, a couch facing a flickering TV; the Four Notes lie beside the paths, far apart. Zach's map shows every stake
   in play.
 - The old **wanderer** stands in for an entity in the captures only.
@@ -487,9 +524,16 @@ ditches and packed dirt on the paths.
   head with jaw, brow, nose and ears, eight-sided limbs with deltoid, bicep, elbow, forearm, thigh, knee and calf rings,
   mitten hands with a thumb, and shaped feet (a rounded heel, the instep rising to the ankle, the arch, the broad ball
   and a toe box tapering to the big toe, on a flat darker sole). The **survivor** stays grey and identical for everyone
-  (tonal greys: darker trousers, gloves and soles). **Zach** is Jason Voorhees: 2 m, big and heavy-limbed with a slight
-  hunch (broad, but no longer a wardrobe across the shoulders), a white hockey mask with red chevrons, eye holes and vents, a torn dark work
-  shirt hanging in tails, bare forearms and gloves. The **NPCs** use the original's look table (skin, hair, shirt,
+  (tonal greys: darker trousers, gloves and soles). **Zach** is Jason Voorhees as Mortal Kombat X draws him, in up to
+  1500 triangles (500 more than anyone else): 2.2 m, big and heavy-limbed with a slight hunch; bald, his scalp blotched
+  grey and raw red-brown; the ivory hockey mask standing off his face with its rim turned back (so it has thickness),
+  rows of round vent holes, dark eye holes, red chevrons over the brows and on the cheeks, and black straps round the
+  back of his head and over the crown; a worn olive field jacket (stained and faded in patches) that is a separate shell
+  of cloth standing off his body, open down the front over a dark slate shirt, with a stand-up collar, pocket flaps and
+  long sleeves to the wrist, its thickness showing in a band of darker lining at the hem, both front edges, the collar's
+  top and inside, and the cuffs; black gloves, dark trousers and boots. His machete is a long traditional one: a wrapped
+  grip with a steel pommel, a flat oval guard and a blade over 0.65 m long widening toward its belly, the spine running
+  straight until it clips down to the point, bevelled to the edge, with blood smeared and spattered over it. The **NPCs** use the original's look table (skin, hair, shirt,
   jacket, trousers, shoes) with features to fine-tune later: hair styles, a backwards cap, glasses, a headset, hoods,
   hi-vis bands, a star of life, a checked flannel, a jersey band.
 - **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, double-barrelled shotgun, golden pump,
@@ -592,7 +636,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 236 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 240 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

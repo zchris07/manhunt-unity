@@ -131,7 +131,7 @@ namespace Vision.Player
                         if (pup == null || !pup.Visible) continue;
                     }
                     HeadBar b = BarFor(p.Id, ref used);
-                    float top = zach ? 2.3f : 2.05f;
+                    float top = zach ? 2.5f : 2.05f;
                     Vector3 wp = world.transform.TransformPoint(new Vector3(p.Pos.x, world.GroundHeight(p.Pos) + top, p.Pos.y));
                     // The shield bar only while there is shield.
                     if (!PlaceBar(b, headBarRoot, cam, wp, zach ? 46f : 38f, !zach && p.Shield > 1e-4f)) { used--; continue; }
