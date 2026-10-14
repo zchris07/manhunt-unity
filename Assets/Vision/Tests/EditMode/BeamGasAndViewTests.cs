@@ -100,7 +100,7 @@ namespace Vision.Tests
             rig.Sim.HurtSurvivor(s, 0.1f, null, "slash");
             Assert.AreEqual(0.4f, s.Shield, 1e-5f, "anything else still hits the shield first");
             Assert.AreEqual(1.1f * 0.7f * 1.2f * 1.1f, Balance.Hunter.Vape.ReachMul, 1e-5f, "30% less than the original's, then 20% more, then 10% more");
-            Assert.AreEqual(8f, Balance.Hunter.Vape.HalfAngleDeg, 1e-5f, "20% narrower than the original's 10 deg");
+            Assert.AreEqual(10f * 0.8f * 0.6f, Balance.Hunter.Vape.HalfAngleDeg, 1e-5f, "20% narrower than the original's 10 deg, then 40% narrower again");
             Assert.AreEqual(0.3f, Balance.Items.Trap.ZachConeCut, 1e-5f, "galaxy gas narrows Zach's cone by 30%");
         }
 
@@ -157,31 +157,6 @@ namespace Vision.Tests
                 climbed |= zach.Move.Climbing;
             }
             Assert.IsTrue(climbed, "Zach vaults it too");
-        }
-
-        [Test]
-        public void VaultingTheGraveyardFence_TakesHalfAsLongAgain()
-        {
-            float Crossing(float slow)
-            {
-                var rig = new SimRig(1, 1);
-                rig.Geo.Lows.Add((U(100, -80), U(100, 80), Scale.D(10f)));
-                rig.Geo.LowSlow.Add(slow);
-                SimPlayer s = rig.P(2);
-                rig.Place(s, 0f, 0f);
-                rig.Place(rig.P(1), 0f, -300f);
-                int climbing = 0;
-                for (int i = 0; i < Secs(4f); i++)
-                {
-                    rig.Run(1, p => p.Id == s.Id ? new InputCmd { Move = Vector2.right, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
-                    if (s.Move.Climbing) climbing++;
-                }
-                Assert.Greater(Scale.ToUnits(s.Pos.x), 140f, "over it and on");
-                return climbing;
-            }
-            float log = Crossing(1f), iron = Crossing(SandboxWorld.IronFenceVaultSlow);
-            Assert.Greater(log, 0f);
-            Assert.AreEqual(1.5f, iron / log, 0.2f, "half as long again over the spiked iron");
         }
 
         [Test]

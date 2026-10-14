@@ -164,12 +164,13 @@ namespace Vision.UI
                             float age = Mathf.Clamp01((sim.Time - (t0.T + t1.T) * 0.5f) / Balance.Trails.MaxAgeSec);
                             float half = Scale.Speed(Balance.Survivor.Run) * Balance.Trails.ScentWaveSprintSec;
                             float wave = 0.5f + 0.5f * Mathf.Cos(Mathf.PI * (t0.Dist + t1.Dist) * 0.5f / Mathf.Max(0.01f, half));
-                            float radius = Scale.D(3.5f + 3.5f * age) * S * Mathf.Lerp(0.45f, 1.3f, wave);
+                            // 30% thicker than before, swelling and thinning half as much again about that.
+                            float radius = Scale.D(3.5f + 3.5f * age) * 1.3f * S * Mathf.Lerp(0.2375f, 1.5125f, wave);
                             var look = new VolumetricGas.Look
                             {
                                 TintA = new Color(0.75f, 0.22f, 0.18f),
                                 TintB = new Color(0.4f, 0.05f, 0.06f),
-                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.4f * Mathf.Lerp(0.3f, 1.15f, wave),
+                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.4f * 1.2f * Mathf.Lerp(0.3f, 1.15f, wave),
                                 Extinction = 1.6f / S,
                                 NoiseScale = 1.1f / S,
                                 Erosion = 0.7f,

@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using Vision.Game;
 using Vision.Player;
 using Vision.Visibility;
 using Vision.World;
@@ -70,10 +71,15 @@ namespace Vision.Tests
             Assert.NotNull(world.Ambulance, "Chris Zelley's ambulance");
             Assert.NotNull(world.Ambulance.GetComponent<BoxCollider>());
             Assert.IsFalse(world.Layout.Building.Contains(world.AmbulanceCentre));
-            Assert.AreEqual(4, world.Notes.Count, "the Four Notes");
-            for (int i = 0; i < world.Notes.Count; i++)
-                for (int j = i + 1; j < world.Notes.Count; j++)
-                    Assert.GreaterOrEqual(Vector3.Distance(world.Notes[i].position, world.Notes[j].position) / world.transform.lossyScale.x, 900f * MapLayout.Unit - 0.01f, "notes far apart");
+            // The notes: each of the six photos once; one beside every generator (the graveyard's in its middle), the
+            // rest along the paths.
+            Assert.AreEqual(Balance.Notes.Images, world.Notes.Count, "six notes");
+            CollectionAssert.AreEquivalent(System.Linq.Enumerable.Range(0, Balance.Notes.Images), world.NoteImages, "each photo once");
+            float S = world.transform.lossyScale.x;
+            foreach (Transform g in world.Generators)
+                Assert.IsTrue(world.Notes.Exists(n => Vector3.Distance(n.position, g.position) / S < Balance.Notes.BesideGenerator + 0.6f), $"a note beside {g.name}");
+            Vector3 gc = world.transform.TransformPoint(new Vector3(world.Layout.Graveyard.center.x, 0f, world.Layout.Graveyard.center.y));
+            Assert.IsTrue(world.Generators.Exists(g => new Vector2(g.position.x - gc.x, g.position.z - gc.z).magnitude / S < 0.05f), "a generator in the middle of the graveyard");
             Assert.GreaterOrEqual(world.Layout.Plan.LoungeRoom, 0, "the lounge");
             Assert.IsTrue(world.Layout.Plan.Bounds.Contains(world.Layout.Plan.LoungeSeat));
         }

@@ -171,7 +171,7 @@ namespace Vision.UI
             Update();
         }
 
-        /// <summary>Reads note <paramref name="index"/> (0-3): its photo on old paper fills the screen until put down.</summary>
+        /// <summary>Reads note <paramref name="index"/> (0-5, note-1 to note-6): its photo on old paper fills the screen until put down.</summary>
         public void ShowNote(int index)
         {
             EnsureBuilt();

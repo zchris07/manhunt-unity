@@ -293,6 +293,7 @@ namespace Vision.Game
                 if (world.Doors[i] == null) continue;
                 if (force || world.Doors[i].IsOpen != Sim.Doors[i]) world.Doors[i].SetOpen(Sim.Doors[i]);
                 if (world.Doors[i].IsBroken != Sim.DoorBroken[i]) world.Doors[i].SetBroken(Sim.DoorBroken[i]);
+                if (world.Doors[i].gate) world.Doors[i].SetLocked(Sim.DoorLocked[i]);
             }
             for (int i = 0; i < Sim.Barricades.Length && i < world.BarricadeList.Count; i++)
                 if (world.BarricadeList[i] != null) world.BarricadeList[i].SetState((int)Sim.Barricades[i]);

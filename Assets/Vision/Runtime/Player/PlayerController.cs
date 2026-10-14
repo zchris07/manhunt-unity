@@ -204,6 +204,9 @@ namespace Vision.Player
             bool menu = GameHud.MenuOpen;
 
             UpdateTurn(h, menu);
+            // Only Zach's body passes the graveyard's fence (to climb it); survivors run into it.
+            int exclude = p.Role == Role.Hunter ? 1 << SandboxWorld.GraveFenceLayer : 0;
+            if (cc != null && cc.excludeLayers.value != exclude) cc.excludeLayers = exclude;
 
             // Testing mode: T switches between Zach and a survivor where you stand.
             if (!menu && Pressed(switchRole) && h.Sim.TestMode && h.SwitchRole())
@@ -507,7 +510,8 @@ namespace Vision.Player
 
         void UpdateHud(SimPlayer p, MatchHost h)
         {
-            InteractPrompt = PromptText(p, h.Sim);
+            // Picking a lock, the dial says it all.
+            InteractPrompt = p.Action == ActionKind.PickLock ? null : PromptText(p, h.Sim);
             SpacePrompt = p.Prompt2 != Prompt.None ? Texts.PromptLabel(p.Prompt2) : null;
             HoldProgress = -1f;
             switch (p.Action)

@@ -45,7 +45,10 @@ namespace Vision.Game
         }
 
         /// <summary>A door's closed panel runs A to B.</summary>
-        public struct DoorDef { public Vector2 A, B; public bool StartsOpen; public bool Shutter; }
+        /// <summary>A door; <see cref="Gate"/>: the graveyard's gates (locked at the start, survivors only).</summary>
+        public struct DoorDef { public Vector2 A, B; public bool StartsOpen; public bool Shutter; public bool Gate; }
+        /// <summary>Which photo each of <see cref="Notes"/> shows (0-based; missing ones go in order).</summary>
+        public readonly List<int> NoteImages = new List<int>();
 
         public struct BarricadeDef { public Vector2 Pos, A, B; }
 
@@ -144,14 +147,16 @@ namespace Vision.Game
             foreach (var (a, b, half) in Lows) if (SimMap.SegmentDistance(p, a, b) < half + radius) return true;
             return false;
         }
-        /// <summary>Optional: how much longer vaulting each of <see cref="Lows"/> takes (by index; 1 when missing).</summary>
+        /// <summary>Optional: how much longer vaulting each of <see cref="Lows"/> takes, and whether only Zach can (by index).</summary>
         public readonly List<float> LowSlow = new List<float>();
-        public float VaultSlow(Vector2 p, float radius)
+        public readonly List<bool> LowHunterOnly = new List<bool>();
+        public float Vault(Vector2 p, float radius, bool hunter)
         {
-            float slow = 1f;
+            float v = 0f;
             for (int i = 0; i < Lows.Count; i++)
-                if (i < LowSlow.Count && SimMap.SegmentDistance(p, Lows[i].a, Lows[i].b) < Lows[i].half + radius) slow = Mathf.Max(slow, LowSlow[i]);
-            return slow;
+                if (SimMap.SegmentDistance(p, Lows[i].a, Lows[i].b) < Lows[i].half + radius)
+                    v = Mathf.Max(v, MatchSim.VaultFor(hunter, i < LowSlow.Count ? LowSlow[i] : 1f, i < LowHunterOnly.Count && LowHunterOnly[i]));
+            return v;
         }
     }
 }

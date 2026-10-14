@@ -101,13 +101,16 @@ namespace Vision.Game
                 public const int Charges = 2;
                 // The cloud reaches 30% less far than the original's, then 20% further than that, then 10% further again
                 // (ReachMul 1.1 x 0.7 x 1.2 x 1.1, at the user's requests); its cone 20% narrower than the original's 10 deg.
-                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
+                // Then 40% narrower again (4.8 deg either side).
+                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f * 0.6f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
                 /// <summary>
                 /// The cloud is seen this much longer before it's fully gone, thinning away over its fade and these extra
                 /// seconds; it does nothing in that time (its effect ends when it always did).
                 /// </summary>
                 public const float SeenExtra = 2f;
+                /// <summary>How wide the cloud is either side of the aim right at his mouth (design units), as it's drawn.</summary>
+                public const float MouthHalfWidth = 10f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
                 public const float Dps = 0.05f, DpsFar = 0.01f, AfterTime = 2f, ConeCut = 0.6f, DarkAfter = 6f, DarkEase = 0.6f;
                 /// <summary>The blur on a gassed survivor clears over this long once they're out (a second longer than the after-effect).</summary>
@@ -363,7 +366,27 @@ namespace Vision.Game
             public const float GateOpenTime = 20f, StakeStageTime = 60f;
         }
 
-        public static class Notes { public const int Count = 4; public const float Spacing = 900f; }
+        /// <summary>
+        /// The paper notes: <see cref="Images"/> photos, each found once. One lies beside every generator (the graveyard's
+        /// gets a random one); the rest lie off the paths, as before.
+        /// </summary>
+        public static class Notes { public const int Count = 4, Images = 6; public const float Spacing = 900f, BesideGenerator = 2.2f; }
+
+        /// <summary>
+        /// The graveyard: one way in, through ornate iron gates that start locked. A survivor picks the lock with
+        /// <see cref="PickChecks"/> timing checks (stop the spinning tick on its mark; each spins faster with a narrower mark);
+        /// <see cref="PickMisses"/> misses start it over. Unlocked, the gates swing open and open and close freely. Closed
+        /// again, Zach can only smash them in (<see cref="GateHits"/>: four full charged swings, two hits each, or eight
+        /// light ones). Survivors can't climb the fence; Zach can, taking <see cref="ZachFenceSlow"/> times as long as a log
+        /// (400% longer).
+        /// </summary>
+        public static class Graveyard
+        {
+            public const int PickChecks = 3, PickMisses = 2, GateHits = 4 * 2;
+            public static readonly float[] PickSpeeds = { 200f, 260f, 320f };
+            public static readonly float[] PickWidths = { 36f, 30f, 25f };
+            public const float PickPause = 0.45f, ZachFenceSlow = 5f;
+        }
 
         public static class Reach
         {

@@ -164,12 +164,62 @@ namespace Vision.World
         }
 
         /// <summary>The Four Notes: creepy photos left beside the paths, far apart, away from the spawns, supplies and ambulance.</summary>
+        /// <summary>
+        /// The paper notes, each photo once (note-1 to note-6, in a random order): one beside every generator (so the
+        /// graveyard's generator always has one, a random one), and the rest along the paths, far apart, as before.
+        /// </summary>
         void BuildNotes()
         {
-            PathNetwork paths = Terrain.Paths;
-            if (paths == null || paths.Paths.Count == 0) return;
             System.Random r = FeatureRng(10);
             float R(float a, float b) => a + (float)r.NextDouble() * (b - a);
+            var order = new List<int>();
+            for (int i = 0; i < Game.Balance.Notes.Images; i++) order.Insert(r.Next(order.Count + 1), i);
+            int next = 0;
+            Transform parent = Group("Notes");
+            var placed = new List<Vector2>();
+            void Put(Vector2 p, float? floorY)
+            {
+                var go = new GameObject($"Note {Notes.Count + 1}");
+                go.transform.SetParent(parent, false);
+                go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Note(r);
+                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+                if (floorY.HasValue) go.transform.SetLocalPositionAndRotation(new Vector3(p.x, floorY.Value + 0.01f, p.y), Quaternion.Euler(0f, R(0f, 360f), 0f));
+                else Conform(go.transform, p, 0.2f, R(0f, 360f), 0.9f, 0f);
+                go.transform.localScale = Vector3.one * 1.6f;
+                Notes.Add(go.transform);
+                NoteImages.Add(order[next++ % order.Count]);
+                placed.Add(p);
+            }
+
+            // Beside each generator: the first clear spot round it, on the floor indoors or on the ground outside.
+            Physics.SyncTransforms();
+            int solid = ~((1 << GroundLayer) | (1 << CharacterLayer) | (1 << 2) | (1 << LowLayer));
+            foreach (Transform gen in Generators)
+            {
+                if (gen == null) continue;
+                Vector3 gl = transform.InverseTransformPoint(gen.position);
+                var g = new Vector2(gl.x, gl.z);
+                bool inside = Layout.Building.Contains(g);
+                float start = R(0f, 360f);
+                Vector2 spot = g + new Vector2(Game.Balance.Notes.BesideGenerator, 0f);
+                for (int k = 0; k < 16; k++)
+                {
+                    float a = (start + k * 22.5f) * Mathf.Deg2Rad;
+                    Vector2 p = g + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Game.Balance.Notes.BesideGenerator;
+                    float y = inside ? gl.y : H(p);
+                    Vector3 w = transform.TransformPoint(new Vector3(p.x, y + 0.45f, p.y));
+                    if (Physics.CheckSphere(w, 0.32f * transform.lossyScale.x, solid, QueryTriggerInteraction.Ignore)) continue;
+                    if (!inside && (Layout.LakeDepth(p) > -1.5f || Layout.Building.Contains(p))) continue;
+                    spot = p;
+                    break;
+                }
+                Put(spot, inside ? gl.y : (float?)null);
+            }
+
+            // The rest along the paths.
+            PathNetwork paths = Terrain.Paths;
+            if (paths == null || paths.Paths.Count == 0) return;
+            int pathNotes = Mathf.Max(0, Game.Balance.Notes.Images - Notes.Count);
             Vector2 hunter = Layout.Spawn;
             float far = -1f;
             foreach (MapLayout.Clearing c in Layout.Clearings)
@@ -177,9 +227,9 @@ namespace Vision.World
                 float d = Vector2.Distance(c.Centre, Layout.Spawn);
                 if (d > far) { far = d; hunter = c.Centre; }
             }
-            var placed = new List<Vector2>();
-            Transform parent = Group("Notes");
-            for (int tries = 0; tries < 4000 && placed.Count < Game.Balance.Notes.Count; tries++)
+            int target = Notes.Count, besideGens = Notes.Count;
+            target += pathNotes;
+            for (int tries = 0; tries < 4000 && Notes.Count < target; tries++)
             {
                 List<Vector2> path = paths.Paths[r.Next(paths.Paths.Count)];
                 if (path.Count < 2) continue;
@@ -192,7 +242,11 @@ namespace Vision.World
                 if (p.magnitude > halfExtent - 300f * U) continue;
                 if (Layout.LakeDepth(p) > -1.5f || Expand(Layout.Building, 40f * U).Contains(p) || Layout.Yard.Contains(p)) continue;
                 if (Vector2.Distance(Layout.Spawn, p) < 500f * U || Vector2.Distance(hunter, p) < 500f * U) continue;
-                if (placed.Exists(q => Vector2.Distance(q, p) < Game.Balance.Notes.Spacing * U)) continue;
+                // Far from the other path notes; half as far from those beside the generators.
+                bool near = false;
+                for (int k = 0; k < placed.Count && !near; k++)
+                    near = Vector2.Distance(placed[k], p) < Game.Balance.Notes.Spacing * U * (k < besideGens ? 0.5f : 1f);
+                if (near) continue;
                 if (Vector2.Distance(AmbulanceCentre, p) < 260f * U || blocked.AnyWithin(p, 0.5f)) continue;
                 bool nearLoot = false;
                 foreach (Pickup k in Pickups)
@@ -201,14 +255,7 @@ namespace Vision.World
                     if (Vector2.Distance(new Vector2(l.x, l.z), p) < 90f * U) { nearLoot = true; break; }
                 }
                 if (nearLoot) continue;
-                placed.Add(p);
-                var go = new GameObject($"Note {placed.Count}");
-                go.transform.SetParent(parent, false);
-                go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Note(r);
-                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
-                Conform(go.transform, p, 0.2f, R(0f, 360f), 0.9f, 0f);
-                go.transform.localScale = Vector3.one * 1.6f;
-                Notes.Add(go.transform);
+                Put(p, null);
             }
         }
     }

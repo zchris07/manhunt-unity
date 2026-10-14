@@ -36,7 +36,7 @@ namespace Vision.Game
                 if (p != null) map.Loot.Add(new SimMap.LootDef { Pos = Local(p.transform.position), Item = p.item, Golden = p.golden });
             foreach (HidingSpot h in w.HidingSpots)
                 map.HidingSpots.Add(new SimMap.HideDef { Pos = Local(h.transform.position), Exit = Local(h.ExitPosition), Kind = h.kind, Reach = h.reach });
-            foreach (Door d in w.Doors) map.Doors.Add(new SimMap.DoorDef { A = d.a, B = d.b, StartsOpen = d.IsOpen, Shutter = d.blocksMovementWhenOpen });
+            foreach (Door d in w.Doors) map.Doors.Add(new SimMap.DoorDef { A = d.a, B = d.b, StartsOpen = d.IsOpen, Shutter = d.blocksMovementWhenOpen, Gate = d.gate });
             foreach (Barricade b in w.BarricadeList) map.Barricades.Add(new SimMap.BarricadeDef { A = b.a, B = b.b, Pos = (b.a + b.b) * 0.5f });
             foreach (WindowPiece win in w.Windows) map.Windows.Add(new SimMap.WindowDef { A = win.a, B = win.b });
             for (int i = 0; i < w.Stakes.Count; i++)
@@ -47,6 +47,7 @@ namespace Vision.Game
                 if (used) map.Stakes.Add(Local(w.Stakes[i].position));
             }
             foreach (Transform n in w.Notes) map.Notes.Add(Local(n.position));
+            map.NoteImages.AddRange(w.NoteImages);
             if (w.Ambulance != null)
             {
                 map.AmbulanceAt = w.AmbulanceCentre;
@@ -178,12 +179,12 @@ namespace Vision.Game
             return false;
         }
 
-        public float VaultSlow(Vector2 p, float radius)
+        public float Vault(Vector2 p, float radius, bool hunter)
         {
-            float slow = 1f;
+            float v = 0f;
             foreach (SandboxWorld.LowObstacle o in world.Lows)
-                if (SimMap.SegmentDistance(p, o.A, o.B) < o.Half + radius) slow = Mathf.Max(slow, o.Slow);
-            return slow;
+                if (SimMap.SegmentDistance(p, o.A, o.B) < o.Half + radius) v = Mathf.Max(v, MatchSim.VaultFor(hunter, o.Slow, o.HunterOnly));
+            return v;
         }
 
         public bool InBrokenWindow(Vector2 p, float radius)

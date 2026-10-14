@@ -85,6 +85,7 @@ namespace Vision.UI
                     {
                         // The windup: the swish (heavier for a charged swing).
                         Audio.PlayCue(e.B >= 2 ? "swing_heavy" : "swing", Units(by.Pos));
+                        if (e.B >= 2) Audio.PlayCue("swing_heavy_low", Units(by.Pos));
                     }
                     else if (e.G <= 0f && e.F > 0f)
                     {
@@ -103,6 +104,10 @@ namespace Vision.UI
                     else if (e.Text == "search") Audio.PlayCue("hide", Units(e.Pos));
                     else if (e.Text == "drink") Audio.PlayCue("drink", Units(e.Pos));
                     else if (e.Text == "eat") Audio.PlayCue("eat", Units(e.Pos));
+                    else if (e.Text == "pick_hit") Audio.PlayCue("pick_hit", Units(e.Pos));
+                    else if (e.Text == "pick_miss") Audio.PlayCue("pick_miss", Units(e.Pos));
+                    else if (e.Text == "pick_reset") { Audio.PlayCue("pick_miss", Units(e.Pos)); Audio.PlayCue("pick_reset", Units(e.Pos)); }
+                    else if (e.Text == "gates") Audio.PlayCue("gate_swing", Units(e.Pos));
                     break;
                 case EventKind.Throw:
                     Audio.PlayCue("throw", Units(e.Pos));
@@ -130,6 +135,9 @@ namespace Vision.UI
                         case "piss": Audio.PlayCue("splash", Units(e.Pos)); break;
                         case "smash": Audio.PlayCue("splinter", Units(e.Pos)); break;
                         case "door_smash": Audio.PlayCue("smash", Units(e.Pos)); break;
+                        case "gate_hit": Audio.PlayCue("kick", Units(e.Pos)); break;
+                        case "gate_smash": Audio.PlayCue("kick", Units(e.Pos)); Audio.PlayCue("slam", Units(e.Pos)); break;
+                        case "gate_unlock": Audio.PlayCue("gate_unlock", Units(e.Pos)); Audio.PlayCue("gate_swing", Units(e.Pos)); break;
                         case "gen_kick":
                         case "gen_explode": Audio.PlayCue("kick", Units(e.Pos)); break;
                     }
@@ -424,14 +432,17 @@ namespace Vision.UI
                 Vector3 wind = new Vector3(Mathf.Cos(windAng), 0f, Mathf.Sin(windAng)) * (VapeWind * S);
                 // Blown: spreading out (wider and taller) and thinning, from the moment it leaves him.
                 float spread = 1f + VapeSpreadWide * age, tall = 1f + VapeSpreadTall * age;
+                // Spread through more of the air it's thinner gas, not just fainter: the medium itself loses density as
+                // the cloud swells (the same gas through a bigger volume), and the whole fades a little too.
                 float thin = 1f / (1f + VapeThin * age);
+                float dense = 1f / (spread * Mathf.Sqrt(tall));
                 var look = new VolumetricGas.Look
                 {
                     TintA = v.Nic ? new Color(0.62f, 0.78f, 0.88f) : new Color(0.8f, 0.74f, 0.5f),
                     TintB = v.Nic ? new Color(0.25f, 0.42f, 0.62f) : new Color(0.5f, 0.43f, 0.22f),
-                    // 60% less opaque than at first, thinning as it's blown about.
-                    Opacity = fade * 0.4f * thin,
-                    Extinction = 1.5f / S,
+                    // 60% less opaque than at first, then 30% less again; thinning as it's blown about.
+                    Opacity = fade * 0.4f * 0.7f * thin,
+                    Extinction = 1.5f / S * dense,
                     NoiseScale = 0.6f / S,
                     Erosion = 0.8f,
                     Drift = WorldDir(v.Angle) * (0.9f * S) + wind + Vector3.up * (0.12f * S),
@@ -448,7 +459,7 @@ namespace Vision.UI
         /// How Penjamin's cloud is blown about (only how it looks): its drift (metres a second, before the world's scale), how
         /// fast it spreads wider and taller (a share of its size a second), and how fast it thins.
         /// </summary>
-        public const float VapeWind = 0.35f, VapeSpreadWide = 0.07f, VapeSpreadTall = 0.12f, VapeThin = 0.09f;
+        public const float VapeWind = 0.35f, VapeSpreadWide = 0.07f, VapeSpreadTall = 0.12f, VapeThin = 0.05f;
 
         /// <summary>A steady random number in [0, 1) for a whole number.</summary>
         static float Hash01(int i)

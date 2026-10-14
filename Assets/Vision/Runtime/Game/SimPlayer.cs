@@ -115,6 +115,13 @@ namespace Vision.Game
         public int SelSlot = -1;
         /// <summary>The slot in hand when JARVIS came on: the tablet is held up until they take something else in hand.</summary>
         public int JarvisSlot = -2;
+        /// <summary>
+        /// Picking a graveyard lock: checks passed (0-3) and misses on this run, how long the tick has spun (negative while
+        /// it waits to start), where its mark is (degrees clockwise from the top) and which way it turns; the last press
+        /// (1 on the mark, -1 a miss, -2 a miss that started it over) and when.
+        /// </summary>
+        public int PickStage, PickMiss, PickDir = 1, PickResult;
+        public float PickT, PickZone, PickResultT;
         /// <summary>Holding up JARVIS's tablet: it's running and they haven't switched to anything else since (it keeps running when they do).</summary>
         public bool HoldingTablet => Jarvis > 0 && JarvisT > 0f && SelSlot == JarvisSlot;
         public bool GogglesOn;

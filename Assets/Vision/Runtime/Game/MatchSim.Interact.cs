@@ -48,14 +48,17 @@ namespace Vision.Game
             return best;
         }
 
-        /// <summary>Closest door (by distance to its closed panel) within reach.</summary>
-        public int NearbyDoor(Vector2 at, float reach = Balance.Reach.Door)
+        /// <summary>
+        /// Closest door (by distance to its closed panel) within reach. The graveyard's gates count only when asked for
+        /// (<paramref name="gates"/>: survivors); Zach and the NPCs never open or close them.
+        /// </summary>
+        public int NearbyDoor(Vector2 at, float reach = Balance.Reach.Door, bool gates = false)
         {
             int best = -1;
             float bd = R(reach);
             for (int i = 0; i < Map.Doors.Count; i++)
             {
-                if (DoorBroken[i]) continue;
+                if (DoorBroken[i] || (Map.Doors[i].Gate && !gates)) continue;
                 float d = SimMap.SegmentDistance(at, Map.Doors[i].A, Map.Doors[i].B);
                 if (d < bd) { bd = d; best = i; }
             }
@@ -167,6 +170,12 @@ namespace Vision.Game
             if (p.Prompt == Prompt.None)
             {
                 int ni = NearestOf(Map.Notes, at, R(Balance.Reach.Note), _ => true);
+                // A note lying beside a generator gives way to the generator when that's nearer.
+                if (ni >= 0 && !Gate.Powered)
+                {
+                    int gi = NearestOf(Map.Generators, at, R(Balance.Reach.Generator), i => !Gens[i].Repaired);
+                    if (gi >= 0 && Vector2.Distance(Map.Generators[gi], at) < Vector2.Distance(Map.Notes[ni], at)) ni = -1;
+                }
                 if (ni >= 0) Set(p, Prompt.ReadNote, ni);
             }
             if (p.Prompt == Prompt.None)
@@ -193,8 +202,12 @@ namespace Vision.Game
             }
             if (p.Prompt == Prompt.None)
             {
-                int di = NearbyDoor(at);
-                if (di >= 0) Set(p, Doors[di] ? Prompt.CloseDoor : Prompt.OpenDoor, di);
+                int di = NearbyDoor(at, Balance.Reach.Door, true);
+                if (di >= 0)
+                {
+                    if (Map.Doors[di].Gate) Set(p, DoorLocked[di] ? Prompt.PickLock : Doors[di] ? Prompt.CloseGates : Prompt.OpenGates, di);
+                    else Set(p, Doors[di] ? Prompt.CloseDoor : Prompt.OpenDoor, di);
+                }
             }
             int bi = NearbyBarricade(at, BarricadeState.Up);
             if (bi >= 0)
@@ -239,6 +252,9 @@ namespace Vision.Game
                     if (p.Prompt == Prompt.None)
                     {
                         int ni = NearestOf(Map.Notes, at, R(Balance.Reach.Note), _ => true);
+                        // Beside a generator he could kick, the nearer of the two.
+                        int gk = NearestOf(Map.Generators, at, R(Balance.Reach.Generator), i => !Gens[i].Repaired && Gens[i].Progress > 0.01f && !Gens[i].Regressing);
+                        if (ni >= 0 && gk >= 0 && Vector2.Distance(Map.Generators[gk], at) < Vector2.Distance(Map.Notes[ni], at)) ni = -1;
                         if (ni >= 0) Set(p, Prompt.ReadNote, ni);
                     }
                     if (p.Prompt == Prompt.None && HempDrop.HasValue && Vector2.Distance(HempDrop.Value, at) < R(Balance.Reach.Pickup)) Set(p, Prompt.TakeHemp, 0);
@@ -296,6 +312,12 @@ namespace Vision.Game
             if ((pressed & Btn.No) != 0) foreach (Npc n in Npcs) n.Answer(this, p, false);
             if (p.Role == Role.Survivor)
             {
+                // Picking a lock: E, Space or a click stops the tick; nothing else happens meanwhile.
+                if (p.Action == ActionKind.PickLock)
+                {
+                    if ((pressed & (Btn.Interact | Btn.Space | Btn.Primary)) != 0) PickStrike(p);
+                    return;
+                }
                 // Holding E starts hold-to-act interactions as soon as they become available.
                 bool heldStart = cmd.Has(Btn.Interact) && p.Action == ActionKind.None && p.HideState == 0 && System.Array.IndexOf(HoldPrompts, p.Prompt) >= 0;
                 if ((pressed & Btn.Interact) != 0 || heldStart) SurvivorInteract(p);
@@ -344,7 +366,7 @@ namespace Vision.Game
                     StartAction(p, ActionKind.DamageGen, Balance.Hunter.DamageGenTime, p.PromptTarget);
                     break;
                 case Prompt.ReadNote:
-                    Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = p.PromptTarget });
+                    Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = NoteImage(p.PromptTarget) });
                     break;
                 case Prompt.TakeHemp:
                     if (HempDrop.HasValue)
@@ -368,6 +390,9 @@ namespace Vision.Game
         static bool IsTalk(Prompt p) => p == Prompt.TalkSexton || p == Prompt.TalkChris || p == Prompt.TalkMarc || p == Prompt.TalkPlasma || p == Prompt.TalkWaz ||
                                          p == Prompt.TalkChacko || p == Prompt.TalkNjaaron || p == Prompt.TalkMonique || p == Prompt.TalkThomas || p == Prompt.TalkSoham ||
                                          p == Prompt.SextonMore;
+
+        /// <summary>Which photo note <paramref name="i"/> shows.</summary>
+        public int NoteImage(int i) => i >= 0 && i < Map.NoteImages.Count ? Map.NoteImages[i] : i % Balance.Notes.Images;
 
         void ToggleDoor(int id)
         {
@@ -421,15 +446,20 @@ namespace Vision.Game
                     StartAction(p, ActionKind.OpenGate, Balance.Objectives.GateOpenTime, 0);
                     break;
                 case Prompt.ReadNote:
-                    Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = p.PromptTarget });
+                    Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = NoteImage(p.PromptTarget) });
                     break;
                 case Prompt.PickDrop:
                     PickUpDrop(p, p.PromptTarget);
                     break;
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
+                case Prompt.OpenGates:
+                case Prompt.CloseGates:
                     ToggleDoor(p.PromptTarget);
-                    Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Talk, A = p.Id, Text = "door", Pos = p.Pos });
+                    Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Talk, A = p.Id, Text = Map.Doors[p.PromptTarget].Gate ? "gates" : "door", Pos = p.Pos });
+                    break;
+                case Prompt.PickLock:
+                    StartPick(p, p.PromptTarget);
                     break;
                 default:
                     if (p.PromptTarget >= 0 && p.PromptTarget < Npcs.Count && IsTalk(p.Prompt)) Npcs[p.PromptTarget].Talk(this, p);
@@ -535,7 +565,16 @@ namespace Vision.Game
                         }
                         p.ActionT = Gate.Progress * p.ActionDur;
                         continue;
+                    case ActionKind.PickLock:
+                        UpdatePick(p, dt);
+                        continue;
                     case ActionKind.Plant:
+                        // Planted by holding the left mouse button the whole way; letting go before it's down starts it over.
+                        if (!p.LastCmd.Has(Btn.Primary) || !p.CanAct)
+                        {
+                            CancelAction(p);
+                            continue;
+                        }
                         p.ActionT += dt;
                         if (p.ActionT < p.ActionDur) continue;
                         p.Action = ActionKind.None;

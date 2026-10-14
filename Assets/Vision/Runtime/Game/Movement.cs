@@ -9,8 +9,11 @@ namespace Vision.Game
         bool InBrokenWindow(Vector2 p, float radius);
         /// <summary>Over a fallen log or tree, or a fence: the body is vaulting it.</summary>
         bool OverLow(Vector2 p, float radius);
-        /// <summary>How many times longer than usual vaulting what's here takes (1 for a log or a fence, 1.5 the graveyard's).</summary>
-        float VaultSlow(Vector2 p, float radius);
+        /// <summary>
+        /// Climbing over something here: 0 if not (or nothing this body can climb), else how many times longer it takes than
+        /// a log (1 a log or a fence; the graveyard's fence only Zach climbs, five times as long).
+        /// </summary>
+        float Vault(Vector2 p, float radius, bool hunter);
     }
 
     public struct MoveContext
@@ -125,9 +128,10 @@ namespace Vision.Game
 
             float speed;
             // Through a broken window or over a fallen log or tree: vaulting, at the climbing pace.
-            bool inWindow = env != null && (env.InBrokenWindow(at, radius + Scale.D(4f)) || env.OverLow(at, radius * 0.5f));
+            float vault = env != null ? env.Vault(at, radius * 0.5f, role == Role.Hunter) : 0f;
+            bool inWindow = env != null && (env.InBrokenWindow(at, radius + Scale.D(4f)) || vault > 0f);
             s.Climbing = inWindow;
-            float vaultSlow = inWindow ? Mathf.Max(1f, env.VaultSlow(at, radius * 0.5f)) : 1f;
+            float vaultSlow = Mathf.Max(1f, vault);
             if (role == Role.Hunter)
             {
                 if ((pressed & Btn.Lunge) != 0 && !ctx.AbilitiesLocked && s.LungeCharges > 0 && s.LungeT <= 0f && !ctx.Carrying && s.Mode == MoveMode.Normal)

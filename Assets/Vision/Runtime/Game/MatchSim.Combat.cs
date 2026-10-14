@@ -118,20 +118,22 @@ namespace Vision.Game
                     Noise(c, 700f, "smash");
                     if (BarricadeHits[i] >= Balance.Hunter.Attack.BarricadeHits) SetBarricade(i, BarricadeState.Broken);
                 }
-                // Two swings smash a closed door (it stays open for good).
+                // Two swings smash a closed door (it stays open for good). The graveyard's gates, closed again once
+                // unlocked, take four full charged swings (eight hits); locked, they don't give at all.
                 for (int i = 0; i < Map.Doors.Count && !hit; i++)
                 {
-                    if (Doors[i] || DoorBroken[i] || Map.Doors[i].Shutter) continue;
+                    if (Doors[i] || DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i]) continue;
                     Vector2 c = ClosestOnSegment(h.Pos, Map.Doors[i].A, Map.Doors[i].B);
                     if (!InSwipe(h, c, R(6f))) continue;
                     hit = true;
+                    bool gate = Map.Doors[i].Gate;
                     DoorHits[i] += power;
-                    Noise(c, 700f, "smash");
-                    if (DoorHits[i] >= Balance.Hunter.Attack.DoorHits)
+                    Noise(c, 700f, gate ? "gate_hit" : "smash");
+                    if (DoorHits[i] >= (gate ? Balance.Graveyard.GateHits : Balance.Hunter.Attack.DoorHits))
                     {
                         SetDoor(i, true);
                         DoorBroken[i] = true;
-                        Noise(c, 900f, "door_smash");
+                        Noise(c, 900f, gate ? "gate_smash" : "door_smash");
                     }
                 }
             }

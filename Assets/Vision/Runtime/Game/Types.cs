@@ -44,7 +44,7 @@ namespace Vision.Game
     public enum ActionKind : byte
     {
         None = 0, Repair = 1, Heal = 3, Revive = 4, Unstake = 5, OpenGate = 6, Loot = 7, HideEnter = 8, HideExit = 9,
-        PickUp = 11, Stake = 12, Search = 13, DamageGen = 15, Attack = 17, Talk = 18, Plant = 19, Drink = 20,
+        PickUp = 11, Stake = 12, Search = 13, DamageGen = 15, Attack = 17, Talk = 18, Plant = 19, Drink = 20, PickLock = 21,
     }
 
     public enum BarricadeState : byte { Up = 0, Down = 1, Broken = 2 }
@@ -56,6 +56,7 @@ namespace Vision.Game
         OpenDoor = 21, CloseDoor = 22, TalkSexton = 23, TakeHemp = 24, TalkChris = 27, TalkMarc = 28, TalkPlasma = 29,
         SextonMore = 30, PickDrop = 31, NameNpc = 32, NameLoot = 33, NameDrop = 34, TalkWaz = 35, ReadNote = 36,
         TalkChacko = 37, TalkNjaaron = 38, NjaaronAsk = 39, TalkMonique = 40, TalkThomas = 41, TalkSoham = 42,
+        PickLock = 43, OpenGates = 44, CloseGates = 45,
     }
 
     /// <summary>Buttons of one input frame (the original's Btn, with this game's key mapping).</summary>
@@ -130,6 +131,7 @@ namespace Vision.Game
             ActionKind.Talk => "Listening to Sexton",
             ActionKind.Plant => "Planting a galaxy gas trap",
             ActionKind.Drink => "Drinking a mini shield",
+            ActionKind.PickLock => "Picking the lock",
             _ => "",
         };
 
@@ -168,6 +170,9 @@ namespace Vision.Game
             Prompt.TalkMonique => "Press E to talk to Monique Bourgeois",
             Prompt.TalkThomas => "Press E to talk to Thomas Bourgeois",
             Prompt.TalkSoham => "Press E to talk to Soham",
+            Prompt.PickLock => "Press E to pick the lock",
+            Prompt.OpenGates => "Press E to open the gates",
+            Prompt.CloseGates => "Press E to close the gates",
             _ => null,
         };
     }

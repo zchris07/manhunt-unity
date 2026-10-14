@@ -721,6 +721,33 @@ namespace Vision.Player
                         yield return Shot("149_ambulance_lights");
                         player.AimOverride = null;
                     }
+                    // The graveyard's gates: chained shut, the lock being picked, then swung open.
+                    {
+                        Vector2 gate = world.Layout.GraveyardGate(1.4f);
+                        Vector2 inward = (world.Layout.Graveyard.center - gate).normalized;
+                        yield return Stage(player, V(gate), inward, wanderer, away);
+                        player.AimOverride = inward;
+                        yield return new WaitForSeconds(0.7f);
+                        gameHud.Refresh();
+                        yield return Shot("150_graveyard_gates_locked");
+                        player.ExtraButtons = Btn.Interact;
+                        yield return new WaitForSeconds(0.1f);
+                        player.ExtraButtons = Btn.None;
+                        yield return new WaitForSeconds(0.85f);
+                        gameHud.Refresh();
+                        yield return Shot("151_lockpick_dial");
+                        int gi = world.Doors.FindIndex(d => d != null && d.gate);
+                        if (gi >= 0)
+                        {
+                            host.Sim.CancelAction(host.Local);
+                            host.Sim.DoorLocked[gi] = false;
+                            host.Sim.SetDoor(gi, true);
+                        }
+                        yield return new WaitForSeconds(1.3f);
+                        gameHud.Refresh();
+                        yield return Shot("152_graveyard_gates_open");
+                        player.AimOverride = null;
+                    }
                     if (world.Layout.Plan != null && world.Layout.Plan.LoungeRoom >= 0)
                     {
                         Vector2 seat = world.Layout.Plan.LoungeSeat, tv = world.Layout.Plan.LoungeTv;

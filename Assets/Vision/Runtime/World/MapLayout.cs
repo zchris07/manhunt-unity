@@ -234,8 +234,9 @@ namespace Vision.World
             var candidates = new List<int>();
             for (int i = 1; i < Clearings.Count; i++) if (i != HunterClearing) candidates.Add(i);
             var chosen = new List<int>();
-            // Farthest-point selection spreads them; cabins are a last resort (the building holds two more).
-            while (chosen.Count < 3 && chosen.Count < candidates.Count)
+            // Farthest-point selection spreads them; cabins are a last resort (the building holds two more, and the third
+            // stands in the middle of the graveyard, added with it).
+            while (chosen.Count < 2 && chosen.Count < candidates.Count)
             {
                 int best = -1;
                 float bestScore = float.MinValue;
@@ -327,6 +328,8 @@ namespace Vision.World
             Graveyard = new Rect(g.x - 9f, g.y - 7f, 18f, 14f);
             GraveyardYaw = rng.Next(4) * 90f + Range(-12f, 12f);
             KeepRects.Add(Expand(Graveyard, 1.5f));
+            // There's always a generator in the middle of the graveyard.
+            WoodsGenerators.Add(Graveyard.center);
             Vector2 p = Site(10f);
             Playground = new Rect(p.x - 7.5f, p.y - 6f, 15f, 12f);
             KeepRects.Add(Expand(Playground, 1.5f));
@@ -427,17 +430,25 @@ namespace Vision.World
             float bend = Range(-12f, 12f);
             const float spacing = 22f;
             int n = Mathf.FloorToInt((HalfExtent * 2f - 8f) / spacing);
-            for (int i = 0; i <= n; i++)
+            int keepFrom = KeepCircles.Count;
+            // Too few poles found room (too near the edge, or the way crowded): try again nearer the middle.
+            for (int attempt = 0; attempt < 5; attempt++, off *= 0.7f)
             {
-                float t = -HalfExtent + 4f + i * spacing;
-                float side = off + bend * Mathf.Sin(t / HalfExtent * Mathf.PI);
-                Vector2 p = alongX ? new Vector2(t, side) : new Vector2(side, t);
-                // Step a pole off anything it would stand in.
-                for (int k = 0; k < 12 && (Blocked(p) || !LakeClear(p, 2f)); k++)
-                    p += (alongX ? Vector2.up : Vector2.right) * 2.5f * (k % 2 == 0 ? 1f : -1f) * (k / 2 + 1);
-                if (p.magnitude > HalfExtent - 4f || Blocked(p) || !LakeClear(p, 2f) || NearBuilding(p, 4f)) continue;
-                PowerPoles.Add(p);
-                KeepCircles.Add((p, 1.2f));
+                PowerPoles.Clear();
+                KeepCircles.RemoveRange(keepFrom, KeepCircles.Count - keepFrom);
+                for (int i = 0; i <= n; i++)
+                {
+                    float t = -HalfExtent + 4f + i * spacing;
+                    float side = off + bend * Mathf.Sin(t / HalfExtent * Mathf.PI);
+                    Vector2 p = alongX ? new Vector2(t, side) : new Vector2(side, t);
+                    // Step a pole off anything it would stand in.
+                    for (int k = 0; k < 12 && (Blocked(p) || !LakeClear(p, 2f)); k++)
+                        p += (alongX ? Vector2.up : Vector2.right) * 2.5f * (k % 2 == 0 ? 1f : -1f) * (k / 2 + 1);
+                    if (p.magnitude > HalfExtent - 4f || Blocked(p) || !LakeClear(p, 2f) || NearBuilding(p, 4f)) continue;
+                    PowerPoles.Add(p);
+                    KeepCircles.Add((p, 1.2f));
+                }
+                if (PowerPoles.Count > 4) break;
             }
         }
 
@@ -450,13 +461,20 @@ namespace Vision.World
             }
         }
 
+        /// <summary>Just outside the graveyard's gates (its only way in), <paramref name="outside"/> beyond the fence line.</summary>
+        public Vector2 GraveyardGate(float outside)
+        {
+            Vector3 v = Quaternion.Euler(0f, GraveyardYaw, 0f) * new Vector3(0f, 0f, -(Graveyard.height * 0.5f + outside));
+            return Graveyard.center + new Vector2(v.x, v.z);
+        }
+
         /// <summary>Every place the paths must join: spawn, the clearings, the building's doorways and the special sites.</summary>
         public List<Vector2> PathPoints()
         {
             var pts = new List<Vector2>();
             foreach (Clearing c in Clearings) pts.Add(c.Centre);
             pts.AddRange(BuildingEntrances);
-            pts.Add(new Vector2(Graveyard.center.x, Graveyard.yMin - 1f));
+            pts.Add(GraveyardGate(1.5f));
             pts.Add(new Vector2(Playground.center.x, Playground.yMin - 1f));
             pts.Add(HangingTree + Vector2.down * 4f);
             return pts;

@@ -69,12 +69,17 @@ namespace Vision.World
         /// and shots pass through their rails), but they still cover a line drawn over the terrain, as a wall does.
         /// </summary>
         public const int VaultLayer = 13;
+        /// <summary>
+        /// The graveyard's fence: survivors (and NPCs) run into it; only Zach's body passes it (his controller leaves this
+        /// layer out), climbing over it five times as slowly as a log.
+        /// </summary>
+        public const int GraveFenceLayer = 14;
 
         /// <summary>
         /// A thing players vault (design units, the level's plane): a fallen log or tree, or a fence. <see cref="Slow"/> is how
         /// much longer it takes to get over than a log (1, or 0 meaning 1; the graveyard's spiked fence 1.5).
         /// </summary>
-        public struct LowObstacle { public Vector2 A, B; public float Half, Height, Slow; public bool Fence; }
+        public struct LowObstacle { public Vector2 A, B; public float Half, Height, Slow; public bool Fence, HunterOnly; }
         public readonly List<LowObstacle> Lows = new List<LowObstacle>();
 
         /// <summary>
@@ -101,19 +106,22 @@ namespace Vision.World
 
         /// <summary>How high the body goes over a broken window's sill, and over a fallen log or tree (design units).</summary>
         public const float WindowVaultHeight = 0.55f, LogVaultHeight = 0.42f;
-        /// <summary>How high the body goes over a split-rail fence and over the graveyard's iron fence; how much longer the iron one takes.</summary>
-        public const float FenceVaultHeight = 0.8f, IronFenceVaultHeight = 1f, IronFenceVaultSlow = 1.5f;
+        /// <summary>How high the body goes over a split-rail fence and over the graveyard's iron fence (Zach only).</summary>
+        public const float FenceVaultHeight = 0.8f, IronFenceVaultHeight = 1.1f;
         /// <summary>A fence's vault strip reaches this far either side of it (the level's units), as far as a log's.</summary>
         public const float FenceVaultHalf = 0.3f;
 
-        /// <summary>Makes a fence vaultable: players pass through its collider (climbing over it), NPCs don't.</summary>
-        void MakeVaultable(GameObject go, BoxCollider box, float height, float slow)
+        /// <summary>
+        /// Makes a fence vaultable: players pass through its collider (climbing over it), NPCs don't. A
+        /// <paramref name="hunterOnly"/> one (the graveyard's) only Zach climbs.
+        /// </summary>
+        void MakeVaultable(GameObject go, BoxCollider box, float height, float slow, bool hunterOnly = false)
         {
-            go.layer = VaultLayer;
+            go.layer = hunterOnly ? GraveFenceLayer : VaultLayer;
             Transform t = box.transform;
             Vector3 c = box.center, e = new Vector3(box.size.x * 0.5f, 0f, 0f);
             Vector3 a = transform.InverseTransformPoint(t.TransformPoint(c - e)), b = transform.InverseTransformPoint(t.TransformPoint(c + e));
-            Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = FenceVaultHalf, Height = height, Slow = slow, Fence = true });
+            Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = FenceVaultHalf, Height = height, Slow = slow, Fence = true, HunterOnly = hunterOnly });
         }
 
         /// <summary>Records a lying obstacle from its box collider, and makes it low: vaulted, seen and shot over.</summary>
@@ -134,30 +142,95 @@ namespace Vision.World
             Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = half, Height = LogVaultHeight });
         }
         /// <summary>
-        /// The torn-up root plate and mound of dirt at a fallen tree's base: a solid disc of wall that players, NPCs, thrown
-        /// items and shots all run into and nobody vaults (unlike the log itself, which stays low: vaulted, seen and shot
-        /// over). The log's vault strip is cut back so it starts past the mound.
+        /// A fallen tree's root mound on the ground plane (the level's units): a thin ellipse centred on
+        /// <see cref="C"/>, <see cref="Thin"/> along the trunk (<see cref="Along"/>) and <see cref="Wide"/> across it.
+        /// </summary>
+        public struct Mound
+        {
+            public Vector2 C, Along;
+            public float Thin, Wide;
+
+            /// <summary>How far out of the ellipse (grown by <paramref name="pad"/>) a point is: below 1 inside.</summary>
+            public float Reach(Vector2 p, float pad)
+            {
+                Vector2 d = p - C, across = new Vector2(-Along.y, Along.x);
+                float u = Vector2.Dot(d, Along) / (Thin + pad), v = Vector2.Dot(d, across) / (Wide + pad);
+                return Mathf.Sqrt(u * u + v * v);
+            }
+        }
+
+        /// <summary>
+        /// The plate's footprint, as multiples of the tree's size: DeadTrees.Fallen stands a disc of soil and roots on edge
+        /// at the trunk's base, 0.22 thick either side of -0.15 along the trunk and 1.15 across; where it meets the ground
+        /// it's a thin ellipse a little wider than the disc is thick (the dirt banked at its foot).
+        /// </summary>
+        const float MoundAt = -0.15f, MoundThin = 0.27f, MoundWide = 1.1f, MoundTop = 2.4f, MoundBelow = 1f;
+
+        static Mesh moundPrism;
+
+        /// <summary>An upright elliptic prism of unit radius, from the ground (y 0) up to y 1 (scaled to each mound).</summary>
+        static Mesh MoundPrism()
+        {
+            if (moundPrism != null) return moundPrism;
+            const int n = 16;
+            var v = new Vector3[n * 2];
+            var tris = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                float a = i * Mathf.PI * 2f / n;
+                v[i] = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                v[i + n] = new Vector3(Mathf.Cos(a), 1f, Mathf.Sin(a));
+                int j = (i + 1) % n;
+                tris.AddRange(new[] { i, j, i + n, j, j + n, i + n });
+            }
+            for (int i = 1; i < n - 1; i++)
+            {
+                tris.AddRange(new[] { 0, i + 1, i });
+                tris.AddRange(new[] { n, n + i, n + i + 1 });
+            }
+            moundPrism = new Mesh { name = "Root Mound Prism", vertices = v, triangles = tris.ToArray(), hideFlags = HideFlags.DontSave };
+            moundPrism.RecalculateBounds();
+            return moundPrism;
+        }
+
+        /// <summary>
+        /// The torn-up root plate at a fallen tree's base: a solid wall that players, NPCs, thrown items and shots all run
+        /// into and nobody vaults (unlike the log itself, which stays low: vaulted, seen and shot over). Its footprint is
+        /// only where the disc meets the ground: a thin ellipse across the trunk's end. It stands straight up whatever the
+        /// slope (not tilted with the tree, whose lean would turn a wall's side into a ramp the player's body walks up and
+        /// over), with walls running from well under the ground to above the plate's top so there's no edge to step onto.
+        /// Every vault strip is cut back out of it (<see cref="TrimLowsAtMounds"/>).
         /// </summary>
         void RootMound(GameObject tree, float s)
         {
-            // The plate stands on edge at the trunk's base (DeadTrees.Fallen: centred about -0.2 s along the tree, 1.15 s
-            // across, roots reaching out behind it).
-            const float centreX = -0.3f, radiusK = 0.95f;
+            Transform t = tree.transform;
+            float girth = t.localScale.x, tall = t.localScale.y;
+            Vector3 baseW = t.TransformPoint(new Vector3(MoundAt * s, 0f, 0f));
+            Vector3 l = transform.InverseTransformPoint(baseW);
+            var c = new Vector2(l.x, l.z);
+            Vector3 alongL = transform.InverseTransformDirection(t.right);
+            var along = new Vector2(alongL.x, alongL.z);
+            along = along.sqrMagnitude > 1e-6f ? along.normalized : Vector2.right;
+            float thin = MoundThin * s * girth, wide = MoundWide * s * girth, below = MoundBelow * s, top = MoundTop * s * tall;
+
             var mound = new GameObject("Root Mound");
-            mound.transform.SetParent(tree.transform, false);
-            mound.transform.localPosition = new Vector3(centreX * s, 0f, 0f);
+            mound.SetActive(false);
+            Transform parent = t.parent != null ? t.parent : staticRoot;
+            mound.transform.SetParent(parent, false);
+            mound.transform.position = transform.TransformPoint(new Vector3(c.x, H(c) - below, c.y));
+            mound.transform.rotation = transform.rotation * Quaternion.Euler(0f, -Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg, 0f);
+            float k = transform.lossyScale.x / Mathf.Max(1e-4f, parent.lossyScale.x);
+            mound.transform.localScale = new Vector3(thin, below + top, wide) * k;
             mound.isStatic = tree.isStatic;
-            var col = mound.AddComponent<CapsuleCollider>();
-            col.radius = radiusK * s;
-            col.height = 3f * s;
-            col.center = new Vector3(0f, 1.1f * s, 0f);
+            var col = mound.AddComponent<MeshCollider>();
+            col.sharedMesh = MoundPrism();
+            col.convex = true;
             var occ = mound.AddComponent<Vision.Visibility.Occluder>();
             occ.shape = Vision.Visibility.Occluder.Shape.Circle;
-            occ.radius = radiusK * s;
-            // Its radius in the level's units (the tree is scaled), and the vault strip trimmed off it.
-            float r = radiusK * s * Mathf.Max(tree.transform.lossyScale.x, tree.transform.lossyScale.z) / Mathf.Max(1e-4f, transform.lossyScale.x);
-            Vector3 c3 = transform.InverseTransformPoint(mound.transform.position);
-            RootMounds.Add((new Vector2(c3.x, c3.z), r));
+            occ.radius = 1f;
+            occ.sides = 16;
+            mound.SetActive(true);
+            RootMounds.Add(new Mound { C = c, Along = along, Thin = thin, Wide = wide });
         }
 
         /// <summary>
@@ -166,34 +239,43 @@ namespace Vision.World
         /// </summary>
         void TrimLowsAtMounds()
         {
-            foreach (var (c, r0) in RootMounds)
+            const float pad = 0.05f;
+            foreach (Mound m in RootMounds)
             {
-                float r = r0 + 0.05f;
+                Vector2 across = new Vector2(-m.Along.y, m.Along.x);
+                // In the ellipse's own frame, scaled to a unit circle (lines stay lines, the same parts along them).
+                Vector2 Unit(Vector2 p) => new Vector2(Vector2.Dot(p - m.C, m.Along) / (m.Thin + pad), Vector2.Dot(p - m.C, across) / (m.Wide + pad));
                 for (int i = 0; i < Lows.Count; i++)
                 {
                     LowObstacle o = Lows[i];
-                    Vector2 ab = o.B - o.A;
-                    float len = ab.magnitude;
-                    if (len < 1e-5f || Vision.Game.SimMap.SegmentDistance(c, o.A, o.B) > r) continue;
-                    // Where the strip's line enters and leaves the disc (as parts of the strip, 0 at A to 1 at B).
-                    Vector2 d = ab / len, f = o.A - c;
-                    float bq = Vector2.Dot(f, d), disc = bq * bq - (f.sqrMagnitude - r * r);
-                    float root = Mathf.Sqrt(Mathf.Max(0f, disc));
-                    float t0 = Mathf.Clamp01((-bq - root) / len), t1 = Mathf.Clamp01((-bq + root) / len);
-                    // Keep whichever side lies outside and is longer; a strip wholly inside shrinks to a point at the edge.
+                    Vector2 a = Unit(o.A), b = Unit(o.B), ab = b - a;
+                    float len2 = ab.sqrMagnitude;
+                    if (len2 < 1e-10f) continue;
+                    // Where the strip enters and leaves the ellipse (as parts of the strip, 0 at A to 1 at B).
+                    float bq = Vector2.Dot(a, ab) / len2, cq = (a.sqrMagnitude - 1f) / len2, disc = bq * bq - cq;
+                    if (disc <= 0f) continue;
+                    float root = Mathf.Sqrt(disc);
+                    float t0 = -bq - root, t1 = -bq + root;
+                    if (t1 <= 0f || t0 >= 1f) continue;
+                    t0 = Mathf.Clamp01(t0);
+                    t1 = Mathf.Clamp01(t1);
+                    // Keep whichever side lies outside and is longer; a strip wholly inside shrinks to a point at its end.
+                    Vector2 AB = o.B - o.A;
                     if (t0 >= 1f - t1)
                     {
-                        if (t0 > 1e-4f) o.B = o.A + ab * t0;
-                        else o.A = o.B = c + d * r;
+                        if (t0 > 1e-4f) o.B = o.A + AB * t0;
+                        else o.A = o.B = m.C + (o.B - m.C).normalized * (m.Wide + pad);
                     }
-                    else o.A = o.A + ab * t1;
+                    else o.A = o.A + AB * t1;
                     Lows[i] = o;
                 }
             }
         }
 
-        /// <summary>The fallen trees' root mounds (centre and radius, the level's units): solid, never vaulted.</summary>
-        public readonly List<(Vector2 c, float r)> RootMounds = new List<(Vector2, float)>();
+        /// <summary>The fallen trees' root mounds (thin ellipses on the ground, the level's units): solid, never vaulted.</summary>
+        public readonly List<Mound> RootMounds = new List<Mound>();
+        /// <summary>Which photo each of <see cref="Notes"/> shows (0-based, note-1 to note-6).</summary>
+        public readonly List<int> NoteImages = new List<int>();
 
         /// <summary>For the painted map: each tree's spot, its crown radius and whether it is dead; each rock's spot and radius.</summary>
         public readonly List<(Vector2 p, float r, bool dead)> MapTrees = new List<(Vector2, float, bool)>();
@@ -319,6 +401,7 @@ namespace Vision.World
             RootMounds.Clear();
             Physics.IgnoreLayerCollision(CharacterLayer, LowLayer, true);
             Physics.IgnoreLayerCollision(CharacterLayer, VaultLayer, true);
+            Physics.IgnoreLayerCollision(CharacterLayer, GraveFenceLayer, false);
             rng = new System.Random(seed);
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
@@ -332,6 +415,7 @@ namespace Vision.World
             Windows.Clear();
             Stakes.Clear();
             Notes.Clear();
+            NoteImages.Clear();
             Ambulance = null;
             Crows.Clear();
             Pickups.Clear();
@@ -908,6 +992,56 @@ namespace Vision.World
             root.SetActive(true);
         }
 
+        /// <summary>Half the width of the graveyard's gateway (the level's units): two leaves, each this wide.</summary>
+        public const float GateHalfWidth = 1.1f;
+
+        /// <summary>
+        /// The graveyard's gates: two ornate iron leaves filling the gateway from <paramref name="start"/> along
+        /// <paramref name="along"/>, hinged at either end and swinging in toward the graves, chained and padlocked at the start.
+        /// Iron bars: seen and shot through, but nobody walks through them shut.
+        /// </summary>
+        void MakeGate(Transform parent, Vector2 start, Vector2 along, float width, float baseY)
+        {
+            var root = new GameObject("Graveyard Gates");
+            root.SetActive(false);
+            root.transform.SetParent(parent, false);
+            root.transform.SetLocalPositionAndRotation(new Vector3(start.x, baseY, start.y), Quaternion.Euler(0f, -Mathf.Atan2(along.y, along.x) * Mathf.Rad2Deg, 0f));
+            float leaf = width * 0.5f;
+            Transform Leaf(string name, Vector3 at)
+            {
+                var h = new GameObject(name).transform;
+                h.SetParent(root.transform, false);
+                h.localPosition = at;
+                var panel = new GameObject("Leaf");
+                panel.transform.SetParent(h, false);
+                panel.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.GateLeaf(rng, leaf - 0.01f);
+                PropFactory.NoShadows(panel.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+                return h;
+            }
+            Transform h1 = Leaf("Hinge", Vector3.zero), h2 = Leaf("Hinge 2", new Vector3(width, 0f, 0f));
+            h2.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            var lockGo = new GameObject("Lock");
+            lockGo.transform.SetParent(root.transform, false);
+            lockGo.transform.localPosition = new Vector3(leaf, 0f, 0f);
+            lockGo.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.GateLock(rng);
+            PropFactory.NoShadows(lockGo.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+
+            var blocker = AddBox(root, new Vector3(leaf, 1.1f, 0f), new Vector3(width, 2.2f, 0.15f));
+            var door = root.AddComponent<Door>();
+            door.gate = true;
+            door.hinge = h1;
+            door.hinge2 = h2;
+            door.lockVisual = lockGo;
+            door.blocker = blocker;
+            // In toward the graves.
+            door.openAngle = -100f;
+            door.swingSpeed = 160f;
+            door.a = start;
+            door.b = start + along * width;
+            Doors.Add(door);
+            root.SetActive(true);
+        }
+
         /// <summary>A window in a wall from <paramref name="a"/> to <paramref name="b"/>: a sill wall, glass that blocks movement but not sight.</summary>
         void Window(Vector2 a, Vector2 b, float baseY)
         {
@@ -1193,8 +1327,11 @@ namespace Vision.World
                 return g.center + new Vector2(v.x, v.z);
             }
             float hx = g.width * 0.5f, hz = g.height * 0.5f;
-            // Iron fence round the plot, a gate gap in the middle of the south side.
-            var sides = new[] { (new Vector2(-hx, -hz), new Vector2(-1f, -hz)), (new Vector2(1f, -hz), new Vector2(hx, -hz)),
+            // Iron fence round the plot; the only way in is the pair of gates between stone pillars in the middle of the
+            // south side. Survivors can't climb the fence; Zach can, slowly.
+            const float gateHalf = GateHalfWidth, pillar = 0.44f;
+            float sideEnd = gateHalf + pillar;
+            var sides = new[] { (new Vector2(-hx, -hz), new Vector2(-sideEnd, -hz)), (new Vector2(sideEnd, -hz), new Vector2(hx, -hz)),
                                 (new Vector2(hx, -hz), new Vector2(hx, hz)), (new Vector2(hx, hz), new Vector2(-hx, hz)), (new Vector2(-hx, hz), new Vector2(-hx, -hz)) };
             foreach (var (a0, b0) in sides)
             {
@@ -1202,17 +1339,28 @@ namespace Vision.World
                 float len = Vector2.Distance(a, b);
                 Vector2 d = (b - a) / len;
                 GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, len), parent, new Vector3(a.x, Mathf.Min(H(a), H(b)) - 0.05f, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                // Climbed over too, but the spiked iron takes half as long again as anything else.
                 float fh = LowPolyModels.IronFenceHeight;
-                MakeVaultable(f, AddBox(f, new Vector3(len * 0.5f, fh * 0.5f, 0f), new Vector3(len, fh, 0.12f)), IronFenceVaultHeight, IronFenceVaultSlow);
+                MakeVaultable(f, AddBox(f, new Vector3(len * 0.5f, fh * 0.5f, 0f), new Vector3(len, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
             }
-            // Rows of graves facing the gate, some missing, some crooked.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Vector2 pp = Local(s * (gateHalf + pillar * 0.5f), -hz);
+                GameObject pl = Piece("Gate Pillar", LowPolyModels.GatePillar(rng, 2.45f), parent, new Vector3(pp.x, H(pp) - 0.05f, pp.y), Layout.GraveyardYaw);
+                AddBox(pl, new Vector3(0f, 1.2f, 0f), new Vector3(pillar + 0.08f, 2.4f, pillar + 0.08f));
+            }
+            {
+                Vector2 a = Local(-gateHalf, -hz), b = Local(gateHalf, -hz);
+                MakeGate(parent, a, (b - a).normalized, gateHalf * 2f, Mathf.Min(H(a), H(b), H((a + b) * 0.5f)) - 0.03f);
+            }
+            // Rows of graves facing the gate, some missing, some crooked; the middle kept clear round the generator, with
+            // an aisle to it from the gates.
             for (int row = 0; row < 4; row++)
                 for (int col = 0; col < 7; col++)
                 {
                     if (rng.NextDouble() < 0.18) continue;
                     float x = -hx + 1.6f + col * (g.width - 3.2f) / 6f + Range(-0.3f, 0.3f);
                     float z = hz - 1.6f - row * 2.9f + Range(-0.2f, 0.2f);
+                    if ((Mathf.Abs(x) < 2.7f && Mathf.Abs(z) < 2.3f) || (Mathf.Abs(x) < 1.5f && z < 0f)) continue;
                     Vector2 p = Local(x, z);
                     int style = rng.Next(LowPolyModels.HeadstoneStyles);
                     GameObject stone = Piece("Headstone", LowPolyModels.Headstone(rng, style), parent, Vector3.zero, 0f);
@@ -1316,7 +1464,8 @@ namespace Vision.World
             {
                 GameObject gen = Prop(library != null ? library.generator : null, staticRoot,
                     () => PropFactory.CreateGenerator(LowPolyModels.Generator(rng), lowPolyMaterial));
-                Conform(gen.transform, g, 0.7f, Range(0f, 4f) * 90f, 0.85f, 0.03f);
+                bool graveyard = g == Layout.Graveyard.center;
+                Conform(gen.transform, g, 0.7f, graveyard ? Layout.GraveyardYaw : Range(0f, 4f) * 90f, 0.85f, 0.03f);
                 MakeObjective(gen);
                 Generators.Add(gen.transform);
                 blocked.Add(g);

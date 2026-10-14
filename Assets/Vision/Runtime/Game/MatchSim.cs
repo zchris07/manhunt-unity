@@ -148,6 +148,8 @@ namespace Vision.Game
             DoorCd = new float[map.Doors.Count];
             DoorHits = new int[map.Doors.Count];
             DoorBroken = new bool[map.Doors.Count];
+            DoorLocked = new bool[map.Doors.Count];
+            for (int i = 0; i < DoorLocked.Length; i++) DoorLocked[i] = map.Doors[i].Gate;
             WindowsBroken = new bool[map.Windows.Count];
             LootTaken = new bool[map.Loot.Count];
             Stakes = new int[map.Stakes.Count];
@@ -437,6 +439,8 @@ namespace Vision.Game
         public void SetDoor(int id, bool open)
         {
             if (DoorBroken[id] && !open) return;
+            // A locked gate stays shut until a survivor picks it.
+            if (open && DoorLocked[id]) return;
             Doors[id] = open;
             DoorCd[id] = 0.35f;
         }

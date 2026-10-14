@@ -219,13 +219,28 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   see-through shade, as behind a wall with night vision, while people standing behind it show in full), Zach's Burst
   and thrown items fly over them, and every player vaults them automatically at the window-climbing pace, hands
   planted, knees tucked, the body lifted up and over the top (and over a broken window's sill the same way); NPCs walk
-  round them. **Fences** are climbed the same way: the split-rail fences and the graveyard's iron fence are vaulted
-  automatically at the same pace, the body lifted up and over the top rail, while NPCs walk round them (they don't block
-  sight or shots, and still hide what's behind them as anything standing does). The graveyard's fence stands 20% taller
-  than at first, its posts crowned with tall spikes and a collar of thorns and every bar rising past the top rail into a
-  spear point, and getting over it takes half as long again as a log or another fence. (The building yard's tall
-  chain-link fence stays solid: the way out is through the gate.) A fallen tree's torn-up root plate and mound of dirt at its base is different: a solid disc of wall that
-  players, NPCs, thrown items and shots all run into and nobody vaults (the log's vault strip starts just past it). The central building's doors are standard office steel doors in steel frames: light-grey slabs with a
+  round them. **Fences** are climbed the same way: the split-rail fences are vaulted automatically at the same pace,
+  the body lifted up and over the top rail, while NPCs walk round them (they don't block sight or shots, and still hide
+  what's behind them as anything standing does). (The building yard's tall chain-link fence stays solid: the way out is
+  through the gate.) **The graveyard** has one way in, a pair of ornate wrought-iron gates between stone pillars (arched
+  tops, bars rising into gilded spear points, rings along the foot, scrolls and a ringed cross), chained and padlocked
+  at the start, and a generator always stands in its middle among the graves. Its fence stands 20% taller than at
+  first, posts crowned with tall spikes and a collar of thorns and every bar rising past the top rail into a spear
+  point. Survivors can't climb it (it's on its own physics layer, which only Zach's body passes); Zach can, any time,
+  taking five times as long as over a log (400% longer). A survivor at the gates picks the lock (E): a heavy iron dial
+  fills the middle of the screen with a gilded mark on its ring and a bright tick sweeping round, and E, Space or a
+  click stops it; three times on the mark (each spin faster, the mark narrower, turning the other way) and the lock
+  gives, the chain falls away and the gates swing in; two misses and the pins drop, back to the first. Three pins and
+  two miss lamps under the dial keep count, with a pulse of gold on each hit, a red jolt on a miss and START OVER when
+  the pins drop; the match judges each press. Unlocked, survivors open and close the gates freely. Zach never opens
+  them: shut again once unlocked, he can only smash them in, with four full charged swings (eight hits: two for each
+  charged swing, one for a light one); locked, they don't give at all, and nothing else (the Hemp Beam, the 0.50 cal)
+  breaks them. A fallen tree's torn-up root plate at its base is different: a solid wall that players, NPCs, thrown
+  items and shots all run into and nobody vaults. It takes up only where the disc meets the ground, a thin upright
+  ellipse across the trunk's end (as thick as the plate and the dirt banked at its foot, as wide as the plate), and it
+  always stands straight up, never tilted with a tree lying on a slope (a lean would turn its side into a ramp the
+  body walks up and over), its walls running from under the ground to above the plate. Every vault strip, the tree's
+  own or any log lying into it, is cut back out of it. The central building's doors are standard office steel doors in steel frames: light-grey slabs with a
   lever handle, a kick plate and a narrow wired-glass vision panel.
 - **Effects** (`Vfx`, the `Vision/Fx` shader): particle bursts, rings and ribbons, either hidden outside the viewer's
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
@@ -249,7 +264,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the free arm reaching forward as a guard while the blade is up and swinging back against the cut. Charging, he sinks
   low and wide on bent knees with the blade cocked over the shoulder the next cut falls from (a forehand's raised beside
   his head, the blade back behind it), trembling (no ring at his
-  feet); a charged cut drives his weight onto his front foot. Each swing comes with a swish (heavier when charged) and
+  feet); a charged cut drives his weight onto his front foot. Each swing comes with a swish (a full charged one pitched
+  well down, with a deep, slow whoosh layered under it) and
   a swipe line through the air that shows the cut's reach: a band starting near the tip of the model's real machete and
   reaching out, the way the blade points, to the swing's actual attack radius (longer when charged), sweeping across with
   the blade: a pale steel sheen with a crisp bone-white edge along the reach for a light cut, gone in about an eighth of
@@ -263,20 +279,23 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   together (double vision), and both are blurred hard, the blur breathing in and out, the colour washed out and the
   edges closing in, strongest while they're in it and clearing over three seconds once the gas has worn off (a second
   longer than at first). Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
-  further again (101.6% of the original's reach), in a cone 20% narrower than the original's (8 degrees either side of
-  the aim), and goes straight through a shield to the health bar. Galaxy gas narrows Zach's
+  further again (101.6% of the original's reach), in a cone 20% narrower than the original's and then 40% narrower again
+  (4.8 degrees either side of the aim), 30% fainter to begin with; it acts where it's drawn, the cone plus the width the
+  cloud has right from his mouth, so a survivor standing in it close up is still caught. It goes straight through a shield to the health bar. Galaxy gas narrows Zach's
   light by 30% and blurs his view the same way, clearing three seconds after he's out of it. **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
   `Vision/Gas` shader) are volumetric smoke after Black Ops Cold War's smoke grenade: each cloud is a box over the scene
   through which the view ray is marched, gathering a participating medium whose density is the cloud's shape (a cone for
   Penjamin, a blob sitting on the ground for galaxy gas, and for the scent a thin tube from each point of the trail to
-  the next, overlapping so it runs on as one faint, unbroken, swaying thread that swells and thins on a strict repeat,
+  the next, overlapping so it runs on as one faint, unbroken, swaying thread (20% more solid and 30% thicker than at
+  first) that swells and thins (half as much again as at first) on a strict repeat,
   thicker and more solid at its peaks, thinner and fainter in its valleys, peak to valley as far as a survivor sprints
   in two seconds) eroded by a tiling 3D Perlin-Worley
   noise made at load, so its surface billows in round lobes like cauliflower and frays into wisps, churning and drifting
   (carried along the way the gas blows: Penjamin's rolling out along the cone, whichever way he aims it). It's patchy
   rather than even: a much larger, slower pattern breaks Penjamin's, 50 Nic's and galaxy gas into thick pockets and thin
   stretches with clear gaps through them. From the moment it's fired, Penjamin's whole cloud drifts slowly off on a wind of
-  its own (a random direction for each cloud), spreading wider and taller and thinning as it's blown, and it's seen for
+  its own (a random direction for each cloud), spreading wider and taller and thinning as it's blown (the gas itself
+  less dense as it fills more air, so it frays and opens up, not just fades), and it's seen for
   2 seconds longer before it's fully gone; all of that is only how it looks: where it acts doesn't move or grow, and it
   stops acting when it always did. Light is absorbed as it passes through (Beer-Lambert); each sample is lit by a
   short march toward a key light low to one side, so every lobe has a bright face and a shaded one, with a
@@ -317,7 +336,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the mini shield as Fortnite's little flask of blue liquid, the P250, the 0.50 cal, the jar, JARVIS's tablet, the Hemp
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
-- **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; gas traps sit on the ground
+- **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
+  holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
   and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
   jar passes over it, the thrown item landing there); galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
   fell (with models for the P250, the 0.50 cal, the jar of piss and the golden pump). G drops the item in hand; **Tab**
@@ -375,10 +395,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   Asian man with cartoon-yellow skin; Monique a short Asian woman (tall is 1.88 m, short 1.62 m).
 - **JARVIS**: for its ten seconds every survivor's whole screen is lit and everyone on it shows (the original's
   reveal), and its user's map is revealed.
-- **The ambulance, the lounge and the Four Notes** (`SandboxWorld.Story`): Chris's ambulance parks in the woods off the
+- **The ambulance, the lounge and the notes** (`SandboxWorld.Story`): Chris's ambulance parks in the woods off the
   paths with a row of supplies beside it and a flashing light bar, whose light shows the van's roof and the ground just
   round it (no further) under a soft red then blue tint that swells with each flash; the building's biggest room without a generator is
-  the lounge, a couch facing a flickering TV; the Four Notes lie beside the paths, far apart. Zach's map shows every stake
+  the lounge, a couch facing a flickering TV. Six paper notes, each photo once in a random order: one lies beside every
+  generator (the graveyard's always has one) and the rest beside the paths, far apart; next to a generator, whichever of
+  the two you're nearer to is the one E works on. Zach's map shows every stake
   in play.
 - The old **wanderer** stands in for an entity in the captures only.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
@@ -636,7 +658,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 240 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 244 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

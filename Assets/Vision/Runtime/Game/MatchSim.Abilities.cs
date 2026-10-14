@@ -185,13 +185,21 @@ namespace Vision.Game
             return v.Range * (1f - (1f - k) * (1f - k));
         }
 
+        /// <summary>
+        /// Inside the cloud: within its reach along the aim, and no further to the side than the cone's edge plus the width
+        /// the drawn cloud has right from his mouth (<see cref="Balance.Hunter.Vape.MouthHalfWidth"/>), so the narrow cone
+        /// still takes in a survivor standing in the gas close up.
+        /// </summary>
         static bool InCloud(VapeCloud v, float extent, Vector2 at)
         {
-            float d = Vector2.Distance(at, v.Origin);
-            if (d > extent) return false;
-            if (d < R(1f)) return true;
-            float a = Mathf.Atan2(at.y - v.Origin.y, at.x - v.Origin.x);
-            return Mathf.Abs(Mathf.DeltaAngle(a * Mathf.Rad2Deg, v.Angle * Mathf.Rad2Deg)) <= Balance.Hunter.Vape.HalfAngleDeg;
+            Vector2 d = at - v.Origin;
+            if (d.magnitude > extent) return false;
+            if (d.magnitude < R(1f)) return true;
+            var dir = new Vector2(Mathf.Cos(v.Angle), Mathf.Sin(v.Angle));
+            float along = Vector2.Dot(d, dir);
+            if (along <= 0f) return false;
+            float side = Mathf.Abs(d.x * dir.y - d.y * dir.x);
+            return side <= along * Mathf.Tan(Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad) + R(Balance.Hunter.Vape.MouthHalfWidth);
         }
 
         static readonly Vector2[] Disc = BuildDisc();
@@ -396,7 +404,7 @@ namespace Vision.Game
             int door = -1;
             for (int i = 0; i < Map.Doors.Count; i++)
             {
-                if (Doors[i] || DoorBroken[i]) continue;
+                if (Doors[i] || DoorBroken[i] || Map.Doors[i].Gate) continue;
                 float t = RaySegment(s, d, Map.Doors[i].A, Map.Doors[i].B);
                 if (!float.IsPositiveInfinity(t) && Mathf.Abs(t - len) < R(6f)) { door = i; break; }
             }
@@ -464,7 +472,7 @@ namespace Vision.Game
             }
             for (int i = 0; i < Map.Doors.Count; i++)
             {
-                if (Doors[i] || DoorBroken[i]) continue;
+                if (Doors[i] || DoorBroken[i] || Map.Doors[i].Gate) continue;
                 float t = RaySegment(origin, b.Dir, Map.Doors[i].A, Map.Doors[i].B);
                 if (!float.IsPositiveInfinity(t)) b.Path.Add((t, 1, i));
             }

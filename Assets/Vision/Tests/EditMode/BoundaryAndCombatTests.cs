@@ -271,34 +271,56 @@ namespace Vision.Tests
                     fallen++;
                     Assert.IsTrue(occ.low, $"{occ.name}: seen over");
                     Assert.AreEqual(SandboxWorld.LowLayer, occ.gameObject.layer, $"{occ.name}: on the low layer (vaulted, shot over)");
-                    // Its root mound: a solid disc of wall, not low, that bodies run into.
-                    Transform mound = mf.transform.Find("Root Mound");
-                    Assert.NotNull(mound, $"{occ.name}: a root mound at its base");
+                }
+                // Their root mounds: solid walls, not low, that bodies run into; a thin upright ellipse where the plate
+                // meets the ground (never tilted with the tree, whose lean would make a ramp up its side), its walls from
+                // under the ground to above the plate.
+                var mounds = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Root Mound").ToList();
+                Assert.AreEqual(fallen, mounds.Count, "a root mound at every fallen tree's base");
+                Assert.AreEqual(fallen, world.RootMounds.Count);
+                foreach (Transform mound in mounds)
+                {
                     var mo = mound.GetComponent<Occluder>();
                     Assert.IsFalse(mo.low, "the mound blocks sight, shots and thrown things");
-                    Assert.AreEqual(Occluder.Shape.Circle, mo.shape, "a disc");
-                    Assert.NotNull(mound.GetComponent<CapsuleCollider>(), "and bodies collide with it");
+                    var mc = mound.GetComponent<MeshCollider>();
+                    Assert.IsTrue(mc != null && mc.convex, "and bodies collide with it");
                     Assert.AreNotEqual(SandboxWorld.LowLayer, mound.gameObject.layer, "nobody vaults it");
+                    Assert.Less(Vector3.Angle(Vector3.up, mound.up), 0.01f, "it stands straight up, whatever the slope");
+                    Vector3 sc = mound.lossyScale;
+                    Assert.Less(sc.x, sc.z * 0.35f, "a thin ellipse across the trunk's end, not a wide disc");
                 }
-                Assert.AreEqual(fallen, world.RootMounds.Count);
-                foreach (var (c, r) in world.RootMounds)
+                foreach (SandboxWorld.Mound m in world.RootMounds)
+                {
+                    Assert.Less(m.Thin, m.Wide * 0.35f);
                     foreach (SandboxWorld.LowObstacle o in world.Lows)
-                        Assert.Greater(SimMap.SegmentDistance(c, o.A, o.B), r * 0.8f, "the log's vault strip starts past the mound");
+                        for (int k = 0; k <= 40; k++)
+                            Assert.GreaterOrEqual(m.Reach(Vector2.Lerp(o.A, o.B, k / 40f), 0f), 0.98f, "no vault strip runs into a mound");
+                }
                 Assert.Greater(fallen, 0, "the map has fallen trees");
                 Assert.AreEqual(world.Layout.Logs.Count + fallen, world.Lows.Count(o => !o.Fence), "every log and fallen tree is a low obstacle");
 
-                // Every fence is vaulted: on the vault layer (players pass through, NPCs don't), with a vault strip; the
-                // graveyard's spiked iron fence, 20% taller, takes half as long again.
+                // Every split-rail fence is vaulted: on the vault layer (players pass through, NPCs don't), with a vault
+                // strip. The graveyard's spiked iron fence, 20% taller, only Zach climbs: on its own layer, which bodies run
+                // into (his controller leaves it out), its strips his alone.
                 var fences = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Fence" || t.name == "Iron Fence").ToList();
-                Assert.Greater(fences.Count, 0, "the map has fences");
+                Assert.Greater(fences.Count(t => t.name == "Fence"), 0, "the map has fences");
+                Assert.Greater(fences.Count(t => t.name == "Iron Fence"), 0, "and the graveyard's");
+                Assert.IsTrue(Physics.GetIgnoreLayerCollision(SandboxWorld.CharacterLayer, SandboxWorld.VaultLayer), "players pass through to climb over");
+                Assert.IsFalse(Physics.GetIgnoreLayerCollision(SandboxWorld.CharacterLayer, SandboxWorld.GraveFenceLayer), "but run into the graveyard's");
                 foreach (Transform f in fences)
                 {
-                    Assert.AreEqual(SandboxWorld.VaultLayer, f.gameObject.layer, $"{f.name}: vaulted");
-                    Assert.IsTrue(Physics.GetIgnoreLayerCollision(SandboxWorld.CharacterLayer, SandboxWorld.VaultLayer), "players pass through to climb over");
-                    Assert.AreNotEqual(0, Vfx.UprightMask & (1 << SandboxWorld.VaultLayer), "it still stands upright, covering lines like a wall");
+                    bool grave = f.name == "Iron Fence";
+                    Assert.AreEqual(grave ? SandboxWorld.GraveFenceLayer : SandboxWorld.VaultLayer, f.gameObject.layer, $"{f.name}: vaulted");
+                    Assert.AreNotEqual(0, Vfx.UprightMask & (1 << f.gameObject.layer), "it still stands upright, covering lines like a wall");
                 }
                 Assert.AreEqual(fences.Count, world.Lows.Count(o => o.Fence), "a vault strip per fence");
-                Assert.IsTrue(world.Lows.Any(o => o.Fence && Mathf.Approximately(o.Slow, 1.5f)), "the graveyard's takes 50% longer");
+                Assert.AreEqual(fences.Count(t => t.name == "Iron Fence"), world.Lows.Count(o => o.Fence && o.HunterOnly), "the graveyard's for Zach alone");
+                // The one way in: the gates, locked, between their pillars.
+                Door gates = world.Doors.Single(d => d.gate);
+                Assert.NotNull(gates.hinge2, "two leaves");
+                Assert.IsTrue(gates.lockVisual != null && gates.lockVisual.activeSelf, "chained and padlocked");
+                Assert.AreEqual(2, root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Gate Pillar"));
+                Assert.AreEqual(SandboxWorld.GateHalfWidth * 2f, Vector2.Distance(gates.a, gates.b), 1e-3f);
                 Transform iron = fences.First(t => t.name == "Iron Fence");
                 Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<MeshFilter>().sharedMesh.bounds.max.y, 0.12f, "20% taller, to its spikes");
                 Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<BoxCollider>().size.y, 1e-4f);

@@ -29,7 +29,9 @@ namespace Vision.Audio
         {
             // Zach.
             ["swing"] = new Cue { Files = new[] { "swishes_swish-1", "swishes_swish-2", "swishes_swish-3", "swishes_swish-4" }, Volume = 0.8f, Radius = 900f },
-            ["swing_heavy"] = new Cue { Files = new[] { "swishes_swish-9", "swishes_swish-10", "swishes_swish-11", "swishes_swish-12", "swishes_swish-13" }, Volume = 1f, Pitch = 0.82f, Radius = 1100f },
+            // The full charged swing: the heavy swish pitched well down, with a deep, slow whoosh layered under it.
+            ["swing_heavy"] = new Cue { Files = new[] { "swishes_swish-9", "swishes_swish-10", "swishes_swish-11", "swishes_swish-12", "swishes_swish-13" }, Volume = 1f, Pitch = 0.64f, PitchJitter = 0.04f, Radius = 1200f },
+            ["swing_heavy_low"] = new Cue { Files = new[] { "swishes_swish-7", "swishes_swish-8" }, Volume = 0.85f, Pitch = 0.42f, PitchJitter = 0.03f, Radius = 1200f },
             ["slash"] = new Cue { Files = new[] { "rpg_knifeslice", "rpg_knifeslice2", "rpg_chop" }, Volume = 0.9f, Radius = 1000f },
             ["body_hit"] = new Cue { Files = Range("impact_impactpunch_heavy_", 0, 4), Volume = 0.8f, Radius = 900f },
             ["lunge"] = new Cue { Files = new[] { "swishes_swish-7", "swishes_swish-8" }, Volume = 0.8f, Pitch = 0.7f, Radius = 900f },
@@ -56,6 +58,12 @@ namespace Vision.Audio
             ["gate"] = new Cue { Files = new[] { "sfx100_metal_03", "sfx100_metal_07" }, Volume = 1f, Radius = 3000f },
             ["note"] = new Cue { Files = new[] { "sfx100_paper_01", "sfx100_paper_02", "sfx100_paper_03" }, Volume = 0.8f, Radius = 300f },
             ["hide"] = new Cue { Files = new[] { "rpg_creak1", "rpg_creak2", "rpg_creak3" }, Volume = 0.7f, Radius = 700f },
+            // The graveyard's lock and gates.
+            ["pick_hit"] = new Cue { Files = new[] { "rpg_metalclick" }, Volume = 0.8f, Pitch = 1.25f, Radius = 300f },
+            ["pick_miss"] = new Cue { Files = new[] { "rpg_metallatch" }, Volume = 0.6f, Pitch = 0.7f, Radius = 300f },
+            ["pick_reset"] = new Cue { Files = Range("impact_impactmetal_light_", 0, 4), Volume = 0.5f, Pitch = 0.8f, Radius = 400f },
+            ["gate_unlock"] = new Cue { Files = new[] { "rpg_metallatch" }, Volume = 1f, Pitch = 0.85f, Radius = 900f },
+            ["gate_swing"] = new Cue { Files = new[] { "rpg_creak1", "rpg_creak2", "rpg_creak3" }, Volume = 0.9f, Pitch = 0.7f, Radius = 1000f },
             // Footsteps (by ground).
             ["step_grass"] = new Cue { Files = Range("impact_footstep_grass_", 0, 4), Volume = 0.35f, Radius = 600f, PitchJitter = 0.08f },
             ["step_concrete"] = new Cue { Files = Range("impact_footstep_concrete_", 0, 4), Volume = 0.35f, Radius = 600f, PitchJitter = 0.08f },

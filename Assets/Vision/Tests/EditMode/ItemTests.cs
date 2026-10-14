@@ -166,11 +166,13 @@ namespace Vision.Tests
             SimRig rig = Duel(3000f);
             SimPlayer s = rig.P(2), h = rig.P(1);
             s.Inv.Add(ItemType.Trap);
-            Use(rig, s, ItemType.Trap);
+            int slot = s.Inv.FirstSlotOf(ItemType.Trap) + 1;
+            rig.Run(1, p => p.Id == s.Id ? new InputCmd { Item = slot, AimDist = 100f } : (InputCmd?)null);
+            // Planted by holding the button the whole way.
+            rig.Hold(s.Id, Btn.Primary, 1, 0f, slot);
             Assert.AreEqual(0, rig.Sim.Traps.Count);
             Assert.AreEqual(ActionKind.Plant, s.Action);
-            int slot = s.Inv.FirstSlotOf(ItemType.Trap) + 1;
-            rig.Run(Secs(Balance.Items.Trap.PlantTime) + 1, p => p.Id == 2 ? new InputCmd { Item = slot, AimDist = 100f } : (InputCmd?)null);
+            rig.Hold(s.Id, Btn.Primary, Secs(Balance.Items.Trap.PlantTime) + 1, 0f, slot);
             Assert.AreEqual(1, rig.Sim.Traps.Count, "planted");
             rig.Run(Secs(Balance.Items.Trap.ArmTime) + 2);
             rig.Place(s, -800f, 0f);

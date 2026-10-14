@@ -19,6 +19,19 @@ namespace Vision.World
         public float swingSpeed = 360f;
         /// <summary>The closed panel's ends (design units on the level's ground plane), for the match rules.</summary>
         public Vector2 a, b;
+        /// <summary>
+        /// The graveyard's gates: a second leaf (<see cref="hinge2"/>, hinged at the far end, swinging the mirror way) and
+        /// the chain and padlock (<see cref="lockVisual"/>) shown while they're locked.
+        /// </summary>
+        public bool gate;
+        public Transform hinge2;
+        public GameObject lockVisual;
+
+        /// <summary>Chained and padlocked, or not.</summary>
+        public void SetLocked(bool locked)
+        {
+            if (lockVisual != null && lockVisual.activeSelf != (locked && !IsBroken)) lockVisual.SetActive(locked && !IsBroken);
+        }
 
         bool open;
         float angle;
@@ -35,6 +48,8 @@ namespace Vision.World
             if (IsBroken == broken) return;
             IsBroken = broken;
             if (hinge != null) hinge.gameObject.SetActive(!broken);
+            if (hinge2 != null) hinge2.gameObject.SetActive(!broken);
+            if (broken && lockVisual != null) lockVisual.SetActive(false);
             if (broken)
             {
                 if (occluder != null) occluder.Blocking = false;
@@ -55,6 +70,7 @@ namespace Vision.World
             float target = open ? openAngle : 0f;
             angle = Mathf.MoveTowards(angle, target, swingSpeed * Time.deltaTime);
             if (hinge != null) hinge.localRotation = Quaternion.Euler(0f, angle, 0f);
+            if (hinge2 != null) hinge2.localRotation = Quaternion.Euler(0f, 180f - angle, 0f);
         }
     }
 }
