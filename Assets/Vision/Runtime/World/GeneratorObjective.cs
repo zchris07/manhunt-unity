@@ -12,7 +12,7 @@ namespace Vision.World
     public sealed class GeneratorObjective : MonoBehaviour
     {
         /// <summary>The original's repair time for one survivor.</summary>
-        public const float RepairTime = 70f;
+        public const float RepairTime = 70f * 0.75f;
 
         public float progress;
         public Transform body;

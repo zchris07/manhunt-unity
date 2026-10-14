@@ -7,9 +7,9 @@ namespace Vision.Player
 {
     /// <summary>
     /// Picking the graveyard's lock: a heavy iron dial in the middle of the screen with a ring of graduations, a gilded
-    /// mark somewhere on it and a bright tick sweeping round. Stop the tick on the mark (E, Space or a click) three
+    /// mark somewhere on it and a bright tick sweeping round. Stop the tick on the mark (E, Space or a click) five
     /// times, each faster with a narrower mark and turning the other way; two misses and the pins drop, start over.
-    /// Three pins under the dial set as you go, two lamps show the misses, and the whole thing answers each press: a
+    /// Five pins under the dial set as you go, two lamps show the misses, and the whole thing answers each press: a
     /// pulse and a flash of gold on the mark, a red jolt for a miss, START OVER when the pins drop, UNLOCKED at the end.
     /// The sim judges each press (<see cref="MatchSim"/>'s PickStrike); this only shows it.
     /// </summary>
@@ -18,7 +18,7 @@ namespace Vision.Player
         RectTransform pick, pickDial, pickNeedle, pickZone, pickZoneGlow;
         CanvasGroup pickGroup;
         Image pickNeedleImg, pickZoneImg, pickZoneGlowImg, pickHub;
-        readonly Image[] pickPins = new Image[3], pickLamps = new Image[2];
+        readonly Image[] pickPins = new Image[5], pickLamps = new Image[2];
         Text pickTitle, pickStatus, pickHint;
         float pickK, pickHit, pickMiss, pickReset, pickLastResultT = -1f, pickLastT = float.NaN, pickStamp, pickDone;
         int pickLastStage;
@@ -50,6 +50,9 @@ namespace Vision.Player
             img.raycastTarget = false;
             return img;
         }
+
+        /// <summary>Where pin <paramref name="i"/> sits along the row (the five pins centred a little left of the lamps).</summary>
+        static float PinX(int i) => (i - 2) * 52f - 20f;
 
         void BuildLockpick(Transform parent)
         {
@@ -138,7 +141,7 @@ namespace Vision.Player
                 "", 28, TextAnchor.MiddleCenter, PickRed, UiKit.Face.DisplayBold, 0.12f);
             pickStatus.gameObject.AddComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.9f);
 
-            // Three pins under the dial, two miss lamps beside them.
+            // Five pins under the dial, two miss lamps beside them.
             Sprite pinSprite = Drawn(64, (u, v) =>
             {
                 float dx = Mathf.Max(0f, Mathf.Abs(u) - 0.55f), dy = Mathf.Max(0f, Mathf.Abs(v) - 0.25f);
@@ -152,15 +155,15 @@ namespace Vision.Player
                 return new Color(1f, 1f, 1f, Mathf.Clamp01((0.8f - r) / 0.08f));
             });
             RectTransform row = Node("Pins", pick, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 74f), new Vector2(300f, 30f));
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < pickPins.Length; i++)
             {
-                pickPins[i] = PickImage($"Pin {i + 1}", row, pinSprite, new Vector2(56f, 22f), Color.white);
-                pickPins[i].rectTransform.anchoredPosition = new Vector2((i - 1) * 66f - 30f, 0f);
+                pickPins[i] = PickImage($"Pin {i + 1}", row, pinSprite, new Vector2(44f, 20f), Color.white);
+                pickPins[i].rectTransform.anchoredPosition = new Vector2(PinX(i), 0f);
             }
             for (int i = 0; i < 2; i++)
             {
                 pickLamps[i] = PickImage($"Miss {i + 1}", row, lamp, new Vector2(20f, 20f), Color.white);
-                pickLamps[i].rectTransform.anchoredPosition = new Vector2(100f + i * 26f, 0f);
+                pickLamps[i].rectTransform.anchoredPosition = new Vector2(122f + i * 26f, 0f);
             }
             pickHint = kit.Label(Node("Hint", pick, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 26f), new Vector2(520f, 30f)),
                 "E  /  SPACE  /  CLICK  as the tick crosses the gold", 15, TextAnchor.MiddleCenter, new Color(0.85f, 0.8f, 0.72f, 0.85f), UiKit.Face.Mono, 0.06f);
@@ -237,7 +240,7 @@ namespace Vision.Player
                 if (pickReset > 0f && !set) c = Color.Lerp(c, PickRed, pickReset);
                 pickPins[i].color = c;
                 float drop = pickReset > 0f ? -14f * pickReset * Mathf.Sin(pickReset * Mathf.PI) : 0f;
-                pickPins[i].rectTransform.anchoredPosition = new Vector2((i - 1) * 66f - 30f, (set ? 4f : 0f) + drop);
+                pickPins[i].rectTransform.anchoredPosition = new Vector2(PinX(i), (set ? 4f : 0f) + drop);
             }
             for (int i = 0; i < pickLamps.Length; i++)
             {

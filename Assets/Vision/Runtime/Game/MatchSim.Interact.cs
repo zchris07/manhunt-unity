@@ -320,6 +320,12 @@ namespace Vision.Game
                     if ((pressed & (Btn.Interact | Btn.Space | Btn.Primary)) != 0) PickStrike(p);
                     return;
                 }
+                // A skill check up while repairing: Space or a click stops the tick (E stays held to keep repairing).
+                if (p.Action == ActionKind.Repair && p.CheckOn)
+                {
+                    if ((pressed & (Btn.Space | Btn.Primary)) != 0) CheckStrike(p);
+                    return;
+                }
                 // Holding E starts hold-to-act interactions as soon as they become available.
                 bool heldStart = cmd.Has(Btn.Interact) && p.Action == ActionKind.None && p.HideState == 0 && System.Array.IndexOf(HoldPrompts, p.Prompt) >= 0;
                 if ((pressed & Btn.Interact) != 0 || heldStart) SurvivorInteract(p);
@@ -431,6 +437,8 @@ namespace Vision.Game
                     break;
                 case Prompt.Repair:
                     StartAction(p, ActionKind.Repair, 0f, p.PromptTarget);
+                    p.CheckOn = false;
+                    p.RepairClock = 0f;
                     Gens[p.PromptTarget].Workers++;
                     Gens[p.PromptTarget].Regressing = false;
                     break;
@@ -523,6 +531,7 @@ namespace Vision.Game
                         }
                         p.Stats.RepairSec += dt;
                         p.ActionT += dt;
+                        UpdateCheck(p, dt);
                         continue;
                     }
                     case ActionKind.Heal:

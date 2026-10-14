@@ -363,7 +363,7 @@ namespace Vision.Game
 
         public static class Objectives
         {
-            public const float RepairTime = 70f, CoopStep = 0.25f, RepairNoise = 520f, RegressPerSec = 0.25f / 60f, DamageRegressInstant = 0.08f;
+            public const float RepairTime = 70f * 0.75f, CoopStep = 0.25f, RepairNoise = 520f, RegressPerSec = 0.25f / 60f, DamageRegressInstant = 0.08f;
             public const float GateOpenTime = 20f, StakeStageTime = 60f;
         }
 
@@ -383,10 +383,20 @@ namespace Vision.Game
         /// </summary>
         public static class Graveyard
         {
-            public const int PickChecks = 3, PickMisses = 2, GateHits = 4 * 2;
-            public static readonly float[] PickSpeeds = { 200f, 260f, 320f };
-            public static readonly float[] PickWidths = { 36f, 30f, 25f };
+            public const int PickChecks = 5, PickMisses = 2, GateHits = 4 * 2;
+            public static readonly float[] PickSpeeds = { 200f, 230f, 260f, 290f, 320f };
+            public static readonly float[] PickWidths = { 36f, 32f, 29f, 27f, 25f };
             public const float PickPause = 0.45f, ZachFenceSlow = 5f;
+        }
+
+        /// <summary>
+        /// A generator's skill checks: while repairing, every <see cref="Every"/> seconds a dial flashes up and a tick sweeps
+        /// round it once; stopping it on the mark (Space or a click) takes <see cref="Bonus"/> seconds off the repair. Faster
+        /// than the lock pick's fastest tick and on a narrower mark than its narrowest. A miss costs nothing.
+        /// </summary>
+        public static class SkillCheck
+        {
+            public const float Every = 8f, Bonus = 4f, Speed = 420f, Width = 14f, Lead = 0.55f;
         }
 
         public static class Reach

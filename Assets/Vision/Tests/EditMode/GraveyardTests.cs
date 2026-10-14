@@ -90,7 +90,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void TheGates_StartLocked_ASurvivorPicksThem_ThreeChecks_TwoMissesStartOver_ThenTheyOpenAndCloseFreely()
+        public void TheGates_StartLocked_ASurvivorPicksThem_FiveChecks_TwoMissesStartOver_ThenTheyOpenAndCloseFreely()
         {
             MatchSim sim = GateArena();
             sim.AddPlayer(1, "Zach", Role.Hunter, SimRig.U(-2000, 2000));
@@ -115,12 +115,12 @@ namespace Vision.Tests
             Assert.AreEqual(0, s.PickMiss);
             Assert.AreEqual(ActionKind.PickLock, s.Action, "still at it");
 
+            for (int i = 0; i < Balance.Graveyard.PickChecks - 1; i++) Hit(sim, s);
+            Assert.AreEqual(4, s.PickStage, "four pins set");
+            Assert.IsTrue(sim.DoorLocked[0], "four hits aren't enough");
             Hit(sim, s);
-            Hit(sim, s);
-            Assert.AreEqual(2, s.PickStage);
-            Assert.IsTrue(sim.DoorLocked[0]);
-            Hit(sim, s);
-            Assert.IsFalse(sim.DoorLocked[0], "three checks: the lock gives");
+            Assert.AreEqual(5, Balance.Graveyard.PickChecks);
+            Assert.IsFalse(sim.DoorLocked[0], "five checks: the lock gives");
             Assert.IsTrue(sim.Doors[0], "and the gates swing open");
             Assert.AreEqual(ActionKind.None, s.Action);
 

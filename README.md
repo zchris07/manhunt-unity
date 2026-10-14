@@ -200,8 +200,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   slots; identical items stack; each gun takes its own slot and keeps its rounds; a full inventory drops
   the last slot's item for the new one. Select a slot, left click to use it. Duck confit heals to full,
   a Mr Beast bar gives 20%, a mini shield is drunk over 2 s for 25% shield.
-- **Generators and the gate**: hold E for the original's repair time (70 s, scaled to the player count;
-  +25% for each extra survivor on it). With enough running, hold E at the lever for 20 s and the gate
+- **Generators and the gate**: hold E for the repair time (52.5 s, a quarter
+  off the original's 70, scaled to the player count; +25% for each extra survivor on it). **Skill checks**: while
+  repairing, every 8 s a dial flashes up mid-screen with a gilded mark and a tick sweeping round it once, faster (420
+  degrees a second) and on a narrower mark (14 degrees) than any of the lock pick's; Space or a click on the mark takes
+  4 s off the repair, a miss or a tick that gets all the way round costs nothing (`MatchSim.Checks`). With enough running, hold E at the lever for 20 s and the gate
   opens onto the yard; walking out escapes.
 - **Stakes**: the original's scarecrow stakes, six candidate spots per clearing (not the spawn's), away from
   generators, cabins, campfires and the spawn, spread out by farthest-first picking; a match uses survivors + 4 of
@@ -233,8 +236,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   taking five times as long as over a log (400% longer), except the two metres of fence beside each gate pillar,
   a plain wall even to him, so going for the gateway he never starts climbing the fence beside it. A survivor at the gates picks the lock (E): a heavy iron dial
   fills the middle of the screen with a gilded mark on its ring and a bright tick sweeping round, and E, Space or a
-  click stops it; three times on the mark (each spin faster, the mark narrower, turning the other way) and the lock
-  gives, the chain falls away and the gates swing in; two misses and the pins drop, back to the first. Three pins and
+  click stops it; five times on the mark (each spin faster, the mark narrower, turning the other way) and the lock
+  gives, the chain falls away and the gates swing in; two misses and the pins drop, back to the first. Five pins and
   two miss lamps under the dial keep count, with a pulse of gold on each hit, a red jolt on a miss and START OVER when
   the pins drop; the match judges each press. Unlocked, survivors open and close the gates freely. Zach never opens
   them: shut again once unlocked, he can only smash them in, with four full charged swings (eight hits: two for each
@@ -697,7 +700,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 255 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 256 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

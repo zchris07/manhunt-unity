@@ -24,7 +24,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Generators_StartAfterSeventySeconds_ThenTheLeverOpensTheGate()
+        public void Generators_StartAfterTheRepairTime_ThenTheLeverOpensTheGate()
         {
             var objects = new GameObject[6];
             try
@@ -41,9 +41,10 @@ namespace Vision.Tests
                 Assert.IsFalse(gate.PullLever(30f), "no power, the lever does nothing");
                 Assert.AreEqual(0f, gate.LeverProgress);
 
-                Assert.IsFalse(gens[0].Repair(35f));
-                Assert.AreEqual(0.5f, gens[0].progress, 1e-4f, "halfway after 35 s");
-                Assert.IsTrue(gens[0].Repair(35f), "running after 70 s");
+                float half = GeneratorObjective.RepairTime * 0.5f;
+                Assert.IsFalse(gens[0].Repair(half));
+                Assert.AreEqual(0.5f, gens[0].progress, 1e-4f, "halfway after half the repair time");
+                Assert.IsTrue(gens[0].Repair(half), "running after the whole repair time");
                 Assert.IsFalse(gens[0].Repair(10f), "only starts once");
                 Assert.AreEqual(1, GeneratorObjective.RunningCount);
                 for (int i = 1; i < 5; i++) gens[i].Repair(GeneratorObjective.RepairTime);

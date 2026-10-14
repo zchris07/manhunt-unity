@@ -122,6 +122,13 @@ namespace Vision.Game
         /// </summary>
         public int PickStage, PickMiss, PickDir = 1, PickResult;
         public float PickT, PickZone, PickResultT;
+        /// <summary>
+        /// A generator's skill check: seconds repaired since the last one, whether one is up, how long its tick has swept
+        /// (negative while it waits to start), where its mark is, which way it turns, and the last result (1 hit, -1 miss) and when.
+        /// </summary>
+        public bool CheckOn;
+        public int CheckDir = 1, CheckResult;
+        public float RepairClock, CheckT, CheckZone, CheckResultT;
         /// <summary>Holding up JARVIS's tablet: it's running and they haven't switched to anything else since (it keeps running when they do).</summary>
         public bool HoldingTablet => Jarvis > 0 && JarvisT > 0f && SelSlot == JarvisSlot;
         public bool GogglesOn;

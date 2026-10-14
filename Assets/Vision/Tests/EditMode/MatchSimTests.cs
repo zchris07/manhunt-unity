@@ -111,7 +111,8 @@ namespace Vision.Tests
         {
             ResolvedBalance four = MatchRules.Resolve(4, 1);
             Assert.AreEqual(2, four.EscapeNeeded, "half the survivors must escape");
-            Assert.That(four.RepairTime, Is.InRange(70f * 0.75f, 70f * 1.35f));
+            Assert.That(four.RepairTime, Is.InRange(52.5f * 0.75f, 52.5f * 1.35f));
+            Assert.AreEqual(52.5f, Balance.Objectives.RepairTime, 1e-4f, "a quarter off the 70 s base");
             Assert.That(four.RequiredGenerators, Is.InRange(Balance.Scaling.RequiredGenMin, Balance.Scaling.RequiredGenMax));
             Assert.AreEqual(1, MatchRules.Resolve(1, 1).EscapeNeeded);
             Assert.GreaterOrEqual(MatchRules.Resolve(8, 1).RequiredGenerators, four.RequiredGenerators, "more survivors, more generators");
@@ -328,6 +329,52 @@ namespace Vision.Tests
             rig.Run(Secs(t * 0.4f), p => new InputCmd { Buttons = Btn.Interact, AimDist = 100f });
             Assert.IsTrue(rig.Sim.Gens[0].Repaired);
             Assert.AreEqual(ActionKind.None, a.Action, "done: they let go");
+        }
+
+        [Test]
+        public void RepairingRaisesASkillCheckEveryEightSeconds_AHitTakesFourSecondsOff_AMissCostsNothing()
+        {
+            var rig = new SimRig(2, 1);
+            SimPlayer a = rig.P(2);
+            rig.Place(rig.P(1), 1800f, -1800f);
+            rig.Place(rig.P(3), 1800f, 1800f);
+            rig.Place(a, 640f, 0f);
+            float t = rig.Sim.Bal.RepairTime;
+            Btn held = Btn.Interact;
+            Func<SimPlayer, InputCmd?> Cmd = p => p.Id == 2 ? new InputCmd { Buttons = held, AimDist = 100f } : (InputCmd?)null;
+            rig.Run(Secs(7.5f), Cmd);
+            Assert.IsFalse(a.CheckOn, "none before eight seconds");
+            rig.Run(Secs(1f), Cmd);
+            Assert.IsTrue(a.CheckOn, "one comes up");
+            Assert.Less(Balance.Graveyard.PickWidths[Balance.Graveyard.PickWidths.Length - 1], Balance.Graveyard.PickWidths[0]);
+            Assert.Less(Balance.SkillCheck.Width, Balance.Graveyard.PickWidths[Balance.Graveyard.PickWidths.Length - 1], "a narrower mark than the lock pick's narrowest");
+            Assert.Greater(Balance.SkillCheck.Speed, Balance.Graveyard.PickSpeeds[Balance.Graveyard.PickSpeeds.Length - 1], "a faster tick than its fastest");
+            // Let it come round to the mark, then Space.
+            float before = rig.Sim.Gens[0].Progress;
+            for (int i = 0; i < 90 && a.CheckOn; i++)
+            {
+                float off = Mathf.Abs(Mathf.DeltaAngle(MatchSim.CheckNeedle(a), a.CheckZone));
+                float next = Mathf.Abs(Mathf.DeltaAngle(Mathf.Repeat(Balance.SkillCheck.Speed * (a.CheckT + 1f / Balance.Net.TickHz) * a.CheckDir, 360f), a.CheckZone));
+                bool on = a.CheckT > 0f && off < 12f && next < 12f;
+                held = on ? Btn.Interact | Btn.Space : Btn.Interact;
+                rig.Run(1, Cmd);
+                held = Btn.Interact;
+                if (on) rig.Run(1, Cmd);
+            }
+            Assert.IsFalse(a.CheckOn, "answered");
+            Assert.AreEqual(1, a.CheckResult, "on the mark");
+            float gained = rig.Sim.Gens[0].Progress - before;
+            Assert.GreaterOrEqual(gained, Balance.SkillCheck.Bonus / t, "four seconds off");
+            Assert.Less(gained, (Balance.SkillCheck.Bonus + 3f) / t, "plus only the second or so of ordinary repair");
+            // A miss: the tick goes all the way round unanswered.
+            rig.Run(Secs(Balance.SkillCheck.Every + 0.1f), Cmd);
+            Assert.IsTrue(a.CheckOn, "the next, eight seconds on");
+            float p0 = rig.Sim.Gens[0].Progress;
+            rig.Run(Secs(Balance.SkillCheck.Lead + 360f / Balance.SkillCheck.Speed + 0.1f), Cmd);
+            Assert.IsFalse(a.CheckOn);
+            Assert.AreEqual(-1, a.CheckResult, "run out: a miss");
+            float ordinary = (Balance.SkillCheck.Lead + 360f / Balance.SkillCheck.Speed + 0.1f) / t;
+            Assert.AreEqual(ordinary, rig.Sim.Gens[0].Progress - p0, 0.01f, "a miss costs nothing: only the ordinary repair");
         }
 
         [Test]

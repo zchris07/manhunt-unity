@@ -188,6 +188,7 @@ namespace Vision.Player
             BuildHeadBars(root);
             BuildWander(root);
             BuildLockpick(root);
+            BuildSkillCheck(root);
 
             // Inventory, bottom centre: eight slots, twelve in testing mode; the selected one is outlined (left mouse uses it).
             strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(Inventory.Slots * (SlotSize + SlotGap), 86f));
@@ -527,6 +528,7 @@ namespace Vision.Player
             RefreshHeadBars(me);
             RefreshWander(me);
             RefreshLockpick(me, host != null ? host.Sim : null);
+            RefreshSkillCheck(me, host != null ? host.Sim : null);
             RefreshMatch(me);
         }
 
