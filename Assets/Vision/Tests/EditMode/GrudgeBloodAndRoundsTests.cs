@@ -248,6 +248,24 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheScentIsJoinedInTheOrderItWasLaid_SoRunningThenWalkingNeverCrossesItself()
+        {
+            // Running east for five seconds, then walking on east: the walking points are stamped four seconds older
+            // (they fade sooner), so by time they fall among the running ones, somewhere else.
+            var pts = new List<TrailPoint>();
+            int id = 0;
+            float dist = 0f;
+            for (float t = 0f; t < 5f; t += 0.12f, dist += 0.6f) pts.Add(new TrailPoint { Id = id++, Pos = new Vector2(dist, 0f), T = t, Who = 1, Dist = dist });
+            for (float t = 5f; t < 8f; t += 0.12f, dist += 0.2f) pts.Add(new TrailPoint { Id = id++, Pos = new Vector2(dist, 0f), T = t - Balance.Trails.WalkHeadStart, Who = 1, Dist = dist });
+            var byTime = pts.OrderBy(p => p.T).ToList();
+            Assert.IsTrue(Enumerable.Range(1, byTime.Count - 1).Any(i => byTime[i].Pos.x < byTime[i - 1].Pos.x), "joined by time it doubled back on itself");
+            var shuffled = pts.OrderBy(p => (p.Id * 7919) % 101).ToList();
+            MatchPresenter.OrderTrail(shuffled);
+            for (int i = 1; i < shuffled.Count; i++)
+                Assert.Greater(shuffled[i].Pos.x, shuffled[i - 1].Pos.x, "joined in the order it was laid: straight on, never back");
+        }
+
+        [Test]
         public void RoundsFlyLevel_AndSplattersLieOnTheGround()
         {
             var root = new GameObject("World");

@@ -23,7 +23,7 @@ namespace Vision.Player
         public const float MiniPx = 250f, FullPx = 860f;
 
         readonly Font font;
-        readonly RectTransform miniContent, fullMap, miniArrow, fullArrow, youRing, youLabel, miniSpin;
+        readonly RectTransform miniContent, fullMap, fullPanel, miniArrow, fullArrow, youRing, youLabel, miniSpin;
 
         /// <summary>The 3D view's turn (degrees clockwise from north): the minimap turns with it, so its up is the screen's up.</summary>
         public static float ViewYaw;
@@ -32,7 +32,7 @@ namespace Vision.Player
         readonly Image youRingImage;
         readonly RawImage miniArt, miniFog, fullArt, fullFog;
         readonly GameObject full, revealButton, teleportHint;
-        readonly Text revealLabel, title;
+        readonly Text revealLabel;
         readonly Sprite dot, arrow, ring;
         readonly Dictionary<Object, (Graphic mini, Graphic full)> icons = new Dictionary<Object, (Graphic, Graphic)>();
         readonly HashSet<Object> seen = new HashSet<Object>();
@@ -88,23 +88,26 @@ namespace Vision.Player
             shade.gameObject.AddComponent<Canvas>();
             shade.gameObject.AddComponent<GraphicRaycaster>();
             Image(shade, new Color(0f, 0f, 0f, 0.7f));
-            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(FullPx + 40f, FullPx + 110f));
-            Image(panel, new Color(0.05f, 0.05f, 0.055f, 0.96f));
-            title = Label(Node("Title", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -12f), new Vector2(300f, 34f)), "MAP", 28, TextAnchor.MiddleLeft, new Color(0.86f, 0.85f, 0.80f));
-            // A circle, centred in the panel: the map turns with the view inside it, so whatever shape the generated
-            // world is (and however it's turned) only the round map shows, never a square's corners.
-            RectTransform disc = Node("Disc", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(FullPx, FullPx));
+            // Just the round map, floating over the dimmed game: no box round it, no border, no title or legend. Sized and
+            // placed every frame it's open to fit between the compass and the bars at the bottom (see FitFull).
+            fullPanel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
+            RectTransform panel = fullPanel;
+            // A soft shadow falling off round the circle, lifting it off the game behind.
+            Image shadow = Image(Node("Shadow", panel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx * 1.16f, FullPx * 1.16f)), new Color(0f, 0f, 0f, 0.75f));
+            shadow.sprite = MakeSprite(256, (x, y) =>
+            {
+                float r = Mathf.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f)) / 128f;
+                float k = Mathf.Clamp01((1f - r) / (1f - 0.8f));
+                return k * k * (3f - 2f * k);
+            });
+            shadow.raycastTarget = false;
+            // A circle: the map turns with the view inside it, so whatever shape the generated world is (and however it's
+            // turned) only the round map shows, never a square's corners.
+            RectTransform disc = Node("Disc", panel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
             Sprite circle = MakeSprite(256, (x, y) => Mathf.Clamp01(128f - Mathf.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f))));
             Image discMask = Image(disc, Color.white);
             discMask.sprite = circle;
             disc.gameObject.AddComponent<Mask>().showMaskGraphic = false;
-            Image rim = Image(Node("Rim", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(FullPx + 8f, FullPx + 8f)), new Color(0.32f, 0.31f, 0.29f, 1f));
-            rim.sprite = MakeSprite(256, (x, y) =>
-            {
-                float r = Mathf.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f));
-                return Mathf.Clamp01(128f - r) * Mathf.Clamp01(r - 123f);
-            });
-            rim.raycastTarget = false;
             fullMap = Node("Map", disc, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
             fullArt = Raw(Stretch(Node("Art", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             fullArt.raycastTarget = true;
@@ -120,15 +123,22 @@ namespace Vision.Player
             fullArrow = Node("You", fullMap, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(26f, 26f));
             Image(fullArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
             fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
+            // The map's edge fades softly into the dark (inside the circle, over the map), in place of a border.
+            Image edge = Image(Stretch(Node("Edge", disc, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)), new Color(0f, 0f, 0f, 0.8f));
+            edge.sprite = MakeSprite(256, (x, y) =>
+            {
+                float r = Mathf.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f)) / 128f;
+                float k = Mathf.Clamp01((r - 0.86f) / 0.14f);
+                return k * k;
+            });
+            edge.raycastTarget = false;
             // Testing mode: the NPCs, as the original shows them (made as needed, see NpcDot).
-            Label(Node("Legend", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -50f), new Vector2(580f, 26f)),
-                "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   items by their pictures   <color=#8a8aa0>▬</color> gate   <color=#ff3a5a>■</color> stake", 16, TextAnchor.MiddleRight, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
             RectTransform reveal = Node("Reveal all", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -12f), new Vector2(170f, 34f));
             Image(reveal, new Color(0.16f, 0.16f, 0.17f, 1f)).raycastTarget = true;
             reveal.gameObject.AddComponent<Button>().onClick.AddListener(RevealAll);
             revealLabel = Label(Stretch(Node("Text", reveal, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)), "Reveal all", 18, TextAnchor.MiddleCenter, new Color(0.86f, 0.85f, 0.80f));
             revealButton = reveal.gameObject;
-            teleportHint = Label(Node("Teleport", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 2f), new Vector2(FullPx, 18f)), "Testing: click the map to teleport there", 15, TextAnchor.MiddleCenter, new Color(0.62f, 0.61f, 0.57f)).gameObject;
+            teleportHint = Label(Node("Teleport", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(FullPx, 22f)), "Testing: click the map to teleport there", 18, TextAnchor.MiddleCenter, new Color(0.62f, 0.61f, 0.57f)).gameObject;
             fullMap.gameObject.AddComponent<MapClick>().map = this;
             full = shade.gameObject;
             full.SetActive(false);
@@ -171,9 +181,38 @@ namespace Vision.Player
 
         public void Toggle() => SetOpen(!full.activeSelf);
 
+        /// <summary>Clear of the compass and clock at the top, and of the stamina bar and inventory at the bottom (canvas units).</summary>
+        public const float FullTop = 104f, FullBottom = 172f;
+
+        /// <summary>
+        /// Sizes the full map to the screen: as big as fits (never past its own size) in the band between the compass and
+        /// the bars at the bottom, centred in it, the testing hint beneath it.
+        /// </summary>
+        void FitFull()
+        {
+            var area = ((RectTransform)full.transform).rect;
+            float hint = GameSession.TestingMode ? 34f : 0f;
+            float band = area.height - FullTop - FullBottom - hint;
+            float k = Mathf.Clamp(Mathf.Min(band, area.width - 80f) / FullPx, 0.3f, 1f);
+            fullPanel.localScale = new Vector3(k, k, 1f);
+            fullPanel.anchoredPosition = new Vector2(0f, (FullBottom + hint - FullTop) * 0.5f);
+        }
+
+        /// <summary>The full map's on-screen box (canvas units, tests and captures).</summary>
+        public Rect FullBox
+        {
+            get
+            {
+                float k = fullPanel.localScale.x;
+                Vector2 c = fullPanel.anchoredPosition;
+                return new Rect(c.x - FullPx * k * 0.5f, c.y - FullPx * k * 0.5f, FullPx * k, FullPx * k);
+            }
+        }
+
         public void SetOpen(bool open)
         {
             full.SetActive(open);
+            if (open) FitFull();
             markerDirty = true;
         }
 
@@ -260,7 +299,7 @@ namespace Vision.Player
             {
                 revealButton.SetActive(false);
                 teleportHint.SetActive(GameSession.TestingMode);
-                title.text = GameSession.TestingMode ? $"MAP   ·   seed {world.seed}" : "MAP";
+                FitFull();
             }
 
             Vector2 me = PlayerOnMap(out Vector2 facing);
@@ -351,6 +390,14 @@ namespace Vision.Player
                 if (p == null) continue;
                 Vector3 lp = world.transform.InverseTransformPoint(p.transform.position);
                 Show(p, new Vector2(lp.x, lp.z), Color.white, new Vector2(16f, 16f), true, false, ItemIcons.For(p.item, p.golden));
+            }
+            // The notes, by their own picture (a sheet of old paper with a photo pinned to it), once seen.
+            Texture2D note = ItemIcons.Get("note");
+            foreach (Transform n in world.Notes)
+            {
+                if (n == null) continue;
+                Vector3 lp = world.transform.InverseTransformPoint(n.position);
+                Show(n, new Vector2(lp.x, lp.z), Color.white, new Vector2(19f, 19f), true, false, note);
             }
             foreach (GeneratorObjective g in GeneratorObjective.All)
             {

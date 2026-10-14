@@ -162,6 +162,31 @@ namespace Vision.UI
         /// Where a shot leaves the gun: the end of the barrel of the gun the shooter's model holds (a player or an NPC), or
         /// a little way out in front of them when the model isn't drawn.
         /// </summary>
+        /// <summary>
+        /// Notes lying in the viewer's light glint now and then: a soft pale glow pulsing up and away over the paper, each
+        /// on its own beat, so a note on the ground catches the eye.
+        /// </summary>
+        void NoteGlints()
+        {
+            if (world == null || world.Notes.Count == 0) return;
+            Camera cam = Camera.main;
+            float t = Time.time, s = S;
+            for (int i = 0; i < world.Notes.Count; i++)
+            {
+                Transform n = world.Notes[i];
+                if (n == null) continue;
+                if (cam != null)
+                {
+                    Vector3 v = cam.WorldToViewportPoint(n.position);
+                    if (v.x < -0.1f || v.x > 1.1f || v.y < -0.1f || v.y > 1.1f) continue;
+                }
+                float beat = Mathf.Repeat(t / 2.6f + i * 0.37f, 1f);
+                float k = Mathf.Sin(Mathf.Clamp01(beat / 0.35f) * Mathf.PI);
+                Vector3 at = n.position + Vector3.up * 0.05f * s;
+                Fx.Glow(at, (0.55f + 0.25f * k) * s, new Color(1f, 0.96f, 0.82f, 0.18f + 0.32f * k), true, false);
+            }
+        }
+
         Vector3 MuzzleOf(GameEvent e, MatchSim sim)
         {
             if (e.A > 0)
@@ -194,6 +219,7 @@ namespace Vision.UI
                     break;
                 case Vision.Player.ItemType.Sniper:
                     SniperRound(muzzle, e.Pos, e.F);
+                    Audio.PlayCue("sniper_shot", Units(e.Pos));
                     break;
                 default:
                     // Pellets: "hit|angle*1000:distance,..." (original units).
@@ -234,6 +260,7 @@ namespace Vision.UI
             DrawVapes(sim);
             DrawRounds();
             DrawLasers(sim);
+            NoteGlints();
             DrawNpcs(sim);
             DoorSounds(sim);
             BeamSounds(sim);
@@ -440,8 +467,9 @@ namespace Vision.UI
                 {
                     TintA = v.Nic ? new Color(0.62f, 0.78f, 0.88f) : new Color(0.8f, 0.74f, 0.5f),
                     TintB = v.Nic ? new Color(0.25f, 0.42f, 0.62f) : new Color(0.5f, 0.43f, 0.22f),
-                    // 60% less opaque than at first, then 30% less again; thinning as it's blown about.
-                    Opacity = fade * 0.4f * 0.7f * thin,
+                    // 60% less opaque than at first, then 30% less again (Penjamin's then 40% more again); thinning as it's
+                    // blown about.
+                    Opacity = fade * 0.4f * 0.7f * (v.Nic ? 1f : 1.4f) * thin,
                     Extinction = 1.5f / S * dense,
                     NoiseScale = 0.6f / S,
                     Erosion = 0.8f,

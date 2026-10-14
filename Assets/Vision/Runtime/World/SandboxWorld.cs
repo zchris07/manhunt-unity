@@ -39,6 +39,25 @@ namespace Vision.World
         public Material entityMaterial;
         public Material glowMaterial;
 
+        Material groundMaterial;
+
+        /// <summary>
+        /// The ground's material (and the fallen logs'): the low-poly one, marking its pixels as the ground (stencil 1),
+        /// so the laser and rounds in flight draw over it whatever its hills do, and behind anything else nearer.
+        /// </summary>
+        public Material GroundMaterial
+        {
+            get
+            {
+                if (groundMaterial == null && lowPolyMaterial != null)
+                {
+                    groundMaterial = new Material(lowPolyMaterial) { name = "Ground", hideFlags = HideFlags.DontSave };
+                    groundMaterial.SetFloat("_StencilRef", 1f);
+                }
+                return groundMaterial;
+            }
+        }
+
         [Header("Wiring")]
         public TopDownCamera cameraRig;
         public VisionMaskRenderer maskRenderer;
@@ -108,6 +127,8 @@ namespace Vision.World
         public const float WindowVaultHeight = 0.55f, LogVaultHeight = 0.42f;
         /// <summary>How high the body goes over a split-rail fence and over the graveyard's iron fence (Zach only).</summary>
         public const float FenceVaultHeight = 0.8f, IronFenceVaultHeight = 1.1f;
+        /// <summary>The graveyard's iron fence is built of panels at most this long (metres), each sat on the ground under it.</summary>
+        public const float IronPanel = 2.5f;
         /// <summary>A fence's vault strip reaches this far either side of it (the level's units), as far as a log's.</summary>
         public const float FenceVaultHalf = 0.3f;
 
@@ -128,6 +149,9 @@ namespace Vision.World
         void MakeLow(GameObject go, BoxCollider box)
         {
             go.layer = LowLayer;
+            // Drawn as the ground: the laser and rounds pass over it.
+            foreach (MeshRenderer r in go.GetComponentsInChildren<MeshRenderer>(true))
+                if (r.sharedMaterial == lowPolyMaterial && lowPolyMaterial != null) r.sharedMaterial = GroundMaterial;
             var occ = go.GetComponent<Vision.Visibility.Occluder>();
             if (occ != null && !occ.low)
             {
@@ -357,6 +381,14 @@ namespace Vision.World
             Generate();
         }
 
+        /// <summary>The upright rectangle round <paramref name="r"/> turned by <paramref name="yaw"/> degrees about its centre.</summary>
+        static Rect Turned(Rect r, float yaw)
+        {
+            float a = yaw * Mathf.Deg2Rad, c = Mathf.Abs(Mathf.Cos(a)), s = Mathf.Abs(Mathf.Sin(a));
+            float w = r.width * c + r.height * s, h = r.width * s + r.height * c;
+            return new Rect(r.center.x - w * 0.5f, r.center.y - h * 0.5f, w, h);
+        }
+
         /// <summary>
         /// Hills and ditches with flat ground under the building and its yard, the cabins, the clearings, the cover
         /// pieces and the special sites, the lake's basin, and footpaths routed between everything.
@@ -371,7 +403,9 @@ namespace Vision.World
                 f.AddPad(layout.Clearings[i].Centre, layout.Clearings[i].Radius * 0.45f, layout.Clearings[i].Radius * 0.6f);
             foreach (MapLayout.Kit k in layout.Kits) f.AddPad(k.Centre, 3.5f, 3f);
             foreach (Vector2 g in layout.WoodsGenerators) f.AddPad(g, 1.4f, 3f);
-            f.AddPad(Expand(layout.Graveyard, 1f), 4f);
+            // The graveyard is turned (a quarter turn or more, and a little), so its flat pad covers the whole turned plot:
+            // the plain rectangle left its long sides and corners out on the hills, the fence sunk into them.
+            f.AddPad(Expand(Turned(layout.Graveyard, layout.GraveyardYaw), 1f), 4f);
             f.AddPad(Expand(layout.Playground, 1f), 4f);
             f.AddPad(layout.HangingTree, 2.5f, 3f);
             f.SetLake(layout);
@@ -872,7 +906,7 @@ namespace Vision.World
             for (int cj = 0; cj < chunks; cj++)
                 for (int ci = 0; ci < chunks; ci++)
                 {
-                    var go = MakeStatic("Ground", builders[ci, cj].ToMesh("Ground"), Vector3.zero, Quaternion.identity, lowPolyMaterial);
+                    var go = MakeStatic("Ground", builders[ci, cj].ToMesh("Ground"), Vector3.zero, Quaternion.identity, GroundMaterial);
                     go.layer = GroundLayer;
                     go.AddComponent<MeshCollider>().sharedMesh = grid.CollisionMesh(ci * perChunk, Mathf.Min(grid.Cells, (ci + 1) * perChunk),
                         cj * perChunk, Mathf.Min(grid.Cells, (cj + 1) * perChunk), "Ground Collider");
@@ -1362,30 +1396,48 @@ namespace Vision.World
             float sideEnd = gateHalf + pillar;
             var sides = new[] { (new Vector2(-hx, -hz), new Vector2(-sideEnd, -hz)), (new Vector2(sideEnd, -hz), new Vector2(hx, -hz)),
                                 (new Vector2(hx, -hz), new Vector2(hx, hz)), (new Vector2(hx, hz), new Vector2(-hx, hz)), (new Vector2(-hx, hz), new Vector2(-hx, -hz)) };
+            float fh = LowPolyModels.IronFenceHeight;
+            var pieces = new List<(float from, float to)>();
             for (int si = 0; si < sides.Length; si++)
             {
                 var (a0, b0) = sides[si];
                 Vector2 a = Local(a0.x, a0.y), b = Local(b0.x, b0.y);
                 float len = Vector2.Distance(a, b);
                 Vector2 d = (b - a) / len;
-                GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, len), parent, new Vector3(a.x, Mathf.Min(H(a), H(b)) - 0.05f, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                float fh = LowPolyModels.IronFenceHeight;
-                // The two panels either side of the gates: the stretch next to the pillar is a plain wall even to Zach, so
-                // brushing the fence as he goes for the gateway never starts a climb.
-                if (si < 2)
+                // Each side in short panels, each set at the lowest of the ground under it (one rigid run the length of a
+                // side, set at its lower end, sank into the ground wherever the ground rose along it). The panel next to
+                // the gates keeps the solid stretch with a little climbable fence after it.
+                bool gateAtEnd = si == 0, gateAtStart = si == 1;   // the west panel runs up to the gate, the east one away from it
+                float solid = Mathf.Min(GateFenceSolid, len), gatePiece = si < 2 ? Mathf.Min(len, solid + IronPanel) : 0f;
+                if (si < 2 && len - gatePiece < 0.6f) gatePiece = len;
+                float runFrom = gateAtStart ? gatePiece : 0f, runTo = gateAtEnd ? len - gatePiece : len;
+                pieces.Clear();
+                if (gateAtStart) pieces.Add((0f, gatePiece));
+                int n = runTo - runFrom > 0.05f ? Mathf.Max(1, Mathf.CeilToInt((runTo - runFrom) / IronPanel)) : 0;
+                for (int k = 0; k < n; k++) pieces.Add((Mathf.Lerp(runFrom, runTo, k / (float)n), Mathf.Lerp(runFrom, runTo, (k + 1) / (float)n)));
+                if (gateAtEnd) pieces.Add((len - gatePiece, len));
+                foreach (var (from, to) in pieces)
                 {
-                    float solid = Mathf.Min(GateFenceSolid, len);
-                    bool gateAtEnd = si == 0;   // the west panel runs up to the gate, the east one away from it
-                    float keep = len - solid, keepFrom = gateAtEnd ? 0f : solid;
+                    Vector2 pa = a + d * from, pb = a + d * to;
+                    float plen = to - from;
+                    float baseY = Mathf.Min(Mathf.Min(H(pa), H(pb)), H((pa + pb) * 0.5f)) - 0.05f;
+                    GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, plen), parent, new Vector3(pa.x, baseY, pa.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
+                    bool atGate = (gateAtStart && from < 1e-4f) || (gateAtEnd && to > len - 1e-4f);
+                    if (!atGate)
+                    {
+                        MakeVaultable(f, AddBox(f, new Vector3(plen * 0.5f, fh * 0.5f, 0f), new Vector3(plen, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
+                        continue;
+                    }
+                    // Next to the pillar: a plain wall even to Zach, so brushing the fence as he goes for the gateway
+                    // never starts a climb.
+                    float s0 = Mathf.Min(solid, plen), keep = plen - s0, keepFrom = gateAtEnd ? 0f : s0;
                     var wall = new GameObject("Gate Fence Wall");
                     wall.transform.SetParent(f.transform, false);
-                    AddBox(wall, new Vector3((gateAtEnd ? len - solid * 0.5f : solid * 0.5f), fh * 0.5f, 0f), new Vector3(solid, fh, 0.12f));
+                    AddBox(wall, new Vector3(gateAtEnd ? plen - s0 * 0.5f : s0 * 0.5f, fh * 0.5f, 0f), new Vector3(s0, fh, 0.12f));
                     if (keep > 0.3f)
                         MakeVaultable(f, AddBox(f, new Vector3(keepFrom + keep * 0.5f, fh * 0.5f, 0f), new Vector3(keep, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
                     else f.layer = GraveFenceLayer;
-                    continue;
                 }
-                MakeVaultable(f, AddBox(f, new Vector3(len * 0.5f, fh * 0.5f, 0f), new Vector3(len, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
             }
             foreach (float s in new[] { -1f, 1f })
             {

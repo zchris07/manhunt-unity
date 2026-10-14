@@ -168,6 +168,9 @@ namespace Vision.World
         /// The paper notes, each photo once (note-1 to note-6, in a random order): one beside every generator (so the
         /// graveyard's generator always has one, a random one), and the rest along the paths, far apart, as before.
         /// </summary>
+        /// <summary>How much bigger than its model a note lies on the ground (a big sheet, easy to spot).</summary>
+        public const float NoteScale = 2.2f;
+
         void BuildNotes()
         {
             System.Random r = FeatureRng(10);
@@ -177,15 +180,18 @@ namespace Vision.World
             int next = 0;
             Transform parent = Group("Notes");
             var placed = new List<Vector2>();
+            // Notes catch the eye: their paper glows faintly, so it reads in any light.
+            var noteMat = lowPolyMaterial != null ? new Material(lowPolyMaterial) { name = "Note", hideFlags = HideFlags.DontSave } : null;
+            if (noteMat != null && noteMat.HasProperty("_Emission")) noteMat.SetFloat("_Emission", 0.45f);
             void Put(Vector2 p, float? floorY)
             {
                 var go = new GameObject($"Note {Notes.Count + 1}");
                 go.transform.SetParent(parent, false);
                 go.AddComponent<MeshFilter>().sharedMesh = LowPolyModels.Note(r);
-                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+                PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = noteMat != null ? noteMat : lowPolyMaterial;
                 if (floorY.HasValue) go.transform.SetLocalPositionAndRotation(new Vector3(p.x, floorY.Value + 0.01f, p.y), Quaternion.Euler(0f, R(0f, 360f), 0f));
                 else Conform(go.transform, p, 0.2f, R(0f, 360f), 0.9f, 0f);
-                go.transform.localScale = Vector3.one * 1.6f;
+                go.transform.localScale = Vector3.one * NoteScale;
                 Notes.Add(go.transform);
                 NoteImages.Add(order[next++ % order.Count]);
                 placed.Add(p);

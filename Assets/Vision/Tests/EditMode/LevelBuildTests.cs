@@ -75,6 +75,13 @@ namespace Vision.Tests
             // rest along the paths.
             Assert.AreEqual(Balance.Notes.Images, world.Notes.Count, "six notes");
             CollectionAssert.AreEquivalent(System.Linq.Enumerable.Range(0, Balance.Notes.Images), world.NoteImages, "each photo once");
+            foreach (Transform n in world.Notes)
+            {
+                Assert.AreEqual(SandboxWorld.NoteScale, n.localScale.x, 1e-4f, "a big sheet, easy to spot");
+                Material m = n.GetComponent<MeshRenderer>().sharedMaterial;
+                Assert.Greater(m.GetFloat("_Emission"), 0.3f, "its paper glows faintly, so it reads in any light");
+            }
+            Assert.IsNotNull(Vision.UI.ItemIcons.Get("note"), "the maps show notes by their own picture");
             float S = world.transform.lossyScale.x;
             foreach (Transform g in world.Generators)
                 Assert.IsTrue(world.Notes.Exists(n => Vector3.Distance(n.position, g.position) / S < Balance.Notes.BesideGenerator + 0.6f), $"a note beside {g.name}");

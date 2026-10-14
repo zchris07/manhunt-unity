@@ -76,7 +76,8 @@ namespace Vision.World
         {
             var b = new LowPolyMeshBuilder(rng);
             float tilt = b.Range(-0.02f, 0.02f);
-            b.AddBox(new Vector3(-0.17f, 0.005f, -0.12f), new Vector3(0.34f, 0.012f, 0.24f), new Color(0.86f, 0.82f, 0.7f), 0.03f);
+            // Pale paper, so it stands out against the dark ground.
+            b.AddBox(new Vector3(-0.17f, 0.005f, -0.12f), new Vector3(0.34f, 0.012f, 0.24f), new Color(0.97f, 0.94f, 0.84f), 0.03f);
             b.AddBox(new Vector3(-0.14f, 0.018f + tilt * 0f, -0.09f), new Vector3(0.28f, 0.004f, 0.18f), new Color(0.32f, 0.26f, 0.2f), 0.12f);
             b.AddBlob(new Vector3(0.13f, 0.03f, 0.08f), new Vector3(0.045f, 0.03f, 0.04f), 0, 0.15f, _ => new Color(0.35f, 0.34f, 0.32f));
             return b.ToMesh("Note");

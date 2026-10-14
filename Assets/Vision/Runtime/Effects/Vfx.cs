@@ -17,6 +17,11 @@ namespace Vision.Effects
 
         /// <summary>The layer the senses overlay camera draws (and the main camera skips).</summary>
         public const int SensesLayer = 10;
+        /// <summary>
+        /// The layer the over-ground overlay camera draws (and the main camera skips): the laser and rounds in flight, over
+        /// the ground and behind whatever stands nearer (see <see cref="SensesCamera"/> and Vision/FxOverGround).
+        /// </summary>
+        public const int OverGroundLayer = 11;
 
         struct Particle
         {
@@ -45,6 +50,10 @@ namespace Vision.Effects
             public readonly List<Color> RibbonCols = new List<Color>();
             public readonly List<(int start, int count, float width, bool soft)> Ribbons = new List<(int, int, float, bool)>();
             public readonly List<(Vector3 pos, float size, Color color, bool glow)> Dots = new List<(Vector3, float, Color, bool)>();
+            // Laser sights queued this frame (their points in RibbonPts, one colour each).
+            public readonly List<(int start, int count, float width, Color color, float seed)> Lasers = new List<(int, int, float, Color, float)>();
+            /// <summary>Drawn by the over-ground camera: its ribbons face the camera.</summary>
+            public bool Over;
             // Triangles for this frame (three vertices and colours each).
             public readonly List<Vector3> TriV = new List<Vector3>();
             public readonly List<Color> TriC = new List<Color>();
@@ -54,6 +63,8 @@ namespace Vision.Effects
             public readonly List<Vector3> V = new List<Vector3>();
             public readonly List<Color> C = new List<Color>();
             public readonly List<Vector2> U = new List<Vector2>();
+            // The second uv: a laser's distance along it and its seed (zero for everything else).
+            public readonly List<Vector2> U2 = new List<Vector2>();
             public readonly List<int> T = new List<int>();
         }
 
@@ -69,7 +80,7 @@ namespace Vision.Effects
             }
         }
 
-        readonly Dictionary<(bool masked, bool senses, Blend blend), Batch> batches = new Dictionary<(bool, bool, Blend), Batch>();
+        readonly Dictionary<(bool masked, bool senses, Blend blend, bool over), Batch> batches = new Dictionary<(bool, bool, Blend, bool), Batch>();
 
         public int ParticleCount
         {
@@ -123,21 +134,38 @@ namespace Vision.Effects
             return m;
         }
 
-        Batch Get(bool masked, bool senses, Blend blend)
+        /// <summary>
+        /// The material of what's drawn over the ground (Vision/FxOverGround): over the ground always, behind anything
+        /// else that's nearer, never masked by the light.
+        /// </summary>
+        public static Material MakeOverGroundMaterial(Blend blend)
         {
-            var key = (masked && !senses, senses, blend);
+            Shader s = Shader.Find("Vision/FxOverGround");
+            if (s == null) return null;
+            var m = new Material(s) { name = $"Fx {blend} over ground", hideFlags = HideFlags.HideAndDontSave };
+            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", blend == Blend.Additive ? (float)UnityEngine.Rendering.BlendMode.One : (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.renderQueue = 3000 + (blend == Blend.Additive ? 10 : 0);
+            return m;
+        }
+
+        Batch Get(bool masked, bool senses, Blend blend, bool over = false)
+        {
+            if (over) masked = senses = false;
+            var key = (masked && !senses, senses, blend, over);
             if (batches.TryGetValue(key, out Batch b)) return b;
-            b = new Batch();
-            b.Go = new GameObject($"Fx {blend}{(senses ? " senses" : masked ? " masked" : "")}");
+            b = new Batch { Over = over };
+            b.Go = new GameObject($"Fx {blend}{(over ? " over ground" : senses ? " senses" : masked ? " masked" : "")}");
             b.Go.transform.SetParent(transform, false);
             if (senses) b.Go.layer = SensesLayer;
+            if (over) b.Go.layer = OverGroundLayer;
             b.Mesh = new Mesh { name = b.Go.name, hideFlags = HideFlags.DontSave };
             b.Mesh.MarkDynamic();
             b.Go.AddComponent<MeshFilter>().sharedMesh = b.Mesh;
             var r = b.Go.AddComponent<MeshRenderer>();
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             r.receiveShadows = false;
-            b.Material = MakeMaterial(blend, masked && !senses);
+            b.Material = over ? MakeOverGroundMaterial(blend) : MakeMaterial(blend, masked && !senses);
             r.sharedMaterial = b.Material;
             batches[key] = b;
             return b;
@@ -147,9 +175,9 @@ namespace Vision.Effects
 
         /// <summary>A burst of particles from a point, flying out up to <paramref name="speed"/> world units a second.</summary>
         public void Burst(Vector3 at, int count, float speed, float life, Color color, float size = 0.08f, bool masked = true, Blend blend = Blend.Additive,
-            float gravity = 0f, float drag = 2.5f, float upward = 0.3f, Color? color2 = null, bool senses = false)
+            float gravity = 0f, float drag = 2.5f, float upward = 0.3f, Color? color2 = null, bool senses = false, bool over = false)
         {
-            Batch b = Get(masked && !senses, senses, blend);
+            Batch b = Get(masked && !senses, senses, blend, over);
             for (int i = 0; i < count; i++)
             {
                 Vector3 dir = Random.onUnitSphere;
@@ -174,9 +202,9 @@ namespace Vision.Effects
         /// ember, a smoke puff that swells as it rises (<paramref name="grow"/>), a chip of debris.
         /// </summary>
         public void Emit(Vector3 at, Vector3 velocity, float life, Color color, float size, float gravity = 0f, float drag = 1f, bool streak = false,
-            bool glow = false, float grow = 1f, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+            bool glow = false, float grow = 1f, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool over = false)
         {
-            Batch b = Get(masked, senses, blend);
+            Batch b = Get(masked, senses, blend, over);
             b.Particles.Add(new Particle { Pos = at, Vel = velocity, Color = color, Size = size, Life = life, Drag = drag, Gravity = gravity, Streak = streak, Glow = glow, Grow = grow });
             if (b.Particles.Count > 3000) b.Particles.RemoveRange(0, b.Particles.Count - 3000);
         }
@@ -188,10 +216,11 @@ namespace Vision.Effects
         }
 
         /// <summary>A ribbon through points (one frame only: call each frame while it shows); soft ones fade to both edges.</summary>
-        public void Ribbon(IReadOnlyList<Vector3> pts, IReadOnlyList<Color> cols, float width, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool soft = false)
+        public void Ribbon(IReadOnlyList<Vector3> pts, IReadOnlyList<Color> cols, float width, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool soft = false,
+            bool over = false)
         {
             if (pts == null || pts.Count < 2) return;
-            Batch b = Get(masked, senses, blend);
+            Batch b = Get(masked, senses, blend, over);
             int start = b.RibbonPts.Count;
             for (int i = 0; i < pts.Count; i++)
             {
@@ -202,15 +231,41 @@ namespace Vision.Effects
         }
 
         /// <summary>A soft dot for this frame only (call each frame while it shows).</summary>
-        public void Dot(Vector3 at, float size, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive)
+        public void Dot(Vector3 at, float size, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool over = false)
         {
-            Get(masked, senses, blend).Dots.Add((at, size, color, false));
+            Get(masked, senses, blend, over).Dots.Add((at, size, color, false));
         }
 
         /// <summary>A soft glow for this frame only: bright in the middle, falling off smoothly (an orb, a flare, a hot spot).</summary>
-        public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive)
+        public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive, bool over = false)
         {
-            Get(masked, senses, blend).Dots.Add((at, size, color, true));
+            Get(masked, senses, blend, over).Dots.Add((at, size, color, true));
+        }
+
+        /// <summary>
+        /// A laser sight through points for this frame, drawn over the ground and behind whatever stands nearer, the way
+        /// Noita draws one (Vision/FxOverGround's laser mode): <paramref name="width"/> must hold a few pixels of haze
+        /// either side of its one-pixel core (<see cref="ScreenPixels"/>). <paramref name="seed"/> keeps each beam's static
+        /// its own.
+        /// </summary>
+        public void Laser(IReadOnlyList<Vector3> pts, float width, Color color, float seed = 0f)
+        {
+            if (pts == null || pts.Count < 2) return;
+            Batch b = Get(false, false, Blend.Additive, true);
+            int start = b.RibbonPts.Count;
+            // (Colours kept alongside, so the ribbons sharing these lists stay lined up.)
+            for (int i = 0; i < pts.Count; i++) { b.RibbonPts.Add(pts[i]); b.RibbonCols.Add(color); }
+            b.Lasers.Add((start, pts.Count, width, color, seed));
+        }
+
+        /// <summary>World units across <paramref name="pixels"/> of the screen's art pixels (a few real pixels each, as Noita's are).</summary>
+        public static float ScreenPixels(Camera cam, float pixels)
+        {
+            if (cam == null) return 0.02f * pixels;
+            float h = Mathf.Max(1f, cam.pixelHeight);
+            float art = Mathf.Max(1f, Mathf.Floor(h / 540f));
+            float perPx = cam.orthographic ? 2f * cam.orthographicSize / h : 2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) * 10f / h;
+            return pixels * art * perPx;
         }
 
         /// <summary>A flat triangle for this frame (a blood splatter is built of these).</summary>
@@ -281,6 +336,7 @@ namespace Vision.Effects
                 b.TriV.Clear();
                 b.TriC.Clear();
                 b.Dots.Clear();
+                b.Lasers.Clear();
                 b.Particles.Clear();
                 b.Rings.Clear();
                 b.Ribbons.Clear();
@@ -296,9 +352,10 @@ namespace Vision.Effects
         public void Step(float dt, Camera cam)
         {
             Vector3 right = cam != null ? cam.transform.right : Vector3.right, up = cam != null ? cam.transform.up : Vector3.up;
+            Vector3 fwd = cam != null ? cam.transform.forward : Vector3.down;
             foreach (Batch b in batches.Values)
             {
-                b.V.Clear(); b.C.Clear(); b.U.Clear(); b.T.Clear();
+                b.V.Clear(); b.C.Clear(); b.U.Clear(); b.U2.Clear(); b.T.Clear();
                 for (int i = b.Particles.Count - 1; i >= 0; i--)
                 {
                     Particle p = b.Particles[i];
@@ -333,8 +390,11 @@ namespace Vision.Effects
                     c.a *= 1f - k;
                     RingMesh(b, r.Centre, rad, r.Width, c);
                 }
-                foreach (var (start, count, width, soft) in b.Ribbons) RibbonMesh(b, b.RibbonPts, b.RibbonCols, start, count, width, soft);
+                Vector3? facing = b.Over ? fwd : (Vector3?)null;
+                foreach (var (start, count, width, soft) in b.Ribbons) RibbonMesh(b, b.RibbonPts, b.RibbonCols, start, count, width, soft, facing);
                 b.Ribbons.Clear();
+                foreach (var (start, count, width, color, seed) in b.Lasers) LaserMesh(b, b.RibbonPts, start, count, width, color, seed, fwd);
+                b.Lasers.Clear();
                 b.RibbonPts.Clear();
                 b.RibbonCols.Clear();
                 foreach (var (pos, size, color, glow) in b.Dots) Quad(b, pos, right * size, up * size, color, glow);
@@ -354,6 +414,11 @@ namespace Vision.Effects
                 b.Mesh.SetVertices(b.V);
                 b.Mesh.SetColors(b.C);
                 b.Mesh.SetUVs(0, b.U);
+                if (b.U2.Count > 0)
+                {
+                    while (b.U2.Count < b.V.Count) b.U2.Add(Vector2.zero);
+                    b.Mesh.SetUVs(1, b.U2);
+                }
                 b.Mesh.SetTriangles(b.T, 0);
                 b.Mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 100000f);
             }
@@ -444,21 +509,47 @@ namespace Vision.Effects
             }
         }
 
-        static void RibbonMesh(Batch b, List<Vector3> pts, List<Color> cols, int first, int n, float w, bool soft = false)
+        static void RibbonMesh(Batch b, List<Vector3> pts, List<Color> cols, int first, int n, float w, bool soft = false, Vector3? facing = null)
         {
             int start = b.V.Count;
             for (int k = 0; k < n; k++)
             {
                 Vector3 a = pts[first + Mathf.Max(0, k - 1)], c = pts[first + Mathf.Min(n - 1, k + 1)];
                 Vector3 along = (c - a).normalized;
-                // Flat on the ground, sideways to the path.
-                Vector3 side = Vector3.Cross(Vector3.up, along).normalized * (w * 0.5f);
+                // Flat on the ground, sideways to the path (or, drawn over the ground, facing the camera: as wide whichever
+                // way it runs on screen).
+                Vector3 side = Vector3.Cross(facing ?? Vector3.up, along).normalized * (w * 0.5f);
                 b.V.Add(pts[first + k] - side);
                 b.V.Add(pts[first + k] + side);
                 Color col = cols[first + k];
                 b.C.Add(col); b.C.Add(col);
                 if (soft) { b.U.Add(new Vector2(4f, 0f)); b.U.Add(new Vector2(4f, 1f)); }
                 else { b.U.Add(Vector2.zero); b.U.Add(Vector2.zero); }
+            }
+            for (int k = 0; k < n - 1; k++)
+            {
+                int i = start + k * 2;
+                b.T.Add(i); b.T.Add(i + 1); b.T.Add(i + 3);
+                b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
+            }
+        }
+
+        /// <summary>A laser sight's ribbon, facing the camera: uv.x 8 marks it, uv.y runs across, uv2 is (distance along, seed).</summary>
+        static void LaserMesh(Batch b, List<Vector3> pts, int first, int n, float w, Color col, float seed, Vector3 facing)
+        {
+            while (b.U2.Count < b.V.Count) b.U2.Add(Vector2.zero);
+            int start = b.V.Count;
+            float along = 0f;
+            for (int k = 0; k < n; k++)
+            {
+                if (k > 0) along += Vector3.Distance(pts[first + k - 1], pts[first + k]);
+                Vector3 a = pts[first + Mathf.Max(0, k - 1)], c = pts[first + Mathf.Min(n - 1, k + 1)];
+                Vector3 side = Vector3.Cross(facing, (c - a).normalized).normalized * (w * 0.5f);
+                b.V.Add(pts[first + k] - side);
+                b.V.Add(pts[first + k] + side);
+                b.C.Add(col); b.C.Add(col);
+                b.U.Add(new Vector2(8f, 0f)); b.U.Add(new Vector2(8f, 1f));
+                b.U2.Add(new Vector2(along, seed)); b.U2.Add(new Vector2(along, seed));
             }
             for (int k = 0; k < n - 1; k++)
             {

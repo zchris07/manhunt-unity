@@ -104,7 +104,8 @@ Shader "Vision/Gas"
                     // (Alpha reads back as stored; the colour channels come back linearised from the sRGB volume, undone.)
                     float e = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, pe, 0).a;
                     float e2 = pow(SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, pe * 2.3 + 5.1, 0).b, 0.4545);
-                    wob = 1.0 + _GasEdge.x * ((e - 0.5) * 2.2 + (e2 - 0.5) * 0.9);
+                    // Pushed out freely, pulled in only a little: pinched in too far, the cone was cut into separate blobs.
+                    wob = 1.0 + _GasEdge.x * clamp((e - 0.5) * 2.2 + (e2 - 0.5) * 0.9, -0.5, 1.4);
                 }
                 float s = Shape(o, wob);
                 if (s <= 0.0) return 0.0;
@@ -122,11 +123,15 @@ Shader "Vision/Gas"
                 // what's left near the surface into wisps.
                 float d = saturate((s * 1.15 - (1.0 - billow) * _GasShape.w) * 2.2);
                 d = saturate(d - (1.0 - detail) * 0.5 * (1.0 - s * s));
+                // A cone's body is never eaten hollow: whatever the billows do, it keeps at least a haze that thickens
+                // toward its middle (its outer edge still frays to nothing).
+                if (_GasShape.x > 0.5) d = max(d, s * s * 0.45);
                 // Patchy: a much larger, slower pattern (riding the drift with the billows) splits the cloud into thick
-                // pockets and thin stretches, with clear gaps right through it between them.
-                // (The smooth warp noise, broad: about a quarter of the cloud thins to gaps, a fifth thickens into pockets.)
+                // pockets and thin stretches between them, never clear through (it was multiplied down to nothing, and as
+                // the cloud was blown wider over the same pattern whole parts of it went empty).
+                // (The smooth warp noise, broad: about a quarter of the cloud thins out, a fifth thickens into pockets.)
                 float clump = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, p * 0.12 + float3(7.3, 2.1, 5.7) + float3(t * 0.004, 0.0, 0.0), 0).a;
-                float pockets = smoothstep(0.36, 0.5, clump) * lerp(0.75, 1.6, smoothstep(0.52, 0.66, clump));
+                float pockets = lerp(0.4, 1.0, smoothstep(0.36, 0.5, clump)) * lerp(0.75, 1.6, smoothstep(0.52, 0.66, clump));
                 return d * lerp(1.0, pockets, _GasCone.w);
             }
 

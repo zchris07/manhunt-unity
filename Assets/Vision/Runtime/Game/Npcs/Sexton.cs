@@ -5,9 +5,10 @@ namespace Vision.Game
 {
     /// <summary>
     /// Sexton Science (the original's sexton.ts): wanders with his reel playing around him. A survivor who talks to him,
-    /// and presses E again to keep listening, gets JARVIS (a glowing tablet), and he walks off mysteriously. Zach slays him
-    /// in three hits (he runs after each) and he drops his Hemp Beam. Survivors can't hurt him: hit him and he defends
-    /// himself with Hemp Beams against every survivor nearby until they've all left him alone for ten seconds.
+    /// and presses E again to keep listening, gets JARVIS (a glowing tablet), and he walks off mysteriously. Three hits slay
+    /// him and he drops his Hemp Beam for whoever picks it up: Zach's (he runs after each) or a survivor's (a bottle, book or
+    /// jar, a round, a shotgun blast). Hit by a survivor he defends himself with Hemp Beams against every survivor nearby
+    /// until they've all left him alone for ten seconds (hit again while defending, he's stunned too).
     /// </summary>
     public sealed class Sexton : Walker
     {
@@ -23,8 +24,8 @@ namespace Vision.Game
         public float BeamAng, BeamLen, BeamAge;
         public int Attacks;
         int hp = Balance.Sexton.Hp, target;
-        /// <summary>Only Zach can slay him.</summary>
-        public override float? HealthFor(Role viewer) => alive && viewer == Role.Hunter ? hp / (float)Balance.Sexton.Hp : (float?)null;
+        /// <summary>Zach and survivors alike can slay him.</summary>
+        public override float? HealthFor(Role viewer) => alive && (viewer == Role.Hunter || viewer == Role.Survivor) ? hp / (float)Balance.Sexton.Hp : (float?)null;
         float talkT, handT, phaseT, awayT, turnT;
         Vector2 leaveFrom;
         readonly HashSet<int> beamHit = new HashSet<int>();
@@ -123,11 +124,7 @@ namespace Vision.Game
             DropTalk();
             if (hp <= 0)
             {
-                alive = false;
-                State = Mode.Idle;
-                Moving = false;
-                Sim.HempDrop = Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * Scale.D(22f);
-                Sim.Feed($"{h.Name} slayed Sexton Science");
+                Die(h);
                 return;
             }
             SetMode(Mode.Flee, 0f);
@@ -136,9 +133,21 @@ namespace Vision.Game
             Speak(hp == 2 ? "AGH! Not the face!" : "Somebody help!");
         }
 
+        /// <summary>Slain: he falls where he stood, his Hemp Beam on the ground in front of him for anyone to take.</summary>
+        void Die(SimPlayer by)
+        {
+            alive = false;
+            State = Mode.Idle;
+            Moving = false;
+            BeamLen = 0f;
+            DropTalk();
+            Sim.HempDrop = Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * Scale.D(22f);
+            Sim.Feed($"{by.Name} slayed Sexton Science");
+        }
+
         /// <summary>
-        /// A bottle or pellets. From Zach (his golden pump) it's like a machete hit. From a survivor it can't hurt him: he
-        /// turns to self-defense, or, already defending, is stunned.
+        /// A bottle, book or jar, a round or a shotgun blast. From Zach (his golden pump) it's like a machete hit. From a
+        /// survivor it hurts him too (three slay him): he turns to self-defense, or, already defending, is stunned.
         /// </summary>
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind)
         {
@@ -149,6 +158,13 @@ namespace Vision.Game
                 return;
             }
             HurtT = 0.35f;
+            hp--;
+            by.Stats.Hits++;
+            if (hp <= 0)
+            {
+                Die(by);
+                return;
+            }
             if (State == Mode.Defend)
             {
                 StunT = Mathf.Max(StunT, kind == "bottle" ? Balance.Sexton.Defense.BottleStun : Balance.Sexton.Defense.ShotStun);

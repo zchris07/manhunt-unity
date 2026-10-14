@@ -555,13 +555,8 @@ namespace Vision.Player
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Pistol);
                     cameraRig.orthographicSize = o * 0.7f;
                     yield return new WaitForSeconds(0.5f);
-                    int roundsP = RoundsNow();
-                    // Held over a couple of the match's ticks, so the trigger is read.
-                    player.ExtraButtons = Btn.Primary;
-                    yield return new WaitForSeconds(0.08f);
-                    player.ExtraButtons = Btn.None;
+                    yield return FireAndCatch(player, "143_pistol_round_in_flight", 0.012f);
                     LogState("143 after the trigger", host);
-                    yield return RoundInFlight("143_pistol_round_in_flight", roundsP, 0.004f);
                     yield return new WaitForSeconds(0.5f);
                     // The 0.50 cal aimed: right click brings the scope to the eye and the laser on; then a round.
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Sniper);
@@ -578,14 +573,40 @@ namespace Vision.Player
                     player.ExtraButtons = Btn.None;
                     yield return new WaitForSeconds(0.6f);
                     yield return Shot("133_sniper_at_the_hip");
+                    // The laser run just behind a boulder, past ground rising toward the camera: unbroken over the ground,
+                    // hidden only where the rock is drawn in front of it.
+                    {
+                        Camera cam = cameraRig.GetComponent<Camera>();
+                        Vector3 f3 = world.transform.InverseTransformDirection(cam.transform.forward), r3 = world.transform.InverseTransformDirection(cam.transform.right);
+                        Vector2 f2 = new Vector2(f3.x, f3.z).normalized, r2 = new Vector2(r3.x, r3.z).normalized;
+                        Vector2 rock = Vector2.zero;
+                        float bestScore = float.NegativeInfinity;
+                        foreach (MeshCollider mc in FindObjectsByType<MeshCollider>(FindObjectsSortMode.None))
+                        {
+                            if (mc.name != "Rock Wall" || mc.transform.lossyScale.x / world.transform.lossyScale.x > 1.1f) continue;
+                            Vector3 l = world.transform.InverseTransformPoint(mc.transform.position);
+                            var rp = new Vector2(l.x, l.z);
+                            if (Vector2.Distance(rp, L.Spawn) > 45f) continue;
+                            float score = world.SurfaceHeight(rp - f2 * 4f) - world.SurfaceHeight(rp) - 0.02f * Vector2.Distance(rp, L.Spawn);
+                            if (score > bestScore) { bestScore = score; rock = rp; }
+                        }
+                        if (bestScore > float.NegativeInfinity)
+                        {
+                            Vector2 standAt = rock + f2 * 1.3f - r2 * 5f;
+                            yield return Stage(player, V(standAt), r2, wanderer, away);
+                            player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Sniper);
+                            player.ExtraButtons = Btn.Lunge;
+                            yield return new WaitForSeconds(0.8f);
+                            yield return Shot("153_laser_behind_a_boulder");
+                            Debug.Log($"[Capture] 153 boulder at {rock}, ground rising toward the camera by {bestScore:0.00}");
+                            player.ExtraButtons = Btn.None;
+                            yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), new Vector2(1f, 0.25f).normalized, wanderer, away);
+                        }
+                    }
                     cameraRig.orthographicSize = o * 0.38f;
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Shotgun);
                     yield return new WaitForSeconds(0.5f);
-                    int roundsG = RoundsNow();
-                    player.ExtraButtons = Btn.Primary;
-                    yield return Wait(2);
-                    player.ExtraButtons = Btn.None;
-                    yield return RoundInFlight("114_shotgun_from_the_barrel", roundsG, 0.004f);
+                    yield return FireAndCatch(player, "114_shotgun_from_the_barrel", 0.02f);
                     yield return new WaitForSeconds(0.8f);
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Bottle);
                     yield return new WaitForSeconds(0.4f);
@@ -1810,6 +1831,25 @@ namespace Vision.Player
         /// Once a round has left the barrel (more in flight than <paramref name="before"/>), slows time right down and
         /// shoots it <paramref name="gameSeconds"/> into its flight.
         /// </summary>
+        /// <summary>
+        /// Pulls the trigger in slow motion and holds it until a round leaves the barrel, then lets it fly
+        /// <paramref name="gameSeconds"/> and takes the shot (fast rounds are long gone in the time a held press takes
+        /// at full speed).
+        /// </summary>
+        IEnumerator FireAndCatch(PlayerController player, string name, float gameSeconds)
+        {
+            int before = RoundsNow();
+            Time.timeScale = 0.05f;
+            player.ExtraButtons = Btn.Primary;
+            float t0 = Time.realtimeSinceStartup;
+            while (RoundsNow() <= before && Time.realtimeSinceStartup - t0 < 4f) yield return null;
+            player.ExtraButtons = Btn.None;
+            Time.timeScale = 0.02f;
+            yield return new WaitForSecondsRealtime(gameSeconds / 0.02f);
+            yield return Shot(name);
+            Time.timeScale = 1f;
+        }
+
         IEnumerator RoundInFlight(string name, int before, float gameSeconds)
         {
             float t0 = Time.realtimeSinceStartup;

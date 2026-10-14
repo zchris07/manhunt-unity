@@ -8,57 +8,58 @@ using Vision.World;
 namespace Vision.UI
 {
     /// <summary>
-    /// Rounds in flight and the 0.50 cal's laser. Every round (a pistol's, each pellet, the 0.50 cal's) is drawn as a small
-    /// fast projectile: a bright streak racing out from the barrel with a long, dim trail behind it (half again as big as
-    /// they were, and twice the trail; the hit isn't touched, only the look), stopping
-    /// where the shot stopped (pellets spark there as they arrive). Rounds fly perfectly straight and level at the barrel's
-    /// height, whatever the ground does below (where they stop is found along the ground, as the match plays it): they
-    /// never strike the ground, and no hill hides them, drawn over the terrain and hidden only where a wall, tree or prop
-    /// stands between them and the camera (judged from just over the ground where the line runs under a rise, so the
-    /// buried feet of what stands on the rise never cut it; fallen logs never do). The laser shows while a survivor aims the 0.50 cal (as the original draws it, a
-    /// faint wide red line and a thin bright one, seen by everyone), stopping at the first solid thing in its way (found
-    /// along the ground, the way the round goes) but drawn as a perfectly straight line from the barrel: above the terrain,
-    /// so no hill ever covers it, and broken only where a wall, tree or prop stands between it and the camera. The 0.50 cal
-    /// round flies that same straight line, the same way; and where it punches into and out of a wall, tree or object,
-    /// sparks, dust and chips burst out of the line as it passes.
+    /// Rounds in flight and the 0.50 cal's laser, drawn over the ground and behind whatever stands nearer, by the GPU
+    /// (Vision/FxOverGround): the ground marks the pixels where it's the nearest thing, the effect always shows there, and
+    /// anywhere else it's depth-tested against what's actually drawn, so no hill ever cuts it and every tree, wall, rock,
+    /// prop and body in front of it hides it exactly where that thing is drawn. Where the line runs level under a rise of
+    /// the ground, its points are first slid toward the camera along its view (the same spot on screen) to the barrel's
+    /// height over the ground there, so things standing on the rise behind it never cover it.
+    /// Every round (a pistol's, each pellet, the 0.50 cal's) is a single thin streak of white pixels, as Noita's are: bright
+    /// at its head and fading to nothing at its tail, racing out from the barrel to where the shot stopped (pellets spark
+    /// there as they arrive). Rounds fly perfectly straight and level at the barrel's height, whatever the ground does below
+    /// (where they stop is found along the ground, as the match plays it). The laser shows while a survivor aims the 0.50
+    /// cal (seen by everyone), stopping at the first solid thing in its way (found along the ground, the way the round goes)
+    /// but drawn as a perfectly straight line from the barrel, Noita's laser sight: a faint red haze with a one-pixel core
+    /// of flickering red static, broken into dashes, with dust drifting out along it. The 0.50 cal round flies that same
+    /// straight line; where it punches into and out of a wall, tree or object, sparks, dust and chips burst out of the line
+    /// as it passes.
     /// </summary>
     public sealed partial class MatchEffects
     {
-        /// <summary>How a kind of round looks: its speed (original units a second), trail and streak (metres), width and colours.</summary>
+        /// <summary>How a kind of round looks: its speed (original units a second), streak (design units) and width (metres) and colour.</summary>
         struct RoundLook
         {
-            public float Speed, Trail, Head, Width;
-            public Color HeadColor, TrailColor;
+            public float Speed, Streak, Width;
+            public Color Color;
         }
 
         static readonly RoundLook PistolRound = new RoundLook
         {
-            Speed = 6000f * RoundPace, Trail = 3.2f * 2f, Head = 0.39f * 3f, Width = 0.0195f * 3f,
-            HeadColor = new Color(1f, 0.93f, 0.72f, 0.95f), TrailColor = new Color(1f, 0.84f, 0.55f, 0.26f),
+            Speed = 6000f * RoundPace, Streak = 1.6f, Width = 0.0195f, Color = new Color(1f, 1f, 1f, 1f),
         };
         static readonly RoundLook PelletRound = new RoundLook
         {
-            Speed = 5000f * RoundPace, Trail = 2.2f * 2f, Head = 0.27f * 3f, Width = 0.015f * 3f,
-            HeadColor = new Color(1f, 0.86f, 0.52f, 0.9f), TrailColor = new Color(1f, 0.76f, 0.4f, 0.22f),
+            Speed = 5000f * RoundPace, Streak = 1.1f, Width = 0.015f, Color = new Color(1f, 1f, 1f, 0.95f),
         };
         static readonly RoundLook GoldenPellet = new RoundLook
         {
-            Speed = 5000f * RoundPace, Trail = 2.2f * 2f, Head = 0.27f * 3f, Width = 0.0165f * 3f,
-            HeadColor = new Color(1f, 0.88f, 0.42f, 0.95f), TrailColor = new Color(1f, 0.8f, 0.3f, 0.24f),
+            Speed = 5000f * RoundPace, Streak = 1.1f, Width = 0.0165f, Color = new Color(1f, 0.96f, 0.82f, 1f),
         };
         static readonly RoundLook SniperLook = new RoundLook
         {
-            Speed = Balance.Items.Sniper.Speed * RoundPace, Trail = 5.2f * 2f, Head = 0.6f * 3f, Width = 0.024f * 3f,
-            HeadColor = new Color(1f, 0.95f, 0.82f, 1f), TrailColor = new Color(1f, 0.5f, 0.34f, 0.3f),
+            Speed = Balance.Items.Sniper.Speed * RoundPace, Streak = 2.6f, Width = 0.024f, Color = new Color(1f, 1f, 1f, 1f),
         };
 
         /// <summary>
-        /// How fast rounds are drawn flying, against the speeds the match uses (half: they're seen crossing the screen).
-        /// Only the look: what they hit, and when, is the match's.
+        /// How fast rounds are drawn flying, against the speeds the match uses (three quarters: they're seen crossing the
+        /// screen). Only the look: what they hit, and when, is the match's.
         /// </summary>
-        public const float RoundPace = 0.5f;
-        /// <summary>How much thicker a round's trail is than at first (its length is doubled in each look).</summary>
-        public const float TrailThick = 2f;
+        public const float RoundPace = 0.75f;
+        /// <summary>A round's streak is never thinner than this many of the screen's art pixels.</summary>
+        public const float RoundPixels = 1f;
+        /// <summary>The laser's ribbon: its haze and drifting dust reach this many art pixels across in all.</summary>
+        public const float LaserPixels = 9f;
+        public static readonly Color LaserRed = new Color(1f, 0.13f, 0.1f, 1f);
 
         struct Round
         {
@@ -72,8 +73,7 @@ namespace Vision.UI
             public int Impact;
             /// <summary>
             /// The line it flies: perfectly straight and level from the barrel (<see cref="A3"/>) at the barrel's height to
-            /// where it ends (<see cref="B3"/>), whatever the ground does below; drawn over the terrain (no hill covers it)
-            /// and hidden only by what stands between it and the camera.
+            /// where it ends (<see cref="B3"/>), whatever the ground does below.
             /// </summary>
             public Vector3 A3, B3;
         }
@@ -90,23 +90,22 @@ namespace Vision.UI
         }
 
         /// <summary>
-        /// Hidden from the camera by something standing upright between it and <paramref name="p"/> (walls, trees, rocks,
-        /// props; never the ground nor a fallen log), judged as if <paramref name="p"/> were at least <paramref name="up"/>
-        /// over the ground there, as the line is at the barrel, so a stretch of it running under a rise of the ground is
-        /// never cut by the buried feet of the trees and rocks on that rise (see <see cref="Vfx.Covered"/>).
+        /// <paramref name="p"/> slid toward the camera along its view (the same spot on screen, nearer) until it's at least
+        /// <paramref name="up"/> over the ground straight under it: a stretch of line running level under a rise of the
+        /// ground is then judged as lying on the rise, so nothing standing on it behind the line covers it.
         /// </summary>
-        bool Hidden(Camera cam, Vector3 p, float up)
+        public Vector3 Lift(Camera cam, Vector3 p, float up)
         {
-            if (cam == null) return false;
+            if (cam == null || world == null) return p;
             Vector3 back = cam.orthographic ? -cam.transform.forward : (cam.transform.position - p).normalized;
-            if (back.y > 1e-3f)
-                for (int k = 0; k < 8; k++)
-                {
-                    float floor = Floor(p, up);
-                    if (p.y >= floor - 1e-3f) break;
-                    p += back * ((floor - p.y) / back.y);
-                }
-            return Vfx.Covered(cam, p);
+            if (back.y <= 1e-3f) return p;
+            for (int k = 0; k < 8; k++)
+            {
+                float floor = Floor(p, up);
+                if (p.y >= floor - 1e-3f) break;
+                p += back * ((floor - p.y) / back.y);
+            }
+            return p;
         }
 
         /// <summary>The world height <paramref name="up"/> over the ground straight under <paramref name="p"/>.</summary>
@@ -116,35 +115,8 @@ namespace Vision.UI
             return world.transform.TransformPoint(new Vector3(l.x, world.SurfaceHeight(new Vector2(l.x, l.z)) + up, l.z)).y;
         }
 
-        readonly List<Vector3> runPts = new List<Vector3>(256);
-        readonly List<Color> runCols = new List<Color>(256);
-
-        /// <summary>
-        /// A straight line through the points in <see cref="pts"/>, drawn above the terrain (so no hill ever covers it), broken
-        /// wherever something stands between it and the camera (so walls, trees and props still hide it).
-        /// </summary>
-        void StraightLine(float width, bool soft, Vfx.Blend blend, float up)
-        {
-            Camera cam = Camera.main;
-            runPts.Clear();
-            runCols.Clear();
-            for (int i = 0; i <= pts.Count; i++)
-            {
-                bool shown = i < pts.Count && !Hidden(cam, pts[i], up);
-                if (shown)
-                {
-                    runPts.Add(pts[i]);
-                    runCols.Add(cols[i]);
-                    continue;
-                }
-                if (runPts.Count >= 2) Fx.Ribbon(runPts, runCols, width, false, true, blend, soft);
-                runPts.Clear();
-                runCols.Clear();
-            }
-        }
-
         /// <summary>A burst due where a 0.50 cal round goes into or out of something, when the round gets there.</summary>
-        struct Pierce { public float At; public Vector3 Pos, Out, Normal; }
+        struct Pierce { public float At, Up; public Vector3 Pos, Out, Normal; }
 
         readonly List<Round> rounds = new List<Round>();
         readonly List<Pierce> pierces = new List<Pierce>();
@@ -188,6 +160,8 @@ namespace Vision.UI
         void DrawRounds()
         {
             float now = Time.time, s = S;
+            Camera cam = Camera.main;
+            float minW = Vfx.ScreenPixels(cam, RoundPixels);
             for (int i = rounds.Count - 1; i >= 0; i--)
             {
                 Round r = rounds[i];
@@ -195,8 +169,9 @@ namespace Vision.UI
                 float len = d.magnitude;
                 Vector2 dir = len > 1e-5f ? d / len : Vector2.right;
                 float head = (now - r.Born) * Scale.D(r.Look.Speed);
-                // Gone once its trail has burned out past where it landed (a whole trail's length on).
-                if (head - 2f * r.Look.Trail >= len)
+                float tail = head - r.Look.Streak;
+                // Gone once its tail has reached where it landed.
+                if (tail >= len)
                 {
                     rounds.RemoveAt(i);
                     continue;
@@ -204,55 +179,31 @@ namespace Vision.UI
                 if (head >= len && r.Impact != 0)
                 {
                     bool golden = r.Impact == 2;
-                    // Over the terrain like the round (a rise of the ground never covers the sparks).
-                    Vector3 hit = RoundPoint(r, dir, len, len);
-                    bool over = Vfx.UnderGround(Camera.main, hit);
-                    Fx.Burst(hit, 3, 1.4f * s, 0.3f, golden ? new Color(1f, 0.85f, 0.42f, 1f) : new Color(1f, 0.76f, 0.23f, 1f), 0.06f * s, senses: over);
+                    Vector3 hit = Lift(cam, RoundPoint(r, dir, len, len), r.Up);
+                    Fx.Burst(hit, 3, 1.4f * s, 0.3f, golden ? new Color(1f, 0.85f, 0.42f, 1f) : new Color(1f, 0.76f, 0.23f, 1f), 0.06f * s, false, over: true);
                     r.Impact = 0;
                     rounds[i] = r;
                 }
-                // The tail follows a trail's length behind; once the round has landed it creeps in at half the pace, so the
-                // trail stays on screen twice as long.
-                float tail = head < len ? head - r.Look.Trail : len - r.Look.Trail + (head - len) * 0.5f;
                 float a = Mathf.Clamp(tail, 0f, len), b = Mathf.Min(head, len);
                 if (b - a < 1e-4f) continue;
-                // The trail: a long streak of hot air behind it, a soft glow round a bright core, fading toward its tail
-                // (and, once the round has landed, the rest of it burning out where it flew).
+                // One streak of white pixels: bright at its head, nothing at its tail (cut short where it leaves the barrel
+                // and where it lands).
                 pts.Clear(); cols.Clear();
-                int n = Mathf.Clamp(Mathf.CeilToInt((b - a) / 0.4f), 1, 24);
-                float landed = head >= len ? Mathf.Clamp01(1f - (head - len) / Mathf.Max(0.01f, 2f * r.Look.Trail)) : 1f;
+                const int n = 4;
                 for (int k = 0; k <= n; k++)
                 {
-                    float t = k / (float)n;
-                    pts.Add(RoundPoint(r, dir, len, Mathf.Lerp(a, b, t)));
-                    Color c = r.Look.TrailColor;
-                    c.a *= t * t * Mathf.Lerp(0.4f, 1f, landed);
+                    float sAt = Mathf.Lerp(a, b, k / (float)n);
+                    pts.Add(Lift(cam, RoundPoint(r, dir, len, sAt), r.Up));
+                    Color c = r.Look.Color;
+                    c.a *= Mathf.Clamp01((sAt - tail) / Mathf.Max(1e-4f, r.Look.Streak));
                     cols.Add(c);
                 }
-                float trailW = r.Look.Width / 3f * 1.2f * TrailThick * s;
-                for (int k = 0; k < cols.Count; k++) cols[k] = new Color(cols[k].r, cols[k].g * 0.85f, cols[k].b * 0.7f, cols[k].a * 0.55f);
-                StraightLine(trailW * 3f, true, Vfx.Blend.Additive, r.Up);
-                for (int k = 0; k < cols.Count; k++) cols[k] = new Color(1f, 0.97f, 0.88f, cols[k].a * 1.6f);
-                StraightLine(trailW, false, Vfx.Blend.Additive, r.Up);
-                // The round itself: a big bright streak at the front with a white-hot tip and a halo of light round it.
-                if (head >= len) continue;
-                pts.Clear(); cols.Clear();
-                pts.Add(RoundPoint(r, dir, len, Mathf.Max(a, b - r.Look.Head)));
-                pts.Add(RoundPoint(r, dir, len, b));
-                Color hc = r.Look.HeadColor;
-                cols.Add(new Color(hc.r, hc.g, hc.b, hc.a * 0.3f));
-                cols.Add(hc);
-                StraightLine(r.Look.Width * 1.7f * s, false, Vfx.Blend.Additive, r.Up);
-                cols[0] = new Color(1f, 1f, 1f, 0f);
-                cols[1] = new Color(1f, 1f, 1f, 0.95f);
-                StraightLine(r.Look.Width * 0.6f * s, false, Vfx.Blend.Additive, r.Up);
-                Vector3 tip = RoundPoint(r, dir, len, b);
-                if (!Hidden(Camera.main, tip, r.Up)) Fx.Glow(tip, r.Look.Width * 9f * s, new Color(hc.r, hc.g * 0.9f, hc.b * 0.75f, 0.55f));
+                Fx.Ribbon(pts, cols, Mathf.Max(r.Look.Width * s, minW), false, false, Vfx.Blend.Additive, false, over: true);
             }
             for (int i = pierces.Count - 1; i >= 0; i--)
             {
                 if (pierces[i].At > now) continue;
-                PierceBurst(pierces[i].Pos, pierces[i].Out, pierces[i].Normal);
+                PierceBurst(Lift(cam, pierces[i].Pos, pierces[i].Up), pierces[i].Out, pierces[i].Normal);
                 pierces.RemoveAt(i);
             }
         }
@@ -261,7 +212,8 @@ namespace Vision.UI
         {
             float max = Scale.D(Balance.Items.Sniper.LaserMax);
             // Walls, trees, objects and other bodies stop it; never the ground, nor a fallen log or tree (shots pass over them).
-            int mask = ~((1 << 2) | (1 << Vfx.SensesLayer) | (1 << SandboxWorld.GroundLayer) | (1 << SandboxWorld.LowLayer));
+            int mask = ~((1 << 2) | (1 << Vfx.SensesLayer) | (1 << Vfx.OverGroundLayer) | (1 << SandboxWorld.GroundLayer) | (1 << SandboxWorld.LowLayer));
+            Camera cam = Camera.main;
             foreach (SimPlayer p in sim.Order)
             {
                 if (!p.Aiming || !MatchSim.LaserHolder(p)) continue;
@@ -272,22 +224,25 @@ namespace Vision.UI
                 Vector2 dir = new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing));
                 // Where it stops: found along the ground piece by piece (the way the round goes), at the first thing in the way.
                 float stop = LaserStop(go, from, dir, up, max, mask, out bool blocked);
-                // Drawn as a perfectly straight line from the barrel to there: over the terrain (no hill ever covers it),
-                // hidden only where something stands between it and the camera.
+                // Drawn as a perfectly straight line from the barrel to there, over the ground and behind whatever's nearer.
                 Vector3 end = LevelEnd(muzzle, dir, stop);
                 int samples = Mathf.Clamp(Mathf.CeilToInt(Vector3.Distance(muzzle, end) / (0.35f * S)), 2, 240);
-                pts.Clear(); cols.Clear();
-                for (int i = 0; i <= samples; i++)
+                pts.Clear();
+                for (int i = 0; i <= samples; i++) pts.Add(Lift(cam, Vector3.Lerp(muzzle, end, i / (float)samples), up));
+                Fx.Laser(pts, Vfx.ScreenPixels(cam, LaserPixels), LaserRed, p.Id * 0.137f);
+                // A small flickering dot at the barrel; where it meets something, a bigger sputtering spot throwing off the odd mote.
+                float px = Vfx.ScreenPixels(cam, 1f);
+                Fx.Dot(pts[0], px * Random.Range(2f, 3f), new Color(1f, 0.3f, 0.25f, Random.Range(0.55f, 1f)), false, false, Vfx.Blend.Additive, over: true);
+                if (!blocked) continue;
+                Vector3 hitAt = pts[pts.Count - 1];
+                Fx.Glow(hitAt, px * Random.Range(5f, 8f), new Color(1f, 0.2f, 0.16f, Random.Range(0.6f, 1f)), false, false, Vfx.Blend.Additive, over: true);
+                Fx.Dot(hitAt, px * 2f, new Color(1f, 0.85f, 0.75f, Random.Range(0.5f, 1f)), false, false, Vfx.Blend.Additive, over: true);
+                if (Random.value < 6f * Time.deltaTime)
                 {
-                    pts.Add(Vector3.Lerp(muzzle, end, i / (float)samples));
-                    cols.Add(new Color(1f, 0.1f, 0.1f, 0.14f));
+                    Vector3 back = (pts[0] - hitAt).normalized;
+                    Fx.Emit(hitAt, (back + Random.insideUnitSphere * 0.8f).normalized * Random.Range(0.4f, 1.2f) * S, Random.Range(0.25f, 0.5f),
+                        new Color(1f, 0.6f, 0.45f, 1f), px * 1.2f, 0f, 2f, false, false, 1f, false, false, Vfx.Blend.Additive, over: true);
                 }
-                StraightLine(0.06f * S, true, Vfx.Blend.Additive, up);
-                for (int i = 0; i < cols.Count; i++) cols[i] = new Color(1f, 0.25f, 0.25f, 0.65f);
-                StraightLine(0.016f * S, false, Vfx.Blend.Additive, up);
-                Camera cam = Camera.main;
-                if (!Hidden(cam, muzzle, up)) Fx.Glow(muzzle, 0.07f * S, new Color(1f, 0.3f, 0.3f, 0.9f));
-                if (blocked && !Hidden(cam, end, up)) Fx.Glow(end, 0.12f * S, new Color(1f, 0.2f, 0.2f, 0.95f));
             }
         }
 
@@ -351,13 +306,13 @@ namespace Vision.UI
                     {
                         // A burst on the straight line it's drawn along, where it meets the thing.
                         float at = a + pierceHits[i].distance * k;
-                        pierces.Add(new Pierce { At = r.Born + at / speed, Pos = RoundPoint(r, dir, len, at), Out = -sd, Normal = pierceHits[i].normal });
+                        pierces.Add(new Pierce { At = r.Born + at / speed, Up = r.Up, Pos = RoundPoint(r, dir, len, at), Out = -sd, Normal = pierceHits[i].normal });
                     }
                     n = Physics.RaycastNonAlloc(next, -sd, pierceHits, sl, mask, QueryTriggerInteraction.Ignore);
                     for (int i = 0; i < n; i++)
                     {
                         float at = b - pierceHits[i].distance * k;
-                        pierces.Add(new Pierce { At = r.Born + at / speed, Pos = RoundPoint(r, dir, len, at), Out = sd, Normal = pierceHits[i].normal });
+                        pierces.Add(new Pierce { At = r.Born + at / speed, Up = r.Up, Pos = RoundPoint(r, dir, len, at), Out = sd, Normal = pierceHits[i].normal });
                     }
                 }
                 prev = next;
@@ -370,20 +325,20 @@ namespace Vision.UI
         {
             float s = S;
             Vector3 spray = (out_ + normal * 0.6f).normalized;
-            // On the round's line, over the terrain like it: where a rise of the ground would cover it, on the overlay.
-            bool over = Vfx.UnderGround(Camera.main, at), masked = !over;
+            // On the round's line, drawn like it: over the ground, behind whatever stands nearer.
+            const bool masked = false, senses = false;
             for (int i = 0; i < 9; i++)
             {
                 Vector3 v = (spray + Random.insideUnitSphere * 0.7f + Vector3.up * 0.3f).normalized * Random.Range(3f, 9f) * s;
                 Fx.Emit(at, v, Random.Range(0.12f, 0.3f), Color.Lerp(new Color(1f, 0.92f, 0.65f, 1f), new Color(1f, 0.6f, 0.25f, 1f), Random.value),
-                    Random.Range(0.02f, 0.04f) * s, 9.8f * s, 1.5f, true, false, 1f, masked, over);
+                    Random.Range(0.02f, 0.04f) * s, 9.8f * s, 1.5f, true, false, 1f, masked, senses, Vfx.Blend.Additive, true);
             }
             for (int i = 0; i < 4; i++)
                 Fx.Emit(at + Random.insideUnitSphere * 0.05f * s, (spray * Random.Range(0.6f, 1.4f) + Random.insideUnitSphere * 0.4f) * s,
-                    Random.Range(0.6f, 1.1f), new Color(0.42f, 0.4f, 0.36f, 0.4f), Random.Range(0.1f, 0.18f) * s, 0f, 2.2f, false, false, 2.6f, masked, over, Vfx.Blend.Alpha);
+                    Random.Range(0.6f, 1.1f), new Color(0.42f, 0.4f, 0.36f, 0.4f), Random.Range(0.1f, 0.18f) * s, 0f, 2.2f, false, false, 2.6f, masked, senses, Vfx.Blend.Alpha, true);
             for (int i = 0; i < 5; i++)
                 Fx.Emit(at, (spray + Random.insideUnitSphere * 0.8f + Vector3.up * 0.6f).normalized * Random.Range(2f, 5f) * s,
-                    Random.Range(0.5f, 0.9f), new Color(0.24f, 0.21f, 0.17f, 1f), Random.Range(0.025f, 0.045f) * s, 12f * s, 0.5f, false, false, 1f, masked, over, Vfx.Blend.Alpha);
+                    Random.Range(0.5f, 0.9f), new Color(0.24f, 0.21f, 0.17f, 1f), Random.Range(0.025f, 0.045f) * s, 12f * s, 0.5f, false, false, 1f, masked, senses, Vfx.Blend.Alpha, true);
         }
 
         public int RoundCount => rounds.Count;

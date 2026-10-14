@@ -39,7 +39,9 @@ namespace Vision.Audio
             ["smash"] = new Cue { Files = Range("impact_impactwood_heavy_", 0, 4), Volume = 1f, Radius = 1300f },
             ["splinter"] = new Cue { Files = Range("impact_impactplank_medium_", 0, 4), Volume = 0.8f, Radius = 1000f },
             ["glass"] = new Cue { Files = new[] { "impact_impactglass_heavy_000", "impact_impactglass_heavy_001", "impact_impactglass_heavy_002", "sfx100_glass_01", "sfx100_glass_02" }, Volume = 1f, Radius = 1300f },
-            // Guns.
+            // Guns. The 0.50 cal's crack, synthesised for the game in the character of a Noita rifle (tools/synth_sniper.py);
+            // the other guns stay silent.
+            ["sniper_shot"] = new Cue { Files = new[] { "synth_sniper_1", "synth_sniper_2", "synth_sniper_3" }, Volume = 1f, PitchJitter = 0.04f, Near = 300f, Radius = 3000f },
             // Things.
             ["door_open"] = new Cue { Files = new[] { "rpg_dooropen_1", "rpg_dooropen_2" }, Volume = 0.7f, Radius = 900f },
             ["door_close"] = new Cue { Files = new[] { "rpg_doorclose_1", "rpg_doorclose_2", "rpg_doorclose_3", "rpg_doorclose_4" }, Volume = 0.7f, Radius = 900f },

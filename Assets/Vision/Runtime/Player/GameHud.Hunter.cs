@@ -125,8 +125,11 @@ namespace Vision.Player
             bool survivor = me.Role == Role.Survivor && !MainMenuOpen;
             bool any = survivor && (me.Jarvis != 0 || me.BeamCharges > 0 || me.BeamT > 0f);
             survivorStrip.gameObject.SetActive(any);
+            // The inventory and these slots together stay centred on the screen, however wide the slots have grown.
+            float extra = any ? survivorStrip.sizeDelta.x : 0f;
+            strip.anchoredPosition = new Vector2(-extra * 0.5f, 22f);
             if (!any) return;
-            survivorStrip.anchoredPosition = new Vector2(stripWidth * 0.5f, 22f);
+            survivorStrip.anchoredPosition = new Vector2(stripWidth * 0.5f - extra * 0.5f, 22f);
             int j = me.Jarvis;
             SetAbility(jarvisSlot, j == 1 || j == 3, j == 3 ? "∞" : j == 2 ? "used" : "", 0f, null, me.JarvisT > 0f, j == 0);
             SetAbility(beamSlot, me.BeamCharges > 0 && me.BeamCd <= 0f && me.BeamT <= 0f,

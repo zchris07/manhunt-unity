@@ -395,6 +395,10 @@ namespace Vision.Player
             }
             UpdateMenus();
             map.Update(visible && !MainMenuOpen);
+            // The inventory draws above the full map (its own canvas, sorted on top), so it's hidden outright on the main
+            // menu and in the lobby rather than left to be covered.
+            bool bar = !MainMenuOpen && !lobbyOpen && player != null && player.Me != null;
+            if (strip.gameObject.activeSelf != bar) strip.gameObject.SetActive(bar);
             if (player == null || player.Me == null) return;
             Refresh();
         }
@@ -472,7 +476,7 @@ namespace Vision.Player
             // The prompt, with the Space action beside it.
             string p = player.InteractPrompt;
             string space = player.SpacePrompt;
-            bool showPrompt = (!string.IsNullOrEmpty(p) || !string.IsNullOrEmpty(space)) && !MenuOpen && !map.FullOpen;
+            bool showPrompt = (!string.IsNullOrEmpty(p) || !string.IsNullOrEmpty(space)) && !MenuOpen && !map.FullOpen && !editorOpen;
             promptBox.SetActive(showPrompt);
             prompt.text = !string.IsNullOrEmpty(p) && !string.IsNullOrEmpty(space) ? $"{p}   ·   {space}" : !string.IsNullOrEmpty(p) ? p : space ?? "";
             holdBar.SetActive(showPrompt && player.HoldProgress >= 0f);

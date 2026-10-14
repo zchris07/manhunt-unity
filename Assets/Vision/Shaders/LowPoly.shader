@@ -4,6 +4,8 @@
 // (the vision mask), so there is no ShadowCaster pass.
 // With "Entity" enabled the object is a dynamic entity: fragments outside the viewer's own light
 // (mask channel B below _VisionEntityThreshold) are discarded, so it is invisible in the dark.
+// Each surface writes _StencilRef where it's drawn: 1 for the ground (and fallen logs), 0 for everything else, so the
+// laser and rounds (Vision/FxOverGround) know where the ground is the nearest thing on screen.
 Shader "Vision/LowPoly"
 {
     Properties
@@ -12,6 +14,7 @@ Shader "Vision/LowPoly"
         _RampSteps ("Light Ramp Steps (0 = smooth)", Float) = 0
         _Emission ("Emission (vertex colour)", Range(0, 2)) = 0
         [Toggle(_VISION_ENTITY)] _Entity ("Entity (hidden outside the viewer's light)", Float) = 0
+        [IntRange] _StencilRef ("Stencil (1 = the ground: the laser and rounds draw over it)", Range(0, 255)) = 0
     }
 
     SubShader
@@ -40,6 +43,8 @@ Shader "Vision/LowPoly"
         {
             Name "ForwardLit"
             Tags { "LightMode" = "UniversalForward" }
+            // Every surface marks its pixels: the ground 1, anything else 0 (Vision/FxOverGround reads it).
+            Stencil { Ref [_StencilRef] Comp Always Pass Replace }
 
             HLSLPROGRAM
             #pragma vertex vert

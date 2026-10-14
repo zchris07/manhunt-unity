@@ -326,7 +326,20 @@ namespace Vision.Tests
                 foreach (SandboxWorld.LowObstacle o in world.Lows.Where(o => o.HunterOnly))
                     foreach (Vector2 end in new[] { gates.a, gates.b })
                         Assert.GreaterOrEqual(SimMap.SegmentDistance(end, o.A, o.B), SandboxWorld.GateFenceSolid, "no climbing right beside the gates");
-                Transform iron = fences.First(t => t.name == "Iron Fence");
+                // Built of short panels, each sat on the ground under it: none sinks into a rise of the ground.
+                foreach (Transform f in fences.Where(t => t.name == "Iron Fence"))
+                {
+                    float plen = f.GetComponent<MeshFilter>().sharedMesh.bounds.max.x * f.lossyScale.x / world.transform.lossyScale.x;
+                    Assert.LessOrEqual(plen, SandboxWorld.GateFenceSolid + SandboxWorld.IronPanel + 0.7f, "a short panel");
+                    Vector3 l = world.transform.InverseTransformPoint(f.position);
+                    Vector3 along = world.transform.InverseTransformDirection(f.right).normalized;
+                    for (float k = 0f; k <= 1.001f; k += 0.125f)
+                    {
+                        var at = new Vector2(l.x + along.x * plen * k, l.z + along.z * plen * k);
+                        Assert.Less(world.SurfaceHeight(at) - l.y, 0.45f, $"the iron fence at {at} stands on the ground, not sunk into it");
+                    }
+                }
+                Transform iron = fences.First(t => t.name == "Iron Fence" && t.GetComponent<BoxCollider>() != null);
                 Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<MeshFilter>().sharedMesh.bounds.max.y, 0.12f, "20% taller, to its spikes");
                 Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<BoxCollider>().size.y, 1e-4f);
 

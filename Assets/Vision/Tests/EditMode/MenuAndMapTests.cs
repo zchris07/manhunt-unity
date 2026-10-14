@@ -227,7 +227,7 @@ namespace Vision.Tests
             int gens = GeneratorObjective.All.Count(g => g != null && g.transform.IsChildOf(world.transform));
             Assert.AreEqual(5, gens);
             Assert.AreEqual(2 * (gens + 1), icons, "every generator and the gate, on the minimap and the full map");
-            Assert.AreEqual(2 * world.Pickups.Count, pictures, "every supply by its own picture, on both maps");
+            Assert.AreEqual(2 * (world.Pickups.Count + world.Notes.Count), pictures, "every supply and note by its own picture, on both maps");
             // Testing mode's NPC dots turn and scroll with the minimap's content, like everything else on it.
             var npcDots = hudGo.GetComponentsInChildren<RectTransform>(true).Where(t => t.name == "NPC" && t.sizeDelta.x < 10f).ToList();
             if (host.Sim.Npcs.Count > 0) Assert.Greater(npcDots.Count, 0, "the NPCs are on the minimap");

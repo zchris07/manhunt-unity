@@ -215,7 +215,7 @@ namespace Vision.Game
             public static class Trap
             {
                 // The trigger 80% smaller than it was; the cloud 15% smaller.
-                public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f * 0.2f, GasRadius = HunterWidth * 10f * 0.65f * 0.85f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
+                public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f * 0.2f, GasRadius = HunterWidth * 10f * 0.65f * 0.85f * 0.85f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
                 /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s (3: a second longer than at first).</summary>
                 public const float ZachConeCut = 0.3f, BlurAfter = 2f + 1f;
                 /// <summary>An armed trap a shot or a thrown item passes over (within the trap's own size) bursts.</summary>

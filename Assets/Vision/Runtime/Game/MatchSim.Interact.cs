@@ -178,6 +178,8 @@ namespace Vision.Game
                 }
                 if (ni >= 0) Set(p, Prompt.ReadNote, ni);
             }
+            // Sexton's Hemp Beam where he fell, for whoever slew him (or anyone else) to take.
+            if (p.Prompt == Prompt.None && HempDrop.HasValue && Vector2.Distance(HempDrop.Value, at) < R(Balance.Reach.Pickup)) Set(p, Prompt.TakeHemp, 0);
             if (p.Prompt == Prompt.None)
             {
                 int di = NearestDrop(at, R(Balance.Reach.Pickup));
@@ -373,12 +375,7 @@ namespace Vision.Game
                     Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = NoteImage(p.PromptTarget) });
                     break;
                 case Prompt.TakeHemp:
-                    if (HempDrop.HasValue)
-                    {
-                        p.BeamCharges = Balance.Hunter.Beam.Charges;
-                        HempDrop = null;
-                        Tell(p, $"Got the Hemp Beam: R, {Balance.Hunter.Beam.Charges} charges");
-                    }
+                    TakeHemp(p);
                     break;
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
@@ -454,6 +451,9 @@ namespace Vision.Game
                     break;
                 case Prompt.PickDrop:
                     PickUpDrop(p, p.PromptTarget);
+                    break;
+                case Prompt.TakeHemp:
+                    TakeHemp(p);
                     break;
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
@@ -673,6 +673,15 @@ namespace Vision.Game
             q.Move.HasteT = 0f;
             if (stake.HasValue) Place(q, stake.Value + new Vector2(R(30f), -R(30f)));
             Emit(null, new GameEvent { Kind = EventKind.Unstaked, A = q.Id, Pos = q.Pos });
+        }
+
+        /// <summary>Takes Sexton's dropped Hemp Beam: a full set of charges (R).</summary>
+        void TakeHemp(SimPlayer p)
+        {
+            if (!HempDrop.HasValue) return;
+            p.BeamCharges = Balance.Hunter.Beam.Charges;
+            HempDrop = null;
+            Tell(p, $"Got the Hemp Beam: R, {Balance.Hunter.Beam.Charges} charges");
         }
     }
 }

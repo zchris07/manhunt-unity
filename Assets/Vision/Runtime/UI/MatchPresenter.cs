@@ -107,7 +107,16 @@ namespace Vision.UI
         readonly System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>> byWho = new System.Collections.Generic.Dictionary<int, System.Collections.Generic.List<TrailPoint>>();
         readonly BloodSplats blood = new BloodSplats();
         public int BloodCount => blood.Count;
-        static readonly System.Comparison<TrailPoint> ByTime = (a, b) => a.T.CompareTo(b.T);
+        /// <summary>
+        /// The order a survivor laid their trail: by how far along it each point is (it only ever grows), then by when it
+        /// was laid. Not by its time: points laid walking are stamped four seconds older (so they fade sooner), and sorted
+        /// by time they fell in among the running points of four seconds before, somewhere else, and the thread zig-zagged
+        /// between the two, crossing itself.
+        /// </summary>
+        static readonly System.Comparison<TrailPoint> ByLaying = (a, b) => a.Dist != b.Dist ? a.Dist.CompareTo(b.Dist) : a.Id.CompareTo(b.Id);
+
+        /// <summary>Puts a survivor's scent points in the order they laid them (see <see cref="ByLaying"/>).</summary>
+        public static void OrderTrail(System.Collections.Generic.List<TrailPoint> pts) => pts.Sort(ByLaying);
 
         void DrawTrails(SimPlayer me)
         {
@@ -138,12 +147,15 @@ namespace Vision.UI
             {
                 var pts = kv.Value;
                 if (pts.Count < 2) continue;
-                pts.Sort(ByTime);
+                OrderTrail(pts);
+                // One point is laid every 0.12 s moving; further along than a few of those between neighbours, they went on
+                // without leaving any (crouched, hid) or the points between are out of Zach's reach: a break.
+                float step = Mathf.Max(Scale.D(60f), 3f * Scale.Speed(Balance.Survivor.Run) * Balance.Trails.ScentEvery);
                 int start = 0;
                 for (int i = 1; i <= pts.Count; i++)
                 {
-                    // Break where the trail really breaks (they stopped sprinting for a while).
-                    bool cut = i == pts.Count || pts[i].T - pts[i - 1].T > 0.7f || Vector2.Distance(pts[i].Pos, pts[i - 1].Pos) > Scale.D(160f);
+                    // Break where the trail really breaks.
+                    bool cut = i == pts.Count || pts[i].Dist - pts[i - 1].Dist > step || Vector2.Distance(pts[i].Pos, pts[i - 1].Pos) > step;
                     if (!cut) continue;
                     int n = i - start;
                     // The scent: a thin, faint, unbroken thread of red smoke along where they ran (the same billowing
@@ -164,21 +176,23 @@ namespace Vision.UI
                             float age = Mathf.Clamp01((sim.Time - (t0.T + t1.T) * 0.5f) / Balance.Trails.MaxAgeSec);
                             float half = Scale.Speed(Balance.Survivor.Run) * Balance.Trails.ScentWaveSprintSec;
                             float wave = 0.5f + 0.5f * Mathf.Cos(Mathf.PI * (t0.Dist + t1.Dist) * 0.5f / Mathf.Max(0.01f, half));
-                            // 30% thicker than before, swelling and thinning half as much again about that.
-                            float radius = Scale.D(3.5f + 3.5f * age) * 1.3f * S * Mathf.Lerp(0.2375f, 1.5125f, wave);
+                            // 30% thicker than before and then twice as thick again, swelling and thinning half as much again
+                            // about that.
+                            float radius = Scale.D(3.5f + 3.5f * age) * 1.3f * 2f * S * Mathf.Lerp(0.2375f, 1.5125f, wave);
                             var look = new VolumetricGas.Look
                             {
                                 TintA = new Color(0.75f, 0.22f, 0.18f),
                                 TintB = new Color(0.4f, 0.05f, 0.06f),
-                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.4f * 1.2f * Mathf.Lerp(0.3f, 1.15f, wave),
+                                Opacity = Mathf.Pow(1f - age, 1.2f) * 0.4f * 1.2f * 1.2f * Mathf.Lerp(0.3f, 1.15f, wave),
                                 Extinction = 1.6f / S,
                                 NoiseScale = 1.1f / S,
                                 Erosion = 0.7f,
                                 Drift = new Vector3(0f, 0.12f, 0f) * S,
                                 Seed = kv.Key * 7,
                             };
-                            // Each piece reaches a third of the way into the next and the last, so the soft ends overlap.
-                            float extra = len * 0.33f;
+                            // Each piece reaches a third of the way into the next and the last, so the soft ends overlap (never
+                            // further than the thread is thick, so a sharp turn never pokes out past its corner as a cross).
+                            float extra = Mathf.Min(len * 0.33f, radius / S * 1.2f);
                             Vector2 from = a - d * extra;
                             Vector3 tip = Ground(from, 0f);
                             VolumetricGas.Tube(tip, world.transform.TransformDirection(new Vector3(d.x, 0f, d.y)), (len + 2f * extra) * S, radius, radius * 0.6f + Scale.D(2f + 3f * age) * S, look, true, false);

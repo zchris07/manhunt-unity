@@ -47,7 +47,7 @@ namespace Vision.UI
         public static readonly string[] All =
         {
             "bottle", "book", "goggles", "shotgun", "goldenPump", "energy", "trap", "confit", "beastBar", "shield", "pistol", "sniper",
-            "piss", "tablet", "hemp", "leaf", "machete", "lunge", "burst", "vape", "nic",
+            "piss", "tablet", "hemp", "leaf", "machete", "lunge", "burst", "vape", "nic", "note",
         };
     }
 }

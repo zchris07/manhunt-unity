@@ -104,6 +104,32 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void SurvivorsSlaySextonInThreeHits_AndTakeHisHempBeam()
+        {
+            var rig = new SimRig();
+            SimPlayer s = rig.P(2);
+            rig.Place(rig.P(1), -2000, -2000);
+            var sexton = Add(rig, new Sexton(rig.Sim), 0, 0);
+            rig.Place(s, 250, 0);
+            Assert.AreEqual(1f, sexton.HealthFor(Role.Survivor), "survivors see his health: they can slay him");
+            sexton.ItemHit(rig.Sim, s, "bottle");
+            Assert.IsTrue(sexton.Alive);
+            Assert.IsTrue(sexton.Defending, "he fights back");
+            Assert.AreEqual(2f / 3f, sexton.HealthFor(Role.Survivor).Value, 1e-4f);
+            sexton.ItemHit(rig.Sim, s, "shot");
+            sexton.ItemHit(rig.Sim, s, "shot");
+            Assert.IsFalse(sexton.Alive, "three hits");
+            Assert.IsFalse(sexton.Beaming);
+            Assert.IsTrue(rig.Sim.HempDrop.HasValue, "his Hemp Beam on the ground");
+            rig.Sim.Teleport(s.Id, rig.Sim.HempDrop.Value + SimRig.U(10, 0));
+            rig.Run(1);
+            Assert.AreEqual(Prompt.TakeHemp, s.Prompt);
+            rig.Tap(s.Id, Btn.Interact);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, s.BeamCharges, "the survivor has the Hemp Beam");
+            Assert.IsFalse(rig.Sim.HempDrop.HasValue);
+        }
+
+        [Test]
         public void ChrisPacesHisAmbulanceThenRevivesTheDownedAndAscends()
         {
             var rig = new SimRig(2, 1);

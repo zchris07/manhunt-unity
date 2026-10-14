@@ -249,7 +249,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Effects** (`Vfx`, the `Vision/Fx` shader): particle bursts, rings and ribbons, either hidden outside the viewer's
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
   stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
-  wisps where they ran and blood where the hurt have been, fading over ten seconds. The hurt drip blood at random moments
+  wisps where they ran and blood where the hurt have been, fading over ten seconds. The scent's thread is twice as thick
+  and a fifth more opaque than it was, and it's joined in the order it was laid (by how far along the trail each point
+  is), never by its time: walking points are stamped four seconds older so they fade sooner, and joined by time they fell
+  among the running points of four seconds before and the thread zig-zagged across itself; each piece of the thread
+  reaches past its ends no further than the thread is thick, so a sharp turn never pokes out as a cross. The hurt drip blood at random moments
   (every 0.15-0.75 s), each drop landing somewhere about them as a miniature splatter a few centimetres across, laid on
   the ground's own facets (`BloodSplats`) and each its own shape: a round drop with a crown of specks, a teardrop with a
   tail of droplets flicked off it, a cluster of droplets or a star-burst with thin spikes, in dark crimson that dries
@@ -277,7 +281,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   tip when it connects. The lunge leaves speed lines. The Burst is a translucent purple
   sound wave racing through walls on the rules' concave front: a bright trembling crest, a soft body, pressure bands
   rippling behind it and a faint smear of where it was a tenth of a second ago. Penjamin rolls out a cone of yellow smoke
-  (blue for 50 Nic), and a survivor caught in it clamps both hands over their eyes while their
+  (blue for 50 Nic; Penjamin's 40% more opaque than 50 Nic's), and a survivor caught in it clamps both hands over their eyes while their
   light narrows and the dark goes pitch black, easing in and out over the original's 0.6 s, and their whole view is
   thrown out of focus: it swims (a slow wobble through the whole image), splits into two images drifting apart and back
   together (double vision), and both are blurred hard, the blur breathing in and out, the colour washed out and the
@@ -298,7 +302,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   noise made at load, so its surface billows in round lobes like cauliflower and frays into wisps, churning and drifting
   (carried along the way the gas blows: Penjamin's rolling out along the cone, whichever way he aims it). It's patchy
   rather than even: a much larger, slower pattern breaks Penjamin's, 50 Nic's and galaxy gas into thick pockets and thin
-  stretches with clear gaps through them. From the moment it's fired, Penjamin's whole cloud drifts slowly off on a wind of
+  stretches, never clear through: no part of a cloud is ever empty. (Blown wider, Penjamin and 50 Nic used to open
+  holes and come apart: the patch pattern multiplied the gas down to nothing, the ragged edge pinched the cone to a
+  sixth of its width, and the billows could eat its middle hollow. Now the thin stretches keep 40% of the gas, the edge
+  pulls in at most half as far as it pushes out, and a cone's body always keeps a haze thickening toward its middle.)
+  From the moment it's fired, Penjamin's whole cloud drifts slowly off on a wind of
   its own (a random direction for each cloud), spreading wider and taller and thinning as it's blown (the gas itself
   less dense as it fills more air, so it frays and opens up, not just fades), and it's seen for
   2 seconds longer before it's fully gone; all of that is only how it looks: where it acts doesn't move or grow, and it
@@ -320,21 +328,28 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
   side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once
   and a closed door it stays on for a second and a half is blown open. Guns flash
-  at the end of the barrel and every round (a pistol's, Jaden's, each pellet, the 0.50 cal's) flies out of it as a glowing
-  projectile: a big bright streak with a white-hot tip and a halo of light round it (three times the size it was),
-  drawn crossing the screen at half the match's speed (the pistol's at 3000 units a second, pellets 2500, the 0.50 cal
-  4000; the look only: what they hit, and when, is the match's), with a trail twice as long and twice as thick, a
-  soft glow round a bright core, that burns out slowly behind it once it lands (on screen twice as long), stopping
-  where the shot stopped, pellets sparking there as they arrive (the sim's
-  rounds start just ahead of the shooter). Rounds and thrown bottles, books and jars fly perfectly straight and level at
-  the height they left the barrel or the hand, whatever the ground does below, until they hit something: they never
-  strike the ground, and where a rise would cover one it is drawn over the terrain, so no hill ever hides it (walls,
-  trees and objects still do, and only things standing upright: where the line runs under a rise of the ground it's
-  judged from just over the ground there, along the same line of sight, so the buried feet of the trees and rocks on the
-  rise never cut it, and fallen logs never cover it; the laser, every round, their sparks and bursts, and thrown items
-  all share this). A thrown item never even looks to go into the ground: where the ground ahead rises
+  at the end of the barrel and every round (a pistol's, Jaden's, each pellet, the 0.50 cal's) flies out of it as a fast
+  projectile drawn like Noita's: a single thin streak of white pixels, bright at its head and fading to nothing at its
+  tail, at least one of the screen's art pixels thick (a few real pixels, as Noita's are), with no glow and no lingering
+  trail, drawn crossing the screen at three quarters of the match's speed (the pistol's at 4500 units a second, pellets
+  3750, the 0.50 cal 6000; the look only: what they hit, and when, is the match's), stopping where the shot stopped,
+  pellets sparking there as they arrive (the sim's rounds start just ahead of the shooter). Rounds fly perfectly
+  straight and level at the height they left the barrel, whatever the ground does below. **The laser and rounds are
+  drawn over the ground by the GPU** (`Vision/FxOverGround`): every surface marks its pixels in the stencil as it's
+  drawn, the ground (with its grass and paths) and fallen logs 1 and everything else 0; an overlay camera that keeps
+  the scene's depth and stencil and comes after the darkness draws them, always on top where the ground is the nearest
+  thing and depth-tested against what's actually drawn anywhere else, so no hill ever cuts them while every tree, wall,
+  rock, prop and body nearer the camera hides them exactly where it's drawn. Where a line runs level under a rise, its
+  points are first slid toward the camera along their view (the same spot on screen) to the barrel's height over the
+  ground there, so what stands on the rise behind it never covers it. (Before, a ray was fired from points along the
+  line at the colliders, which hid it wherever an invisible collision shape stood: a rock's 2.6 m wall cut a strip
+  out of the laser well above a knee-high boulder.) Their sparks and the 0.50 cal's bursts are drawn the same way.
+  Thrown bottles, books and jars also fly level at the height they left the hand, and where a rise would cover one
+  it's drawn over the terrain unless something standing upright is in front of it. A thrown item never even looks to go into the ground: where the ground ahead rises
   toward it, it's lifted smoothly over the rise (it climbs a little before it gets there) and settles back to its level
-  once past. Guns make no sound, and the charge is silent. Sounds come from
+  once past. The 0.50 cal cracks when it fires (a sound synthesised for the game in the character of a Noita rifle:
+  a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`); the other guns make no
+  sound, and the charge is silent. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
 - **Teammates**: a survivor sees the other survivors glow faintly, a soft light about each and a small bright disc that
   shows them through the fog, as in the original.
@@ -348,7 +363,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
   and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
   jar passes over it, the thrown item landing there, though now only close to it: its trigger is 80% smaller than it
-  was); galaxy gas billows purple, pink and blue with twinkling stars (its cloud 15% smaller and 30% less opaque than it was); dropped items lie where they
+  was); galaxy gas billows purple, pink and blue with twinkling stars (its cloud, and the area it works over, 15% smaller and then 15% smaller again, and 30% less opaque than it was); dropped items lie where they
   fell (with models for the P250, the 0.50 cal, the jar of piss and the legendary pump). G drops the item in hand;
   holding **Tab** opens the full map and the inventory editor: drag an item onto another slot to swap them, or off the
   bar to drop its whole stack; clicking a slot takes it in hand. Empty slots are perfect squares; an item widens its
@@ -356,10 +371,14 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   TRAP, the bar MR BEAST BAR, the golden shotgun LEGENDARY PUMP, the goggles NIGHT VISION GOGGLES), and it eases back to the square when
   the item goes, or to fit whatever's swapped in, never smaller than the square.
   Each pistol shot strays up to 2.5 degrees either side of the aim. Holding right click with the 0.50 cal aims it: the
-  view widens 15%, you move 30% slower, and a thin red laser (the original's, a faint wide line and a bright thin one)
-  runs from the barrel along the aim to the first solid thing in its way (never the ground), seen by everyone: a
-  perfectly straight line, drawn above the terrain so no hill ever covers it, and broken only where a wall, tree or prop
-  stands between it and the camera; aimed, the round goes exactly where it points, while from the hip it strays up to
+  view widens 15%, you move 30% slower, and a red laser sight runs from the barrel along the aim to the first solid
+  thing in its way (never the ground), seen by everyone: a perfectly straight line, over the ground and behind whatever
+  stands nearer (see rounds above), drawn as Noita's laser sight. A faint red haze three pixels either side flickers in
+  clumps and now and then drops out; the one-pixel core is red static, every pixel flickering on its own, broken into
+  dashes that come and go, the odd pixel flaring white; and dust drifts slowly out along it away from the barrel,
+  single pixels wandering a row off the line, fading in, catching the light and fading out, in clusters and empty
+  stretches (all in the shader, from the beam's distance along it). A small dot flickers at the barrel, and where it
+  meets something a bigger spot sputters and throws off the odd mote; aimed, the round goes exactly where it points, while from the hip it strays up to
   5 degrees. Its round races out along that same straight line at 8000 units a second and throws sparks, dust and chips
   out of every wall, tree or object it punches into and out of, as it gets there.
   JARVIS shows the user the whole map, its tablet held up until they take another item in hand (it keeps running, the
@@ -391,8 +410,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
-  hands you JARVIS and walks off. Hit him as a survivor and he defends himself with Hemp Beams; Zach slays him in three
-  and takes his beam. **Chris Zelley** paces round his ambulance until a survivor enlists him; then the first survivor
+  hands you JARVIS and walks off. Hit him as a survivor and he defends himself with Hemp Beams; three hits slay him,
+  Zach's machete or a survivor's bottles, books, jars, rounds or shotgun blasts alike (his health bar shows to both),
+  and he drops his Hemp Beam on the ground for whoever takes it (E). **Chris Zelley** paces round his ambulance until a survivor enlists him; then the first survivor
   left downed or staked too long gets a sprinting paramedic, a revive, and a halo and wings as he ascends. **Plasma.TTV**
   says "ggs" and hands out golden pumps; attack him and GAMER RAGE turns him into a purple beast who punches you down
   (only the beast can die, and drops his pump); the beast keeps his size but squeezes through doorways like a man. **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
@@ -413,7 +433,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   round it (no further) under a soft red then blue tint that swells with each flash; the building's biggest room without a generator is
   the lounge, a couch facing a flickering TV. Six paper notes, each photo once in a random order: one lies beside every
   generator (the graveyard's always has one) and the rest beside the paths, far apart; next to a generator, whichever of
-  the two you're nearer to is the one E works on. Zach's map shows every stake
+  the two you're nearer to is the one E works on. Notes are easy to spot: big sheets of pale paper (2.2 times the
+  model) whose paper glows faintly, with a soft glint pulsing over each in your light every couple of seconds; once
+  seen, the minimap and full map show each by its own icon (a sheet of old paper with a photo pinned to it,
+  `tools/note_icon.py`). Zach's map shows every stake
   in play.
 - The old **wanderer** stands in for an entity in the captures only.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
@@ -674,7 +697,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 250 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 255 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and
