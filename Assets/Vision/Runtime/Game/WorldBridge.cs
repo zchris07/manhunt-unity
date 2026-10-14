@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Vision.Visibility;
 using Vision.World;
@@ -62,13 +63,9 @@ namespace Vision.Game
 
             if (w.Layout != null)
             {
-                // Survivors start together in the south clearing; Zach in the clearing farthest from them.
+                // Zach starts in the clearing farthest from the spawn clearing; the survivors each somewhere of their own,
+                // scattered over the map and away from each other (and from him).
                 Vector2 spawn = w.Layout.Spawn;
-                for (int i = 0; i < Balance.Net.MaxPlayers; i++)
-                {
-                    float a = i * Mathf.PI * 2f / Balance.Net.MaxPlayers;
-                    map.SurvivorSpawns.Add(spawn + (i == 0 ? Vector2.zero : new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 1.6f));
-                }
                 Vector2 far = spawn;
                 float best = -1f;
                 foreach (MapLayout.Clearing c in w.Layout.Clearings)
@@ -81,9 +78,49 @@ namespace Vision.Game
                     float a = i * Mathf.PI * 2f / 9f;
                     map.HunterSpawns.Add(far + (i == 0 ? Vector2.zero : new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 2f));
                 }
+                map.SurvivorSpawns.AddRange(ScatteredSpawns(w, far, Balance.Net.MaxPlayers));
             }
             return map;
         }
+
+        /// <summary>
+        /// Survivors' starting spots: <paramref name="count"/> points over the playable map, each on open, walkable ground
+        /// (not in the lake, the building, a site or anything solid), well away from Zach's start and from each other (a
+        /// Poisson-disk spread: at least <see cref="SpawnApart"/> m apart, relaxed a little at a time if the map can't fit
+        /// them). Seeded by the level, so every machine agrees.
+        /// </summary>
+        public static List<Vector2> ScatteredSpawns(SandboxWorld w, Vector2 hunter, int count)
+        {
+            var spots = new List<Vector2>();
+            MapLayout L = w.Layout;
+            var rng = new System.Random(L.Seed * 977 + 5);
+            float lim = L.HalfExtent - 8f, apart = Mathf.Min(SpawnApart, L.HalfExtent * 1.6f / Mathf.Sqrt(Mathf.Max(1, count)));
+            int solid = ~((1 << SandboxWorld.GroundLayer) | (1 << SandboxWorld.CharacterLayer) | (1 << 2) | (1 << 10) | (1 << 11));
+            bool Open(Vector2 p)
+            {
+                if (p.magnitude > lim || L.LakeDepth(p) > -1f || L.Blocked(p)) return false;
+                if (Vector2.Distance(p, hunter) < SpawnFromHunter) return false;
+                Rect b = L.Building;
+                if (p.x > b.xMin - 6f && p.x < b.xMax + 6f && p.y > b.yMin - 6f && p.y < b.yMax + 6f) return false;
+                Vector3 at = w.transform.TransformPoint(new Vector3(p.x, w.SurfaceHeight(p) + 1f, p.y));
+                return !Physics.CheckSphere(at, 0.8f * w.transform.lossyScale.x, solid, QueryTriggerInteraction.Ignore);
+            }
+            for (int tries = 0; spots.Count < count && tries < 20000; tries++)
+            {
+                if (tries > 0 && tries % 2000 == 0) apart *= 0.85f;
+                var p = new Vector2((float)(rng.NextDouble() * 2.0 - 1.0) * lim, (float)(rng.NextDouble() * 2.0 - 1.0) * lim);
+                if (!Open(p)) continue;
+                bool near = false;
+                foreach (Vector2 q in spots) if ((q - p).sqrMagnitude < apart * apart) { near = true; break; }
+                if (!near) spots.Add(p);
+            }
+            // (Never short: any spots still missing go by the spawn clearing.)
+            for (int i = spots.Count; i < count; i++) spots.Add(L.Spawn + new Vector2(Mathf.Cos(i), Mathf.Sin(i)) * 1.6f);
+            return spots;
+        }
+
+        /// <summary>How far apart survivors start (m) at most, and how far from Zach at least.</summary>
+        public const float SpawnApart = 30f, SpawnFromHunter = 35f;
     }
 
     /// <summary>

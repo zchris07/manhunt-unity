@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Vision.Player
 {
     /// <summary>The original's items (a golden shotgun is Plasma's golden pump: a <see cref="Shotgun"/> slot marked golden).</summary>
-    public enum ItemType { Bottle, Book, Goggles, Shotgun, DoctorPepper, Trap, Confit, MrBeastBar, MiniShield, Pistol, Sniper, Piss }
+    public enum ItemType { Bottle, Book, Goggles, Shotgun, DoctorPepper, Trap, Confit, MrBeastBar, MiniShield, Pistol, Sniper, Piss, HempBeam }
 
     public readonly struct ItemInfo
     {
@@ -50,6 +50,9 @@ namespace Vision.Player
             ItemType.MiniShield => new ItemInfo("Mini shield", Hex(0x3aa8ff), false, MapCount(ItemType.MiniShield)),
             ItemType.Pistol => new ItemInfo("P250", Hex(0xb0b0b8), true, MapCount(ItemType.Pistol)),
             ItemType.Sniper => new ItemInfo("0.50 cal", Hex(0xff3030), true, MapCount(ItemType.Sniper)),
+            // Sexton's Hemp Beam as an item (from Thomas, from Sexton when he falls, at Miga Sushi): a slot of its own
+            // whose amount is its charges left, kept when it's dropped and picked up again.
+            ItemType.HempBeam => new ItemInfo("Hemp Beam", Hex(0x6adf6a), true, MapCount(ItemType.HempBeam)),
             _ => new ItemInfo("Jar of piss", Hex(0xe6c820), false, MapCount(ItemType.Piss)),
         };
 
@@ -81,6 +84,7 @@ namespace Vision.Player
             ItemType.Shotgun => golden ? Vision.Game.Balance.Items.Golden.Shells : Vision.Game.Balance.Items.Shotgun.Shells,
             ItemType.Pistol => Vision.Game.Balance.Items.Pistol.Shots,
             ItemType.Sniper => Vision.Game.Balance.Items.Sniper.Shots,
+            ItemType.HempBeam => Vision.Game.Balance.Hunter.Beam.Charges,
             _ => 0f,
         };
 
@@ -98,7 +102,7 @@ namespace Vision.Player
     {
         /// <summary>Slots in a real match; testing mode has <see cref="TestingSlots"/>.</summary>
         public const int Slots = 8;
-        public const int TestingSlots = 12;
+        public const int TestingSlots = 13;
 
         public sealed class Slot
         {

@@ -232,7 +232,7 @@ namespace Vision.Game
                     if (!s.Empty && (s.item == ItemType.Bottle || s.item == ItemType.Piss || s.item == ItemType.Book)) s.count = 9;
                 }
                 p.Jarvis = 3;
-                p.BeamCharges = Balance.Hunter.Beam.Charges;
+                p.Inv.Add(ItemType.HempBeam);
             }
             else if (p.Role == Role.Hunter)
             {
@@ -405,6 +405,12 @@ namespace Vision.Game
                 p.AimDist = cmd.AimDist;
             }
             if (p.Role == Role.Survivor) p.SelSlot = cmd.Item >= 1 && cmd.Item <= p.Inv.Limit ? cmd.Item - 1 : -1;
+            // The first time each player takes the 0.50 cal in hand: how to aim it.
+            if (p.Role == Role.Survivor && !p.SniperHintShown && p.SelSlot >= 0 && p.Inv.ItemAt(p.SelSlot) == ItemType.Sniper)
+            {
+                p.SniperHintShown = true;
+                Tell(p, "Hold right click to aim");
+            }
             p.Crouching = p.Role == Role.Survivor && cmd.Has(Btn.Crouch);
             HandlePresses(p, cmd, pressed);
 

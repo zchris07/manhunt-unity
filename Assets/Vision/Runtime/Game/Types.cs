@@ -56,7 +56,7 @@ namespace Vision.Game
         OpenDoor = 21, CloseDoor = 22, TalkSexton = 23, TakeHemp = 24, TalkChris = 27, TalkMarc = 28, TalkPlasma = 29,
         SextonMore = 30, PickDrop = 31, NameNpc = 32, NameLoot = 33, NameDrop = 34, TalkWaz = 35, ReadNote = 36,
         TalkChacko = 37, TalkNjaaron = 38, NjaaronAsk = 39, TalkMonique = 40, TalkThomas = 41, TalkSoham = 42,
-        PickLock = 43, OpenGates = 44, CloseGates = 45,
+        PickLock = 43, OpenGates = 44, CloseGates = 45, TalkDaphne = 46,
     }
 
     /// <summary>Buttons of one input frame (the original's Btn, with this game's key mapping).</summary>
@@ -111,7 +111,7 @@ namespace Vision.Game
     public static class Texts
     {
         public static readonly string[] NpcNames =
-            { "Sexton Science", "Shane Jeans", "Chris Zelley", "Marc Cortez", "Plasma.TTV", "Jaden Nguyen", "Waz", "Chacko", "Njaaron", "Monique Bourgeois", "Thomas Bourgeois", "Soham" };
+            { "Sexton Science", "Shane Jeans", "Chris Zelley", "Marc Cortez", "Plasma.TTV", "Jaden Nguyen", "Waz", "Chacko", "Njaaron", "Monique Bourgeois", "Thomas Bourgeois", "Soham", "Daphne Cheng" };
 
         public static string ActionLabel(ActionKind a) => a switch
         {
@@ -168,6 +168,7 @@ namespace Vision.Game
             Prompt.TalkNjaaron => "Press E to talk to Njaaron",
             Prompt.NjaaronAsk => "Y: yes     N: no",
             Prompt.TalkMonique => "Press E to talk to Monique Bourgeois",
+            Prompt.TalkDaphne => "Press E to talk to Daphne Cheng",
             Prompt.TalkThomas => "Press E to talk to Thomas Bourgeois",
             Prompt.TalkSoham => "Press E to talk to Soham",
             Prompt.PickLock => "Press E to pick the lock",

@@ -311,9 +311,16 @@ namespace Vision.Game
             TalkT = 1.5f;
             if (given) { Speak(Balance.Thomas.LineAfter); return; }
             given = true;
-            p.BeamCharges = Balance.Hunter.Beam.Charges;
             Speak(Balance.Thomas.Line);
-            Sim.Tell(p, $"Got a full Hemp Beam: R, {Balance.Hunter.Beam.Charges} charges");
+            // A survivor gets the Hemp Beam as an item (fired with a left click); Zach, his own R beam topped up.
+            if (p.Role == Role.Hunter)
+            {
+                p.BeamCharges = Balance.Hunter.Beam.Charges;
+                Sim.Tell(p, $"Got a full Hemp Beam: R, {Balance.Hunter.Beam.Charges} charges");
+                return;
+            }
+            Sim.AddItem(p, Vision.Player.ItemType.HempBeam);
+            Sim.Tell(p, $"Got a full Hemp Beam: left click, {Balance.Hunter.Beam.Charges} charges");
         }
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind)
@@ -343,24 +350,36 @@ namespace Vision.Game
     /// Monique Bourgeois: gives the first survivor who talks to her an arrow to Zach (40 s), later ones a Mr Beast bar.
     /// Zach attacks her: she bolts. A survivor attacks her: she pulls out a 0.50 cal and shoots them for ten seconds.
     /// </summary>
-    public sealed class Monique : Walker
+    public class Monique : Walker
     {
+        readonly string name;
+        readonly int kind;
+        readonly Prompt talk;
         bool gaveArrow;
         readonly HashSet<int> fed = new HashSet<int>();
         float armedT, shotCd;
         int targetId;
 
-        public override string Name => "Monique Bourgeois";
-        public override int Kind => 9;
+        public override string Name => name;
+        public override int Kind => kind;
         public override float RadiusUnits => Balance.Monique.Radius;
         public override bool Slashable => alive;
         public bool Armed => armedT > 0f;
         public override NpcFlags Flags => base.Flags | (Armed ? NpcFlags.Armed : 0);
 
-        public Monique(MatchSim sim) : base(sim, 202) => SpawnAnywhere(6f, 600f);
+        public Monique(MatchSim sim) : this(sim, "Monique Bourgeois", 9, Prompt.TalkMonique, 202) { }
+
+        /// <summary>Monique's behaviour under another name and look (Daphne Cheng).</summary>
+        protected Monique(MatchSim sim, string name, int kind, Prompt talk, int seed) : base(sim, seed)
+        {
+            this.name = name;
+            this.kind = kind;
+            this.talk = talk;
+            SpawnAnywhere(6f, 600f);
+        }
 
         bool CanTalk(SimPlayer p) => alive && p.Role == Role.Survivor && FleeT <= 0f && !Armed && !fed.Contains(p.Id) && OnFeet(p) && Near(p, Balance.Monique.Reach);
-        public override Prompt TalkPrompt(MatchSim sim, SimPlayer p) => CanTalk(p) ? Prompt.TalkMonique : Prompt.None;
+        public override Prompt TalkPrompt(MatchSim sim, SimPlayer p) => CanTalk(p) ? talk : Prompt.None;
 
         public override void Talk(MatchSim sim, SimPlayer p)
         {
@@ -373,7 +392,7 @@ namespace Vision.Game
                 gaveArrow = true;
                 p.ArrowT = Balance.Monique.ArrowSec;
                 Speak(Balance.Monique.LineArrow);
-                Sim.Tell(p, $"Monique's arrow points to Zach for {Balance.Monique.ArrowSec:0} s");
+                Sim.Tell(p, $"{name.Split(' ')[0]}'s arrow points to Zach for {Balance.Monique.ArrowSec:0} s");
             }
             else
             {
@@ -435,5 +454,15 @@ namespace Vision.Game
             else Wander(Balance.Monique.Walk, dt);
             Gait = !Moving ? 0 : FleeT > 0f ? 2 : 1;
         }
+    }
+
+    /// <summary>
+    /// Daphne Cheng: behaves exactly as Monique does (an arrow to Zach for the first survivor who talks to her, then Mr
+    /// Beast bars; a survivor who attacks her is shot at with a 0.50 cal; Zach's attack sends her running), with her own
+    /// name and look.
+    /// </summary>
+    public sealed class Daphne : Monique
+    {
+        public Daphne(MatchSim sim) : base(sim, "Daphne Cheng", 12, Prompt.TalkDaphne, 205) { }
     }
 }

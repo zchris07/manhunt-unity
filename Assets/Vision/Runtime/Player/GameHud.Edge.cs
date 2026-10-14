@@ -55,7 +55,8 @@ namespace Vision.Player
         void RefreshWander(SimPlayer me)
         {
             if (wander == null) return;
-            bool show = me != null && me.Role == Role.Survivor && me.Zone >= 1 && !MainMenuOpen
+            // Only once the light is dying (past the second ring); between the rings there's no warning, only the flicker.
+            bool show = me != null && me.Role == Role.Survivor && me.Zone >= 2 && !MainMenuOpen
                 && (me.Health == Game.Health.Healthy || me.Health == Game.Health.Wounded || me.Health == Game.Health.Downed);
             wanderK = Mathf.MoveTowards(wanderK, show ? 1f : 0f, Time.unscaledDeltaTime * 4f);
             wander.gameObject.SetActive(wanderK > 0f);

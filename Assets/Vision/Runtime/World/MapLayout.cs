@@ -77,6 +77,13 @@ namespace Vision.World
         public Rect Graveyard;
         public float GraveyardYaw;
         public Rect Playground;
+        /// <summary>
+        /// Miga Sushi (a little sushi restaurant) and the Diddy Chamber (a tiny dungeon of a bedroom): two buildings out on
+        /// the edge of the playable map, far apart, each with its door facing in toward the middle (0 north, 1 east, 2
+        /// south, 3 west).
+        /// </summary>
+        public Rect Sushi, Chamber;
+        public int SushiDoor, ChamberDoor;
         public Vector2 HangingTree;
         public readonly List<Vector2> PowerPoles = new List<Vector2>();
 
@@ -335,6 +342,36 @@ namespace Vision.World
             KeepRects.Add(Expand(Playground, 1.5f));
             HangingTree = Site(7f);
             KeepCircles.Add((HangingTree, 5f));
+            PlacePlaces();
+        }
+
+        /// <summary>
+        /// Miga Sushi and the Diddy Chamber on the outskirts (72-86% of the way out), from a stream of their own so nothing
+        /// else on the map moves for them; kept clear of everything (grass, fences and logs are placed after them and keep off).
+        /// </summary>
+        void PlacePlaces()
+        {
+            var r = new System.Random(Seed * 131 + 17);
+            Vector2 Outskirt(float radius, Vector2? awayFrom)
+            {
+                for (int tries = 0; tries < 4000; tries++)
+                {
+                    float a = (float)(r.NextDouble() * Mathf.PI * 2.0), d = HalfExtent * (0.72f + 0.14f * (float)r.NextDouble());
+                    var p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
+                    if (awayFrom.HasValue && (p - awayFrom.Value).magnitude < HalfExtent * 0.7f && tries < 3000) continue;
+                    if (FreeSite(p, radius + 3f)) return p;
+                }
+                return new Vector2(0f, -HalfExtent * 0.8f);
+            }
+            int DoorToward(Vector2 p) => Mathf.Abs(p.y) >= Mathf.Abs(p.x) ? (p.y > 0f ? 2 : 0) : (p.x > 0f ? 3 : 1);
+            Vector2 s = Outskirt(7f, null);
+            Sushi = new Rect(s.x - 5f, s.y - 4f, 10f, 8f);
+            SushiDoor = DoorToward(s);
+            KeepRects.Add(Expand(Sushi, 2f));
+            Vector2 c = Outskirt(4f, s);
+            Chamber = new Rect(c.x - 2.25f, c.y - 2.25f, 4.5f, 4.5f);
+            ChamberDoor = DoorToward(c);
+            KeepRects.Add(Expand(Chamber, 2f));
         }
 
         // ------------------------------------------------------------------ tall grass, fences, logs, fires

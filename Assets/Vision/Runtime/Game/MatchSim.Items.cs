@@ -155,6 +155,9 @@ namespace Vision.Game
                     p.ReloadT = Balance.Items.Sniper.Reload;
                     SpendRound(p, slot);
                     break;
+                case ItemType.HempBeam:
+                    FireBeamItem(p, slot, cmd.Aim);
+                    break;
                 case ItemType.Pistol:
                     if (p.ReloadT > 0f) return;
                     FirePistol(p, cmd.Aim);
@@ -444,6 +447,10 @@ namespace Vision.Game
             Tell(p, $"Dropped: {Items.Name(kind, golden)}");
         }
 
+        /// <summary>A Hemp Beam with all its charges, lying on the ground (Sexton's when he falls).</summary>
+        public void DropHempBeam(Vector2 at) =>
+            Drops.Add(new DropItem { Id = AllocEntityId(), Pos = at, Item = ItemType.HempBeam, Amount = Balance.Hunter.Beam.Charges });
+
         /// <summary>Puts a dropped item on the ground at the spot, or at the dropper's feet if that's blocked.</summary>
         public void PlaceDrop(DropItem d, Vector2 at)
         {
@@ -455,8 +462,17 @@ namespace Vision.Game
         void PickUpDrop(SimPlayer p, int id)
         {
             int i = Drops.FindIndex(x => x.Id == id);
-            if (i < 0 || p.Role == Role.Hunter) return;
+            if (i < 0) return;
             DropItem d = Drops[i];
+            if (p.Role == Role.Hunter)
+            {
+                // Zach takes only a Hemp Beam: its charges left go into his own (R), up to a full set.
+                if (d.Item != ItemType.HempBeam) return;
+                Drops.RemoveAt(i);
+                p.BeamCharges = Mathf.Min(Balance.Hunter.Beam.Charges, p.BeamCharges + Mathf.RoundToInt(d.Amount));
+                Tell(p, $"Got the Hemp Beam: R, {p.BeamCharges} charges");
+                return;
+            }
             Drops.RemoveAt(i);
             AddItem(p, d.Item, d.Amount, d.Golden);
             Tell(p, $"Picked up: {Items.Name(d.Item, d.Golden)}");
@@ -534,6 +550,7 @@ namespace Vision.Game
                     else if (piss)
                     {
                         hitP.PissT = Balance.Items.Piss.Time;
+                        hitP.PissBlurT = Balance.Items.Piss.BlurTime;
                         Tell(hitP, $"Soaked: +{Mathf.RoundToInt((Balance.Items.Piss.Mul - 1f) * 100f)}% damage for {Balance.Items.Piss.Time:0} s");
                         Feed($"{owner?.Name ?? "Someone"} threw piss on {hitP.Name}");
                     }
@@ -593,6 +610,7 @@ namespace Vision.Game
 
             foreach (SimPlayer p in Order)
             {
+                p.PissBlurT = Mathf.Max(0f, p.PissBlurT - dt);
                 if (p.Role == Role.Hunter)
                 {
                     p.BookT = Mathf.Max(0f, p.BookT - dt);

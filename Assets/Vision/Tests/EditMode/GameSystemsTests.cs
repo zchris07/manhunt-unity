@@ -75,7 +75,9 @@ namespace Vision.Tests
                 world.Generate();
                 // The original's 96, and the kit in a row beside Chris Zelley's ambulance on top.
                 ItemType[] kit = { ItemType.MiniShield, ItemType.MiniShield, ItemType.MrBeastBar, ItemType.MrBeastBar, ItemType.Confit };
-                Assert.AreEqual(96 + kit.Length, world.Pickups.Count, "the original's 96 supplies and the ambulance kit");
+                // And Miga Sushi's Hemp Beam and 0.50 cal.
+                kit = kit.Concat(new[] { ItemType.HempBeam, ItemType.Sniper }).ToArray();
+                Assert.AreEqual(96 + kit.Length, world.Pickups.Count, "the original's 96 supplies, the ambulance kit and Miga Sushi's");
                 foreach (ItemType t in Items.All)
                     Assert.AreEqual(Items.Info(t).mapCount + kit.Count(k => k == t), world.Pickups.Count(p => p.item == t), $"{t} at the original's count");
                 Rect building = world.Layout.Building;

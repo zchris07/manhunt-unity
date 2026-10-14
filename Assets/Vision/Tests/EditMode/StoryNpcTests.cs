@@ -94,13 +94,14 @@ namespace Vision.Tests
             sexton.Slash(rig.Sim, h, 2);
             sexton.Slash(rig.Sim, h, 2);
             Assert.IsFalse(sexton.Alive);
-            Assert.IsTrue(rig.Sim.HempDrop.HasValue, "his Hemp Beam on the ground");
-            rig.Sim.Teleport(h.Id, rig.Sim.HempDrop.Value + SimRig.U(10, 0));
+            DropItem beam = rig.Sim.Drops.Find(d => d.Item == ItemType.HempBeam);
+            Assert.IsNotNull(beam, "his Hemp Beam on the ground");
+            rig.Sim.Teleport(h.Id, beam.Pos + SimRig.U(10, 0));
             rig.Run(1);
-            Assert.AreEqual(Prompt.TakeHemp, h.Prompt);
+            Assert.AreEqual(Prompt.PickDrop, h.Prompt, "Zach can take it");
             rig.Tap(h.Id, Btn.Interact);
-            Assert.AreEqual(Balance.Hunter.Beam.Charges, h.BeamCharges);
-            Assert.IsFalse(rig.Sim.HempDrop.HasValue);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, h.BeamCharges, "its charges into his own beam (R)");
+            Assert.IsFalse(rig.Sim.Drops.Contains(beam));
         }
 
         [Test]
@@ -120,13 +121,14 @@ namespace Vision.Tests
             sexton.ItemHit(rig.Sim, s, "shot");
             Assert.IsFalse(sexton.Alive, "three hits");
             Assert.IsFalse(sexton.Beaming);
-            Assert.IsTrue(rig.Sim.HempDrop.HasValue, "his Hemp Beam on the ground");
-            rig.Sim.Teleport(s.Id, rig.Sim.HempDrop.Value + SimRig.U(10, 0));
+            DropItem beam = rig.Sim.Drops.Find(d => d.Item == ItemType.HempBeam);
+            Assert.IsNotNull(beam, "his Hemp Beam on the ground");
+            rig.Sim.Teleport(s.Id, beam.Pos + SimRig.U(10, 0));
             rig.Run(1);
-            Assert.AreEqual(Prompt.TakeHemp, s.Prompt);
+            Assert.AreEqual(Prompt.PickDrop, s.Prompt);
             rig.Tap(s.Id, Btn.Interact);
-            Assert.AreEqual(Balance.Hunter.Beam.Charges, s.BeamCharges, "the survivor has the Hemp Beam");
-            Assert.IsFalse(rig.Sim.HempDrop.HasValue);
+            Assert.GreaterOrEqual(s.Inv.FirstSlotOf(ItemType.HempBeam), 0, "the survivor has the Hemp Beam, as an item");
+            Assert.IsFalse(rig.Sim.Drops.Contains(beam));
         }
 
         [Test]

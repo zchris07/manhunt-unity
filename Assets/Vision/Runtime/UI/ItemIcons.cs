@@ -38,6 +38,7 @@ namespace Vision.UI
             ItemType.Pistol => "pistol",
             ItemType.Sniper => "sniper",
             ItemType.Piss => "piss",
+            ItemType.HempBeam => "leaf",
             _ => null,
         };
 

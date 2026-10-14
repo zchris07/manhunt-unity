@@ -21,9 +21,26 @@ namespace Vision.Player
         public const float MiniSpan = 57f;
         /// <summary>Pixel sizes of the minimap view and the full map.</summary>
         public const float MiniPx = 250f, FullPx = 860f;
+        /// <summary>
+        /// Holding Tab, the wheel zooms the full map in (up to <see cref="MaxZoom"/> times, about the pointer) and dragging
+        /// pans it; it stays inside its circle, never showing past the edge of the world. The full map's art is painted again
+        /// <see cref="HiResSize"/> pixels square off the main thread after a level is built, so it stays sharp zoomed in.
+        /// </summary>
+        public const float MaxZoom = 4f;
+        public const int HiResSize = 2048;
+        /// <summary>The full map is open (anywhere): the wheel is the map's, not the inventory's or the testing camera's.</summary>
+        public static bool AnyFullOpen;
 
         readonly Font font;
-        readonly RectTransform miniContent, fullMap, fullPanel, miniArrow, fullArrow, youRing, youLabel, miniSpin;
+        readonly RectTransform miniContent, fullMap, fullZoom, fullPanel, miniArrow, fullArrow, youRing, youLabel, miniSpin;
+        /// <summary>How far the full map is zoomed in (1 = the whole world), and where it's panned to (panel units).</summary>
+        public float Zoom { get; private set; } = 1f;
+        public Vector2 Pan => fullZoom.anchoredPosition;
+        float shownZoom = -1f;
+        int shownChildren = -1;
+        Texture2D hiArt;
+        System.Threading.Tasks.Task<Color32[]> hiTask;
+        int bindSerial;
 
         /// <summary>The 3D view's turn (degrees clockwise from north): the minimap turns with it, so its up is the screen's up.</summary>
         public static float ViewYaw;
@@ -108,7 +125,8 @@ namespace Vision.Player
             Image discMask = Image(disc, Color.white);
             discMask.sprite = circle;
             disc.gameObject.AddComponent<Mask>().showMaskGraphic = false;
-            fullMap = Node("Map", disc, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
+            fullZoom = Node("Zoom", disc, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
+            fullMap = Node("Map", fullZoom, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
             fullArt = Raw(Stretch(Node("Art", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             fullArt.raycastTarget = true;
             fullFog = Raw(Stretch(Node("Fog", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
@@ -153,6 +171,11 @@ namespace Vision.Player
             BoundLayout = w.Layout;
             Kill(art);
             art = MapPainter.Paint(w);
+            // The full map's big copy, painted off the main thread and swapped in when it's ready.
+            Kill(hiArt);
+            hiArt = null;
+            int serial = ++bindSerial;
+            hiTask = Application.isPlaying ? System.Threading.Tasks.Task.Run(() => MapPainter.PaintPixels(w, HiResSize)) : null;
             if (Fog != null) Kill(Fog.Texture);
             Fog = new FogOfWar(w.MapExtent);
             miniArt.texture = fullArt.texture = art;
@@ -212,7 +235,15 @@ namespace Vision.Player
         public void SetOpen(bool open)
         {
             full.SetActive(open);
-            if (open) FitFull();
+            AnyFullOpen = open;
+            if (open)
+            {
+                FitFull();
+                // Each time it opens: the whole world, centred.
+                Zoom = 1f;
+                fullZoom.localScale = Vector3.one;
+                fullZoom.anchoredPosition = Vector2.zero;
+            }
             markerDirty = true;
         }
 
@@ -295,11 +326,27 @@ namespace Vision.Player
                 else RevealFromVision();
                 Fog.Apply();
             }
+            if (hiTask != null && hiTask.IsCompleted)
+            {
+                if (hiTask.Status == System.Threading.Tasks.TaskStatus.RanToCompletion)
+                {
+                    hiArt = MapPainter.ToTexture(hiTask.Result, HiResSize, true);
+                    fullArt.texture = hiArt;
+                }
+                hiTask = null;
+            }
             if (full.activeSelf)
             {
                 revealButton.SetActive(false);
                 teleportHint.SetActive(GameSession.TestingMode);
                 FitFull();
+                var mouse = UnityEngine.InputSystem.Mouse.current;
+                if (mouse != null)
+                {
+                    float wheel = mouse.scroll.ReadValue().y;
+                    if (Mathf.Abs(wheel) > 0.01f) ZoomBy(wheel > 0f ? 1.18f : 1f / 1.18f, mouse.position.ReadValue());
+                }
+                KeepMarkersSized();
             }
 
             Vector2 me = PlayerOnMap(out Vector2 facing);
@@ -322,7 +369,7 @@ namespace Vision.Player
                 fullArrow.localRotation = Quaternion.Euler(0f, 0f, yaw);
                 fullArrow.anchoredPosition = youRing.anchoredPosition = me * fullScale;
                 youLabel.localRotation = upright;
-                youLabel.anchoredPosition = me * fullScale + (Vector2)(upright * new Vector3(0f, 38f, 0f));
+                youLabel.anchoredPosition = me * fullScale + (Vector2)(upright * new Vector3(0f, 38f / Zoom, 0f));
             }
             if (full.activeSelf)
             {
@@ -438,6 +485,51 @@ namespace Vision.Player
             fullArrow.SetAsLastSibling();
         }
 
+        /// <summary>Zooms the full map by <paramref name="factor"/> about a point on the screen (it stays under the pointer).</summary>
+        public void ZoomBy(float factor, Vector2 screen)
+        {
+            var disc = (RectTransform)fullZoom.parent;
+            float z = Mathf.Clamp(Zoom * factor, 1f, MaxZoom);
+            if (Mathf.Approximately(z, Zoom)) return;
+            Vector2 c = Vector2.zero;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(disc, screen, null, out Vector2 local)) c = local - disc.rect.center;
+            Vector2 o = fullZoom.anchoredPosition;
+            fullZoom.anchoredPosition = c - (c - o) * (z / Zoom);
+            Zoom = z;
+            fullZoom.localScale = new Vector3(z, z, 1f);
+            ClampPan();
+            markerDirty = true;
+        }
+
+        /// <summary>Moves the zoomed full map by a drag (screen pixels), kept inside its circle.</summary>
+        public void PanBy(Vector2 from, Vector2 to)
+        {
+            var disc = (RectTransform)fullZoom.parent;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(disc, from, null, out Vector2 a)) return;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(disc, to, null, out Vector2 b)) return;
+            fullZoom.anchoredPosition += b - a;
+            ClampPan();
+        }
+
+        /// <summary>The world's circle always covers the round view: the pan never shows past the edge of the world.</summary>
+        void ClampPan()
+        {
+            float limit = (Zoom - 1f) * FullPx * 0.5f;
+            fullZoom.anchoredPosition = Vector2.ClampMagnitude(fullZoom.anchoredPosition, limit);
+        }
+
+        /// <summary>The markers stay the same size on screen however far the map is zoomed in (only where they sit scales).</summary>
+        void KeepMarkersSized()
+        {
+            int n = fullMap.childCount;
+            if (Mathf.Approximately(shownZoom, Zoom) && n == shownChildren) return;
+            shownZoom = Zoom;
+            shownChildren = n;
+            Vector3 k = Vector3.one / Zoom;
+            foreach (Transform c in fullMap)
+                if (c != fullArt.transform && c != fullFog.transform) c.localScale = k;
+        }
+
         /// <summary>Testing mode: a click on the full map moves the player there.</summary>
         public void ClickAt(Vector2 local)
         {
@@ -547,9 +639,14 @@ namespace Vision.Player
     }
 
     /// <summary>Forwards clicks on the full map (in its local coordinates, centre = map origin).</summary>
-    public sealed class MapClick : MonoBehaviour, IPointerClickHandler
+    public sealed class MapClick : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler
     {
         public MapHud map;
+
+        // Dragging pans the zoomed map (a drag never counts as a click, so it never teleports).
+        public void OnBeginDrag(PointerEventData e) { }
+
+        public void OnDrag(PointerEventData e) => map?.PanBy(e.position - e.delta, e.position);
 
         public void OnPointerClick(PointerEventData e)
         {

@@ -7,7 +7,6 @@ namespace Vision.Game
     public sealed partial class MatchSim
     {
         /// <summary>The Hemp Beam Sexton drops when Zach slays him (null when there is none on the ground).</summary>
-        public Vector2? HempDrop;
 
         static readonly Prompt[] HoldPrompts = { Prompt.Repair, Prompt.Heal, Prompt.Revive, Prompt.Unstake, Prompt.OpenGate };
 
@@ -24,12 +23,13 @@ namespace Vision.Game
             return best;
         }
 
-        int NearestDrop(Vector2 at, float max)
+        int NearestDrop(Vector2 at, float max, ItemType? only = null)
         {
             int best = -1;
             float bd = max;
             for (int i = 0; i < Drops.Count; i++)
             {
+                if (only.HasValue && Drops[i].Item != only.Value) continue;
                 float d = Vector2.Distance(Drops[i].Pos, at);
                 if (d < bd) { bd = d; best = i; }
             }
@@ -178,8 +178,6 @@ namespace Vision.Game
                 }
                 if (ni >= 0) Set(p, Prompt.ReadNote, ni);
             }
-            // Sexton's Hemp Beam where he fell, for whoever slew him (or anyone else) to take.
-            if (p.Prompt == Prompt.None && HempDrop.HasValue && Vector2.Distance(HempDrop.Value, at) < R(Balance.Reach.Pickup)) Set(p, Prompt.TakeHemp, 0);
             if (p.Prompt == Prompt.None)
             {
                 int di = NearestDrop(at, R(Balance.Reach.Pickup));
@@ -259,7 +257,12 @@ namespace Vision.Game
                         if (ni >= 0 && gk >= 0 && Vector2.Distance(Map.Generators[gk], at) < Vector2.Distance(Map.Notes[ni], at)) ni = -1;
                         if (ni >= 0) Set(p, Prompt.ReadNote, ni);
                     }
-                    if (p.Prompt == Prompt.None && HempDrop.HasValue && Vector2.Distance(HempDrop.Value, at) < R(Balance.Reach.Pickup)) Set(p, Prompt.TakeHemp, 0);
+                    // A Hemp Beam on the ground (Sexton's, or one a survivor dropped): Zach can take it too.
+                    if (p.Prompt == Prompt.None)
+                    {
+                        int hi = NearestDrop(at, R(Balance.Reach.Pickup), ItemType.HempBeam);
+                        if (hi >= 0) Set(p, Prompt.PickDrop, Drops[hi].Id);
+                    }
                     if (p.Prompt == Prompt.None)
                     {
                         int hi = NearbyHidingSpot(at, Balance.Reach.Hide + 8f, false);
@@ -335,7 +338,6 @@ namespace Vision.Game
                 if ((pressed & Btn.Primary) != 0 && p.CanAct) UseItem(p, cmd);
                 if ((pressed & Btn.Drop) != 0) DropItem(p);
                 if ((pressed & Btn.Ability) != 0) TryJarvis(p);
-                if ((pressed & Btn.Beam) != 0) TryBeam(p, cmd.Aim);
                 return;
             }
             if (p.Role != Role.Hunter || !p.CanAct) return;
@@ -380,8 +382,8 @@ namespace Vision.Game
                 case Prompt.ReadNote:
                     Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = NoteImage(p.PromptTarget) });
                     break;
-                case Prompt.TakeHemp:
-                    TakeHemp(p);
+                case Prompt.PickDrop:
+                    PickUpDrop(p, p.PromptTarget);
                     break;
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
@@ -395,7 +397,7 @@ namespace Vision.Game
         }
 
         static bool IsTalk(Prompt p) => p == Prompt.TalkSexton || p == Prompt.TalkChris || p == Prompt.TalkMarc || p == Prompt.TalkPlasma || p == Prompt.TalkWaz ||
-                                         p == Prompt.TalkChacko || p == Prompt.TalkNjaaron || p == Prompt.TalkMonique || p == Prompt.TalkThomas || p == Prompt.TalkSoham ||
+                                         p == Prompt.TalkChacko || p == Prompt.TalkNjaaron || p == Prompt.TalkMonique || p == Prompt.TalkDaphne || p == Prompt.TalkThomas || p == Prompt.TalkSoham ||
                                          p == Prompt.SextonMore;
 
         /// <summary>Which photo note <paramref name="i"/> shows.</summary>
@@ -460,9 +462,7 @@ namespace Vision.Game
                 case Prompt.PickDrop:
                     PickUpDrop(p, p.PromptTarget);
                     break;
-                case Prompt.TakeHemp:
-                    TakeHemp(p);
-                    break;
+
                 case Prompt.OpenDoor:
                 case Prompt.CloseDoor:
                 case Prompt.OpenGates:
@@ -684,13 +684,5 @@ namespace Vision.Game
             Emit(null, new GameEvent { Kind = EventKind.Unstaked, A = q.Id, Pos = q.Pos });
         }
 
-        /// <summary>Takes Sexton's dropped Hemp Beam: a full set of charges (R).</summary>
-        void TakeHemp(SimPlayer p)
-        {
-            if (!HempDrop.HasValue) return;
-            p.BeamCharges = Balance.Hunter.Beam.Charges;
-            HempDrop = null;
-            Tell(p, $"Got the Hemp Beam: R, {Balance.Hunter.Beam.Charges} charges");
-        }
     }
 }

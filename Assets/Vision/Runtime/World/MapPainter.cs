@@ -18,7 +18,22 @@ namespace Vision.World
 
         public static float MetresPerPixel(SandboxWorld world, int size) => 2f * world.MapExtent / size;
 
-        public static Texture2D Paint(SandboxWorld world, int size = 768)
+        public static Texture2D Paint(SandboxWorld world, int size = 768) => ToTexture(PaintPixels(world, size), size, false);
+
+        /// <summary>A painted map's pixels in a texture (mipmapped when it's the big one, so it stays clean zoomed out).</summary>
+        public static Texture2D ToTexture(Color32[] px, int size, bool mips)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, mips) { name = "Map", wrapMode = TextureWrapMode.Clamp, filterMode = mips ? FilterMode.Trilinear : FilterMode.Bilinear, anisoLevel = mips ? 4 : 1 };
+            tex.SetPixels32(px);
+            tex.Apply(mips, false);
+            return tex;
+        }
+
+        /// <summary>
+        /// The map's pixels (<paramref name="size"/> square), touching no Unity object: safe to run off the main thread (the
+        /// full map's big copy is painted that way after a level is built, for zooming in on it).
+        /// </summary>
+        public static Color32[] PaintPixels(SandboxWorld world, int size)
         {
             float ext = world.MapExtent, mpp = 2f * ext / size, edge = world.WorldRadius;
             var px = new Color32[size * size];
@@ -129,6 +144,12 @@ namespace Vision.World
             Line(layout.DockStart, layout.DockEnd, layout.DockHalfWidth * 2f, new Color32(110, 92, 70, 255));
             Outline(layout.Graveyard, 0.2f, new Color32(40, 40, 42, 255));
             Outline(layout.Playground, 0.15f, new Color32(120, 70, 50, 255));
+            foreach (Rect place in new[] { layout.Sushi, layout.Chamber })
+            {
+                if (place.width <= 0f) continue;
+                Fill(place, new Color32(70, 58, 50, 255));
+                Outline(place, 0.3f, Wall);
+            }
             foreach (Vector2 pole in layout.PowerPoles) Disc(pole, 0.35f, new Color32(60, 46, 34, 255));
 
             // The edge of the woods: from the playable circle out to the end of the world the map darkens smoothly into the
@@ -146,10 +167,7 @@ namespace Vision.World
                     px[j * size + i] = Color32.Lerp(px[j * size + i], new Color32(4, 4, 5, 255), k);
                 }
             }
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Map", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-            tex.SetPixels32(px);
-            tex.Apply(false, false);
-            return tex;
+            return px;
         }
     }
 

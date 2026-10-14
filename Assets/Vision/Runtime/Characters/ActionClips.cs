@@ -439,30 +439,33 @@ namespace Vision.Characters
             .Event(0.15f, "hit")
             .Blend(0.08f, 0.22f);
 
-        /// <summary>A charged forehand: from the charge's coil, a last wind, then the whole body behind the fall, landing low.</summary>
-        public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.75f)
+        /// <summary>
+        /// A charged forehand: from the charge's coil, a last wind, then the whole body behind the fall, landing low. On the
+        /// light forehand's timeline (the same length and beats as <see cref="Swing"/>), so it plays at the same speed.
+        /// </summary>
+        public static readonly ActionClip SwingHeavy = new ActionClip("SwingHeavy", 0.46f)
             .Key(0f, Low(HCockF(), 0.05f, 0f))
-            .Key(0.03f, Low(HCockF(4f), 0.06f, 0f))
-            .Key(0.065f, Low(HOverF(), 0.065f, 0.15f))
-            .Key(0.1f, Low(HF1(), 0.07f, 0.3f))
+            .Key(0.04f, Low(HCockF(4f), 0.06f, 0f))
+            .Key(0.075f, Low(HOverF(), 0.065f, 0.15f))
+            .Key(0.11f, Low(HF1(), 0.07f, 0.3f))
             .Key(0.15f, Low(HF2(), 0.08f, 0.6f))
-            .Key(0.2f, Low(HF3(), 0.09f, 0.85f))
-            .Key(0.265f, Low(HEndF(), 0.1f, 1f))
-            .Key(0.45f, Low(HEndF(), 0.09f, 0.9f))
-            .Key(0.75f, Low(HLoopF(), 0.03f, 0.3f))
+            .Key(0.19f, Low(HF3(), 0.09f, 0.85f))
+            .Key(0.24f, Low(HEndF(), 0.1f, 1f))
+            .Key(0.34f, Low(HEndF(), 0.09f, 0.9f))
+            .Key(0.46f, Low(HLoopF(), 0.03f, 0.3f))
             .Event(0.15f, "hit")
             .Blend(0.05f, 0.25f);
 
-        /// <summary>A charged backhand: the same from over his left shoulder, down across to his right hip.</summary>
-        public static readonly ActionClip SwingHeavyBack = new ActionClip("SwingHeavyBack", 0.75f)
+        /// <summary>A charged backhand: the same from over his left shoulder, down across to his right hip, on <see cref="SwingBack"/>'s timeline.</summary>
+        public static readonly ActionClip SwingHeavyBack = new ActionClip("SwingHeavyBack", 0.46f)
             .Key(0f, Low(HCockB(), 0.05f, 0f))
-            .Key(0.05f, Low(HCockB(4f), 0.06f, 0f))
-            .Key(0.1f, Low(HB1(), 0.07f, 0.3f))
+            .Key(0.07f, Low(HCockB(4f), 0.06f, 0f))
+            .Key(0.11f, Low(HB1(), 0.07f, 0.3f))
             .Key(0.15f, Low(HB2(), 0.08f, 0.6f))
-            .Key(0.2f, Low(HB3(), 0.09f, 0.85f))
-            .Key(0.265f, Low(HEndB(), 0.1f, 1f))
-            .Key(0.45f, Low(HEndB(), 0.09f, 0.9f))
-            .Key(0.75f, Low(HLoopB(), 0.03f, 0.3f))
+            .Key(0.19f, Low(HB3(), 0.09f, 0.85f))
+            .Key(0.24f, Low(HEndB(), 0.1f, 1f))
+            .Key(0.34f, Low(HEndB(), 0.09f, 0.9f))
+            .Key(0.46f, Low(HLoopB(), 0.03f, 0.3f))
             .Event(0.15f, "hit")
             .Blend(0.05f, 0.25f);
 

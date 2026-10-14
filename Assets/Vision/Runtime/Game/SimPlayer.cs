@@ -24,6 +24,8 @@ namespace Vision.Game
         /// <summary>Knockback: seconds left, total, peak speed (units/s) and direction.</summary>
         public float KbT, KbDur, KbPeak, KbAng;
         public float HasteT, SlowT, SlowMul = 1f;
+        /// <summary>Slows that fade as they wear off (a 0.50 cal round, 50 Nic), multiplied in afresh each tick by the match.</summary>
+        public float FadeMul = 1f;
         /// <summary>Sprint meter in seconds of sprint left; lockout after it ran dry; blocked until Shift is released.</summary>
         public float Stamina, StaminaLock;
         public bool SprintBlocked;
@@ -83,6 +85,10 @@ namespace Vision.Game
         public float BookT;
         public float AbilityLockT;
         public float PissT;
+        /// <summary>Piss in the eyes: the view blurred and yellowed, falling off linearly over <see cref="Balance.Items.Piss.BlurTime"/> s.</summary>
+        public float PissBlurT;
+        /// <summary>Hit by a 0.50 cal round: slowed, falling off linearly over <see cref="Balance.Items.Sniper.SlowTime"/> s.</summary>
+        public float SniperSlowT;
         public int JadenBonus;
         public bool NjaaronRegen;
         public bool Nic;
@@ -113,6 +119,8 @@ namespace Vision.Game
         public Inventory Inv = new Inventory();
         /// <summary>Selected slot, 0-based (-1 none).</summary>
         public int SelSlot = -1;
+        /// <summary>They've been told how to aim the 0.50 cal (shown once, the first time they take it in hand).</summary>
+        public bool SniperHintShown;
         /// <summary>The slot in hand when JARVIS came on: the tablet is held up until they take something else in hand.</summary>
         public int JarvisSlot = -2;
         /// <summary>
@@ -149,6 +157,8 @@ namespace Vision.Game
         public bool Gassed;
         /// <summary>Penjamin: seconds the slow and burn last, their strength, seconds of darkness.</summary>
         public float VapeT, VapeSlow, VapeDps, DarkT, VapeSlowT;
+        /// <summary>The last cloud that caught them was 50 Nic: its effects linger <see cref="Balance.Hunter.Vape.NicLinger"/> s, falling off linearly.</summary>
+        public bool VapeNic;
         public float ViewReach;
 
         // Zach's attack.

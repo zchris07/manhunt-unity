@@ -44,6 +44,7 @@ Shader "Hidden/Vision/Composite"
             float4 _VisGrade;      // x = contrast, y = saturation, z = lit brightness, w = unlit brightness
             float4 _VisBeam;       // x = flashlight beam intensity, y = back-side light share, z = back-side reach (world), w = blackout (the edge of the woods)
             float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px, w = unused
+            float4 _VisPiss;       // piss in the eyes: x = strength 0-1 (falling off linearly), y = blur radius px
             float4 _VisGas;        // gassed (Penjamin on a survivor, galaxy gas on Zach): x = strength 0-1, y = blur radius px, z = double vision px, w = warp px
             float4 _VisionViewerPos;
             float4 _VisViewer;     // x = the player's own light dimmed evenly (flicker and dying at the edge of the woods)
@@ -127,6 +128,9 @@ Shader "Hidden/Vision/Composite"
                 // Gassed (Penjamin, galaxy gas): the whole view swims, doubles and goes out of focus.
                 half gas = _VisGas.x;
                 if (gas > 0.002) scene = lerp(scene, GasView(uv, input.positionCS.xy), saturate(gas * 1.6));
+                // Piss in the eyes: blurred.
+                half piss = _VisPiss.x;
+                if (piss > 0.002 && _VisPiss.y > 0.25) scene = lerp(scene, DiscBlur(uv, _VisPiss.y), saturate(piss * 1.5));
 
                 // Sample the mask a little in front of each surface, so a wall face lit from its side
                 // picks up that light while wall tops (normal up) stay at their own footprint.
@@ -183,6 +187,12 @@ Shader "Hidden/Vision/Composite"
                     half gl = dot(c, half3(0.2126, 0.7152, 0.0722));
                     c = lerp(c, gl.xxx, 0.4 * gas);
                     c *= 1.0 - 0.6 * gas * smoothstep(0.12, 0.9, dot(v, v) * 1.6);
+                }
+                // Piss in the eyes: a yellow filter over everything.
+                if (piss > 0.002)
+                {
+                    half pl = dot(c, half3(0.2126, 0.7152, 0.0722));
+                    c = lerp(c, pl * half3(1.25, 1.05, 0.35) + half3(0.04, 0.03, 0.0), 0.75 * piss);
                 }
                 // Out past the edge of the woods the whole screen goes dark, every light with it.
                 c *= 1.0 - saturate(_VisBeam.w);

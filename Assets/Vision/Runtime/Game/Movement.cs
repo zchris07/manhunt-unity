@@ -154,6 +154,7 @@ namespace Vision.Game
                 if (ctx.Carrying) speed *= Balance.Hunter.CarrySpeedMul;
                 if (s.HempT > 0f) speed *= Balance.Hunter.Hemp.SpeedMul;
                 if (s.SlowT > 0f) speed *= s.SlowMul;
+                speed *= s.FadeMul;
                 if (inWindow) speed *= Balance.Hunter.WindowClimbMul / vaultSlow;
                 gait = moving ? (sprint ? Gait.Run : Gait.Walk) : Gait.Idle;
             }
@@ -183,6 +184,7 @@ namespace Vision.Game
                 // Energy drink: walking and running up to 15% faster, fading with the drink.
                 if (boostK > 0f && (gait == Gait.Walk || gait == Gait.Run)) speed *= 1f + Balance.Items.Energy.SpeedMul * boostK;
                 if (s.SlowT > 0f) speed *= s.SlowMul;
+                speed *= s.FadeMul;
                 if (inWindow) speed *= Balance.Survivor.WindowClimbMul / vaultSlow;
             }
             if (env != null && env.InWater(at)) speed *= Balance.WadeMul;

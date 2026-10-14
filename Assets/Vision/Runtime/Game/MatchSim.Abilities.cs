@@ -199,8 +199,11 @@ namespace Vision.Game
             float along = Vector2.Dot(d, dir);
             if (along <= 0f) return false;
             float side = Mathf.Abs(d.x * dir.y - d.y * dir.x);
-            return side <= along * Mathf.Tan(Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad) + R(Balance.Hunter.Vape.MouthHalfWidth);
+            return side <= along * Mathf.Tan(VapeHalfAngle(v.Nic) * Mathf.Deg2Rad) + R(Balance.Hunter.Vape.MouthHalfWidth);
         }
+
+        /// <summary>The cloud's half angle (degrees): 50 Nic's 20% wider than Penjamin's.</summary>
+        public static float VapeHalfAngle(bool nic) => Balance.Hunter.Vape.HalfAngleDeg * (nic ? Balance.Hunter.Vape.NicAngleMul : 1f);
 
         static readonly Vector2[] Disc = BuildDisc();
 
@@ -239,16 +242,26 @@ namespace Vision.Game
         }
 
         /// <summary>Puts a survivor under the vape's effects at a given strength (0 = the far end, 1 = point blank).</summary>
-        static void VapeSurvivor(SimPlayer p, float near)
+        static void VapeSurvivor(SimPlayer p, float near, bool nic)
         {
             float k = Mathf.Clamp01(near);
             var V = (slow: Balance.Hunter.Vape.Slow, slowFar: Balance.Hunter.Vape.SlowFar, dps: Balance.Hunter.Vape.Dps, dpsFar: Balance.Hunter.Vape.DpsFar);
             p.VapeSlow = Mathf.Max(p.VapeSlowT > 0f ? p.VapeSlow : 0f, V.slowFar + (V.slow - V.slowFar) * k);
-            p.VapeSlowT = Balance.Hunter.Vape.SlowAfter;
             p.VapeDps = Mathf.Max(p.VapeT > 0f ? p.VapeDps : 0f, V.dpsFar + (V.dps - V.dpsFar) * k);
+            p.VapeNic = nic;
+            if (nic)
+            {
+                // 50 Nic: blur, slow and narrowed light all held while in it, then falling off together over four seconds.
+                p.VapeSlowT = p.VapeT = p.DarkT = Balance.Hunter.Vape.NicLinger;
+                return;
+            }
+            p.VapeSlowT = Balance.Hunter.Vape.SlowAfter;
             p.VapeT = Balance.Hunter.Vape.AfterTime;
             p.DarkT = Balance.Hunter.Vape.DarkAfter;
         }
+
+        /// <summary>How much of 50 Nic's lingering effects are left (1 in the cloud, falling linearly to 0 four seconds out).</summary>
+        public static float NicLeft(SimPlayer p) => p.VapeNic ? Mathf.Clamp01(p.VapeT / Balance.Hunter.Vape.NicLinger) : 0f;
 
         void UpdateVapes(float dt)
         {
@@ -283,7 +296,7 @@ namespace Vision.Game
                     if (p.Role != Role.Survivor || p.HideState == 2) continue;
                     if (p.Health != Health.Healthy && p.Health != Health.Wounded && p.Health != Health.Downed) continue;
                     if (VapeCoverage(v, ext, p.Pos, p.RadiusD) < Balance.Hunter.Vape.Coverage) continue;
-                    VapeSurvivor(p, 1f - Vector2.Distance(p.Pos, v.Origin) / v.Range);
+                    VapeSurvivor(p, 1f - Vector2.Distance(p.Pos, v.Origin) / v.Range, v.Nic);
                 }
                 if (by == null) continue;
                 // NPCs that react to being attacked react to the gas: once as if attacked; those that can be hurt are also
@@ -305,6 +318,15 @@ namespace Vision.Game
                     else v.NpcAcc[n] = acc;
                 }
             }
+            // A 0.50 cal round's slow: half speed, falling off linearly to nothing over a second.
+            // (Slows that fade go on the movement's own per-tick multiplier, set afresh each tick.)
+            foreach (SimPlayer p in Order)
+            {
+                p.Move.FadeMul = 1f;
+                if (p.SniperSlowT <= 0f) continue;
+                p.SniperSlowT = Mathf.Max(0f, p.SniperSlowT - dt);
+                p.Move.FadeMul *= 1f - Balance.Items.Sniper.Slow * p.SniperSlowT / Balance.Items.Sniper.SlowTime;
+            }
             // Lingering effects: slowed and choking while in it and a little after; dark a while longer.
             foreach (SimPlayer p in Order)
             {
@@ -313,11 +335,17 @@ namespace Vision.Game
                 if (p.VapeSlowT > 0f)
                 {
                     p.VapeSlowT = Mathf.Max(0f, p.VapeSlowT - dt);
-                    p.Move.SlowT = Mathf.Max(p.Move.SlowT, 0.1f);
-                    p.Move.SlowMul = Mathf.Min(p.Move.SlowMul, 1f - p.VapeSlow);
+                    // 50 Nic's slow falls off linearly over its linger; Penjamin's holds, then stops.
+                    if (p.VapeNic) p.Move.FadeMul *= 1f - p.VapeSlow * Mathf.Clamp01(p.VapeSlowT / Balance.Hunter.Vape.NicLinger);
+                    else
+                    {
+                        p.Move.SlowT = Mathf.Max(p.Move.SlowT, 0.1f);
+                        p.Move.SlowMul = Mathf.Min(p.Move.SlowMul, 1f - p.VapeSlow);
+                    }
                 }
                 if (p.VapeT <= 0f) continue;
                 p.VapeT = Mathf.Max(0f, p.VapeT - dt);
+                if (p.VapeT <= 0f) p.VapeNic = false;
                 // Penjamin goes straight through the shield to the health bar.
                 HurtSurvivor(p, p.VapeDps * dt, null, "vape");
             }
@@ -330,11 +358,27 @@ namespace Vision.Game
         /// <summary>Hemp Beam (R): Sexton's own beam along the aim, swinging slowly; single-use charges with a short cooldown.</summary>
         void TryBeam(SimPlayer h, float aim)
         {
-            if (h.Role == Role.Spectator || h.BeamCharges <= 0 || h.BeamCd > 0f || h.BeamT > 0f || !BeamUsable(h) || h.Carrying != 0) return;
+            if (h.Role == Role.Spectator || h.BeamCharges <= 0 || !BeamReady(h)) return;
             // Zach's Hemp Beam doesn't work past the first ring.
             if (h.Role == Role.Hunter && h.Zone >= 1) return;
-            if (h.BeamId == 0) h.BeamId = AllocEntityId();
             if (!TestMode) h.BeamCharges--;
+            StartBeam(h, aim);
+        }
+
+        /// <summary>Not firing one already, cooled down, free to act and not carrying anyone.</summary>
+        static bool BeamReady(SimPlayer h) => h.BeamCd <= 0f && h.BeamT <= 0f && BeamUsable(h) && h.Carrying == 0;
+
+        /// <summary>A survivor's Hemp Beam item in hand, fired with a left click: one of its charges spent from the slot.</summary>
+        void FireBeamItem(SimPlayer p, int slot, float aim)
+        {
+            if (!BeamReady(p)) return;
+            StartBeam(p, aim);
+            SpendRound(p, slot);
+        }
+
+        void StartBeam(SimPlayer h, float aim)
+        {
+            if (h.BeamId == 0) h.BeamId = AllocEntityId();
             h.BeamT = Balance.Hunter.Beam.Windup + Balance.Sexton.Defense.BeamTime;
             h.BeamTick = 0f;
             h.BeamAng = aim;
@@ -553,6 +597,7 @@ namespace Vision.Game
                         b.Hit.Add(q);
                         HurtHunter(q, Balance.Items.Sniper.ZachHp, shooter, "bullet");
                         Knock(q, Balance.Items.Sniper.KbDuration, Balance.Items.Sniper.KbPeak, Mathf.Atan2(b.Dir.y, b.Dir.x));
+                        q.SniperSlowT = Balance.Items.Sniper.SlowTime;
                         q.Move.StaminaLock = Mathf.Max(q.Move.StaminaLock, Balance.Items.Sniper.SprintLock);
                         q.Move.SprintBlocked = true;
                         Feed($"{shooter?.Name ?? "Someone"} hit {q.Name} with a 0.50 cal");

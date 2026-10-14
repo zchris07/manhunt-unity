@@ -17,6 +17,18 @@ namespace Vision.World
         public float progress;
         public Transform body;
         public VisionLight glow;
+        /// <summary>The flood light it's wired to: dark until it runs, then on for good, lighting a wide swath of ground.</summary>
+        public VisionLight flood;
+        public Renderer floodLamp;
+        public Material lampOn, lampOff;
+
+        /// <summary>Its running light, and the flood light it's wired to, on or off.</summary>
+        void SetLit(bool on)
+        {
+            if (glow != null) glow.enabled = on;
+            if (flood != null) flood.enabled = on;
+            if (floodLamp != null && lampOn != null && lampOff != null) floodLamp.sharedMaterial = on ? lampOn : lampOff;
+        }
 
         public bool Running => progress >= 1f;
 
@@ -45,7 +57,7 @@ namespace Vision.World
 
         void Start()
         {
-            if (glow != null) glow.enabled = Running;
+            SetLit(Running);
         }
 
         /// <summary>Works on it for <paramref name="dt"/> seconds; true the moment it starts.</summary>
@@ -54,7 +66,7 @@ namespace Vision.World
             if (Running) return false;
             progress = Mathf.Min(1f, progress + dt / RepairTime);
             if (!Running) return false;
-            if (glow != null) glow.enabled = true;
+            SetLit(true);
             return true;
         }
 
@@ -62,7 +74,7 @@ namespace Vision.World
         public void SetState(float value, bool repaired)
         {
             progress = repaired ? 1f : Mathf.Min(value, 0.999f);
-            if (glow != null) glow.enabled = repaired;
+            SetLit(repaired);
         }
 
         void Update()

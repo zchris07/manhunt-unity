@@ -139,7 +139,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   original's 4.3 and 6.8, slowed by 30%), and about 53% is this port's earlier 1.6 m/s walk. The choice is saved;
   online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
-  map (hold Tab) show the whole round world painted from above (black past its end), under a fog of war that stays black
+  map (hold Tab; the wheel zooms it up to four times about the pointer and dragging pans it, never past the edge of
+  the world in its circle, the markers staying the same size and the map painted again at 2048 pixels off the main
+  thread so it stays sharp; reset each time it opens; the wheel picks items otherwise) show the whole round world painted from above (black past its end), under a fog of war that stays black
   until your own light has been there; both turn with the view, so up on the map is up on the screen (labels and
   pictures stay upright). Every supply shows as its own inventory picture once seen, and generators and the gate
   appear once seen; the **YOU** arrow and ring follow you on both. Testing mode shows everything (the NPCs' dots
@@ -174,10 +176,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   once he's more than halfway into a full charge (0.95 s of its 1.9 s); he can still lunge and use every ability.
 - **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre: the playable circle
   (90 m out), the second 15.6 m beyond it (30% further than at first) and the end of the world 18 m beyond that (50%
-  further than at first; the world is made that much bigger). NPCs never wander past the first. Past it a survivor sees
-  DON'T WANDER OFF and a big arrow pointing, on screen, the way back in; their light (the beam and the light round them
-  together, evenly, the beam keeping its full reach) wavers and now and then sags and recovers like a failing bulb, each
-  sag eased in and out rather than strobing; night vision, JARVIS and the Hemp Battery stop working (a JARVIS running
+  further than at first; the world is made that much bigger). NPCs never wander past the first. Past it a survivor's
+  light (the beam and the light round them together, evenly, the beam keeping its full reach) wavers and now and then
+  sags and recovers like a failing bulb, each sag eased in and out rather than strobing, faint just past the first ring
+  and growing (deeper and more often sags, a stronger waver, quicker) the further out they go, at its full strength by
+  the second; there's no warning sign between the rings, only the flicker (DON'T WANDER OFF and a big arrow pointing
+  the way back in show only once the light is dying past the second); night vision, JARVIS and the Hemp Battery stop working (a JARVIS running
   ends; Zach's Hemp Beam won't fire either). Past the second the light grows fainter and fainter over three seconds,
   flickering faster, deeper and more erratically, until it's out and a survivor's whole screen is black; then a
   survivor loses 20 health straight through the shield every three seconds, the screen's edges pulsing red with each
@@ -202,8 +206,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   a Mr Beast bar gives 20%, a mini shield is drunk over 2 s for 25% shield.
 - **Generators and the gate**: hold E for the repair time (52.5 s, a quarter
   off the original's 70, scaled to the player count; +25% for each extra survivor on it). **Skill checks**: while
-  repairing, every 8 s a dial flashes up mid-screen with a gilded mark and a tick sweeping round it once, faster (420
-  degrees a second) and on a narrower mark (14 degrees) than any of the lock pick's; Space or a click on the mark takes
+  repairing, every 8 s a dial flashes up mid-screen with a gilded mark and a tick sweeping round it once, faster (350
+  degrees a second, a little slower than at first so it's easier) and on a narrower mark (14 degrees) than any of the lock pick's; Space or a click on the mark takes
   4 s off the repair, a miss or a tick that gets all the way round costs nothing (`MatchSim.Checks`). With enough running, hold E at the lever for 20 s and the gate
   opens onto the yard; walking out escapes.
 - **Stakes**: the original's scarecrow stakes, six candidate spots per clearing (not the spawn's), away from
@@ -253,7 +257,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
   stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
   wisps where they ran and blood where the hurt have been, fading over ten seconds. The scent's thread is twice as thick
-  and a fifth more opaque than it was, and it's joined in the order it was laid (by how far along the trail each point
+  and a fifth more opaque than it was (at its thinnest twice that again and at its thickest a fifth less, so it varies
+  less; how solid it is varies at random along it, on its own, not with the swelling and thinning), and it's joined in the order it was laid (by how far along the trail each point
   is), never by its time: walking points are stamped four seconds older so they fade sooner, and joined by time they fell
   among the running points of four seconds before and the thread zig-zagged across itself; each piece of the thread
   reaches past its ends no further than the thread is thick, so a sharp turn never pokes out as a cross. The hurt drip blood at random moments
@@ -289,7 +294,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   thrown out of focus: it swims (a slow wobble through the whole image), splits into two images drifting apart and back
   together (double vision), and both are blurred hard, the blur breathing in and out, the colour washed out and the
   edges closing in, strongest while they're in it and clearing over three seconds once the gas has worn off (a second
-  longer than at first). Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
+  longer than at first). 50 Nic's cone is 20% wider than Penjamin's (and reaches only 10% further), and its blur, its
+  slow and the narrowed light all last four seconds after the survivor is out of it, falling off together, linearly,
+  over those four seconds. Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
   further again, then 15% further still (116.9% of the original's reach), in a cone 20% narrower than the original's,
   then 40% and then 30% narrower again (3.36 degrees either side of the aim), 30% fainter to begin with, its edges
   ragged and wobbling (the cone's radius pushed in and out by a slow noise rolling with the gas); it acts where it's drawn, the cone plus the width the
@@ -383,7 +390,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   stretches (all in the shader, from the beam's distance along it). A small dot flickers at the barrel, and where it
   meets something a bigger spot sputters and throws off the odd mote; aimed, the round goes exactly where it points, while from the hip it strays up to
   5 degrees. Its round races out along that same straight line at 8000 units a second and throws sparks, dust and chips
-  out of every wall, tree or object it punches into and out of, as it gets there.
+  out of every wall, tree or object it punches into and out of, as it gets there. It shoves Zach back a quarter less far
+  than at first and slows him by half, the slow falling off linearly to nothing over a second; the first time a player
+  takes it in hand they're told "Hold right click to aim". The shotgun stuns Zach half as long as at first (1.05 s). A jar
+  of piss in Zach's face also blurs his view under a yellow filter, falling off linearly over two seconds. Zach's
+  machete throws sparks, chips and dust off whatever solid thing its swing meets (a wall, tree, rock, prop, fence or
+  log; more for a charged one), and the charged swing plays at the light swing's speed (the same beats and length;
+  only how it looks).
   JARVIS shows the user the whole map, its tablet held up until they take another item in hand (it keeps running, the
   tablet put away and the new item shown); night vision tints the view green, with no green halo round the screen,
   and the goggles go on over the eyes (the hands stay free). Night vision and the Hemp Battery's x-ray fill the whole vision cone and run on past the edge of the
@@ -409,7 +422,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
   wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you; he explodes
   when he dies. **Soham** says Hi and explodes. **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
-  him first, Zach or a survivor (testing mode gives survivors one to try). In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
+  him first, Zach or a survivor (testing mode gives survivors one to try, in a thirteenth slot on the backslash key).
+  A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
+  fired with a left click, its charges left kept on it, so dropped (G) and picked up by someone else it has the charges
+  it had; Zach can pick one up too, its charges going into his own beam (R), up to a full set. **Daphne Cheng** (a young
+  woman with long dark-brown hair) behaves exactly as Monique does. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
@@ -441,6 +458,19 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   seen, the minimap and full map show each by its own icon (a sheet of old paper with a photo pinned to it,
   `tools/note_icon.py`). Zach's map shows every stake
   in play.
+- **Miga Sushi and the Diddy Chamber** (`SandboxWorld.Places`): two buildings out on the edge of the playable map,
+  far apart, each on flattened ground with its doorway facing in toward the middle, walled (blocking movement, sight
+  and shots) and lit inside. Miga Sushi is a little sushi restaurant: the noren curtain and a red sign with a fish over
+  the door, a sushi bar with a glass case and plates of nigiri, stools, a table; a Hemp Beam lies on the bar and a 0.50
+  cal on the table. The Diddy Chamber is a very small dark dungeon of a room: chains on the walls, a big comfy bed with
+  red satin sheets and a pile of pillows, and bottles of baby oil all over the floor. Walking into either, its name
+  fades up on screen between two thin rules, holds and fades away.
+- **Flood lights**: every generator is wired to a flood light on a steel pole just behind it (a cable along the ground
+  between them): dark until the generator runs, then on for good, a wide cone of light (20 m, 110 degrees across)
+  over the ground in front of it (`VisionLight` cones; the mask draws the nearest lights by where their light reaches).
+- **Survivors start scattered**: each at a spot of their own over the playable map, on open ground (not the lake, the
+  building, a site or anything solid), at least 30 m apart where the map allows and 35 m from Zach's start, seeded by
+  the level so every machine agrees (`SimMapBuilder.ScatteredSpawns`).
 - The old **wanderer** stands in for an entity in the captures only.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
 
@@ -700,7 +730,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 256 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 263 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

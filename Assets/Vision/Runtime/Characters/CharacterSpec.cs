@@ -132,6 +132,9 @@ namespace Vision.Characters
                 case "Monique Bourgeois":
                     // A short Asian woman.
                     return new CharacterSpec { Name = name, Height = 1.62f, Shoulders = 0.9f, Chest = 0.94f, Waist = 0.88f, Arms = 0.88f, Legs = 0.94f, Neck = 0.88f, Skin = H(0xeac6a0), Hair = H(0x141012), Shirt = H(0xf0e8d8), Pants = H(0x3a2a4a), Shoes = H(0x5a3a2a), HairStyle = HairStyle.Long };
+                case "Daphne Cheng":
+                    // A young Asian woman, a little taller than Monique, her long hair dark brown.
+                    return new CharacterSpec { Name = name, Height = 1.66f, Shoulders = 0.9f, Chest = 0.94f, Waist = 0.86f, Arms = 0.88f, Legs = 0.96f, Neck = 0.88f, Skin = H(0xf0cfab), Hair = H(0x2a1a14), Shirt = H(0xd86a8a), Pants = H(0x1e1e24), Shoes = H(0xe8e4dc), HairStyle = HairStyle.Long };
                 case "Thomas Bourgeois":
                     // A white man with grey hair.
                     return new CharacterSpec { Name = name, Skin = H(0xf0c8a8), Hair = H(0x9a9a9a), Shirt = H(0xe8e4dc), Jacket = H(0xb88a2a), Pants = H(0x4a4a3a), Shoes = H(0x3a2a1c), HairStyle = HairStyle.Curly, Features = Feature.Glasses | Feature.OpenJacket, Accent = H(0x2a2a2a) };

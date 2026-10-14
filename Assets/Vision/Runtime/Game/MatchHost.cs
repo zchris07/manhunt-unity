@@ -116,6 +116,12 @@ namespace Vision.Game
             else
             {
                 Vector2 at = world.Player != null ? PlayerPlane() : (map.SurvivorSpawns.Count > 0 ? map.SurvivorSpawns[0] : Vector2.zero);
+                // A survivor starts at their own scattered spot (the avatar goes there too).
+                if (role == Role.Survivor && map.SurvivorSpawns.Count > 0)
+                {
+                    at = map.SurvivorSpawns[0];
+                    if (world.Player != null) world.Player.Teleport(world.transform.TransformPoint(new Vector3(at.x, 0f, at.y)));
+                }
                 SimPlayer p = Sim.AddPlayer(LocalId, LocalName, role, at);
                 p.IsLocal = true;
             }

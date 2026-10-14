@@ -191,6 +191,34 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheFullMap_ZoomsAndPans_InsideItsCircle_AndResetsWhenOpened()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.Refresh();
+            hud.SyncMap();
+            hud.Map.SetOpen(true);
+            Assert.IsTrue(MapHud.AnyFullOpen, "the wheel is the map's while it's open");
+            Assert.AreEqual(1f, hud.Map.Zoom);
+            hud.Map.ZoomBy(2f, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            Assert.AreEqual(2f, hud.Map.Zoom, 1e-4f);
+            hud.Map.ZoomBy(100f, Vector2.zero);
+            Assert.AreEqual(MapHud.MaxZoom, hud.Map.Zoom, 1e-4f, "never past its most");
+            hud.Map.ZoomBy(0.001f, Vector2.zero);
+            Assert.AreEqual(1f, hud.Map.Zoom, 1e-4f, "never past the whole world");
+            Assert.AreEqual(0f, hud.Map.Pan.magnitude, 1e-3f, "the whole world: nowhere to pan");
+            hud.Map.ZoomBy(2f, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+            hud.Map.PanBy(Vector2.zero, new Vector2(5000f, 3000f));
+            Assert.LessOrEqual(hud.Map.Pan.magnitude, (hud.Map.Zoom - 1f) * MapHud.FullPx * 0.5f + 0.01f, "the world's circle always covers the view");
+            hud.Map.SetOpen(false);
+            Assert.IsFalse(MapHud.AnyFullOpen);
+            hud.Map.SetOpen(true);
+            Assert.AreEqual(1f, hud.Map.Zoom, "each time it opens, the whole world");
+            hud.Map.SetOpen(false);
+        }
+
+        [Test]
         public void TestingMode_RevealsTheWholeMap()
         {
             SandboxWorld world = NewWorld();

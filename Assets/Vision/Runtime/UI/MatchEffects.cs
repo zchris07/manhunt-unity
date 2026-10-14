@@ -93,6 +93,8 @@ namespace Vision.UI
                         Audio.PlayCue("slash", Units(by.Pos));
                         if (e.B >= 2) BladeDroplets(by.Id);
                     }
+                    // The strike: wherever the blade meets something solid in its arc, sparks, chips and dust fly off it.
+                    if (e.F >= 0f && e.G <= 0f) MacheteImpact(by, e.B >= 2);
                     break;
                 case EventKind.Hit:
                     if (e.Text == "slash" || e.Text == "lunge" || e.Text == "punch") Audio.PlayCue("body_hit", Units(e.Pos), 0.8f);
@@ -444,7 +446,6 @@ namespace Vision.UI
             // fired the whole cloud drifts slowly off on a wind of its own (a random way for each cloud), spreading wider
             // and taller and thinning as it goes. All of this is only how it looks: where it acts doesn't move or grow.
             float now = sim.Time;
-            float tan = Mathf.Tan(Balance.Hunter.Vape.HalfAngleDeg * Mathf.Deg2Rad);
             float grow = Balance.Hunter.Vape.GrowTime, linger = Balance.Hunter.Vape.LingerTime, fadeT = Balance.Hunter.Vape.FadeTime;
             float seen = fadeT + Balance.Hunter.Vape.SeenExtra;
             foreach (VapeCloud v in sim.Vapes)
@@ -453,7 +454,7 @@ namespace Vision.UI
                 float k = Mathf.Min(1f, age / grow);
                 float length = v.Range * (1f - (1f - k) * (1f - k)) * S;
                 float fade = Mathf.Clamp01((grow + linger + seen - age) / seen);
-                float endRadius = Mathf.Max(0.35f * S, tan * length + 0.3f * S) * 1.15f;
+                float endRadius = Mathf.Max(0.35f * S, Mathf.Tan(MatchSim.VapeHalfAngle(v.Nic) * Mathf.Deg2Rad) * length + 0.3f * S) * 1.15f;
                 // Its wind: a direction of its own, steady for the cloud's life.
                 float windAng = Hash01(v.Id * 7 + 3) * Mathf.PI * 2f;
                 Vector3 wind = new Vector3(Mathf.Cos(windAng), 0f, Mathf.Sin(windAng)) * (VapeWind * S);

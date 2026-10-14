@@ -141,7 +141,7 @@ namespace Vision.Game
             Moving = false;
             BeamLen = 0f;
             DropTalk();
-            Sim.HempDrop = Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * Scale.D(22f);
+            Sim.DropHempBeam(Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * Scale.D(22f));
             Sim.Feed($"{by.Name} slayed Sexton Science");
         }
 

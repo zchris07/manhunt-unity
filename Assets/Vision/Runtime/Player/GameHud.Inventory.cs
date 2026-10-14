@@ -56,8 +56,14 @@ namespace Vision.Player
                 On(EventTriggerType.EndDrag, d => EndSlotDrag(d.position, d.pressEventCamera));
                 slotWidths[i] = SlotSize;
             }
-            editorHint = kit.Label(Node("Editor Hint", strip, new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0f, 46f), new Vector2(760f, 22f)),
+            // Centred on the screen (not on the bar, which shifts left to make room for the ability slots beside it), just
+            // above the bar.
+            editorHint = kit.Label(Node("Editor Hint", strip.parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f + 86f + 46f), new Vector2(900f, 22f)),
                 "DRAG TO REARRANGE  ·  DRAG OFF THE BAR TO DROP THE STACK  ·  RELEASE TAB TO CLOSE", 14, TextAnchor.MiddleCenter, UiKit.Yellow, UiKit.Face.Display, 0.12f);
+            // Drawn above the full map Tab holds open, as the bar is.
+            var hintCanvas = editorHint.gameObject.AddComponent<Canvas>();
+            hintCanvas.overrideSorting = true;
+            hintCanvas.sortingOrder = 30;
             editorHint.gameObject.SetActive(false);
 
             dragGhost = Node("Dragging", strip, new Vector2(0f, 0f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(64f, 64f));

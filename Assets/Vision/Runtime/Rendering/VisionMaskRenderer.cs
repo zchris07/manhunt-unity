@@ -380,7 +380,8 @@ namespace Vision.Rendering
             // R: the nearest light sources, each with its own (cached when static) polygon.
             lightOrder.Clear();
             lightOrder.AddRange(VisionWorld.Lights);
-            lightOrder.Sort((a, b) => (a.PlanePosition - origin).sqrMagnitude.CompareTo((b.PlanePosition - origin).sqrMagnitude));
+            // Nearest by where their light reaches (a big flood light's swath counts as near when its edge is).
+            lightOrder.Sort((a, b) => ((a.PlanePosition - origin).magnitude - a.WorldRange).CompareTo((b.PlanePosition - origin).magnitude - b.WorldRange));
             int lightCount = Mathf.Min(maxLights, lightOrder.Count);
             int version = VisionWorld.Occluders.Version;
             if (version != LastVersion) { VersionChanges++; LastVersion = version; }
@@ -388,7 +389,8 @@ namespace Vision.Rendering
             {
                 VisionLight light = lightOrder[i];
                 List<Vector2> poly = light.GetPolygon(vc, version);
-                AddPolygon(poly, true, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 0f), light.WorldRange, 0.25f);
+                // A cone's polygon starts at its origin (a fan); a circle's goes all round it (a ring).
+                AddPolygon(poly, !light.IsCone, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 0f), light.WorldRange, light.falloffStart);
                 polygons++;
             }
 

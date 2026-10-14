@@ -314,12 +314,14 @@ namespace Vision.Tests
             rig.Place(s2, -50, 0);
             rig.Run(1);
             rig.Tap(s.Id, Btn.Interact);
-            Assert.AreEqual(Balance.Hunter.Beam.Charges, s.BeamCharges);
+            int slot = s.Inv.FirstSlotOf(ItemType.HempBeam);
+            Assert.GreaterOrEqual(slot, 0, "the Hemp Beam, as an item");
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, s.Inv.AmountAt(slot), 1e-4f, "with all its charges");
             rig.Run(SimRig.Secs(1.6f));
             thomas.Pos = Vector2.zero;
             rig.Run(1);
             rig.Tap(s2.Id, Btn.Interact);
-            Assert.AreEqual(0, s2.BeamCharges, "only one");
+            Assert.Less(s2.Inv.FirstSlotOf(ItemType.HempBeam), 0, "only one");
             Assert.AreEqual(Balance.Thomas.LineAfter, thomas.Say);
 
             thomas.ItemHit(rig.Sim, s, "bottle");

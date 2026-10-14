@@ -480,6 +480,8 @@ MonoBehaviour:
   isStatic: 1
   flickerAmount: 0.25
   flickerSpeed: 5
+  coneHalfAngleDeg: 180
+  falloffStart: 0.25
 --- !u!114 &7637383670178645327
 MonoBehaviour:
   m_ObjectHideFlags: 0

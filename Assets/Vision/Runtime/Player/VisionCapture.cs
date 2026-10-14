@@ -603,6 +603,52 @@ namespace Vision.Player
                             yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), new Vector2(1f, 0.25f).normalized, wanderer, away);
                         }
                     }
+                    // Miga Sushi and the Diddy Chamber, each with its name up as the player walks in; a flood light lit by
+                    // its running generator; the full map zoomed in; piss in the eyes.
+                    {
+                        float o2 = cameraRig.orthographicSize;
+                        cameraRig.orthographicSize = o * 0.8f;
+                        foreach (var (name, area) in world.Places)
+                        {
+                            yield return Stage(player, V(area.center + new Vector2(0f, 0.3f)), Vector2.up, wanderer, away);
+                            yield return new WaitForSeconds(0.9f);
+                            yield return Shot(name == "MIGA SUSHI" ? "154_miga_sushi" : "155_diddy_chamber");
+                            yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), Vector2.up, wanderer, away);
+                        }
+                        // Out in the woods (the generator farthest from the middle), once the place's name has faded.
+                        yield return new WaitForSeconds(3.5f);
+                        GeneratorObjective lit = null;
+                        foreach (GeneratorObjective g in GeneratorObjective.All)
+                            if (g != null && g.flood != null && g.transform.IsChildOf(world.transform)
+                                && (lit == null || g.transform.position.sqrMagnitude > lit.transform.position.sqrMagnitude)) lit = g;
+                        if (lit != null)
+                        {
+                            int gi = world.Generators.IndexOf(lit.transform);
+                            if (gi >= 0 && gi < host.Sim.Gens.Length) { host.Sim.Gens[gi].Progress = 1f; host.Sim.Gens[gi].Repaired = true; }
+                            lit.SetState(1f, true);
+                            // Standing just behind the pole, facing away from its swath (so the player's own light isn't on it).
+                            Vector3 pl = world.transform.InverseTransformPoint(lit.flood.transform.position);
+                            Vector3 pf = world.transform.InverseTransformDirection(lit.flood.transform.forward);
+                            Vector2 beam = new Vector2(pf.x, pf.z).normalized;
+                            Vector2 behind = new Vector2(pl.x, pl.z) - beam * 2.5f;
+                            cameraRig.orthographicSize = o * 1.6f;
+                            yield return Stage(player, V(behind), -beam, wanderer, away);
+                            yield return new WaitForSeconds(0.6f);
+                            yield return Shot("156_flood_light");
+                        }
+                        cameraRig.orthographicSize = o2;
+                        yield return Stage(player, V(L.Spawn + new Vector2(0f, 2f)), new Vector2(1f, 0.25f).normalized, wanderer, away);
+                        gameHud.Map.SetOpen(true);
+                        yield return Wait(3);
+                        gameHud.Map.ZoomBy(2.6f, new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
+                        yield return new WaitForSeconds(0.4f);
+                        yield return Shot("157_full_map_zoomed");
+                        gameHud.Map.SetOpen(false);
+                        host.Local.PissBlurT = Balance.Items.Piss.BlurTime * 0.8f;
+                        yield return Wait(2);
+                        yield return Shot("158_piss_in_the_eyes");
+                        yield return new WaitForSeconds(2f);
+                    }
                     cameraRig.orthographicSize = o * 0.38f;
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Shotgun);
                     yield return new WaitForSeconds(0.5f);

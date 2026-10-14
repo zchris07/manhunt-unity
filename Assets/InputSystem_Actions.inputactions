@@ -294,6 +294,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Slot13",
+                    "type": "Button",
+                    "id": "d3a509ce-d9e2-4bc8-a768-650e080d729b",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "TurnLeft",
                     "type": "Button",
                     "id": "95ae88da-3fc4-4880-8ae7-4ce3183c7815",
@@ -915,6 +924,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "Slot12",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b77c9cd1-f5b4-4189-908d-68534d6199f6",
+                    "path": "<Keyboard>/backslash",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Slot13",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

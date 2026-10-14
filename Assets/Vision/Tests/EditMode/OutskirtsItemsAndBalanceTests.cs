@@ -1,0 +1,202 @@
+using System.Linq;
+using NUnit.Framework;
+using UnityEngine;
+using Vision.Game;
+using Vision.Player;
+using Vision.Visibility;
+using Vision.World;
+using static Vision.Tests.SimRig;
+
+namespace Vision.Tests
+{
+    /// <summary>
+    /// The balance changes (an easier skill check, the shotgun's shorter stun, the 0.50 cal's shorter shove and its fading
+    /// slow, piss in the eyes, 50 Nic's wider cone and its linger falling off over four seconds), the first-time aiming
+    /// hint, the Hemp Beam as an item that keeps its charges (Zach taking one into his own), Daphne Cheng doing all that
+    /// Monique does, and the level's new pieces: Miga Sushi and the Diddy Chamber on the outskirts with what they hold,
+    /// flood lights wired to the generators, and survivors starting scattered.
+    /// </summary>
+    public class OutskirtsItemsAndBalanceTests
+    {
+        MatchState saved;
+
+        [SetUp]
+        public void SaveState() => saved = MatchState.Current;
+
+        [TearDown]
+        public void RestoreState() => MatchState.Current = saved;
+
+        [Test]
+        public void TheBalanceChanges()
+        {
+            Assert.AreEqual(350f, Balance.SkillCheck.Speed, "the skill check's tick a little slower");
+            Assert.Greater(Balance.SkillCheck.Speed, Balance.Graveyard.PickSpeeds[Balance.Graveyard.PickSpeeds.Length - 1], "still faster than the lock pick's");
+            Assert.AreEqual(2.1f * 0.5f, Balance.Items.Shotgun.Stun, 1e-5f, "the shotgun stuns half as long");
+            Assert.AreEqual(1100f * 0.75f, Balance.Items.Sniper.KbPeak, 1e-3f, "the 0.50 cal shoves a quarter less far");
+            Assert.AreEqual(2f, Balance.Items.Piss.BlurTime);
+            Assert.AreEqual(Balance.Hunter.Vape.HalfAngleDeg * 1.2f, MatchSim.VapeHalfAngle(true), 1e-5f, "50 Nic's cone 20% wider");
+            Assert.AreEqual(Balance.Hunter.Vape.HalfAngleDeg, MatchSim.VapeHalfAngle(false), 1e-5f, "Penjamin's as it was");
+            Assert.AreEqual(1.1f, Balance.Chacko.NicRangeMul, 1e-5f, "and only 10% further");
+        }
+
+        [Test]
+        public void TheSniperSlow_AndNicsLinger_FallOffLinearly()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer zach = rig.P(1), s = rig.P(2);
+            rig.Place(zach, 0f, 0f);
+            rig.Place(s, 2000f, 2000f);
+            zach.SniperSlowT = Balance.Items.Sniper.SlowTime;
+            rig.Run(Secs(0.5f));
+            Assert.AreEqual(1f - Balance.Items.Sniper.Slow * 0.5f, zach.Move.FadeMul, 0.05f, "half way through: a quarter slower");
+            rig.Run(Secs(0.6f));
+            Assert.AreEqual(0f, zach.SniperSlowT);
+
+            s.VapeNic = true;
+            s.VapeSlow = 0.4f;
+            s.VapeT = s.VapeSlowT = s.DarkT = Balance.Hunter.Vape.NicLinger;
+            rig.Run(Secs(2f));
+            Assert.AreEqual(0.5f, MatchSim.NicLeft(s), 0.03f, "two seconds out: half left");
+            Assert.AreEqual(1f - 0.4f * 0.5f, s.Move.FadeMul, 0.03f, "its slow halved");
+            rig.Run(Secs(2.2f));
+            Assert.AreEqual(0f, MatchSim.NicLeft(s));
+            Assert.IsFalse(s.VapeNic, "gone after four seconds");
+        }
+
+        [Test]
+        public void PissInTheEyes_And_TheFirstTimeAHintToAim()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer s = rig.P(2);
+            rig.Place(rig.P(1), 2000f, 2000f);
+            s.Inv.Clear();
+            s.Inv.Add(ItemType.Sniper);
+            int slot = s.Inv.FirstSlotOf(ItemType.Sniper);
+            Assert.IsFalse(s.SniperHintShown);
+            rig.Tap(s.Id, Btn.None, 0f, slot + 1);
+            Assert.IsTrue(s.SniperHintShown, "told how to aim the first time it's in hand");
+
+            SimPlayer zach = rig.P(1);
+            zach.PissBlurT = Balance.Items.Piss.BlurTime;
+            rig.Run(Secs(1f));
+            Assert.AreEqual(1f, zach.PissBlurT, 0.05f, "the blur falls off over two seconds");
+        }
+
+        [Test]
+        public void TheHempBeam_IsAnItem_ThatKeepsItsCharges_AndZachCanTakeIt()
+        {
+            var rig = new SimRig(2, 1);
+            SimPlayer a = rig.P(2), b = rig.P(3), zach = rig.P(1);
+            rig.Place(a, 0f, 0f);
+            rig.Place(b, 30f, 0f);
+            rig.Place(zach, 2000f, -2000f);
+            a.Inv.Clear();
+            a.Inv.Add(ItemType.HempBeam);
+            int slot = a.Inv.FirstSlotOf(ItemType.HempBeam);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, a.Inv.AmountAt(slot), 1e-4f);
+            rig.Tap(a.Id, Btn.Primary, 0f, slot + 1);
+            Assert.Greater(a.BeamT, 0f, "a left click fires it");
+            Assert.AreEqual(Balance.Hunter.Beam.Charges - 1, a.Inv.AmountAt(slot), 1e-4f, "one charge spent from the item");
+            rig.Run(Secs(Balance.Hunter.Beam.Windup + Balance.Sexton.Defense.BeamTime + 0.5f), p => p.Id == a.Id ? new InputCmd { Item = slot + 1, AimDist = 100f } : (InputCmd?)null);
+            rig.Tap(a.Id, Btn.Drop, 0f, slot + 1);
+            DropItem dropped = rig.Sim.Drops.Find(d => d.Item == ItemType.HempBeam);
+            Assert.IsNotNull(dropped, "dropped like any item");
+            Assert.AreEqual(Balance.Hunter.Beam.Charges - 1, dropped.Amount, 1e-4f, "with the charges it had left");
+            rig.Sim.Teleport(b.Id, dropped.Pos + U(10, 0));
+            rig.Run(1);
+            Assert.AreEqual(Prompt.PickDrop, b.Prompt);
+            rig.Tap(b.Id, Btn.Interact);
+            int bs = b.Inv.FirstSlotOf(ItemType.HempBeam);
+            Assert.GreaterOrEqual(bs, 0);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges - 1, b.Inv.AmountAt(bs), 1e-4f, "the next survivor gets what was left");
+            Assert.AreEqual(0, b.BeamCharges, "survivors have no R beam any more");
+
+            rig.Sim.DropHempBeam(zach.Pos + U(10, 0));
+            zach.BeamCharges = 1;
+            rig.Run(1);
+            Assert.AreEqual(Prompt.PickDrop, zach.Prompt, "Zach can take one too");
+            rig.Tap(zach.Id, Btn.Interact);
+            Assert.AreEqual(Balance.Hunter.Beam.Charges, zach.BeamCharges, "its charges into his own, up to a full set");
+        }
+
+        [Test]
+        public void Daphne_DoesAllThatMoniqueDoes()
+        {
+            Assert.IsTrue(Texts.NpcNames.Contains("Daphne Cheng"));
+            var rig = new SimRig(2, 1);
+            SimPlayer s = rig.P(2), s2 = rig.P(3);
+            rig.Place(rig.P(1), 2000f, 2000f);
+            var daphne = new Daphne(rig.Sim) { Pos = U(0, 0) };
+            rig.Sim.Npcs.Add(daphne);
+            Assert.IsTrue(rig.Sim.Npcs.Count > 0 && daphne is Monique, "Monique's behaviour");
+            Assert.AreEqual("Daphne Cheng", daphne.Name);
+            rig.Place(s, 50f, 0f);
+            rig.Place(s2, -2000f, -2000f);
+            rig.Run(1);
+            Assert.AreEqual(Prompt.TalkDaphne, s.Prompt);
+            rig.Tap(s.Id, Btn.Interact);
+            Assert.Greater(s.ArrowT, 0f, "an arrow to Zach, as Monique gives");
+            daphne.ItemHit(rig.Sim, s2, "bottle");
+            Assert.IsTrue(daphne.Armed, "attacked by a survivor, she arms herself");
+            Assert.IsTrue(NpcRoster.Makers.Select(m => m(rig.Sim)).Any(n => n is Daphne), "she's in every match");
+        }
+
+        [Test]
+        public void TheOutskirtsPlaces_TheFloodLights_AndScatteredSpawns()
+        {
+            var root = new GameObject("World");
+            var mat = new Material(Shader.Find("Vision/LowPoly"));
+            try
+            {
+                MatchState.Current.TestingMode = false;
+                var world = root.AddComponent<SandboxWorld>();
+                world.lowPolyMaterial = world.entityMaterial = world.glowMaterial = mat;
+                world.Generate();
+                MapLayout L = world.Layout;
+
+                // Miga Sushi and the Diddy Chamber, out on the edge, apart, named, holding what they hold.
+                foreach (Rect r in new[] { L.Sushi, L.Chamber })
+                {
+                    float d = r.center.magnitude / L.HalfExtent;
+                    Assert.That(d, Is.InRange(0.7f, 0.9f), "on the outskirts");
+                }
+                Assert.Less(L.Chamber.width, L.Sushi.width, "the chamber very small");
+                Assert.Greater(Vector2.Distance(L.Sushi.center, L.Chamber.center), L.HalfExtent * 0.5f, "far apart");
+                CollectionAssert.AreEquivalent(new[] { "MIGA SUSHI", "DIDDY CHAMBER" }, world.Places.Select(p => p.name));
+                Vector2 Plane(Component c) { Vector3 l = world.transform.InverseTransformPoint(c.transform.position); return new Vector2(l.x, l.z); }
+                var inSushi = world.Pickups.Where(p => L.Sushi.Contains(Plane(p))).Select(p => p.item).ToList();
+                CollectionAssert.AreEquivalent(new[] { ItemType.HempBeam, ItemType.Sniper }, inSushi, "a Hemp Beam and a 0.50 cal");
+                Transform chamber = root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Diddy Chamber");
+                Assert.Greater(chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Baby Oil"), 6, "baby oil all over");
+                Assert.AreEqual(1, chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Comfy Bed"));
+
+                // A flood light by every generator: a wide cone, dark until it runs.
+                foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform)))
+                {
+                    Assert.IsNotNull(g.flood, $"{g.name} is wired to a flood light");
+                    Assert.IsTrue(g.flood.IsCone);
+                    Assert.Greater(g.flood.WorldRange / world.transform.lossyScale.x, 15f, "a wide swath");
+                    Assert.IsFalse(g.flood.enabled, "dark until it runs");
+                    g.SetState(1f, true);
+                    Assert.IsTrue(g.flood.enabled, "on for good once it runs");
+                }
+
+                // Survivors start scattered over the map, apart, away from Zach, on open ground.
+                SimMap map = SimMapBuilder.Build(world);
+                var spots = map.SurvivorSpawns.Take(4).ToList();
+                for (int i = 0; i < spots.Count; i++)
+                {
+                    Assert.Less(spots[i].magnitude, L.HalfExtent, "inside the playable map");
+                    Assert.Less(L.LakeDepth(spots[i]), -1f, "not in the lake");
+                    Assert.GreaterOrEqual(Vector2.Distance(spots[i], map.HunterSpawns[0]), SimMapBuilder.SpawnFromHunter - 0.01f, "away from Zach");
+                    for (int j = 0; j < i; j++) Assert.Greater(Vector2.Distance(spots[i], spots[j]), 15f, "away from each other");
+                }
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(mat);
+            }
+        }
+    }
+}

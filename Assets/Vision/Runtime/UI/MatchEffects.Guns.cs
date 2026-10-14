@@ -320,6 +320,43 @@ namespace Vision.UI
             if (pierces.Count > 64) pierces.RemoveRange(0, pierces.Count - 64);
         }
 
+        readonly RaycastHit[] bladeHits = new RaycastHit[16];
+
+        /// <summary>
+        /// Zach's machete striking: a fan of rays across the swing's arc at chest height, out to its reach (a charged swing's
+        /// longer and wider); where the nearest meets something solid (a wall, tree, rock, prop, fence or log; never the
+        /// ground or a body), sparks, chips and dust fly off it, more for a charged swing. Only the look: what the swing
+        /// hits is the match's.
+        /// </summary>
+        void MacheteImpact(SimPlayer by, bool heavy)
+        {
+            GameObject go = CharacterOf(by);
+            if (go == null || world == null) return;
+            float reach = Scale.D(Balance.Hunter.Attack.Range) * (heavy ? Balance.Hunter.Attack.ChargeRangeMul : 1f) * S;
+            float arc = Balance.Hunter.Attack.ArcDeg * (heavy ? Balance.Hunter.Attack.ChargeArcMul : 1f) * Mathf.Deg2Rad;
+            Vector3 from = go.transform.position + Vector3.up * 1.05f * S;
+            int mask = Vfx.SolidMask & ~((1 << Vfx.OverGroundLayer) | (1 << SandboxWorld.GroundLayer) | (1 << SandboxWorld.CharacterLayer));
+            const int rays = 9;
+            float best = float.MaxValue;
+            Vector3 at = Vector3.zero, normal = Vector3.up, dir = Vector3.forward;
+            for (int i = 0; i < rays; i++)
+            {
+                Vector3 d = WorldDir(by.Facing + arc * (i / (rays - 1f) - 0.5f));
+                int n = Physics.RaycastNonAlloc(from, d, bladeHits, reach, mask, QueryTriggerInteraction.Ignore);
+                for (int k = 0; k < n; k++)
+                {
+                    if (bladeHits[k].collider.transform.IsChildOf(go.transform) || bladeHits[k].distance >= best) continue;
+                    best = bladeHits[k].distance;
+                    at = bladeHits[k].point;
+                    normal = bladeHits[k].normal;
+                    dir = d;
+                }
+            }
+            if (best == float.MaxValue) return;
+            PierceBurst(at, -dir, normal);
+            if (heavy) PierceBurst(at + normal * 0.03f * S, Vector3.Reflect(dir, normal), normal);
+        }
+
         /// <summary>Sparks, dust and chips thrown out of a surface the round passed through, mostly along <paramref name="out_"/>.</summary>
         void PierceBurst(Vector3 at, Vector3 out_, Vector3 normal)
         {

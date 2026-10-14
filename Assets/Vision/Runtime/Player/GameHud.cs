@@ -64,7 +64,7 @@ namespace Vision.Player
         readonly Image[] slotSelectBars = new Image[Inventory.TestingSlots];
         readonly RawImage[] slotIcons = new RawImage[Inventory.TestingSlots];
         readonly Text[] slotCounts = new Text[Inventory.TestingSlots], slotNames = new Text[Inventory.TestingSlots];
-        static readonly string[] SlotKeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
+        static readonly string[] SlotKeys = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "\\" };
         int shownLimit = -1;
         RawImage vignette;
         int lastBoundaryHits;
@@ -187,6 +187,7 @@ namespace Vision.Player
             labelShadow.effectDistance = new Vector2(1f, -1f);
             BuildHeadBars(root);
             BuildWander(root);
+            BuildPlaceBanner(root);
             BuildLockpick(root);
             BuildSkillCheck(root);
 
@@ -527,6 +528,7 @@ namespace Vision.Player
             RefreshNpcTags(me);
             RefreshHeadBars(me);
             RefreshWander(me);
+            RefreshPlaceBanner(me);
             RefreshLockpick(me, host != null ? host.Sim : null);
             RefreshSkillCheck(me, host != null ? host.Sim : null);
             RefreshMatch(me);

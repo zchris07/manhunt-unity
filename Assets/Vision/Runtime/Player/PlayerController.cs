@@ -205,7 +205,7 @@ namespace Vision.Player
 
             UpdateTurn(h, menu);
             // Testing mode: the mouse wheel zooms the view in and out (not over the HUD or a menu).
-            if (GameSession.TestingMode && !menu && slotScroll != null)
+            if (GameSession.TestingMode && !menu && slotScroll != null && !MapHud.AnyFullOpen)
             {
                 float w = slotScroll.ReadValue<float>();
                 bool overHud = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
@@ -303,7 +303,8 @@ namespace Vision.Player
                 int lim = p.Inv.Limit;
                 for (int i = 0; i < lim; i++) if (Pressed(slotKeys[i])) SelectedSlot = SelectedSlot == i && p.Inv.CountAt(i) == 0 ? -1 : i;
                 // In testing mode the wheel zooms the view instead.
-                float wheel = slotScroll != null && !GameSession.TestingMode ? slotScroll.ReadValue<float>() : 0f;
+                // Holding Tab, the wheel zooms the full map instead.
+                float wheel = slotScroll != null && !GameSession.TestingMode && !MapHud.AnyFullOpen ? slotScroll.ReadValue<float>() : 0f;
                 int dir = wheel > 0.1f || Pressed(slotPrev) ? -1 : wheel < -0.1f || Pressed(slotNext) ? 1 : 0;
                 if (dir != 0) SelectedSlot = NextFilled(p, dir);
                 if (SelectedSlot >= lim) SelectedSlot = -1;
@@ -419,6 +420,13 @@ namespace Vision.Player
         /// erratically, until it's out; a survivor's whole screen goes black with it at the end (<see cref="edgeDark"/>).
         /// Returns the light's brightness (0-1).
         /// </summary>
+        /// <summary>How far between the first ring and the second they are (0 at the first, 1 at the second).</summary>
+        float EdgeDepth(SimPlayer p)
+        {
+            if (world == null) return 1f;
+            return Mathf.Clamp01((p.Pos.magnitude - world.halfExtent) / Balance.Boundary.Gap);
+        }
+
         float BoundaryLight(SimPlayer p, float dt)
         {
             if (p.LostInWoods)
@@ -434,15 +442,21 @@ namespace Vision.Player
             // The screen goes black only as the light finally gives out.
             edgeDark = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1f, dying));
             if (p.Zone == 0 && dying <= 0f) return 1f;
-            // Time runs faster through the noise as it dies: the flicker quickens and turns erratic.
-            flickT += dt * (1f + 2.5f * dying);
+            // Between the rings the flicker grows with how far out they are: faint just past the first ring, at its full
+            // strength by the second (where the dying takes over from it).
+            float deep = EdgeDepth(p);
+            // Time runs faster through the noise as it dies (and a little faster further out): it quickens and turns erratic.
+            flickT += dt * (Mathf.Lerp(0.6f, 1f, deep) + 2.5f * dying);
             float waver = Mathf.PerlinNoise(flickT * 1.3f, 0.37f);
             // Sags: a smooth noise crossing a threshold, eased in and out (never a single-frame strobe), more often and
-            // deeper as it dies; and a fine tremor once it's dying.
+            // deeper further out and as it dies; and a fine tremor once it's dying.
             float sagNoise = Mathf.PerlinNoise(flickT * 2.6f, 4.1f);
-            float sag = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.64f - 0.24f * dying, 0.8f - 0.16f * dying, sagNoise));
+            float from = Mathf.Lerp(0.76f, 0.64f, deep) - 0.24f * dying, to = Mathf.Lerp(0.86f, 0.8f, deep) - 0.16f * dying;
+            float sag = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(from, to, sagNoise));
             float tremor = (Mathf.PerlinNoise(flickT * 6.1f, 9.7f) - 0.5f) * 0.5f * dying;
-            float flick = (0.9f + 0.1f * waver) * (1f - Mathf.Lerp(0.45f, 0.85f, dying) * sag) * (1f + tremor);
+            float wave = Mathf.Lerp(0.03f, 0.1f, deep);
+            float depth = Mathf.Lerp(Mathf.Lerp(0.12f, 0.45f, deep), 0.85f, dying);
+            float flick = (1f - wave + wave * waver) * (1f - depth * sag) * (1f + tremor);
             // Fainter and fainter until it's out at 3 s.
             float envelope = 1f - Mathf.SmoothStep(0f, 1f, dying);
             return Mathf.Clamp01(flick * envelope);
@@ -463,6 +477,9 @@ namespace Vision.Player
                 float dt0 = Time.deltaTime;
                 darkK = Mathf.MoveTowards(darkK, !zach && p.DarkT > 0f ? 1f : 0f, dt0 / Balance.Hunter.Vape.DarkEase);
                 float darkE = darkK * darkK * (3f - 2f * darkK);
+                // 50 Nic: the narrowed light (and the dark) fall off linearly over its four-second linger.
+                float nicLeft = zach ? 0f : MatchSim.NicLeft(p);
+                if (p.VapeNic) darkE = Mathf.Min(darkE, nicLeft);
                 cone *= 1f - Balance.Hunter.Vape.ConeCut * darkE;
                 if (composite == null) composite = FindAnyObjectByType<Vision.Rendering.VisionComposite>();
                 if (composite != null) composite.fogScale = 1f - darkE;
@@ -472,9 +489,14 @@ namespace Vision.Player
                 gasLeftT = zach && p.Gassed ? 0f : gasLeftT + dt0;
                 vapeBlurLeft = Mathf.Max(vapeBlurLeft - dt0, p.VapeT > 0f ? p.VapeT + (Balance.Hunter.Vape.BlurTime - Balance.Hunter.Vape.AfterTime) : 0f);
                 float blurWant = zach ? Mathf.Clamp01(1f - gasLeftT / Balance.Items.Trap.BlurAfter)
-                    : Mathf.Clamp01(vapeBlurLeft / Balance.Hunter.Vape.BlurTime);
+                    : p.VapeNic ? nicLeft : Mathf.Clamp01(vapeBlurLeft / Balance.Hunter.Vape.BlurTime);
                 gasBlurK = blurWant > gasBlurK ? Mathf.MoveTowards(gasBlurK, blurWant, dt0 / 0.15f) : blurWant;
-                if (composite != null) composite.gasBlur = gasBlurK;
+                if (composite != null)
+                {
+                    composite.gasBlur = gasBlurK;
+                    // Piss in the eyes: blurred and yellowed, falling off linearly over two seconds.
+                    composite.piss = Mathf.Clamp01(p.PissBlurT / Balance.Items.Piss.BlurTime);
+                }
                 // Hidden: peeking out through the slats (or the grass all round) for the original's short reach.
                 bool peeking = p.HideState == 2;
                 bool grass = peeking && world.HidingSpots[p.HideSpot].kind == HidingSpot.Kind.Grass;

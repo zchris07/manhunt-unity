@@ -247,7 +247,7 @@ namespace Vision.Game
             NpcSpawner?.Invoke(this);
             // As the original's: Chacko's vengeance called off, Sexton's dropped beam gone.
             Vengeance = 0;
-            HempDrop = null;
+            Drops.RemoveAll(d => d.Item == ItemType.HempBeam);
         }
     }
 }

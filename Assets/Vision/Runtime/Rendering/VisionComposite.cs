@@ -84,6 +84,8 @@ namespace Vision.Rendering
         [Range(0f, 1f)] public float fogScale = 1f;
         [Tooltip("Gassed (Penjamin on a survivor, galaxy gas on Zach): blurs the whole view, 0-1 (set by the player).")]
         [Range(0f, 1f)] public float gasBlur;
+        [Tooltip("Piss in the eyes: blurs and yellows the whole view, 0-1 (set by the player).")]
+        [Range(0f, 1f)] public float piss;
         [Tooltip("The player's own light (beam and the light round them) dimmed evenly, 0-1: its flicker and dying at the edge of the woods.")]
         [Range(0f, 1f)] public float viewerLight = 1f;
         [Tooltip("The whole screen darkened (1: black), past the edge of the woods.")]
@@ -93,6 +95,8 @@ namespace Vision.Rendering
         /// images drift, and how far the swimming warp pushes the view.
         /// </summary>
         public const float GasBlurPx = 15f, GasSplitPx = 16f, GasWarpPx = 7f;
+        /// <summary>Piss in the eyes at its strongest: the blur's radius (pixels at 1080p).</summary>
+        public const float PissBlurPx = 12f;
         [Tooltip("Near-neutral so unlit areas carry almost no colour.")]
         public Color darkTint = new Color(0.99f, 1f, 1.01f);
 
@@ -133,6 +137,7 @@ namespace Vision.Rendering
         static readonly int BeamId = Shader.PropertyToID("_VisBeam");
         static readonly int BlurId = Shader.PropertyToID("_VisBlur");
         static readonly int GasId = Shader.PropertyToID("_VisGas");
+        static readonly int PissId = Shader.PropertyToID("_VisPiss");
         static readonly int ViewerId = Shader.PropertyToID("_VisViewer");
 
         Material material;
@@ -164,6 +169,7 @@ namespace Vision.Rendering
             material.SetVector(ViewerId, new Vector4(viewerLight, 0f, 0f, 0f));
             float px = cam.pixelHeight / 1080f;
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
+            material.SetVector(PissId, new Vector4(piss, PissBlurPx * px * piss, 0f, 0f));
             material.SetVector(GasId, new Vector4(gasBlur, GasBlurPx * px * Mathf.Lerp(0.45f, 1f, gasBlur), GasSplitPx * px * gasBlur, GasWarpPx * px * gasBlur));
             material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);

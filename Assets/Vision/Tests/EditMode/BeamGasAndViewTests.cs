@@ -24,8 +24,22 @@ namespace Vision.Tests
         /// <summary>Fires a beam due east from where the beamer stands and lets it run for <paramref name="firing"/> s after the charge.</summary>
         static void Beam(SimRig rig, SimPlayer by, float firing)
         {
-            by.BeamCharges = Balance.Hunter.Beam.Charges;
-            rig.Tap(by.Id, Btn.Beam, 0f);
+            if (by.Role == Role.Survivor)
+            {
+                // A survivor's is an item: in hand, fired with a left click.
+                int slot = by.Inv.FirstSlotOf(ItemType.HempBeam);
+                if (slot < 0)
+                {
+                    by.Inv.Add(ItemType.HempBeam);
+                    slot = by.Inv.FirstSlotOf(ItemType.HempBeam);
+                }
+                rig.Tap(by.Id, Btn.Primary, 0f, slot + 1);
+            }
+            else
+            {
+                by.BeamCharges = Balance.Hunter.Beam.Charges;
+                rig.Tap(by.Id, Btn.Beam, 0f);
+            }
             rig.Run(Secs(Balance.Hunter.Beam.Windup + firing), p => new InputCmd { Aim = 0f, AimDist = 100f, Item = p.SelSlot + 1 });
         }
 
@@ -117,7 +131,7 @@ namespace Vision.Tests
             Assert.AreEqual(Balance.Hunter.Beam.Charges, zach.BeamCharges, "Zach can be the one he gives it to");
 
             var test = new SimRig(1, 1, true);
-            Assert.AreEqual(Balance.Hunter.Beam.Charges, test.P(2).BeamCharges, "testing mode: a survivor has the beam to try");
+            Assert.GreaterOrEqual(test.P(2).Inv.FirstSlotOf(ItemType.HempBeam), 0, "testing mode: a survivor has the beam to try, as an item");
         }
 
         [Test]
@@ -209,11 +223,11 @@ namespace Vision.Tests
             int all = rig.Sim.Npcs.Count;
             Assert.AreEqual(NpcRoster.Makers.Length, all);
             rig.Sim.Npcs.RemoveAt(0);
-            rig.Sim.HempDrop = Vector2.zero;
+            rig.Sim.DropHempBeam(Vector2.zero);
             rig.Sim.Vengeance = 2;
             rig.Sim.RespawnNpcs();
             Assert.AreEqual(all, rig.Sim.Npcs.Count, "everyone back");
-            Assert.IsNull(rig.Sim.HempDrop);
+            Assert.IsFalse(rig.Sim.Drops.Exists(d => d.Item == ItemType.HempBeam), "Sexton's dropped beam gone");
             Assert.AreEqual(0, rig.Sim.Vengeance);
         }
 

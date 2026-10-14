@@ -109,6 +109,12 @@ namespace Vision.Game
                 /// seconds; it does nothing in that time (its effect ends when it always did).
                 /// </summary>
                 public const float SeenExtra = 2f;
+                /// <summary>
+                /// 50 Nic: its cone 20% wider than Penjamin's (its reach is Chacko's <see cref="Chacko.NicRangeMul"/>), and its
+                /// blur, slow and narrowed light all last <see cref="NicLinger"/> seconds after the survivor is out of it,
+                /// falling off linearly over that time.
+                /// </summary>
+                public const float NicAngleMul = 1.2f, NicLinger = 4f;
                 /// <summary>How wide the cloud is either side of the aim right at his mouth (design units), as it's drawn.</summary>
                 public const float MouthHalfWidth = 10f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
@@ -176,7 +182,7 @@ namespace Vision.Game
             public static class Shotgun
             {
                 public const int Shells = 6, Pellets = 8;
-                public const float Reload = 2f, Range = BeamRange, SpreadDeg = 9f, PelletDamage = 0.15f, Stun = 2.1f, KbPeak = 520f, KbDuration = 0.3f, ZachBlastDamage = 25f;
+                public const float Reload = 2f, Range = BeamRange, SpreadDeg = 9f, PelletDamage = 0.15f, Stun = 2.1f * 0.5f, KbPeak = 520f, KbDuration = 0.3f, ZachBlastDamage = 25f;
             }
 
             public static class Pistol
@@ -186,7 +192,7 @@ namespace Vision.Game
                 public const float Reload = 0.35f, Range = BeamRange, SpreadDeg = 2.5f, Damage = 0.1f, ZachDamage = 10f, Stun = 0.1f, KbPeak = 300f, KbDuration = 0.2f;
             }
 
-            public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 5f; }
+            public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 5f, BlurTime = 2f; }
 
             public const float AnywhereShare = 0.3f;
             public const float UseSlow = 0.5f, UseSlowTime = 0.8f;
@@ -196,7 +202,9 @@ namespace Vision.Game
             public static class Sniper
             {
                 public const int Shots = 3;
-                public const float Reload = 1.2f, PelletSpeed = 4000f, Speed = 8000f, ZachHp = 25f, KbPeak = 1100f, KbDuration = 0.5f, SprintLock = 3f, GenDamage = 0.3f, HitRadius = 5f, LaserMax = 6000f;
+                /// <summary>Hit, Zach is slowed by this much, falling off linearly to nothing over <see cref="SlowTime"/> seconds.</summary>
+                public const float Slow = 0.5f, SlowTime = 1f;
+                public const float Reload = 1.2f, PelletSpeed = 4000f, Speed = 8000f, ZachHp = 25f, KbPeak = 1100f * 0.75f, KbDuration = 0.5f, SprintLock = 3f, GenDamage = 0.3f, HitRadius = 5f, LaserMax = 6000f;
                 /// <summary>
                 /// Right click aims it (the user's rule): the scope at the eye, the laser on, the view 15% wider, movement 30%
                 /// slower, and the round goes exactly where it's aimed; fired from the hip it strays up to 5 degrees either side.
@@ -396,7 +404,7 @@ namespace Vision.Game
         /// </summary>
         public static class SkillCheck
         {
-            public const float Every = 8f, Bonus = 4f, Speed = 420f, Width = 14f, Lead = 0.55f;
+            public const float Every = 8f, Bonus = 4f, Speed = 350f, Width = 14f, Lead = 0.55f;
         }
 
         public static class Reach

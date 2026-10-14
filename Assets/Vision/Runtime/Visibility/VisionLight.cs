@@ -20,11 +20,28 @@ namespace Vision.Visibility
         public bool isStatic = true;
         [Range(0f, 0.5f)] public float flickerAmount = 0.12f;
         public float flickerSpeed = 6f;
+        [Tooltip("Half the beam's width (degrees): 180 lights all round; less makes a cone along the transform's forward (a flood light).")]
+        [Range(1f, 180f)] public float coneHalfAngleDeg = 180f;
+        [Tooltip("Share of the range that stays at full brightness before it falls off.")]
+        [Range(0f, 0.95f)] public float falloffStart = 0.25f;
+
+        /// <summary>A cone of light (a flood light) rather than a circle.</summary>
+        public bool IsCone => coneHalfAngleDeg < 179.5f;
+
+        /// <summary>The cone's direction on the plane (radians), from the transform's forward.</summary>
+        public float PlaneDir
+        {
+            get
+            {
+                Vector3 f = transform.forward;
+                return Mathf.Atan2(f.z, f.x);
+            }
+        }
 
         readonly List<Vector2> cachedPolygon = new List<Vector2>(256);
         int cachedVersion = -1;
         Vector2 cachedOrigin;
-        float cachedRange;
+        float cachedRange, cachedDir;
         float noiseSeed;
 
         public Vector2 PlanePosition => VisionWorld.ToPlane(transform.position);
@@ -65,10 +82,12 @@ namespace Vision.Visibility
         {
             Vector2 origin = PlanePosition;
             float worldRange = WorldRange;
-            bool valid = isStatic && cachedVersion == occluderVersion && cachedOrigin == origin && Mathf.Approximately(cachedRange, worldRange);
+            float dir = IsCone ? PlaneDir : 0f;
+            bool valid = isStatic && cachedVersion == occluderVersion && cachedOrigin == origin && Mathf.Approximately(cachedRange, worldRange) && Mathf.Approximately(cachedDir, dir);
             if (!valid)
             {
-                computer.Compute(ViewQuery.Circle(origin, worldRange), cachedPolygon);
+                computer.Compute(IsCone ? ViewQuery.Cone(origin, dir, coneHalfAngleDeg * Mathf.Deg2Rad, worldRange) : ViewQuery.Circle(origin, worldRange), cachedPolygon);
+                cachedDir = dir;
                 Vision.Rendering.VisionMaskRenderer.LightRebuilds++;
                 cachedVersion = occluderVersion;
                 cachedOrigin = origin;

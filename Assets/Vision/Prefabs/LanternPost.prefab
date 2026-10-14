@@ -110,6 +110,8 @@ MonoBehaviour:
   isStatic: 1
   flickerAmount: 0.08
   flickerSpeed: 6
+  coneHalfAngleDeg: 180
+  falloffStart: 0.25
 --- !u!136 &2658894031655638414
 CapsuleCollider:
   m_ObjectHideFlags: 0

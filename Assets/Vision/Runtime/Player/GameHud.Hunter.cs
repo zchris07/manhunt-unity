@@ -32,7 +32,7 @@ namespace Vision.Player
         RectTransform abilityStrip, survivorStrip;
         readonly AbilitySlot[] abilities = new AbilitySlot[6];
         // A survivor's JARVIS (Q) and the Hemp Beam Thomas gave them (R), beside the inventory as in the original.
-        AbilitySlot jarvisSlot, beamSlot;
+        AbilitySlot jarvisSlot;
         Text hunterStatus, heard, zachRates;
 
         /// <summary>An ability slot: its key cap, its icon, the count at the top right, the name, a cooldown shade and a meter.</summary>
@@ -67,9 +67,8 @@ namespace Vision.Player
             abilityStrip = Node("Abilities", parent, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(6 * (w + gap) - gap, 86f));
             for (int i = 0; i < 6; i++) abilities[i] = MakeAbility(abilityStrip, HunterAbilities[i].key, HunterAbilities[i].name, HunterAbilities[i].icon, i * (w + gap), w);
             abilityStrip.gameObject.SetActive(false);
-            survivorStrip = Node("Survivor Abilities", parent, new Vector2(0.5f, 0f), new Vector2(0f, 0f), new Vector2(0f, 22f), new Vector2(2 * 82f + 14f, 86f));
+            survivorStrip = Node("Survivor Abilities", parent, new Vector2(0.5f, 0f), new Vector2(0f, 0f), new Vector2(0f, 22f), new Vector2(82f + 14f, 86f));
             jarvisSlot = MakeAbility(survivorStrip, "Q", "JARVIS", "tablet", 14f, 76f);
-            beamSlot = MakeAbility(survivorStrip, "R", "Hemp Beam", "leaf", 14f + 82f, 76f);
             survivorStrip.gameObject.SetActive(false);
             // Zach's speed loss and Hemp recovery sit beside his stamina bar.
             zachRates = kit.Label(Node("Zach Rates", staminaBox, new Vector2(1f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 0f), new Vector2(380f, 38f)), "", 14, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.Mono, 0f);
@@ -123,7 +122,7 @@ namespace Vision.Player
         void RefreshSurvivorAbilities(SimPlayer me, float stripWidth)
         {
             bool survivor = me.Role == Role.Survivor && !MainMenuOpen;
-            bool any = survivor && (me.Jarvis != 0 || me.BeamCharges > 0 || me.BeamT > 0f);
+            bool any = survivor && me.Jarvis != 0;
             survivorStrip.gameObject.SetActive(any);
             // The inventory and these slots together stay centred on the screen, however wide the slots have grown.
             float extra = any ? survivorStrip.sizeDelta.x : 0f;
@@ -132,9 +131,6 @@ namespace Vision.Player
             survivorStrip.anchoredPosition = new Vector2(stripWidth * 0.5f - extra * 0.5f, 22f);
             int j = me.Jarvis;
             SetAbility(jarvisSlot, j == 1 || j == 3, j == 3 ? "∞" : j == 2 ? "used" : "", 0f, null, me.JarvisT > 0f, j == 0);
-            SetAbility(beamSlot, me.BeamCharges > 0 && me.BeamCd <= 0f && me.BeamT <= 0f,
-                me.BeamT > 0f ? $"{me.BeamT:0.0}s" : me.BeamCd > 0f ? $"{Mathf.CeilToInt(me.BeamCd)}s" : me.BeamCharges.ToString(),
-                me.BeamCd / Balance.Hunter.Beam.Cooldown, null, me.BeamT > 0f, me.BeamCharges <= 0 && me.BeamT <= 0f, new Color(0.7f, 1f, 0.72f));
         }
 
         void RefreshHunter(SimPlayer me, MatchSim sim)

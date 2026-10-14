@@ -510,6 +510,14 @@ namespace Vision.World
                     b.AddFrustum(new Vector3(0f, 0.012f, 0f), new Vector3(0f, 0.058f, 0f), 0.077f, 0.077f, 9, new Color(0.80f, 0.62f, 0.34f), 0.05f);
                     b.AddFrustum(new Vector3(0f, 0.07f, 0f), new Vector3(0f, 0.075f, 0f), 0.07f, 0.07f, 9, new Color(0.55f, 0.55f, 0.52f), 0.03f);
                     break;
+                case Vision.Player.ItemType.HempBeam:
+                {
+                    // Sexton's Hemp Beam: a stubby dark emitter with a glowing green lens and a leaf-green band.
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.12f, 0f), 0.04f, 0.034f, 8, new Color(0.14f, 0.16f, 0.14f), 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.05f, 0f), new Vector3(0f, 0.075f, 0f), 0.043f, 0.043f, 8, new Color(0.35f, 0.85f, 0.38f), 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.12f, 0f), new Vector3(0f, 0.14f, 0f), 0.03f, 0.024f, 8, new Color(0.6f, 1f, 0.55f), 0.01f);
+                    break;
+                }
                 case Vision.Player.ItemType.MrBeastBar:
                     // A chocolate bar in a bright blue wrapper.
                     b.AddBox(new Vector3(-0.09f, 0f, -0.04f), new Vector3(0.18f, 0.025f, 0.08f), new Color(0.22f, 0.48f, 0.88f), 0.04f);
