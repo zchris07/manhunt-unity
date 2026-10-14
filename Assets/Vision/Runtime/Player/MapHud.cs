@@ -81,17 +81,31 @@ namespace Vision.Player
             miniFog = Raw(Stretch(Node("Fog", miniContent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             miniArrow = Node("You", view, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f));
             Image(miniArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
-            Label(Node("Hint", frame, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(MiniPx, 20f)), "M · map", 15, TextAnchor.UpperCenter, new Color(0.62f, 0.61f, 0.57f));
+            Label(Node("Hint", frame, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -4f), new Vector2(MiniPx, 20f)), "hold TAB · map", 15, TextAnchor.UpperCenter, new Color(0.62f, 0.61f, 0.57f));
 
             // Full map.
             RectTransform shade = Stretch(Node("Full Map", root, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero));
             shade.gameObject.AddComponent<Canvas>();
             shade.gameObject.AddComponent<GraphicRaycaster>();
             Image(shade, new Color(0f, 0f, 0f, 0.7f));
-            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(FullPx + 40f, FullPx + 90f));
+            RectTransform panel = Node("Panel", shade, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(FullPx + 40f, FullPx + 110f));
             Image(panel, new Color(0.05f, 0.05f, 0.055f, 0.96f));
             title = Label(Node("Title", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(24f, -12f), new Vector2(300f, 34f)), "MAP", 28, TextAnchor.MiddleLeft, new Color(0.86f, 0.85f, 0.80f));
-            fullMap = Node("Map", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(FullPx, FullPx));
+            // A circle, centred in the panel: the map turns with the view inside it, so whatever shape the generated
+            // world is (and however it's turned) only the round map shows, never a square's corners.
+            RectTransform disc = Node("Disc", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 20f), new Vector2(FullPx, FullPx));
+            Sprite circle = MakeSprite(256, (x, y) => Mathf.Clamp01(128f - Mathf.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f))));
+            Image discMask = Image(disc, Color.white);
+            discMask.sprite = circle;
+            disc.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            Image rim = Image(Node("Rim", panel, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 16f), new Vector2(FullPx + 8f, FullPx + 8f)), new Color(0.32f, 0.31f, 0.29f, 1f));
+            rim.sprite = MakeSprite(256, (x, y) =>
+            {
+                float r = Mathf.Sqrt((x - 127.5f) * (x - 127.5f) + (y - 127.5f) * (y - 127.5f));
+                return Mathf.Clamp01(128f - r) * Mathf.Clamp01(r - 123f);
+            });
+            rim.raycastTarget = false;
+            fullMap = Node("Map", disc, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(FullPx, FullPx));
             fullArt = Raw(Stretch(Node("Art", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
             fullArt.raycastTarget = true;
             fullFog = Raw(Stretch(Node("Fog", fullMap, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero)));
@@ -107,7 +121,7 @@ namespace Vision.Player
             Image(fullArrow, new Color(1f, 0.91f, 0.55f)).sprite = arrow;
             fullArrow.gameObject.AddComponent<Outline>().effectColor = Color.black;
             // Testing mode: the NPCs, as the original shows them (made as needed, see NpcDot).
-            Label(Node("Legend", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -16f), new Vector2(580f, 26f)),
+            Label(Node("Legend", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -50f), new Vector2(580f, 26f)),
                 "<color=#ffe88c>▲</color> you   <color=#ffd23a>■</color> generator   items by their pictures   <color=#8a8aa0>▬</color> gate   <color=#ff3a5a>■</color> stake", 16, TextAnchor.MiddleRight, new Color(0.62f, 0.61f, 0.57f)).supportRichText = true;
             RectTransform reveal = Node("Reveal all", panel, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-24f, -12f), new Vector2(170f, 34f));
             Image(reveal, new Color(0.16f, 0.16f, 0.17f, 1f)).raycastTarget = true;

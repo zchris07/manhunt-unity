@@ -204,6 +204,15 @@ namespace Vision.Player
             bool menu = GameHud.MenuOpen;
 
             UpdateTurn(h, menu);
+            // Testing mode: the mouse wheel zooms the view in and out (not over the HUD or a menu).
+            if (GameSession.TestingMode && !menu && slotScroll != null)
+            {
+                float w = slotScroll.ReadValue<float>();
+                bool overHud = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+                if (Mathf.Abs(w) > 0.1f && !overHud)
+                    TopDownCamera.TestZoom = Mathf.Clamp(TopDownCamera.TestZoom * (w > 0f ? 0.88f : 1f / 0.88f), TopDownCamera.TestZoomMin, TopDownCamera.TestZoomMax);
+            }
+            else if (!GameSession.TestingMode) TopDownCamera.TestZoom = 1f;
             // Only Zach's body passes the graveyard's fence (to climb it); survivors run into it.
             int exclude = p.Role == Role.Hunter ? 1 << SandboxWorld.GraveFenceLayer : 0;
             if (cc != null && cc.excludeLayers.value != exclude) cc.excludeLayers = exclude;
@@ -293,7 +302,8 @@ namespace Vision.Player
             {
                 int lim = p.Inv.Limit;
                 for (int i = 0; i < lim; i++) if (Pressed(slotKeys[i])) SelectedSlot = SelectedSlot == i && p.Inv.CountAt(i) == 0 ? -1 : i;
-                float wheel = slotScroll != null ? slotScroll.ReadValue<float>() : 0f;
+                // In testing mode the wheel zooms the view instead.
+                float wheel = slotScroll != null && !GameSession.TestingMode ? slotScroll.ReadValue<float>() : 0f;
                 int dir = wheel > 0.1f || Pressed(slotPrev) ? -1 : wheel < -0.1f || Pressed(slotNext) ? 1 : 0;
                 if (dir != 0) SelectedSlot = NextFilled(p, dir);
                 if (SelectedSlot >= lim) SelectedSlot = -1;

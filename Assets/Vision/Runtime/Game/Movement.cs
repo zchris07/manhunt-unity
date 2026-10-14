@@ -134,7 +134,7 @@ namespace Vision.Game
             float vaultSlow = Mathf.Max(1f, vault);
             if (role == Role.Hunter)
             {
-                if ((pressed & Btn.Lunge) != 0 && !ctx.AbilitiesLocked && s.LungeCharges > 0 && s.LungeT <= 0f && !ctx.Carrying && s.Mode == MoveMode.Normal)
+                if ((pressed & Btn.Lunge) != 0 && !ctx.AbilitiesLocked && !inWindow && s.LungeCharges > 0 && s.LungeT <= 0f && !ctx.Carrying && s.Mode == MoveMode.Normal)
                 {
                     s.LungeCharges--;
                     if (s.LungeRecharge <= 0f) s.LungeRecharge = Balance.Hunter.Lunge.Recharge;

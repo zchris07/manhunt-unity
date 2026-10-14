@@ -53,18 +53,18 @@ namespace Vision.Player
             _ => new ItemInfo("Jar of piss", Hex(0xe6c820), false, MapCount(ItemType.Piss)),
         };
 
-        /// <summary>A slot's display name: a golden shotgun is the golden pump.</summary>
-        public static string Name(ItemType t, bool golden) => t == ItemType.Shotgun && golden ? "Golden pump" : Info(t).name;
+        /// <summary>A slot's display name: a golden shotgun is the legendary pump.</summary>
+        public static string Name(ItemType t, bool golden) => t == ItemType.Shotgun && golden ? "Legendary pump" : Info(t).name;
 
         /// <summary>Short slot label.</summary>
         public static string Short(ItemType t) => t switch
         {
-            ItemType.Book => "Book",
-            ItemType.Goggles => "Goggles",
+            ItemType.Book => "Grapes of Wrath",
+            ItemType.Goggles => "Night vision goggles",
             ItemType.DoctorPepper => "Dr Pepper",
-            ItemType.Trap => "Gas trap",
+            ItemType.Trap => "Galaxy gas trap",
             ItemType.Confit => "Confit",
-            ItemType.MrBeastBar => "Beast bar",
+            ItemType.MrBeastBar => "Mr Beast bar",
             ItemType.Piss => "Piss",
             _ => Info(t).name,
         };

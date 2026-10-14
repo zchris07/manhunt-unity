@@ -101,8 +101,8 @@ namespace Vision.Game
                 public const int Charges = 2;
                 // The cloud reaches 30% less far than the original's, then 20% further than that, then 10% further again
                 // (ReachMul 1.1 x 0.7 x 1.2 x 1.1, at the user's requests); its cone 20% narrower than the original's 10 deg.
-                // Then 40% narrower again (4.8 deg either side).
-                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f * 0.6f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
+                // Then 40% narrower again, then 30% narrower again (3.36 deg either side), reaching 15% further.
+                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f * 0.6f * 0.7f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f * 1.15f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
                 /// <summary>
                 /// The cloud is seen this much longer before it's fully gone, thinning away over its fade and these extra
@@ -214,7 +214,8 @@ namespace Vision.Game
 
             public static class Trap
             {
-                public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f, GasRadius = HunterWidth * 10f * 0.65f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
+                // The trigger 80% smaller than it was; the cloud 15% smaller.
+                public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f * 0.2f, GasRadius = HunterWidth * 10f * 0.65f * 0.85f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
                 /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s (3: a second longer than at first).</summary>
                 public const float ZachConeCut = 0.3f, BlurAfter = 2f + 1f;
                 /// <summary>An armed trap a shot or a thrown item passes over (within the trap's own size) bursts.</summary>

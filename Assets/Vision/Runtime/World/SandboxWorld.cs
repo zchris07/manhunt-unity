@@ -168,6 +168,32 @@ namespace Vision.World
 
         static Mesh moundPrism;
 
+        /// <summary>
+        /// A rock's solid body: an upright round wall about it (its own collider, a sphere or squat capsule tilted with the
+        /// slope, let a body walk up its curve onto the top, where the eye ended up inside the rock's outline and saw
+        /// nothing else). The wall stands straight up from under the ground to above the rock's top, so there's no
+        /// slope to climb and no edge to step onto; sight still stops at the rock's own outline.
+        /// </summary>
+        void RockWall(GameObject rock, Vector2 p, float radius)
+        {
+            foreach (Collider c in rock.GetComponents<Collider>()) c.enabled = false;
+            Transform parent = rock.transform.parent != null ? rock.transform.parent : staticRoot;
+            var wall = new GameObject("Rock Wall");
+            wall.SetActive(false);
+            wall.transform.SetParent(parent, false);
+            const float below = 1f;
+            float r = radius * 0.85f, top = Mathf.Max(2.6f, radius * 2.2f);
+            wall.transform.position = transform.TransformPoint(new Vector3(p.x, H(p) - below, p.y));
+            wall.transform.rotation = transform.rotation;
+            float k = transform.lossyScale.x / Mathf.Max(1e-4f, parent.lossyScale.x);
+            wall.transform.localScale = new Vector3(r, below + top, r) * k;
+            wall.isStatic = rock.isStatic;
+            var col = wall.AddComponent<MeshCollider>();
+            col.sharedMesh = MoundPrism();
+            col.convex = true;
+            wall.SetActive(true);
+        }
+
         /// <summary>An upright elliptic prism of unit radius, from the ground (y 0) up to y 1 (scaled to each mound).</summary>
         static Mesh MoundPrism()
         {
@@ -994,6 +1020,8 @@ namespace Vision.World
 
         /// <summary>Half the width of the graveyard's gateway (the level's units): two leaves, each this wide.</summary>
         public const float GateHalfWidth = 1.1f;
+        /// <summary>How much of the fence beside each gate pillar is a plain wall, never climbed, even by Zach (the level's units).</summary>
+        public const float GateFenceSolid = 2f;
 
         /// <summary>
         /// The graveyard's gates: two ornate iron leaves filling the gateway from <paramref name="start"/> along
@@ -1214,6 +1242,7 @@ namespace Vision.World
             GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
                 () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
             Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
+            RockWall(go, p, radius);
             blocked.Add(p);
         }
 
@@ -1333,13 +1362,29 @@ namespace Vision.World
             float sideEnd = gateHalf + pillar;
             var sides = new[] { (new Vector2(-hx, -hz), new Vector2(-sideEnd, -hz)), (new Vector2(sideEnd, -hz), new Vector2(hx, -hz)),
                                 (new Vector2(hx, -hz), new Vector2(hx, hz)), (new Vector2(hx, hz), new Vector2(-hx, hz)), (new Vector2(-hx, hz), new Vector2(-hx, -hz)) };
-            foreach (var (a0, b0) in sides)
+            for (int si = 0; si < sides.Length; si++)
             {
+                var (a0, b0) = sides[si];
                 Vector2 a = Local(a0.x, a0.y), b = Local(b0.x, b0.y);
                 float len = Vector2.Distance(a, b);
                 Vector2 d = (b - a) / len;
                 GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, len), parent, new Vector3(a.x, Mathf.Min(H(a), H(b)) - 0.05f, a.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
                 float fh = LowPolyModels.IronFenceHeight;
+                // The two panels either side of the gates: the stretch next to the pillar is a plain wall even to Zach, so
+                // brushing the fence as he goes for the gateway never starts a climb.
+                if (si < 2)
+                {
+                    float solid = Mathf.Min(GateFenceSolid, len);
+                    bool gateAtEnd = si == 0;   // the west panel runs up to the gate, the east one away from it
+                    float keep = len - solid, keepFrom = gateAtEnd ? 0f : solid;
+                    var wall = new GameObject("Gate Fence Wall");
+                    wall.transform.SetParent(f.transform, false);
+                    AddBox(wall, new Vector3((gateAtEnd ? len - solid * 0.5f : solid * 0.5f), fh * 0.5f, 0f), new Vector3(solid, fh, 0.12f));
+                    if (keep > 0.3f)
+                        MakeVaultable(f, AddBox(f, new Vector3(keepFrom + keep * 0.5f, fh * 0.5f, 0f), new Vector3(keep, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
+                    else f.layer = GraveFenceLayer;
+                    continue;
+                }
                 MakeVaultable(f, AddBox(f, new Vector3(len * 0.5f, fh * 0.5f, 0f), new Vector3(len, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
             }
             foreach (float s in new[] { -1f, 1f })
@@ -1745,6 +1790,7 @@ namespace Vision.World
                 GameObject go = Prop(library != null ? library.rocks : null, variant, staticRoot,
                     () => PropFactory.CreateRock(LowPolyModels.Rock(rng, radius), lowPolyMaterial, radius));
                 Conform(go.transform, p, radius, Range(0f, 360f), 0.8f, 0.12f);
+                RockWall(go, p, radius);
                 blocked.Add(p);
                 MapRocks.Add((p, radius));
                 placed++;

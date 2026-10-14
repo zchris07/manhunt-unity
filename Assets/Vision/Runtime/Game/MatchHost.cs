@@ -178,6 +178,13 @@ namespace Vision.Game
             else Sim?.MoveSlot(LocalId, from, to);
         }
 
+        /// <summary>Drops a whole slot's stack on the ground (dragged off the inventory bar).</summary>
+        public void DropSlot(int slot)
+        {
+            if (Remote) SendCommand?.Invoke(Vision.Net.Command.DropSlot, slot, 0, default);
+            else Sim?.DropSlot(LocalId, slot);
+        }
+
         public void PlayTestFx(TestFx fx)
         {
             if (Remote) SendCommand?.Invoke(Vision.Net.Command.TestFx, (int)fx, 0, default);

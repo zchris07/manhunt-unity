@@ -190,13 +190,20 @@ namespace Vision.Player
             BuildLockpick(root);
 
             // Inventory, bottom centre: eight slots, twelve in testing mode; the selected one is outlined (left mouse uses it).
-            strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(Inventory.Slots * 82f, 86f));
+            strip = Node("Inventory", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 22f), new Vector2(Inventory.Slots * (SlotSize + SlotGap), 86f));
+            // Drawn above the full map, so items can be dragged about while Tab holds it open.
+            var stripCanvas = strip.gameObject.AddComponent<Canvas>();
+            stripCanvas.overrideSorting = true;
+            stripCanvas.sortingOrder = 30;
+            strip.gameObject.AddComponent<GraphicRaycaster>();
             for (int i = 0; i < Inventory.TestingSlots; i++)
             {
-                RectTransform slot = Node($"Slot {i + 1}", strip, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(i * 82f, 0f), new Vector2(76f, 82f));
+                RectTransform slot = Node($"Slot {i + 1}", strip, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(i * (SlotSize + SlotGap), 0f), new Vector2(SlotSize, SlotSize));
+                slot.gameObject.AddComponent<RectMask2D>();
                 UiKit.Box(slot, SlotColor);
                 slotFrames[i] = UiKit.Frame(slot, SlotBorder);
-                RectTransform sel = Node("Selected", slot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(76f, 3f));
+                RectTransform sel = Node("Selected", slot, new Vector2(0f, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(0f, 3f));
+                sel.anchorMax = new Vector2(1f, 0f);
                 slotSelectBars[i] = UiKit.Box(sel, UiKit.Red);
                 slotBoxes[i] = slot.gameObject;
                 // The item's picture, as the original's (its own art); the slot is empty without one.
@@ -207,7 +214,10 @@ namespace Vision.Player
                 UiKit.Box(key, UiKit.Bone);
                 kit.Label(Node("Key", key, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(16f, 16f)), SlotKeys[i], 13, TextAnchor.MiddleCenter, UiKit.Hex(0x0a0a08), UiKit.Face.Display, 0f, false);
                 slotCounts[i] = kit.Label(Node("Count", slot, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-6f, -3f), new Vector2(34f, 18f)), "", 15, TextAnchor.UpperRight, UiKit.Bone, UiKit.Face.Display);
-                slotNames[i] = kit.Label(Node("Name", slot, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(74f, 16f)), "", 12, TextAnchor.LowerCenter, UiKit.Muted, UiKit.Face.Display, 0.06f);
+                RectTransform nameRt = Node("Name", slot, new Vector2(0f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 6f), new Vector2(-6f, 16f));
+                nameRt.anchorMax = new Vector2(1f, 0f);
+                slotNames[i] = kit.Label(nameRt, "", 12, TextAnchor.LowerCenter, UiKit.Muted, UiKit.Face.Display, 0.06f);
+                slotNames[i].horizontalOverflow = HorizontalWrapMode.Overflow;
             }
 
             BuildHunterHud(root);
@@ -381,7 +391,6 @@ namespace Vision.Player
             {
                 if (esc && map.FullOpen) map.SetOpen(false);
                 else if (esc) SetMenu(!escOpen);
-                if (kb != null && !escOpen && kb.mKey.wasPressedThisFrame) map.Toggle();
                 if (kb != null && !escOpen && kb.vKey.wasPressedThisFrame) ToggleSpeedMode();
             }
             UpdateMenus();
@@ -439,7 +448,6 @@ namespace Vision.Player
             if (limit != shownLimit)
             {
                 shownLimit = limit;
-                strip.sizeDelta = new Vector2(Mathf.Max(1, limit) * 82f - 6f, 86f);
                 for (int i = 0; i < Inventory.TestingSlots; i++) slotBoxes[i].SetActive(i < limit);
             }
             for (int i = 0; i < limit; i++)
@@ -454,8 +462,9 @@ namespace Vision.Player
                 if (icon != null && slotIcons[i].texture != icon) slotIcons[i].texture = icon;
                 int count = inv.CountAt(i);
                 slotCounts[i].text = !item.HasValue ? "" : inv.Infinite ? "∞" : count > 1 ? count.ToString() : "";
-                slotNames[i].text = item.HasValue ? (golden ? "GOLDEN" : Items.Short(item.Value).ToUpperInvariant()) : "";
+                slotNames[i].text = item.HasValue ? (golden ? "LEGENDARY PUMP" : Items.Short(item.Value).ToUpperInvariant()) : "";
             }
+            LayoutSlots(inv, limit);
 
             RefreshSurvivorAbilities(me, strip.sizeDelta.x);
             UpdateEditor(me);

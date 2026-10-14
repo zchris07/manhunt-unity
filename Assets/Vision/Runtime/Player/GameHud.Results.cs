@@ -74,6 +74,12 @@ namespace Vision.Player
         /// <summary>Shows the results for a finished match (the original's columns, per role).</summary>
         Button againButton;
 
+        /// <summary>Puts the results away (captures).</summary>
+        public void HideResults()
+        {
+            if (results != null) results.SetActive(false);
+        }
+
         public void ShowResults(MatchResult r)
         {
             if (againButton != null)

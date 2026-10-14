@@ -196,6 +196,9 @@ namespace Vision.EditorTools
         [MenuItem("Vision/Build Windows Player")]
         public static void BuildWindows() => Build(BuildPath, BuildOptions.None);
 
+        /// <summary>A release build in its own folder, for checking while the main build is open and running.</summary>
+        public static void BuildWindowsCheck() => Build("Builds/Check/VisionSandbox.exe", BuildOptions.None);
+
         /// <summary>A development build beside the release one, for profiling (-visionPerf reads its markers).</summary>
         public static void BuildWindowsDev() => Build("Builds/WindowsDev/VisionSandbox.exe", BuildOptions.Development);
 

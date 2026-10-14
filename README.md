@@ -64,7 +64,7 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | Z / C | – | Turn the view 45° left / right (eased over a quarter of a second; W keeps moving up the screen, the minimap and full map turn with it; each match starts turned 45° off the world's grid, so walls and buildings run diagonally across the screen) |
 | Mouse | Right stick | Aim the light cone (whichever moved last) |
 | E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
-| 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode) |
+| 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode; there the wheel zooms the view in and out instead) |
 | Left mouse | Right trigger | Use the selected item (survivors); swing the machete, hold to charge a heavy swing (Zach) |
 | Right mouse | Left trigger | Zach: lunge; survivors: aim the 0.50 cal (hold) |
 | Space | A / Cross | Slam a pallet down |
@@ -72,7 +72,7 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam; survivors: R fires the Hemp Beam once Thomas gives it |
 | Y / N | D-pad up | Answer yes or no |
 | T | – | Testing: switch between Zach and a survivor where you stand |
-| M | – | Full map (the minimap is always on) |
+| Tab (hold) | – | Full map (the minimap is always on); survivors also drag items between slots, or off the bar to drop the stack |
 | V | – | Speed mode (testing): full sprint, +500% speed |
 | R | – | Get back up when downed (testing, survivors) |
 | Esc | Start | Game menu (does not pause) |
@@ -139,11 +139,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   original's 4.3 and 6.8, slowed by 30%), and about 53% is this port's earlier 1.6 m/s walk. The choice is saved;
   online, the host's applies.
 - **Maps** (`MapHud`, `MapPainter`, `FogOfWar`): the minimap (top right, about 57 m across) and the full
-  map (M) show the whole round world painted from above (black past its end), under a fog of war that stays black
+  map (hold Tab) show the whole round world painted from above (black past its end), under a fog of war that stays black
   until your own light has been there; both turn with the view, so up on the map is up on the screen (labels and
   pictures stay upright). Every supply shows as its own inventory picture once seen, and generators and the gate
   appear once seen; the **YOU** arrow and ring follow you on both. Testing mode shows everything (the NPCs' dots
-  turning and scrolling with the minimap like the rest of it), and a click on the full map teleports you there.
+  turning and scrolling with the minimap like the rest of it), and a click on the full map teleports you there. The
+  full map is a circle centred in its panel: the round world turns inside it with the view, so no square corner of
+  the painted map ever shows.
 
 ### HUD and game systems
 
@@ -218,7 +220,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   fallen trees** (found by kind, so the baked prop library's fallen trees count too) are knee-high: everyone sees, lights and shoots over them (the ground past one shows in the dimmer
   see-through shade, as behind a wall with night vision, while people standing behind it show in full), Zach's Burst
   and thrown items fly over them, and every player vaults them automatically at the window-climbing pace, hands
-  planted, knees tucked, the body lifted up and over the top (and over a broken window's sill the same way); NPCs walk
+  planted, knees tucked, the body lifted up and over the top (and over a broken window's sill the same way), hands
+  too busy for anything else: no item, gun or ability is used while climbing (a charge held into a climb is dropped); NPCs walk
   round them. **Fences** are climbed the same way: the split-rail fences are vaulted automatically at the same pace,
   the body lifted up and over the top rail, while NPCs walk round them (they don't block sight or shots, and still hide
   what's behind them as anything standing does). (The building yard's tall chain-link fence stays solid: the way out is
@@ -227,7 +230,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   at the start, and a generator always stands in its middle among the graves. Its fence stands 20% taller than at
   first, posts crowned with tall spikes and a collar of thorns and every bar rising past the top rail into a spear
   point. Survivors can't climb it (it's on its own physics layer, which only Zach's body passes); Zach can, any time,
-  taking five times as long as over a log (400% longer). A survivor at the gates picks the lock (E): a heavy iron dial
+  taking five times as long as over a log (400% longer), except the two metres of fence beside each gate pillar,
+  a plain wall even to him, so going for the gateway he never starts climbing the fence beside it. A survivor at the gates picks the lock (E): a heavy iron dial
   fills the middle of the screen with a gilded mark on its ring and a bright tick sweeping round, and E, Space or a
   click stops it; three times on the mark (each spin faster, the mark narrower, turning the other way) and the lock
   gives, the chain falls away and the gates swing in; two misses and the pins drop, back to the first. Three pins and
@@ -279,8 +283,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   together (double vision), and both are blurred hard, the blur breathing in and out, the colour washed out and the
   edges closing in, strongest while they're in it and clearing over three seconds once the gas has worn off (a second
   longer than at first). Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
-  further again (101.6% of the original's reach), in a cone 20% narrower than the original's and then 40% narrower again
-  (4.8 degrees either side of the aim), 30% fainter to begin with; it acts where it's drawn, the cone plus the width the
+  further again, then 15% further still (116.9% of the original's reach), in a cone 20% narrower than the original's,
+  then 40% and then 30% narrower again (3.36 degrees either side of the aim), 30% fainter to begin with, its edges
+  ragged and wobbling (the cone's radius pushed in and out by a slow noise rolling with the gas); it acts where it's drawn, the cone plus the width the
   cloud has right from his mouth, so a survivor standing in it close up is still caught. It goes straight through a shield to the health bar. Galaxy gas narrows Zach's
   light by 30% and blurs his view the same way, clearing three seconds after he's out of it. **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
   `Vision/Gas` shader) are volumetric smoke after Black Ops Cold War's smoke grenade: each cloud is a box over the scene
@@ -301,8 +306,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   short march toward a key light low to one side, so every lobe has a bright face and a shaded one, with a
   forward-scattering phase and ambient light. Each keeps its colour: Penjamin yellow, 50 Nic blue, galaxy gas purple,
   pink and blue (with its stars), the scent red. The gas never touches the scene: no collision, nothing conforming to the
-  ground or objects; it simply covers the screen where it is (Penjamin even in the dark, galaxy gas and the scent inside
-  the viewer's light). The indicator rings left on the ground (Plasma's colour-cycling rings, the breath rings spreading
+  ground or objects; it simply covers the screen where it is (Penjamin unmasked, past the
+  viewer's light, galaxy gas and the scent inside it; every cloud is drawn in the scene, since the senses overlay camera
+  never drew the volumetric gas, which is why Penjamin's cloud had gone missing). The indicator rings left on the ground (Plasma's colour-cycling rings, the breath rings spreading
   from a hiding spot) are laid on the ground's own facets every 2.5 degrees round and every few centimetres across, so
   they follow each slope, bump and crease of the drawn terrain; the Hemp Battery and Zach's charge have no ring. The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
   outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
@@ -314,10 +320,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
   side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once
   and a closed door it stays on for a second and a half is blown open. Guns flash
-  at the end of the barrel and every round (a pistol's, Jaden's, each pellet, the 0.50 cal's) flies out of it as a small
-  fast projectile: a bright streak with a long, dim trail behind it, half again as big as they first were with twice
-  the trail (the look only: what they hit is unchanged) (the pistol's at 6000 units a second,
-  pellets 5000, the 0.50 cal 8000), stopping where the shot stopped, pellets sparking there as they arrive (the sim's
+  at the end of the barrel and every round (a pistol's, Jaden's, each pellet, the 0.50 cal's) flies out of it as a glowing
+  projectile: a big bright streak with a white-hot tip and a halo of light round it (three times the size it was),
+  drawn crossing the screen at half the match's speed (the pistol's at 3000 units a second, pellets 2500, the 0.50 cal
+  4000; the look only: what they hit, and when, is the match's), with a trail twice as long and twice as thick, a
+  soft glow round a bright core, that burns out slowly behind it once it lands (on screen twice as long), stopping
+  where the shot stopped, pellets sparking there as they arrive (the sim's
   rounds start just ahead of the shooter). Rounds and thrown bottles, books and jars fly perfectly straight and level at
   the height they left the barrel or the hand, whatever the ground does below, until they hit something: they never
   strike the ground, and where a rise would cover one it is drawn over the terrain, so no hill ever hides it (walls,
@@ -339,9 +347,14 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
   and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
-  jar passes over it, the thrown item landing there); galaxy gas billows purple, pink and blue with twinkling stars; dropped items lie where they
-  fell (with models for the P250, the 0.50 cal, the jar of piss and the golden pump). G drops the item in hand; **Tab**
-  opens the original's inventory editor (click a slot, then another, to swap them); clicking a slot takes it in hand.
+  jar passes over it, the thrown item landing there, though now only close to it: its trigger is 80% smaller than it
+  was); galaxy gas billows purple, pink and blue with twinkling stars (its cloud 15% smaller and 30% less opaque than it was); dropped items lie where they
+  fell (with models for the P250, the 0.50 cal, the jar of piss and the legendary pump). G drops the item in hand;
+  holding **Tab** opens the full map and the inventory editor: drag an item onto another slot to swap them, or off the
+  bar to drop its whole stack; clicking a slot takes it in hand. Empty slots are perfect squares; an item widens its
+  slot smoothly into a rectangle that fits its picture and name (the book reads GRAPES OF WRATH, the trap GALAXY GAS
+  TRAP, the bar MR BEAST BAR, the golden shotgun LEGENDARY PUMP, the goggles NIGHT VISION GOGGLES), and it eases back to the square when
+  the item goes, or to fit whatever's swapped in, never smaller than the square.
   Each pistol shot strays up to 2.5 degrees either side of the aim. Holding right click with the 0.50 cal aims it: the
   view widens 15%, you move 30% slower, and a thin red laser (the original's, a faint wide line and a bright thin one)
   runs from the barrel along the aim to the first solid thing in its way (never the ground), seen by everyone: a
@@ -434,8 +447,11 @@ All visibility math is 2D on the ground plane (world X,Z), then projected back o
    `OccluderSet` holds the segments in a spatial hash. Its `Version` bumps whenever a door opens or
    closes, which throws away the cached light polygons. Occluders are box or N-gon footprints
    (`Occluder.cs`) for walls, trunks, rocks, crates, closed doors and shutters.
-   - Cone: fixed half-angle; it reaches the edge of the screen (the distance along the beam to the edge
-     of the visible ground, plus 6%) at any resolution.
+   - Cone: fixed half-angle; every ray of it runs off the screen at any facing, resolution or view turn: its reach is
+     the farthest any ray of the cone has to go to leave the visible ground (its edges, rays across it, and any
+     corner of the view inside it, since a cone aimed near a corner must reach the corner, further than where its
+     axis leaves), plus 6%, plus room for hills and hollows; checked at every 5 degrees of facing, from points all
+     over the screen, with the view turned six ways.
    - Proximity circle: small 360° polygon around the viewer.
    - Light sources (`VisionLight.cs`): the 6 nearest each frame; static ones cache their polygon.
    - See-through cone: ignores occluders and is drawn at 70%.
@@ -623,7 +639,7 @@ saved as ordinary Unity content:
 
 | Folder | Contents |
 |---|---|
-| `Assets/Vision/Prefabs/` | One prefab per prop variant (12 dead-tree designs and 7 evergreen forms in three sizes, rocks from pebbles to boulders, crates, car wrecks, a generator, a burning barrel and a campfire with animated flames, a lantern post, crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
+| `Assets/Vision/Prefabs/` | One prefab per prop variant (12 dead-tree designs and 7 evergreen forms in three sizes, rocks from pebbles to boulders (in the level each stands behind an upright round wall instead of its own tilted collider, from under the ground to above its top, so nobody walks up a rock's curve onto it and stands inside its outline, seeing nothing), crates, car wrecks, a generator, a burning barrel and a campfire with animated flames, a lantern post, crows, wanderer, player), each with its collider, occluder or light, plus `PropLibrary.asset` listing them. |
 | `Assets/Vision/Meshes/Props/` | The mesh behind each prop prefab, and `Mannequin.asset` shared by the player and the wanderer. |
 | `Assets/Vision/Materials/` | `LowPoly`, `LowPolyEntity` (hidden outside the viewer's light) and `LowPolyGlow`. |
 
@@ -658,7 +674,7 @@ Sets the company and product names and switches the build target to Windows 64-b
 ```bash
 unity test . --editor-version 6000.6.3f1 --mode EditMode
 ```
-Runs the 244 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
+Runs the 250 EditMode tests (`ReferenceCoverageTests` among them: every constant copied from the original's
 `balance.ts` must be used by the game, or listed with the reason it isn't, so a behaviour of the original can't be
 copied and then forgotten): visibility polygons, doors, triangle winding and normals, model sizes and
 determinism, the polygon budget, the mannequin, the gait on flat ground and steep ramps, the terrain and

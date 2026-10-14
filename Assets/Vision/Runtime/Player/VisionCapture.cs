@@ -427,6 +427,7 @@ namespace Vision.Player
                 // Testing mode with speed mode, the minimap (explored where the captures went), the game menu, the full
                 // map under its fog and revealed, and the title screen.
                 gameHud.StartTesting(false);
+                gameHud.HideResults();
                 GameSession.SpeedMode = true;
                 yield return Stage(player, V(L.Spawn + new Vector2(0f, 6f)), Vector2.up, wanderer, away);
                 yield return new WaitForSeconds(0.5f);
@@ -555,9 +556,11 @@ namespace Vision.Player
                     cameraRig.orthographicSize = o * 0.7f;
                     yield return new WaitForSeconds(0.5f);
                     int roundsP = RoundsNow();
+                    // Held over a couple of the match's ticks, so the trigger is read.
                     player.ExtraButtons = Btn.Primary;
-                    yield return Wait(2);
+                    yield return new WaitForSeconds(0.08f);
                     player.ExtraButtons = Btn.None;
+                    LogState("143 after the trigger", host);
                     yield return RoundInFlight("143_pistol_round_in_flight", roundsP, 0.004f);
                     yield return new WaitForSeconds(0.5f);
                     // The 0.50 cal aimed: right click brings the scope to the eye and the laser on; then a round.
@@ -730,9 +733,16 @@ namespace Vision.Player
                         yield return new WaitForSeconds(0.7f);
                         gameHud.Refresh();
                         yield return Shot("150_graveyard_gates_locked");
-                        player.ExtraButtons = Btn.Interact;
-                        yield return new WaitForSeconds(0.1f);
-                        player.ExtraButtons = Btn.None;
+                        // E until the picking starts (anything lying at the gateway is picked up first).
+                        for (int tries = 0; tries < 4 && host.Local.Action != ActionKind.PickLock; tries++)
+                        {
+                            host.Sim.CancelAction(host.Local);
+                            player.ExtraButtons = Btn.Interact;
+                            yield return new WaitForSeconds(0.1f);
+                            player.ExtraButtons = Btn.None;
+                            yield return new WaitForSeconds(0.25f);
+                        }
+                        LogState("151 after E", host);
                         yield return new WaitForSeconds(0.85f);
                         gameHud.Refresh();
                         yield return Shot("151_lockpick_dial");
@@ -1043,9 +1053,14 @@ namespace Vision.Player
                     yield return new WaitForSeconds(0.1f);
                     yield return Shot("88_soundcloud_burst");
                     yield return new WaitForSeconds(1.5f);
-                    yield return Press(Btn.Vape);
+                    // Penjamin, fired straight from the match (a key press can fall between ticks on a slow frame).
+                    {
+                        SimPlayer pz = host.Local;
+                        host.Sim.SpawnVape(pz.Pos, pz.Facing, Scale.D(Balance.Hunter.Vape.DefaultView * Balance.Hunter.Vape.ReachMul), pz.Id, false);
+                    }
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot("89_penjamin");
+
                     // Blown on its wind: drifted off, wider, taller and thinner, a few seconds on.
                     yield return new WaitForSeconds(2.6f);
                     yield return Shot("89b_penjamin_blown");
@@ -1769,6 +1784,14 @@ namespace Vision.Player
             wanderer.transform.position = wp;
             cameraRig.Snap();
             yield return Wait(10);
+        }
+
+        /// <summary>The local player's state, into the player log (to see why a staged press did or didn't take).</summary>
+        static void LogState(string what, MatchHost host)
+        {
+            SimPlayer p = host != null ? host.Local : null;
+            if (p == null) return;
+            Debug.Log($"[Capture] {what}: action {p.Action} ({p.ActionT:0.00}/{p.ActionDur:0.00}) prompt {p.Prompt} target {p.PromptTarget} canAct {p.CanAct} climbing {p.Move.Climbing} slot {p.SelSlot} item {p.Inv.ItemAt(p.SelSlot)} health {p.Health} rounds {RoundsNow()} tick {host.Sim.Tick} timeScale {Time.timeScale} captureFps {Time.captureFramerate}");
         }
 
         static IEnumerator Wait(int frames)

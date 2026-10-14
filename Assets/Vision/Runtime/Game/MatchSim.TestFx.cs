@@ -1,4 +1,5 @@
 using UnityEngine;
+using Vision.Player;
 
 namespace Vision.Game
 {
@@ -162,6 +163,29 @@ namespace Vision.Game
             int lim = p.Inv.Limit;
             if (from < 0 || to < 0 || from >= lim || to >= lim || from == to) return;
             p.Inv.Move(from, to);
+        }
+
+        /// <summary>
+        /// A survivor drags a slot off the inventory bar: its whole stack drops on the ground in a little spread before them
+        /// (testing mode's endless stacks drop one).
+        /// </summary>
+        public void DropSlot(int id, int slot)
+        {
+            SimPlayer p = Get(id);
+            if (p == null || p.Role != Role.Survivor || !p.CanAct || p.Action != ActionKind.None) return;
+            Inventory.Slot s = p.Inv.SlotAt(slot);
+            if (s == null || s.count <= 0 || slot >= p.Inv.Limit) return;
+            ItemType kind = s.item;
+            bool golden = s.golden;
+            int n = TestMode ? 1 : s.count;
+            for (int u = 0; u < n; u++)
+            {
+                float amount = TestMode ? (s.amounts.Count > 0 ? s.amounts[s.amounts.Count - 1] : Items.FreshAmount(kind, golden)) : p.Inv.TakeOne(slot, out _, out _);
+                float ang = p.Facing + (u - (n - 1) * 0.5f) * 0.45f;
+                var d = new DropItem { Id = AllocEntityId(), Pos = p.Pos, Item = kind, Golden = golden, Amount = amount };
+                PlaceDrop(d, p.Pos + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * R(26f + 6f * (u % 3)));
+            }
+            Tell(p, $"Dropped: {Items.Name(kind, golden)}{(n > 1 ? $" x{n}" : "")}");
         }
 
         /// <summary>Dummies take ids from here up (players are 1-99).</summary>

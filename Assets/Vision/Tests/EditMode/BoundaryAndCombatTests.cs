@@ -321,6 +321,11 @@ namespace Vision.Tests
                 Assert.IsTrue(gates.lockVisual != null && gates.lockVisual.activeSelf, "chained and padlocked");
                 Assert.AreEqual(2, root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Gate Pillar"));
                 Assert.AreEqual(SandboxWorld.GateHalfWidth * 2f, Vector2.Distance(gates.a, gates.b), 1e-3f);
+                // Beside the gates the fence is a plain wall, even to Zach: no climbing strip starts near the gateway.
+                Assert.AreEqual(2, root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Gate Fence Wall" && t.GetComponent<BoxCollider>() != null && t.gameObject.layer == 0));
+                foreach (SandboxWorld.LowObstacle o in world.Lows.Where(o => o.HunterOnly))
+                    foreach (Vector2 end in new[] { gates.a, gates.b })
+                        Assert.GreaterOrEqual(SimMap.SegmentDistance(end, o.A, o.B), SandboxWorld.GateFenceSolid, "no climbing right beside the gates");
                 Transform iron = fences.First(t => t.name == "Iron Fence");
                 Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<MeshFilter>().sharedMesh.bounds.max.y, 0.12f, "20% taller, to its spikes");
                 Assert.AreEqual(1.42f * 1.2f, iron.GetComponent<BoxCollider>().size.y, 1e-4f);

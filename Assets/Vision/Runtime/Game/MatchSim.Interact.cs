@@ -322,6 +322,8 @@ namespace Vision.Game
                 bool heldStart = cmd.Has(Btn.Interact) && p.Action == ActionKind.None && p.HideState == 0 && System.Array.IndexOf(HoldPrompts, p.Prompt) >= 0;
                 if ((pressed & Btn.Interact) != 0 || heldStart) SurvivorInteract(p);
                 if ((pressed & Btn.Space) != 0 && p.CanAct && p.Action == ActionKind.None && p.Prompt2 == Prompt.DropBarricade) DropBarricade(p, p.Prompt2Target);
+                // Climbing over something (a log, a fence, a broken window): hands busy, no items, guns or abilities.
+                if (p.Move.Climbing) return;
                 if ((pressed & Btn.Primary) != 0 && p.CanAct) UseItem(p, cmd);
                 if ((pressed & Btn.Drop) != 0) DropItem(p);
                 if ((pressed & Btn.Ability) != 0) TryJarvis(p);
@@ -329,6 +331,8 @@ namespace Vision.Game
                 return;
             }
             if (p.Role != Role.Hunter || !p.CanAct) return;
+            // Zach vaulting: no swing, pump, Burst, Penjamin, Hemp Beam or Hemp Battery until he's over.
+            if (p.Move.Climbing) return;
             // Plasma's golden pump replaces the machete while it has shots.
             if (p.Pump > 0)
             {

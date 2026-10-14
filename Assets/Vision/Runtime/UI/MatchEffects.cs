@@ -448,10 +448,12 @@ namespace Vision.UI
                     Drift = WorldDir(v.Angle) * (0.9f * S) + wind + Vector3.up * (0.12f * S),
                     Seed = v.Id,
                     Clumps = 1f,
+                    Wobble = 0.55f,
                 };
                 Vector3 tip = Ground(v.Origin, 0f) + wind * age;
                 float r = endRadius * spread;
-                VolumetricGas.Cone(tip, WorldDir(v.Angle), length, r, 0.22f / spread, endRadius * 0.5f * tall, look, false, true, tall / spread);
+                // In the scene, unmasked: it shows past his light, not cut to it.
+                VolumetricGas.Cone(tip, WorldDir(v.Angle), length, r, 0.22f / spread, endRadius * 0.5f * tall, look, false, false, tall / spread);
             }
         }
 

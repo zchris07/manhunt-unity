@@ -44,6 +44,7 @@ Shader "Vision/Gas"
             float4 _GasShape;              // x = kind (0 blob, 1 cone), y = extinction per metre, z = noise scale (per metre), w = erosion
             float4 _GasMotion;             // xyz = drift (metres per second, world), w = seed
             float4 _GasCone;               // x = radius at the base (fraction of the end's), y = soft start, z = soft end, w = patchiness
+            float4 _GasEdge;               // x = how ragged a cone's edges are, y = how much bigger the box is than the cone
 
             struct Attributes
             {
@@ -71,8 +72,9 @@ Shader "Vision/Gas"
                 return frac((p.x + p.y) * p.x);
             }
 
-            // The cloud's shape in its box (object space, -0.5..0.5 on each axis): 1 deep inside, 0 outside.
-            float Shape(float3 o)
+            // The cloud's shape in its box (object space, -0.5..0.5 on each axis): 1 deep inside, 0 outside. A cone's radius
+            // is scaled by `wob` (its ragged, wobbling edge).
+            float Shape(float3 o, float wob)
             {
                 if (_GasShape.x < 0.5)
                 {
@@ -83,7 +85,7 @@ Shader "Vision/Gas"
                 }
                 // A cone along +x from its tip at the origin (x = -0.5) to its open end (x = 0.5).
                 float u = o.x + 0.5;
-                float r = lerp(_GasCone.x, 1.0, u) * 0.5;
+                float r = lerp(_GasCone.x, 1.0, u) * 0.5 * wob / max(_GasEdge.y, 1.0);
                 float d = length(o.yz) / max(r, 1e-3);
                 float ends = smoothstep(0.0, _GasCone.y, u) * smoothstep(1.0, 1.0 - _GasCone.z, u);
                 return saturate((1.0 - d) * 1.35) * ends;
@@ -92,9 +94,20 @@ Shader "Vision/Gas"
             // Billowing density: the shape eaten away at its edges by the churning noise.
             float Density(float3 o, float3 w, float t)
             {
-                float s = Shape(o);
-                if (s <= 0.0) return 0.0;
                 float3 drift = _GasMotion.xyz * t;
+                // A cone's edge pushed in and out along its length and round it by a slow noise that rolls with the gas,
+                // so its outline is ragged and wobbles instead of running straight.
+                float wob = 1.0;
+                if (_GasShape.x > 0.5 && _GasEdge.x > 0.0)
+                {
+                    float3 pe = (w - drift * 0.8) * _GasShape.z * 0.45 + _GasMotion.w * 0.211 + float3(0.0, t * 0.03, 0.0);
+                    // (Alpha reads back as stored; the colour channels come back linearised from the sRGB volume, undone.)
+                    float e = SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, pe, 0).a;
+                    float e2 = pow(SAMPLE_TEXTURE3D_LOD(_GasNoise, sampler_GasNoise, pe * 2.3 + 5.1, 0).b, 0.4545);
+                    wob = 1.0 + _GasEdge.x * ((e - 0.5) * 2.2 + (e2 - 0.5) * 0.9);
+                }
+                float s = Shape(o, wob);
+                if (s <= 0.0) return 0.0;
                 // The noise is carried along with the drift (sampled where it was drift ago), so the billows roll the way
                 // the gas is blowing: Penjamin's out along the aim, whichever way that is.
                 float3 p = (w - drift) * _GasShape.z + _GasMotion.w * 0.137;

@@ -281,8 +281,11 @@ namespace Vision.Rendering
             float coneRange, coneStart;
             if (viewer.reachScreenEdge)
             {
-                Vector2 axis = new Vector2(Mathf.Cos(dir), Mathf.Sin(dir));
-                coneRange = Mathf.Min(BeamReach(viewCamera, origin, axis, viewer.transform.position.y) * EdgeMargin, halfSize * 0.98f);
+                // Every ray of the cone, not just its axis, runs off the screen (a cone aimed near a screen corner reaches the
+                // corner, further than where its axis leaves); capped only by the far corner of the mask's square.
+                float halfA = viewer.coneHalfAngleDeg * Mathf.Deg2Rad;
+                Vector2 focus = MaskRect.center;
+                coneRange = Mathf.Min(ConeReach(viewCamera, origin, dir, halfA, viewer.transform.position.y), Vector2.Distance(origin, focus) + halfSize * 1.42f);
                 coneStart = 2f;   // no distance falloff: full strength to the screen edge
             }
             else
@@ -495,6 +498,38 @@ namespace Vision.Rendering
 
         /// <summary>The beam ends this far past the screen edge, so its end is never seen.</summary>
         public const float EdgeMargin = 1.06f;
+
+        /// <summary>
+        /// How far a cone from <paramref name="origin"/> (facing <paramref name="dir"/> radians, <paramref name="halfAngle"/>
+        /// either side) must reach for every one of its rays to run off the ground the camera sees: the farthest exit of
+        /// any ray in the cone (its two edges, rays across it, and any corner of the view inside it), with a margin, plus
+        /// room for hills and hollows (ground lower than the player shows further up the screen).
+        /// </summary>
+        public static float ConeReach(Camera cam, Vector2 origin, float dir, float halfAngle, float groundY = 0f)
+        {
+            float pitch = Mathf.Max(10f, cam.transform.eulerAngles.x) * Mathf.Deg2Rad;
+            float best = 0f;
+            const int n = 24;
+            for (int i = 0; i <= n; i++)
+            {
+                float a = dir - halfAngle + 2f * halfAngle * i / n;
+                best = Mathf.Max(best, BeamReach(cam, origin, new Vector2(Mathf.Cos(a), Mathf.Sin(a)), groundY));
+            }
+            // The view's corners, wherever they fall inside the cone (the farthest a ray can need to go).
+            Vector2 c = GroundFocus(cam, groundY);
+            var half = new Vector2(cam.orthographicSize * cam.aspect, cam.orthographicSize / Mathf.Sin(pitch));
+            float yaw = cam.transform.eulerAngles.y * Mathf.Deg2Rad, cy = Mathf.Cos(yaw), sy = Mathf.Sin(yaw);
+            for (int k = 0; k < 4; k++)
+            {
+                var v = new Vector2((k & 1) == 0 ? -half.x : half.x, (k & 2) == 0 ? -half.y : half.y);
+                // Back out of the view's frame to the ground plane.
+                var g = new Vector2(v.x * cy + v.y * sy, -v.x * sy + v.y * cy) + c - origin;
+                if (g.sqrMagnitude < 1e-6f) continue;
+                float off = Mathf.Abs(Mathf.DeltaAngle(dir * Mathf.Rad2Deg, Mathf.Atan2(g.y, g.x) * Mathf.Rad2Deg)) * Mathf.Deg2Rad;
+                if (off <= halfAngle) best = Mathf.Max(best, g.magnitude);
+            }
+            return best * EdgeMargin + 4f * Vision.World.WorldScale.S / Mathf.Tan(pitch) + 2f;
+        }
 
         /// <summary>
         /// Distance from <paramref name="origin"/> along <paramref name="axis"/> (ground plane) to the edge of the

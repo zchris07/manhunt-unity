@@ -20,6 +20,7 @@ namespace Vision.Effects
         static MaterialPropertyBlock block;
         static readonly int TintAId = Shader.PropertyToID("_GasTintA"), TintBId = Shader.PropertyToID("_GasTintB"), ShapeId = Shader.PropertyToID("_GasShape");
         static readonly int MotionId = Shader.PropertyToID("_GasMotion"), ConeId = Shader.PropertyToID("_GasCone"), NoiseId = Shader.PropertyToID("_GasNoise");
+        static readonly int EdgeId = Shader.PropertyToID("_GasEdge");
 
         /// <summary>
         /// How the medium looks: extinction per metre (how thick), the noise's scale per metre, how far the edges erode, and
@@ -32,6 +33,8 @@ namespace Vision.Effects
             public Vector3 Drift;
             public float Seed;
             public float Clumps;
+            /// <summary>How ragged a cone's edges are: its radius pushed in and out by a slow noise (0 smooth).</summary>
+            public float Wobble;
         }
 
         /// <summary>Draws a cloud sitting on the ground at <paramref name="ground"/>, <paramref name="radius"/> across and <paramref name="height"/> tall.</summary>
@@ -55,8 +58,10 @@ namespace Vision.Effects
             if (dir.sqrMagnitude < 1e-6f) return;
             dir.Normalize();
             Quaternion q = Quaternion.FromToRotation(Vector3.right, dir);
-            Matrix4x4 m = Matrix4x4.TRS(tip + dir * length * 0.5f + Vector3.up * height, q, new Vector3(length, endRadius * 1.6f * tall, endRadius * 2f));
-            Draw(m, look, 1f, new Vector4(baseFraction, 0.08f, 0.18f, look.Clumps), maskedByLight, senses);
+            // Room in the box for the ragged edge to swell past the cone's own radius.
+            float pad = 1f + Mathf.Max(0f, look.Wobble) * 0.85f;
+            Matrix4x4 m = Matrix4x4.TRS(tip + dir * length * 0.5f + Vector3.up * height, q, new Vector3(length, endRadius * 1.6f * tall * pad, endRadius * 2f * pad));
+            Draw(m, look, 1f, new Vector4(baseFraction, 0.08f, 0.18f, look.Clumps), maskedByLight, senses, pad);
         }
 
         /// <summary>
@@ -75,7 +80,7 @@ namespace Vision.Effects
             Draw(m, look, 1f, new Vector4(1f, 0.25f, 0.25f, 0f), maskedByLight, senses);
         }
 
-        static void Draw(Matrix4x4 m, in Look look, float kind, Vector4 cone, bool maskedByLight, bool senses)
+        static void Draw(Matrix4x4 m, in Look look, float kind, Vector4 cone, bool maskedByLight, bool senses, float pad = 1f)
         {
             block.Clear();
             Color a = look.TintA;
@@ -85,8 +90,11 @@ namespace Vision.Effects
             block.SetVector(ShapeId, new Vector4(kind, look.Extinction, look.NoiseScale, look.Erosion));
             block.SetVector(MotionId, new Vector4(look.Drift.x, look.Drift.y, look.Drift.z, look.Seed));
             block.SetVector(ConeId, cone);
+            block.SetVector(EdgeId, new Vector4(look.Wobble, pad, 0f, 0f));
             block.SetTexture(NoiseId, noise);
-            Graphics.DrawMesh(cube, m, maskedByLight && !senses ? masked : plain, senses ? Vfx.SensesLayer : 0, null, 0, block, false, false, false);
+            // (The senses overlay camera draws none of this shader, however it is handed over: every cloud is drawn in the
+            // scene; Penjamin's unmasked, so it shows past the light.)
+            Graphics.DrawMesh(cube, m, maskedByLight ? masked : plain, 0, null, 0, block, false, false, false);
         }
 
         /// <summary>Makes the noise volume and materials now (while a level loads), so the first gas doesn't stall a frame.</summary>
@@ -218,4 +226,5 @@ namespace Vision.Effects
             return Mathf.Clamp01(1f - Mathf.Sqrt(best));
         }
     }
+
 }

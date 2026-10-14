@@ -99,8 +99,8 @@ namespace Vision.Tests
             Assert.AreEqual(0.9f, s.Hp, 1e-5f, "health takes it all");
             rig.Sim.HurtSurvivor(s, 0.1f, null, "slash");
             Assert.AreEqual(0.4f, s.Shield, 1e-5f, "anything else still hits the shield first");
-            Assert.AreEqual(1.1f * 0.7f * 1.2f * 1.1f, Balance.Hunter.Vape.ReachMul, 1e-5f, "30% less than the original's, then 20% more, then 10% more");
-            Assert.AreEqual(10f * 0.8f * 0.6f, Balance.Hunter.Vape.HalfAngleDeg, 1e-5f, "20% narrower than the original's 10 deg, then 40% narrower again");
+            Assert.AreEqual(1.1f * 0.7f * 1.2f * 1.1f * 1.15f, Balance.Hunter.Vape.ReachMul, 1e-5f, "30% less than the original's, then 20%, 10% and 15% more");
+            Assert.AreEqual(10f * 0.8f * 0.6f * 0.7f, Balance.Hunter.Vape.HalfAngleDeg, 1e-5f, "20% narrower than the original's 10 deg, then 40%, then 30% narrower again");
             Assert.AreEqual(0.3f, Balance.Items.Trap.ZachConeCut, 1e-5f, "galaxy gas narrows Zach's cone by 30%");
         }
 

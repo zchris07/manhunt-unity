@@ -443,6 +443,7 @@ namespace Vision.Net
             switch (c)
             {
                 case Net.Command.MoveSlot: sim.MoveSlot(id, a, b); break;
+                case Net.Command.DropSlot: sim.DropSlot(id, a); break;
                 case Net.Command.Spectate: sim.CycleSpectate(sp, a); break;
                 case Net.Command.ViewReach: sp.ViewReach = v.x; break;
                 case Net.Command.SwitchRole: if (sim.TestMode) sim.SwitchRole(id); break;

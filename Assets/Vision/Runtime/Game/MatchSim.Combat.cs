@@ -18,10 +18,11 @@ namespace Vision.Game
             p.Hemp == 0 ? 1f : MatchRules.HempRegenMul(p.Hemp == 2 ? 1f : p.HempLeft / Balance.Hunter.Hemp.Duration);
 
         static bool CanSwing(SimPlayer h) =>
-            h.Carrying == 0 && h.AttackCd <= 0f && h.AttackWindup <= 0f && h.Action == ActionKind.None && h.StunT <= 0f && h.KnockT <= 0f && h.Pump <= 0;
+            h.Carrying == 0 && h.AttackCd <= 0f && h.AttackWindup <= 0f && h.Action == ActionKind.None && h.StunT <= 0f && h.KnockT <= 0f && h.Pump <= 0 && !h.Move.Climbing;
 
+        /// <summary>A charge held into a vault is dropped (nothing is swung while climbing over something).</summary>
         static bool CanKeepCharging(SimPlayer h) =>
-            h.Carrying == 0 && h.AttackWindup <= 0f && h.Action == ActionKind.None && h.StunT <= 0f && h.KnockT <= 0f;
+            h.Carrying == 0 && h.AttackWindup <= 0f && h.Action == ActionKind.None && h.StunT <= 0f && h.KnockT <= 0f && !h.Move.Climbing;
 
         /// <summary>Left click pressed: start charging a swing (released in UpdateCombat).</summary>
         public void StartCharge(SimPlayer h)

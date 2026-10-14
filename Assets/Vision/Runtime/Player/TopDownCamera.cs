@@ -28,6 +28,10 @@ namespace Vision.Player
         [Tooltip("Zoom multiplier on the view size (the Hemp Battery zooms out; Waz changes the field of view).")]
         public float zoom = 1f;
 
+        /// <summary>Testing mode: the mouse wheel's own zoom on top (1 outside testing).</summary>
+        public static float TestZoom = 1f;
+        public const float TestZoomMin = 0.35f, TestZoomMax = 3.2f;
+
         /// <summary>The step one press of Z or C turns the view, and how long the turn takes.</summary>
         public const float TurnStep = 45f, TurnTime = 0.25f;
         /// <summary>
@@ -103,7 +107,7 @@ namespace Vision.Player
         void Apply()
         {
             if (cam == null) cam = GetComponent<Camera>();   // the level may snap the camera before this Awake runs
-            cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight) * Mathf.Clamp(zoom, 0.3f, 3f);
+            cam.orthographicSize = SizeFor(orthographicSize, Screen.height, referenceHeight) * Mathf.Clamp(zoom, 0.3f, 3f) * TestZoom;
             transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
         }
 

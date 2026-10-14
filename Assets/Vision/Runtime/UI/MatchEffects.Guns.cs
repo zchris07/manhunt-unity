@@ -33,24 +33,32 @@ namespace Vision.UI
 
         static readonly RoundLook PistolRound = new RoundLook
         {
-            Speed = 6000f, Trail = 3.2f, Head = 0.39f, Width = 0.0195f,
+            Speed = 6000f * RoundPace, Trail = 3.2f * 2f, Head = 0.39f * 3f, Width = 0.0195f * 3f,
             HeadColor = new Color(1f, 0.93f, 0.72f, 0.95f), TrailColor = new Color(1f, 0.84f, 0.55f, 0.26f),
         };
         static readonly RoundLook PelletRound = new RoundLook
         {
-            Speed = 5000f, Trail = 2.2f, Head = 0.27f, Width = 0.015f,
+            Speed = 5000f * RoundPace, Trail = 2.2f * 2f, Head = 0.27f * 3f, Width = 0.015f * 3f,
             HeadColor = new Color(1f, 0.86f, 0.52f, 0.9f), TrailColor = new Color(1f, 0.76f, 0.4f, 0.22f),
         };
         static readonly RoundLook GoldenPellet = new RoundLook
         {
-            Speed = 5000f, Trail = 2.2f, Head = 0.27f, Width = 0.0165f,
+            Speed = 5000f * RoundPace, Trail = 2.2f * 2f, Head = 0.27f * 3f, Width = 0.0165f * 3f,
             HeadColor = new Color(1f, 0.88f, 0.42f, 0.95f), TrailColor = new Color(1f, 0.8f, 0.3f, 0.24f),
         };
         static readonly RoundLook SniperLook = new RoundLook
         {
-            Speed = Balance.Items.Sniper.Speed, Trail = 5.2f, Head = 0.6f, Width = 0.024f,
+            Speed = Balance.Items.Sniper.Speed * RoundPace, Trail = 5.2f * 2f, Head = 0.6f * 3f, Width = 0.024f * 3f,
             HeadColor = new Color(1f, 0.95f, 0.82f, 1f), TrailColor = new Color(1f, 0.5f, 0.34f, 0.3f),
         };
+
+        /// <summary>
+        /// How fast rounds are drawn flying, against the speeds the match uses (half: they're seen crossing the screen).
+        /// Only the look: what they hit, and when, is the match's.
+        /// </summary>
+        public const float RoundPace = 0.5f;
+        /// <summary>How much thicker a round's trail is than at first (its length is doubled in each look).</summary>
+        public const float TrailThick = 2f;
 
         struct Round
         {
@@ -89,9 +97,23 @@ namespace Vision.UI
         /// </summary>
         bool Hidden(Camera cam, Vector3 p, float up)
         {
+            if (cam == null) return false;
+            Vector3 back = cam.orthographic ? -cam.transform.forward : (cam.transform.position - p).normalized;
+            if (back.y > 1e-3f)
+                for (int k = 0; k < 8; k++)
+                {
+                    float floor = Floor(p, up);
+                    if (p.y >= floor - 1e-3f) break;
+                    p += back * ((floor - p.y) / back.y);
+                }
+            return Vfx.Covered(cam, p);
+        }
+
+        /// <summary>The world height <paramref name="up"/> over the ground straight under <paramref name="p"/>.</summary>
+        float Floor(Vector3 p, float up)
+        {
             Vector3 l = world.transform.InverseTransformPoint(p);
-            float floor = world.transform.TransformPoint(new Vector3(l.x, world.SurfaceHeight(new Vector2(l.x, l.z)) + up, l.z)).y;
-            return Vfx.Covered(cam, p, floor);
+            return world.transform.TransformPoint(new Vector3(l.x, world.SurfaceHeight(new Vector2(l.x, l.z)) + up, l.z)).y;
         }
 
         readonly List<Vector3> runPts = new List<Vector3>(256);
@@ -173,7 +195,8 @@ namespace Vision.UI
                 float len = d.magnitude;
                 Vector2 dir = len > 1e-5f ? d / len : Vector2.right;
                 float head = (now - r.Born) * Scale.D(r.Look.Speed);
-                if (head - r.Look.Trail >= len)
+                // Gone once its trail has burned out past where it landed (a whole trail's length on).
+                if (head - 2f * r.Look.Trail >= len)
                 {
                     rounds.RemoveAt(i);
                     continue;
@@ -188,21 +211,30 @@ namespace Vision.UI
                     r.Impact = 0;
                     rounds[i] = r;
                 }
-                float a = Mathf.Clamp(head - r.Look.Trail, 0f, len), b = Mathf.Min(head, len);
+                // The tail follows a trail's length behind; once the round has landed it creeps in at half the pace, so the
+                // trail stays on screen twice as long.
+                float tail = head < len ? head - r.Look.Trail : len - r.Look.Trail + (head - len) * 0.5f;
+                float a = Mathf.Clamp(tail, 0f, len), b = Mathf.Min(head, len);
                 if (b - a < 1e-4f) continue;
-                // The trail: a long, dim streak behind it, fading out toward its tail.
+                // The trail: a long streak of hot air behind it, a soft glow round a bright core, fading toward its tail
+                // (and, once the round has landed, the rest of it burning out where it flew).
                 pts.Clear(); cols.Clear();
-                int n = Mathf.Clamp(Mathf.CeilToInt((b - a) / 0.4f), 1, 12);
+                int n = Mathf.Clamp(Mathf.CeilToInt((b - a) / 0.4f), 1, 24);
+                float landed = head >= len ? Mathf.Clamp01(1f - (head - len) / Mathf.Max(0.01f, 2f * r.Look.Trail)) : 1f;
                 for (int k = 0; k <= n; k++)
                 {
                     float t = k / (float)n;
                     pts.Add(RoundPoint(r, dir, len, Mathf.Lerp(a, b, t)));
                     Color c = r.Look.TrailColor;
-                    c.a *= t * t;
+                    c.a *= t * t * Mathf.Lerp(0.4f, 1f, landed);
                     cols.Add(c);
                 }
-                StraightLine(r.Look.Width * 1.2f * s, false, Vfx.Blend.Additive, r.Up);
-                // The round itself: a short bright streak at the front, while it's still flying.
+                float trailW = r.Look.Width / 3f * 1.2f * TrailThick * s;
+                for (int k = 0; k < cols.Count; k++) cols[k] = new Color(cols[k].r, cols[k].g * 0.85f, cols[k].b * 0.7f, cols[k].a * 0.55f);
+                StraightLine(trailW * 3f, true, Vfx.Blend.Additive, r.Up);
+                for (int k = 0; k < cols.Count; k++) cols[k] = new Color(1f, 0.97f, 0.88f, cols[k].a * 1.6f);
+                StraightLine(trailW, false, Vfx.Blend.Additive, r.Up);
+                // The round itself: a big bright streak at the front with a white-hot tip and a halo of light round it.
                 if (head >= len) continue;
                 pts.Clear(); cols.Clear();
                 pts.Add(RoundPoint(r, dir, len, Mathf.Max(a, b - r.Look.Head)));
@@ -211,6 +243,11 @@ namespace Vision.UI
                 cols.Add(new Color(hc.r, hc.g, hc.b, hc.a * 0.3f));
                 cols.Add(hc);
                 StraightLine(r.Look.Width * 1.7f * s, false, Vfx.Blend.Additive, r.Up);
+                cols[0] = new Color(1f, 1f, 1f, 0f);
+                cols[1] = new Color(1f, 1f, 1f, 0.95f);
+                StraightLine(r.Look.Width * 0.6f * s, false, Vfx.Blend.Additive, r.Up);
+                Vector3 tip = RoundPoint(r, dir, len, b);
+                if (!Hidden(Camera.main, tip, r.Up)) Fx.Glow(tip, r.Look.Width * 9f * s, new Color(hc.r, hc.g * 0.9f, hc.b * 0.75f, 0.55f));
             }
             for (int i = pierces.Count - 1; i >= 0; i--)
             {
