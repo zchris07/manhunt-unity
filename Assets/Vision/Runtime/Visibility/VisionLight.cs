@@ -22,6 +22,8 @@ namespace Vision.Visibility
         public float flickerSpeed = 6f;
         [Tooltip("Half the beam's width (degrees): 180 lights all round; less makes a cone along the transform's forward (a flood light).")]
         [Range(1f, 180f)] public float coneHalfAngleDeg = 180f;
+        [Tooltip("As bright as a player's own light (the light towers), rather than a lamp's.")]
+        public bool bright;
         [Tooltip("Share of the range that stays at full brightness before it falls off.")]
         [Range(0f, 0.95f)] public float falloffStart = 0.25f;
 

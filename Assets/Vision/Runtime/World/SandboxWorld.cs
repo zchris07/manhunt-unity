@@ -512,7 +512,7 @@ namespace Vision.World
             Step("lake", BuildLake);
             Step("power", BuildPowerLine);
             Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); BuildSushi(); BuildChamber(); });
-            Step("lights", () => { BuildGenerators(); BuildLights(); });
+            Step("lights", () => { BuildGenerators(); BuildFloodSets(); BuildLights(); });
             Step("stakes", () => { BuildStakes(); BuildAmbulance(); });
             Step("trees", BuildTrees);
             Step("rocks", BuildRocks);
@@ -1588,97 +1588,7 @@ namespace Vision.World
             var objective = gen.AddComponent<GeneratorObjective>();
             objective.body = gen.transform;
             objective.glow = glow;
-            BuildFloodLight(gen, objective);
-        }
-
-        /// <summary>The flood light's reach (design units), half its beam's width (degrees) and brightness.</summary>
-        public const float FloodRange = 20f, FloodHalfAngle = 55f, FloodIntensity = 1f, FloodHeight = 2.8f;
-
-        /// <summary>
-        /// A flood light wired to a generator: a steel pole just behind it with a lamp head on top, a cable along the ground
-        /// to the generator, and a wide cone of light aimed out across it. Dark until the generator runs, then on for good.
-        /// </summary>
-        void BuildFloodLight(GameObject gen, GeneratorObjective objective)
-        {
-            Vector3 gl = transform.InverseTransformPoint(gen.transform.position);
-            Vector3 f3 = transform.InverseTransformDirection(gen.transform.forward);
-            var f = new Vector2(f3.x, f3.z);
-            f = f.sqrMagnitude > 1e-6f ? f.normalized : Vector2.up;
-            var g = new Vector2(gl.x, gl.z);
-            float baseY = gl.y - 0.05f;
-            // The pole on clear ground beside the generator, on its side of any wall (behind it first, then round it).
-            Physics.SyncTransforms();
-            int solid = ~((1 << GroundLayer) | (1 << CharacterLayer) | (1 << 2) | (1 << LowLayer));
-            float s = transform.lossyScale.x;
-            Vector3 W(Vector2 p, float up) => transform.TransformPoint(new Vector3(p.x, baseY + up, p.y));
-            Vector2 at = g - f * 1.7f;
-            for (int k = 0; k < 8; k++)
-            {
-                float a = Mathf.Atan2(-f.y, -f.x) + k * Mathf.PI / 4f * (k % 2 == 0 ? 1f : -1f) * ((k + 1) / 2);
-                Vector2 c = g + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 1.7f;
-                if (Physics.CheckSphere(W(c, 1.2f), 0.35f * s, solid, QueryTriggerInteraction.Ignore)) continue;
-                if (Physics.Linecast(W(g, 1.2f), W(c, 1.2f), solid, QueryTriggerInteraction.Ignore)) continue;
-                at = c;
-                break;
-            }
-            // Aimed the way with the longest clear run from the pole (over open ground, not into a wall).
-            Vector2 aim = (g - at).normalized;
-            float bestRun = -1f;
-            for (int k = 0; k < 16; k++)
-            {
-                float a = k * Mathf.PI / 8f;
-                var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-                Vector3 from = W(at, 1.5f), dir = transform.TransformDirection(new Vector3(d.x, 0f, d.y)).normalized;
-                float run = Physics.Raycast(from, dir, out RaycastHit hit, FloodRange * s, solid, QueryTriggerInteraction.Ignore) ? hit.distance : FloodRange * s;
-                // Prefer across the generator a little, when it's as open.
-                run *= 1f + 0.15f * Mathf.Max(0f, Vector2.Dot(d, (g - at).normalized));
-                if (run > bestRun) { bestRun = run; aim = d; }
-            }
-            f = aim;
-            Quaternion yaw = Quaternion.Euler(0f, Mathf.Atan2(f.x, f.y) * Mathf.Rad2Deg, 0f);
-            var steel = new Color(0.32f, 0.33f, 0.35f);
-
-            var pole = new LowPolyMeshBuilder(rng);
-            pole.AddBox(new Vector3(-0.2f, 0f, -0.2f), new Vector3(0.4f, 0.08f, 0.4f), new Color(0.25f, 0.25f, 0.26f), 0.02f);
-            pole.AddBox(new Vector3(-0.06f, 0f, -0.06f), new Vector3(0.12f, FloodHeight, 0.12f), steel, 0.02f);
-            pole.AddBox(new Vector3(-0.35f, FloodHeight - 0.12f, -0.05f), new Vector3(0.7f, 0.08f, 0.1f), steel, 0.02f);
-            GameObject poleGo = MakeStatic("Flood Light", pole.ToMesh("Flood Light Pole"), new Vector3(at.x, baseY, at.y), yaw, lowPolyMaterial);
-            AddBox(poleGo, new Vector3(0f, FloodHeight * 0.5f, 0f), new Vector3(0.2f, FloodHeight, 0.2f));
-            poleGo.SetActive(true);
-
-            // The lamp head: a wide box tipped down toward what it lights, its face lit when the generator runs.
-            var head = new LowPolyMeshBuilder(rng);
-            head.AddBox(new Vector3(-0.32f, -0.14f, -0.08f), new Vector3(0.64f, 0.28f, 0.16f), new Color(0.2f, 0.21f, 0.22f), 0.01f);
-            head.AddBox(new Vector3(-0.28f, -0.11f, 0.08f), new Vector3(0.56f, 0.22f, 0.02f), new Color(0.95f, 0.93f, 0.82f), 0.005f);
-            GameObject headGo = MakeStatic("Flood Lamp", head.ToMesh("Flood Lamp"), new Vector3(at.x, baseY + FloodHeight + 0.05f, at.y), yaw * Quaternion.Euler(28f, 0f, 0f), lowPolyMaterial);
-            // Not static: its material changes as the generator starts.
-            headGo.isStatic = false;
-            headGo.SetActive(true);
-
-            // The cable: a dark run along the ground from the pole's foot to the generator.
-            var cable = new LowPolyMeshBuilder(rng);
-            float len = Vector2.Distance(at, g);
-            cable.AddBox(new Vector3(-0.025f, 0f, 0f), new Vector3(0.05f, 0.04f, len), new Color(0.08f, 0.08f, 0.08f), 0.005f);
-            Vector2 toGen = (g - at).normalized;
-            GameObject cableGo = MakeStatic("Flood Cable", cable.ToMesh("Flood Cable"), new Vector3(at.x, baseY + 0.06f, at.y),
-                Quaternion.Euler(0f, Mathf.Atan2(toGen.x, toGen.y) * Mathf.Rad2Deg, 0f), lowPolyMaterial);
-            cableGo.SetActive(true);
-
-            var lightGo = new GameObject("Flood Light Beam");
-            lightGo.transform.SetParent(poleGo.transform, false);
-            lightGo.transform.localPosition = new Vector3(0f, 0f, 0.3f);
-            var flood = lightGo.AddComponent<VisionLight>();
-            flood.range = FloodRange;
-            flood.height = FloodHeight;
-            flood.intensity = FloodIntensity;
-            flood.flickerAmount = 0.02f;
-            flood.coneHalfAngleDeg = FloodHalfAngle;
-            flood.falloffStart = 0.65f;
-            flood.enabled = false;
-            objective.flood = flood;
-            objective.floodLamp = headGo.GetComponent<MeshRenderer>();
-            objective.lampOff = lowPolyMaterial;
-            objective.lampOn = glowMaterial != null ? glowMaterial : lowPolyMaterial;
+            pendingSets.Add((gen, objective));
         }
 
         /// <summary>The most stakes a map has (the original's: survivors + 4, between 6 and 12).</summary>

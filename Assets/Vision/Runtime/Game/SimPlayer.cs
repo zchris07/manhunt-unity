@@ -157,8 +157,6 @@ namespace Vision.Game
         public bool Gassed;
         /// <summary>Penjamin: seconds the slow and burn last, their strength, seconds of darkness.</summary>
         public float VapeT, VapeSlow, VapeDps, DarkT, VapeSlowT;
-        /// <summary>The last cloud that caught them was 50 Nic: its effects linger <see cref="Balance.Hunter.Vape.NicLinger"/> s, falling off linearly.</summary>
-        public bool VapeNic;
         public float ViewReach;
 
         // Zach's attack.

@@ -242,26 +242,18 @@ namespace Vision.Game
         }
 
         /// <summary>Puts a survivor under the vape's effects at a given strength (0 = the far end, 1 = point blank).</summary>
-        static void VapeSurvivor(SimPlayer p, float near, bool nic)
+        static void VapeSurvivor(SimPlayer p, float near)
         {
             float k = Mathf.Clamp01(near);
             var V = (slow: Balance.Hunter.Vape.Slow, slowFar: Balance.Hunter.Vape.SlowFar, dps: Balance.Hunter.Vape.Dps, dpsFar: Balance.Hunter.Vape.DpsFar);
             p.VapeSlow = Mathf.Max(p.VapeSlowT > 0f ? p.VapeSlow : 0f, V.slowFar + (V.slow - V.slowFar) * k);
             p.VapeDps = Mathf.Max(p.VapeT > 0f ? p.VapeDps : 0f, V.dpsFar + (V.dps - V.dpsFar) * k);
-            p.VapeNic = nic;
-            if (nic)
-            {
-                // 50 Nic: blur, slow and narrowed light all held while in it, then falling off together over four seconds.
-                p.VapeSlowT = p.VapeT = p.DarkT = Balance.Hunter.Vape.NicLinger;
-                return;
-            }
-            p.VapeSlowT = Balance.Hunter.Vape.SlowAfter;
-            p.VapeT = Balance.Hunter.Vape.AfterTime;
-            p.DarkT = Balance.Hunter.Vape.DarkAfter;
+            // Penjamin or 50 Nic: slow, blur and narrowed sight held while in it, then falling off together over five seconds.
+            p.VapeSlowT = p.VapeT = p.DarkT = Balance.Hunter.Vape.Linger;
         }
 
-        /// <summary>How much of 50 Nic's lingering effects are left (1 in the cloud, falling linearly to 0 four seconds out).</summary>
-        public static float NicLeft(SimPlayer p) => p.VapeNic ? Mathf.Clamp01(p.VapeT / Balance.Hunter.Vape.NicLinger) : 0f;
+        /// <summary>How much of the gas's lingering effects are left (1 in the cloud, falling linearly to 0 five seconds out).</summary>
+        public static float VapeLeft(SimPlayer p) => Mathf.Clamp01(p.VapeT / Balance.Hunter.Vape.Linger);
 
         void UpdateVapes(float dt)
         {
@@ -296,7 +288,7 @@ namespace Vision.Game
                     if (p.Role != Role.Survivor || p.HideState == 2) continue;
                     if (p.Health != Health.Healthy && p.Health != Health.Wounded && p.Health != Health.Downed) continue;
                     if (VapeCoverage(v, ext, p.Pos, p.RadiusD) < Balance.Hunter.Vape.Coverage) continue;
-                    VapeSurvivor(p, 1f - Vector2.Distance(p.Pos, v.Origin) / v.Range, v.Nic);
+                    VapeSurvivor(p, 1f - Vector2.Distance(p.Pos, v.Origin) / v.Range);
                 }
                 if (by == null) continue;
                 // NPCs that react to being attacked react to the gas: once as if attacked; those that can be hurt are also
@@ -327,7 +319,8 @@ namespace Vision.Game
                 p.SniperSlowT = Mathf.Max(0f, p.SniperSlowT - dt);
                 p.Move.FadeMul *= 1f - Balance.Items.Sniper.Slow * p.SniperSlowT / Balance.Items.Sniper.SlowTime;
             }
-            // Lingering effects: slowed and choking while in it and a little after; dark a while longer.
+            // Lingering effects: slowed, blurred and narrowed in it, falling off together over five seconds once out;
+            // choking in it and two seconds after.
             foreach (SimPlayer p in Order)
             {
                 if (p.Role != Role.Survivor) continue;
@@ -335,19 +328,13 @@ namespace Vision.Game
                 if (p.VapeSlowT > 0f)
                 {
                     p.VapeSlowT = Mathf.Max(0f, p.VapeSlowT - dt);
-                    // 50 Nic's slow falls off linearly over its linger; Penjamin's holds, then stops.
-                    if (p.VapeNic) p.Move.FadeMul *= 1f - p.VapeSlow * Mathf.Clamp01(p.VapeSlowT / Balance.Hunter.Vape.NicLinger);
-                    else
-                    {
-                        p.Move.SlowT = Mathf.Max(p.Move.SlowT, 0.1f);
-                        p.Move.SlowMul = Mathf.Min(p.Move.SlowMul, 1f - p.VapeSlow);
-                    }
+                    p.Move.FadeMul *= 1f - p.VapeSlow * Mathf.Clamp01(p.VapeSlowT / Balance.Hunter.Vape.Linger);
                 }
                 if (p.VapeT <= 0f) continue;
+                bool choking = p.VapeT > Balance.Hunter.Vape.Linger - Balance.Hunter.Vape.AfterTime;
                 p.VapeT = Mathf.Max(0f, p.VapeT - dt);
-                if (p.VapeT <= 0f) p.VapeNic = false;
-                // Penjamin goes straight through the shield to the health bar.
-                HurtSurvivor(p, p.VapeDps * dt, null, "vape");
+                // Penjamin goes straight through the shield to the health bar (in it, and its two seconds after).
+                if (choking) HurtSurvivor(p, p.VapeDps * dt, null, "vape");
             }
         }
 

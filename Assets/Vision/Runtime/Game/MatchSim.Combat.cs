@@ -89,12 +89,12 @@ namespace Vision.Game
                 best = q;
                 bestD = d;
             }
-            bool hit = false;
+            bool hit = false, body = false;
             int power = h.Heavy ? 2 : 1;
             if (best != null)
             {
                 DamageSurvivor(best, h, h.SwingDamage);
-                hit = true;
+                hit = body = true;
             }
             else
             {
@@ -102,7 +102,7 @@ namespace Vision.Game
                 {
                     if (!n.Slashable || !n.Solid || !InSwipe(h, n.Pos, n.HitRadius) || !Geo.LineOfSight(h.Pos, n.Pos)) continue;
                     n.Slash(this, h, power);
-                    hit = true;
+                    hit = body = true;
                     break;
                 }
             }
@@ -150,7 +150,8 @@ namespace Vision.Game
                     Noise(c, 800f, "glass");
                 }
             h.Heavy = false;
-            Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = power, F = hit ? 1f : 0f, Text = h.SwingSide == 1 ? "back" : null });
+            // F: 0 a miss, 1 it struck something (a barricade, a door, a window), 2 it cut someone (a survivor or an NPC).
+            Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = power, F = body ? 2f : hit ? 1f : 0f, Text = h.SwingSide == 1 ? "back" : null });
             if (hit)
             {
                 h.AttackCd = Balance.Hunter.Attack.HitCooldown;

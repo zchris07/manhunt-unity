@@ -140,7 +140,8 @@ Shader "Hidden/Vision/Composite"
                 half4 m = SampleVisionMask(sampleXZ);
 
                 // Lit areas show whether or not the player has a line of sight to them.
-                half fromSources = m.r;
+                // Light sources come in at half (so a light tower can reach a player's own light's brightness).
+                half fromSources = m.r * 2.0;
                 half beam = m.b * _VisBeam.x * _VisViewer.x;
 
                 // Upright faces turned away from a light (a trunk's or rock's back side) get part of the light on the
@@ -152,7 +153,7 @@ Shader "Hidden/Vision/Composite"
                     half4 front = SampleVisionMask(ws.xz - normalize(n.xz + 1e-5) * _VisBeam.z);
                     half k = _VisBeam.y * upright;
                     beam = max(beam, front.b * _VisBeam.x * _VisViewer.x * k);
-                    fromSources = max(fromSources, front.r * k);
+                    fromSources = max(fromSources, front.r * 2.0 * k);
                 }
                 half lit = max(beam, fromSources);
 
@@ -164,7 +165,8 @@ Shader "Hidden/Vision/Composite"
                 half3 grey = (lum * _VisDark.x + _VisDark.y) * _VisDarkTint.rgb * _VisGrade.w;
 
                 // Light-source light is tinted warm; _VisViewerTint carries the exposure.
-                half viewerShare = saturate(beam / max(lit, 1e-3));
+                // (A source brighter than a lamp ever is, a light tower, lights white like a player's own light.)
+                half viewerShare = saturate(max(beam / max(lit, 1e-3), fromSources - 1.0));
                 half3 tint = _VisViewerTint.rgb * lerp(_VisSourceTint.rgb, 1.0, viewerShare);
                 // Character shadows only darken what is already lit; they never change the lit amount.
                 half3 litColor = scene * lit * tint * (1.0 - _VisShadow * m.a) * _VisGrade.z;

@@ -619,20 +619,19 @@ namespace Vision.Player
                         yield return new WaitForSeconds(3.5f);
                         GeneratorObjective lit = null;
                         foreach (GeneratorObjective g in GeneratorObjective.All)
-                            if (g != null && g.flood != null && g.transform.IsChildOf(world.transform)
+                            if (g != null && g.floods.Count > 0 && g.transform.IsChildOf(world.transform)
                                 && (lit == null || g.transform.position.sqrMagnitude > lit.transform.position.sqrMagnitude)) lit = g;
                         if (lit != null)
                         {
                             int gi = world.Generators.IndexOf(lit.transform);
                             if (gi >= 0 && gi < host.Sim.Gens.Length) { host.Sim.Gens[gi].Progress = 1f; host.Sim.Gens[gi].Repaired = true; }
                             lit.SetState(1f, true);
-                            // Standing just behind the pole, facing away from its swath (so the player's own light isn't on it).
-                            Vector3 pl = world.transform.InverseTransformPoint(lit.flood.transform.position);
-                            Vector3 pf = world.transform.InverseTransformDirection(lit.flood.transform.forward);
-                            Vector2 beam = new Vector2(pf.x, pf.z).normalized;
-                            Vector2 behind = new Vector2(pl.x, pl.z) - beam * 2.5f;
-                            cameraRig.orthographicSize = o * 1.6f;
-                            yield return Stage(player, V(behind), -beam, wanderer, away);
+                            // Standing by the generator, looking away from the towers' side, the camera pulled back to see the site.
+                            Vector3 gl = world.transform.InverseTransformPoint(lit.transform.position);
+                            Vector3 tl = world.transform.InverseTransformPoint(lit.floods[0].transform.position);
+                            Vector2 g2 = new Vector2(gl.x, gl.z), away2 = (g2 - new Vector2(tl.x, tl.z)).normalized;
+                            cameraRig.orthographicSize = o * 2.2f;
+                            yield return Stage(player, V(g2 + away2 * 1.5f), away2, wanderer, away);
                             yield return new WaitForSeconds(0.6f);
                             yield return Shot("156_flood_light");
                         }

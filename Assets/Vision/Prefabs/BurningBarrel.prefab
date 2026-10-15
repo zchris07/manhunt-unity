@@ -301,6 +301,7 @@ MonoBehaviour:
   flickerAmount: 0.22
   flickerSpeed: 6
   coneHalfAngleDeg: 180
+  bright: 0
   falloffStart: 0.25
 --- !u!136 &4676502611715308314
 CapsuleCollider:

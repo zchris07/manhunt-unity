@@ -40,7 +40,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void TheSniperSlow_AndNicsLinger_FallOffLinearly()
+        public void TheSniperSlow_AndTheGassLinger_FallOffLinearly()
         {
             var rig = new SimRig(1, 1);
             SimPlayer zach = rig.P(1), s = rig.P(2);
@@ -52,15 +52,20 @@ namespace Vision.Tests
             rig.Run(Secs(0.6f));
             Assert.AreEqual(0f, zach.SniperSlowT);
 
-            s.VapeNic = true;
+            // Out of Penjamin's (or 50 Nic's) cloud: everything falls off together over five seconds.
+            Assert.AreEqual(5f, Balance.Hunter.Vape.Linger);
             s.VapeSlow = 0.4f;
-            s.VapeT = s.VapeSlowT = s.DarkT = Balance.Hunter.Vape.NicLinger;
-            rig.Run(Secs(2f));
-            Assert.AreEqual(0.5f, MatchSim.NicLeft(s), 0.03f, "two seconds out: half left");
+            s.VapeT = s.VapeSlowT = s.DarkT = Balance.Hunter.Vape.Linger;
+            rig.Run(Secs(2.5f));
+            Assert.AreEqual(0.5f, MatchSim.VapeLeft(s), 0.03f, "half way out: half left");
             Assert.AreEqual(1f - 0.4f * 0.5f, s.Move.FadeMul, 0.03f, "its slow halved");
-            rig.Run(Secs(2.2f));
-            Assert.AreEqual(0f, MatchSim.NicLeft(s));
-            Assert.IsFalse(s.VapeNic, "gone after four seconds");
+            Assert.AreEqual(s.VapeT, s.DarkT, 1e-4f, "the narrowed sight on the same clock");
+            Assert.AreEqual(s.VapeT, s.VapeSlowT, 1e-4f, "and the slow");
+            rig.Run(Secs(2.6f));
+            Assert.AreEqual(0f, MatchSim.VapeLeft(s), "all gone at five seconds");
+            Assert.AreEqual(0f, s.DarkT);
+            Assert.AreEqual(0f, s.VapeSlowT);
+            Assert.AreEqual(1f, s.Move.FadeMul, 1e-4f, "back to full speed");
         }
 
         [Test]
@@ -182,16 +187,26 @@ namespace Vision.Tests
                 Assert.Greater(chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Baby Oil"), 6, "baby oil all over");
                 Assert.AreEqual(1, chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Comfy Bed"));
 
-                // A flood light by every generator: a wide cone, dark until it runs.
+                // Every generator's work site: three light towers as tall as a big tree, lighting all round them as brightly as
+                // a player's own light, work lights, cables and clutter; all dark until it runs, then on for good.
                 foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform)))
                 {
-                    Assert.IsNotNull(g.flood, $"{g.name} is wired to a flood light");
-                    Assert.IsTrue(g.flood.IsCone);
-                    Assert.Greater(g.flood.WorldRange / world.transform.lossyScale.x, 15f, "a wide swath");
-                    Assert.IsFalse(g.flood.enabled, "dark until it runs");
+                    var towers = g.floods.Where(l => l.bright).ToList();
+                    Assert.AreEqual(3, towers.Count, $"{g.name}: three light towers");
+                    Assert.Greater(g.floods.Count(l => !l.bright), 0, "and work lights");
+                    foreach (VisionLight t in towers)
+                    {
+                        Assert.IsFalse(t.IsCone, "a radius of light, not a beam");
+                        Assert.AreEqual(SandboxWorld.TowerLightRange, t.range);
+                        Assert.Greater(t.transform.parent.GetComponent<MeshFilter>().sharedMesh.bounds.size.y, 8.5f, "as tall as a big tree");
+                        Assert.IsFalse(t.enabled, "dark until it runs");
+                    }
                     g.SetState(1f, true);
-                    Assert.IsTrue(g.flood.enabled, "on for good once it runs");
+                    Assert.IsTrue(g.floods.All(l => l.enabled), "on for good once it runs");
+                    Assert.IsTrue(g.lamps.All(r => r.sharedMaterial == g.lampOn), "its lamps lit");
                 }
+                Assert.Greater(root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Cable"), 10, "cables winding to every light");
+                Assert.Greater(root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Tarp" || t.name == "Glass" || t.name == "Planks" || t.name == "Overgrowth" || t.name == "BigOvergrowth"), 10, "a work site gone to seed");
 
                 // Survivors start scattered over the map, apart, away from Zach, on open ground.
                 SimMap map = SimMapBuilder.Build(world);

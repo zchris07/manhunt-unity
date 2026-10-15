@@ -166,7 +166,7 @@ namespace Vision.Audio
         public bool PlayCue(string cue, Vector2? at = null, float volume = 1f)
         {
             if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue c)) return false;
-            AudioClip clip = !string.IsNullOrEmpty(c.Prefer) ? SoundBank.Load(c.Prefer) : null;
+            AudioClip clip = c.Prefer != null && c.Prefer.Length > 0 ? SoundBank.Load(c.Prefer[UnityEngine.Random.Range(0, c.Prefer.Length)]) : null;
             if (clip == null)
             {
                 if (c.Files.Length == 0) return false;

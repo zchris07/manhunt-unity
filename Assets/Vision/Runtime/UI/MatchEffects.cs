@@ -87,9 +87,10 @@ namespace Vision.UI
                         Audio.PlayCue(e.B >= 2 ? "swing_heavy" : "swing", Units(by.Pos));
                         if (e.B >= 2) Audio.PlayCue("swing_heavy_low", Units(by.Pos));
                     }
-                    else if (e.G <= 0f && e.F > 0f)
+                    else if (e.G <= 0f && e.F >= 2f)
                     {
-                        // It connected: the slash, and a charged cut flings blood off the tip of the blade.
+                        // It cut someone (a survivor or an NPC, never a door, window or barricade): the slash into flesh,
+                        // and a charged cut flings blood off the tip of the blade.
                         Audio.PlayCue("slash", Units(by.Pos));
                         if (e.B >= 2) BladeDroplets(by.Id);
                     }

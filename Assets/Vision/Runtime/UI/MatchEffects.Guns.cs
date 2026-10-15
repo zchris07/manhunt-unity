@@ -339,6 +339,7 @@ namespace Vision.UI
             const int rays = 9;
             float best = float.MaxValue;
             Vector3 at = Vector3.zero, normal = Vector3.up, dir = Vector3.forward;
+            Collider struck = null;
             for (int i = 0; i < rays; i++)
             {
                 Vector3 d = WorldDir(by.Facing + arc * (i / (rays - 1f) - 0.5f));
@@ -347,14 +348,95 @@ namespace Vision.UI
                 {
                     if (bladeHits[k].collider.transform.IsChildOf(go.transform) || bladeHits[k].distance >= best) continue;
                     best = bladeHits[k].distance;
+                    struck = bladeHits[k].collider;
                     at = bladeHits[k].point;
                     normal = bladeHits[k].normal;
                     dir = d;
                 }
             }
             if (best == float.MaxValue) return;
-            PierceBurst(at, -dir, normal);
-            if (heavy) PierceBurst(at + normal * 0.03f * S, Vector3.Reflect(dir, normal), normal);
+            Surface what = SurfaceOf(struck);
+            SurfaceBurst(at, Vector3.Reflect(dir, normal), normal, what, heavy ? 1.7f : 1f);
+            if (what == Surface.Wood) Audio.PlayCue("machete_wood", Units(by.Pos));
+        }
+
+        /// <summary>What a struck thing is made of, as its debris shows it.</summary>
+        public enum Surface { Wood, Stone, Metal, Glass, Plaster }
+
+        static readonly (string word, Surface what)[] SurfaceWords =
+        {
+            ("Window", Surface.Glass), ("Glass", Surface.Glass), ("Pane", Surface.Glass),
+            ("Iron", Surface.Metal), ("Gate", Surface.Metal), ("Generator", Surface.Metal), ("Car", Surface.Metal), ("Ambulance", Surface.Metal),
+            ("Flood", Surface.Metal), ("Light Tower", Surface.Metal), ("Locker", Surface.Metal), ("Metal", Surface.Metal), ("Barrel", Surface.Metal),
+            ("Steel", Surface.Metal), ("Pole", Surface.Metal), ("Swing", Surface.Metal), ("Slide", Surface.Metal), ("Spool", Surface.Metal),
+            ("Rock", Surface.Stone), ("Boulder", Surface.Stone), ("Grave", Surface.Stone), ("Pillar", Surface.Stone), ("Stone", Surface.Stone),
+            ("Plank", Surface.Wood), ("Wood", Surface.Wood), ("Log", Surface.Wood), ("Door", Surface.Wood), ("Wardrobe", Surface.Wood),
+            ("Table", Surface.Wood), ("Chair", Surface.Wood), ("Crate", Surface.Wood), ("Fence", Surface.Wood), ("Pallet", Surface.Wood),
+            ("Barricade", Surface.Wood), ("Bed", Surface.Wood), ("Stake", Surface.Wood), ("Tree", Surface.Wood), ("Trunk", Surface.Wood),
+            ("Stump", Surface.Wood), ("Spruce", Surface.Wood), ("Pine", Surface.Wood), ("Fir", Surface.Wood), ("Oak", Surface.Wood),
+            ("Snag", Surface.Wood), ("Counter", Surface.Wood), ("Shelf", Surface.Wood), ("Desk", Surface.Wood),
+        };
+
+        /// <summary>Reads a struck collider's material from its name and its parents' (walls with nothing else are plaster).</summary>
+        public static Surface SurfaceOf(Collider c)
+        {
+            for (Transform t = c != null ? c.transform : null; t != null; t = t.parent)
+                foreach (var (word, what) in SurfaceWords)
+                    if (t.name.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0) return what;
+            return Surface.Plaster;
+        }
+
+        /// <summary>
+        /// Debris off a struck surface, by what it's made of, flung mostly along <paramref name="out_"/>: wood throws long
+        /// splinters, bark chips and a puff of sawdust; stone grey chips, grit and a few sparks with a cloud of dust; metal a
+        /// shower of sparks and dark flecks; glass bright shards; plaster and concrete white chips in a big dust cloud.
+        /// <paramref name="k"/> scales how much (a charged swing's more).
+        /// </summary>
+        void SurfaceBurst(Vector3 at, Vector3 out_, Vector3 normal, Surface what, float k)
+        {
+            float s = S;
+            Vector3 spray = (out_ + normal * 0.8f).normalized;
+            int N(float n) => Mathf.RoundToInt(n * k);
+            Vector3 V(float spread, float up, float lo, float hi) => (spray + Random.insideUnitSphere * spread + Vector3.up * up).normalized * Random.Range(lo, hi) * s;
+            void Chip(Color a, Color b, float lo, float hi, float size, float life, bool streak = false, float g = 12f) =>
+                Fx.Emit(at, V(0.8f, 0.6f, lo, hi), Random.Range(life * 0.6f, life), Color.Lerp(a, b, Random.value), Random.Range(size * 0.6f, size) * s, g * s, 0.6f, streak, false, 1f, false, false, Vfx.Blend.Alpha, true);
+            void Dust(Color c, float size, float life, float grow) =>
+                Fx.Emit(at + Random.insideUnitSphere * 0.08f * s, (spray * Random.Range(0.4f, 1.2f) + Random.insideUnitSphere * 0.5f) * s, Random.Range(life * 0.6f, life), c, Random.Range(size * 0.6f, size) * s, 0f, 2.4f, false, false, grow, false, false, Vfx.Blend.Alpha, true);
+            void Spark(int n)
+            {
+                for (int i = 0; i < n; i++)
+                    Fx.Emit(at, V(0.7f, 0.3f, 3f, 9f), Random.Range(0.12f, 0.3f), Color.Lerp(new Color(1f, 0.93f, 0.66f, 1f), new Color(1f, 0.58f, 0.22f, 1f), Random.value),
+                        Random.Range(0.02f, 0.04f) * s, 9.8f * s, 1.5f, true, false, 1f, false, false, Vfx.Blend.Additive, true);
+            }
+            switch (what)
+            {
+                case Surface.Wood:
+                    for (int i = 0; i < N(12); i++) Chip(new Color(0.62f, 0.46f, 0.28f, 1f), new Color(0.82f, 0.68f, 0.46f, 1f), 2.5f, 6.5f, 0.06f, 0.9f, true);
+                    for (int i = 0; i < N(5); i++) Chip(new Color(0.22f, 0.16f, 0.11f, 1f), new Color(0.34f, 0.25f, 0.17f, 1f), 1.5f, 4f, 0.07f, 1.1f);
+                    for (int i = 0; i < N(6); i++) Dust(new Color(0.72f, 0.6f, 0.42f, 0.45f), 0.16f, 1.1f, 2.4f);
+                    break;
+                case Surface.Stone:
+                    for (int i = 0; i < N(10); i++) Chip(new Color(0.38f, 0.37f, 0.35f, 1f), new Color(0.58f, 0.56f, 0.53f, 1f), 2f, 5.5f, 0.05f, 0.8f);
+                    for (int i = 0; i < N(8); i++) Chip(new Color(0.5f, 0.48f, 0.45f, 1f), new Color(0.66f, 0.64f, 0.6f, 1f), 1f, 3f, 0.025f, 0.6f);
+                    for (int i = 0; i < N(7); i++) Dust(new Color(0.55f, 0.53f, 0.5f, 0.42f), 0.2f, 1.4f, 2.8f);
+                    Spark(N(4));
+                    break;
+                case Surface.Metal:
+                    Spark(N(20));
+                    for (int i = 0; i < N(5); i++) Chip(new Color(0.12f, 0.12f, 0.13f, 1f), new Color(0.3f, 0.3f, 0.32f, 1f), 2f, 5f, 0.025f, 0.6f);
+                    for (int i = 0; i < N(2); i++) Dust(new Color(0.4f, 0.4f, 0.42f, 0.3f), 0.14f, 0.9f, 2f);
+                    break;
+                case Surface.Glass:
+                    for (int i = 0; i < N(14); i++)
+                        Fx.Emit(at, V(0.9f, 0.5f, 2f, 6f), Random.Range(0.5f, 1f), Color.Lerp(new Color(0.75f, 0.92f, 1f, 0.9f), new Color(1f, 1f, 1f, 1f), Random.value),
+                            Random.Range(0.02f, 0.05f) * s, 12f * s, 0.5f, true, true, 1f, false, false, Vfx.Blend.Additive, true);
+                    for (int i = 0; i < N(2); i++) Dust(new Color(0.8f, 0.85f, 0.88f, 0.25f), 0.12f, 0.8f, 2f);
+                    break;
+                default:
+                    for (int i = 0; i < N(9); i++) Chip(new Color(0.7f, 0.68f, 0.64f, 1f), new Color(0.88f, 0.86f, 0.82f, 1f), 1.5f, 4.5f, 0.045f, 0.8f);
+                    for (int i = 0; i < N(10); i++) Dust(new Color(0.8f, 0.78f, 0.74f, 0.45f), 0.24f, 1.6f, 3.2f);
+                    break;
+            }
         }
 
         /// <summary>Sparks, dust and chips thrown out of a surface the round passed through, mostly along <paramref name="out_"/>.</summary>

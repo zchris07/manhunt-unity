@@ -182,7 +182,7 @@ namespace Vision.Tests
                 for (int i = 0; i < 5; i++) { layer.Step(0.02f); effects.TrackBlade(z.Id, layer, 3f, 1.3f); effects.Draw(); }
                 Assert.AreEqual(1, effects.TrailCount, "the blade's trail");
                 Object.DestroyImmediate(body);
-                effects.OnEvent(new GameEvent { Kind = EventKind.Swing, A = z.Id, B = 2, F = 1f });
+                effects.OnEvent(new GameEvent { Kind = EventKind.Swing, A = z.Id, B = 2, F = 2f });
                 Assert.Greater(Vfx.Instance.ParticleCount, 0, "blood flung off the tip");
                 effects.OnEvent(new GameEvent { Kind = EventKind.Talk, A = z.Id, Text = "burst", Pos = z.Pos, F = 0f });
                 Assert.AreEqual(1, effects.WaveCount, "the Burst's wave");

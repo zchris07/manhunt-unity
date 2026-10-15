@@ -111,11 +111,11 @@ namespace Vision.Game
                 /// </summary>
                 public const float SeenExtra = 2f;
                 /// <summary>
-                /// 50 Nic: its cone 20% wider than Penjamin's (its reach is Chacko's <see cref="Chacko.NicRangeMul"/>), and its
-                /// blur, slow and narrowed light all last <see cref="NicLinger"/> seconds after the survivor is out of it,
-                /// falling off linearly over that time.
+                /// 50 Nic's cone is 20% wider than Penjamin's (its reach is Chacko's <see cref="Chacko.NicRangeMul"/>). Out of
+                /// either cloud, its slow, blur and narrowed (and darkened) sight all fall off together, linearly, over
+                /// <see cref="Linger"/> seconds, all gone at once at the end of it.
                 /// </summary>
-                public const float NicAngleMul = 1.2f, NicLinger = 4f;
+                public const float NicAngleMul = 1.2f, Linger = 5f;
                 /// <summary>How wide the cloud is either side of the aim right at his mouth (design units), as it's drawn.</summary>
                 public const float MouthHalfWidth = 10f;
                 public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;

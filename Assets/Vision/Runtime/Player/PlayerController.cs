@@ -109,7 +109,7 @@ namespace Vision.Player
         // Penjamin's darkness (0-1), eased in and out over the original's 0.6 s: the beam narrows and the dark goes black.
         float darkK;
         // The gas blur (0-1), how long since Zach left the galaxy gas, and how long a survivor's blur has left.
-        float gasBlurK, gasLeftT = 99f, vapeBlurLeft;
+        float gasBlurK, gasLeftT = 99f;
         Vision.Rendering.VisionComposite composite;
 
         void Awake()
@@ -454,8 +454,9 @@ namespace Vision.Player
             float from = Mathf.Lerp(0.76f, 0.64f, deep) - 0.24f * dying, to = Mathf.Lerp(0.86f, 0.8f, deep) - 0.16f * dying;
             float sag = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(from, to, sagNoise));
             float tremor = (Mathf.PerlinNoise(flickT * 6.1f, 9.7f) - 0.5f) * 0.5f * dying;
-            float wave = Mathf.Lerp(0.03f, 0.1f, deep);
-            float depth = Mathf.Lerp(Mathf.Lerp(0.12f, 0.45f, deep), 0.85f, dying);
+            // (At the first ring half as strong again as at first: a 0.045 waver and sags 18% deep.)
+            float wave = Mathf.Lerp(0.03f * 1.5f, 0.1f, deep);
+            float depth = Mathf.Lerp(Mathf.Lerp(0.12f * 1.5f, 0.45f, deep), 0.85f, dying);
             float flick = (1f - wave + wave * waver) * (1f - depth * sag) * (1f + tremor);
             // Fainter and fainter until it's out at 3 s.
             float envelope = 1f - Mathf.SmoothStep(0f, 1f, dying);
@@ -475,11 +476,11 @@ namespace Vision.Player
                 // Galaxy gas narrows Zach's cone by 30%.
                 if (zach && p.Gassed) cone *= 1f - Balance.Items.Trap.ZachConeCut;
                 float dt0 = Time.deltaTime;
-                darkK = Mathf.MoveTowards(darkK, !zach && p.DarkT > 0f ? 1f : 0f, dt0 / Balance.Hunter.Vape.DarkEase);
-                float darkE = darkK * darkK * (3f - 2f * darkK);
-                // 50 Nic: the narrowed light (and the dark) fall off linearly over its four-second linger.
-                float nicLeft = zach ? 0f : MatchSim.NicLeft(p);
-                if (p.VapeNic) darkE = Mathf.Min(darkE, nicLeft);
+                // Penjamin or 50 Nic: the narrowed light (and the dark) ease in, and out of the gas widen back linearly over
+                // its five-second linger, back to normal exactly when the slow and blur end.
+                float gasLeft = zach ? 0f : MatchSim.VapeLeft(p);
+                darkK = Mathf.MoveTowards(darkK, gasLeft > 0f ? 1f : 0f, dt0 / Balance.Hunter.Vape.DarkEase);
+                float darkE = Mathf.Min(darkK * darkK * (3f - 2f * darkK), gasLeft);
                 cone *= 1f - Balance.Hunter.Vape.ConeCut * darkE;
                 if (composite == null) composite = FindAnyObjectByType<Vision.Rendering.VisionComposite>();
                 if (composite != null) composite.fogScale = 1f - darkE;
@@ -487,9 +488,8 @@ namespace Vision.Player
                 // (over three seconds: Penjamin's two-second after-effect on a survivor and a second more; three seconds
                 // after Zach leaves the galaxy gas).
                 gasLeftT = zach && p.Gassed ? 0f : gasLeftT + dt0;
-                vapeBlurLeft = Mathf.Max(vapeBlurLeft - dt0, p.VapeT > 0f ? p.VapeT + (Balance.Hunter.Vape.BlurTime - Balance.Hunter.Vape.AfterTime) : 0f);
                 float blurWant = zach ? Mathf.Clamp01(1f - gasLeftT / Balance.Items.Trap.BlurAfter)
-                    : p.VapeNic ? nicLeft : Mathf.Clamp01(vapeBlurLeft / Balance.Hunter.Vape.BlurTime);
+                    : gasLeft;
                 gasBlurK = blurWant > gasBlurK ? Mathf.MoveTowards(gasBlurK, blurWant, dt0 / 0.15f) : blurWant;
                 if (composite != null)
                 {

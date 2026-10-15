@@ -43,7 +43,7 @@ namespace Vision.UI
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;
             // Penjamin: the gas sound loops while a survivor is in the cloud.
-            Audio.GasLoop(me.Role == Role.Survivor && me.VapeT > Balance.Hunter.Vape.AfterTime - 0.15f);
+            Audio.GasLoop(me.Role == Role.Survivor && me.VapeT > Balance.Hunter.Vape.Linger - 0.15f);
             // Stun stars over the player while stunned (Zach: also knocked down); the dizzy spiral in Penjamin's gas.
             if (stars != null)
             {

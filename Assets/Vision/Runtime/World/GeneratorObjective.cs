@@ -17,17 +17,21 @@ namespace Vision.World
         public float progress;
         public Transform body;
         public VisionLight glow;
-        /// <summary>The flood light it's wired to: dark until it runs, then on for good, lighting a wide swath of ground.</summary>
-        public VisionLight flood;
-        public Renderer floodLamp;
+        /// <summary>
+        /// The lights of its work site (its three light towers' and its work lights'), and their lamp faces: dark until it
+        /// runs, then on for good.
+        /// </summary>
+        public readonly List<VisionLight> floods = new List<VisionLight>();
+        public readonly List<Renderer> lamps = new List<Renderer>();
         public Material lampOn, lampOff;
 
-        /// <summary>Its running light, and the flood light it's wired to, on or off.</summary>
+        /// <summary>Its running light, and every light of its work site, on or off.</summary>
         void SetLit(bool on)
         {
             if (glow != null) glow.enabled = on;
-            if (flood != null) flood.enabled = on;
-            if (floodLamp != null && lampOn != null && lampOff != null) floodLamp.sharedMaterial = on ? lampOn : lampOff;
+            foreach (VisionLight l in floods) if (l != null) l.enabled = on;
+            if (lampOn == null || lampOff == null) return;
+            foreach (Renderer r in lamps) if (r != null) r.sharedMaterial = on ? lampOn : lampOff;
         }
 
         public bool Running => progress >= 1f;

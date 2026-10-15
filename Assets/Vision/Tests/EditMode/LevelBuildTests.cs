@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -51,8 +52,11 @@ namespace Vision.Tests
             Assert.NotNull(world.Player);
             Assert.NotNull(world.Wanderer);
             Assert.AreEqual(4, world.Wanderer.waypoints.Length);
-            int lights = world.GetComponentsInChildren<VisionLight>().Length;
+            var all = world.GetComponentsInChildren<VisionLight>();
+            bool AtSite(VisionLight l) { for (Transform t = l.transform; t != null; t = t.parent) if (t.name == "Generator Work Site") return true; return false; }
+            int lights = all.Count(l => !AtSite(l));
             Assert.That(lights, Is.InRange(20, 76), "campfires, cabin lamps, the dock lantern, lanterns along the paths and the building's lamps");
+            Assert.AreEqual(world.Generators.Count * 3, all.Count(l => AtSite(l) && l.bright), "and three light towers at every generator's work site");
             Assert.AreEqual(5, world.Generators.Count, "three generators in the woods and two in the building");
             Assert.NotNull(world.Gate, "the building's exit gate");
             Assert.Greater(world.Doors.Count, 10, "the building's doors");

@@ -47,6 +47,11 @@ namespace Vision.Rendering
         [Range(0, 6)] public int shadowLights = 4;
         [Tooltip("Only this many nearest light sources get a polygon each frame.")]
         public int maxLights = 6;
+        /// <summary>At least this many light sources drawn (the generators' work sites have three towers and four work lights each).</summary>
+        public const int MinLights = 16;
+        int LightCap => Mathf.Max(maxLights, MinLights);
+        /// <summary>A bright light's level in the mask: the composite's doubling makes it the player's own light's (about 1.9).</summary>
+        public const float BrightLevel = 0.95f;
 
 
         [Header("Entities")]
@@ -181,7 +186,7 @@ namespace Vision.Rendering
             cmd.DrawMesh(mesh, Matrix4x4.identity, maskMaterial, 0, 0);
 
             // Penumbra: the blur widens with distance from the viewer (B, G, A) and from the nearest light source (R).
-            int blurLights = Mathf.Min(MaxBlurLights, Mathf.Min(lightOrder.Count, maxLights));
+            int blurLights = Mathf.Min(MaxBlurLights, Mathf.Min(lightOrder.Count, LightCap));
             blurOrigins[0] = origin;
             for (int i = 0; i < blurLights; i++) blurOrigins[i + 1] = lightOrder[i].PlanePosition;
             cmd.SetGlobalVectorArray(BlurOriginsId, blurOrigins);
@@ -382,7 +387,7 @@ namespace Vision.Rendering
             lightOrder.AddRange(VisionWorld.Lights);
             // Nearest by where their light reaches (a big flood light's swath counts as near when its edge is).
             lightOrder.Sort((a, b) => ((a.PlanePosition - origin).magnitude - a.WorldRange).CompareTo((b.PlanePosition - origin).magnitude - b.WorldRange));
-            int lightCount = Mathf.Min(maxLights, lightOrder.Count);
+            int lightCount = Mathf.Min(LightCap, lightOrder.Count);
             int version = VisionWorld.Occluders.Version;
             if (version != LastVersion) { VersionChanges++; LastVersion = version; }
             for (int i = 0; i < lightCount; i++)
@@ -390,7 +395,10 @@ namespace Vision.Rendering
                 VisionLight light = lightOrder[i];
                 List<Vector2> poly = light.GetPolygon(vc, version);
                 // A cone's polygon starts at its origin (a fan); a circle's goes all round it (a ring).
-                AddPolygon(poly, !light.IsCone, light.PlanePosition, new Color(light.CurrentIntensity, 0f, 0f, 0f), light.WorldRange, light.falloffStart);
+                // Light sources go in at half (the composite doubles them), so a bright one (a light tower) can go in as
+                // strong as a player's own light.
+                float level = light.bright ? Mathf.Clamp01(light.CurrentIntensity * BrightLevel) : light.CurrentIntensity * 0.5f;
+                AddPolygon(poly, !light.IsCone, light.PlanePosition, new Color(level, 0f, 0f, 0f), light.WorldRange, light.falloffStart);
                 polygons++;
             }
 

@@ -178,8 +178,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   (90 m out), the second 15.6 m beyond it (30% further than at first) and the end of the world 18 m beyond that (50%
   further than at first; the world is made that much bigger). NPCs never wander past the first. Past it a survivor's
   light (the beam and the light round them together, evenly, the beam keeping its full reach) wavers and now and then
-  sags and recovers like a failing bulb, each sag eased in and out rather than strobing, faint just past the first ring
-  and growing (deeper and more often sags, a stronger waver, quicker) the further out they go, at its full strength by
+  sags and recovers like a failing bulb, each sag eased in and out rather than strobing, faint just past the first ring (half
+  as strong again as at first there) and growing (deeper and more often sags, a stronger waver, quicker) the further out they go, at its full strength by
   the second; there's no warning sign between the rings, only the flicker (DON'T WANDER OFF and a big arrow pointing
   the way back in show only once the light is dying past the second); night vision, JARVIS and the Hemp Battery stop working (a JARVIS running
   ends; Zach's Hemp Beam won't fire either). Past the second the light grows fainter and fainter over three seconds,
@@ -294,9 +294,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   thrown out of focus: it swims (a slow wobble through the whole image), splits into two images drifting apart and back
   together (double vision), and both are blurred hard, the blur breathing in and out, the colour washed out and the
   edges closing in, strongest while they're in it and clearing over three seconds once the gas has worn off (a second
-  longer than at first). 50 Nic's cone is 20% wider than Penjamin's (and reaches only 10% further), and its blur, its
-  slow and the narrowed light all last four seconds after the survivor is out of it, falling off together, linearly,
-  over those four seconds. Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
+  longer than at first). 50 Nic's cone is 20% wider than Penjamin's (and reaches only 10% further), and for both
+  gases the slow, the blur and the narrowed (and darkened) sight all last five seconds after the survivor is out of the
+  cloud, falling off together, linearly, the sight widening back to its normal angle and every effect gone at once at
+  the end of the five seconds (the choking damage still stops two seconds out). Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
   further again, then 15% further still (116.9% of the original's reach), in a cone 20% narrower than the original's,
   then 40% and then 30% narrower again, then 50% wider (5.04 degrees either side of the aim; 50 Nic's 20% wider than that), 30% fainter to begin with, its edges
   ragged and wobbling (the cone's radius pushed in and out by a slow noise rolling with the gas); it acts where it's drawn, the cone plus the width the
@@ -361,7 +362,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`); the charge is silent. **Local sounds**: a cue can name a
   preferred file (`local_*` in `Resources/Audio/Fx`, kept out of git because they're from other games, so they exist
   only in the user's own copy and builds): the P250's shot, the shotgun's (every shotgun, the golden pump included),
-  the machete's slash landing on a player or NPC, and a sting heard by everyone when a survivor is sacrificed (staked
+  the machete's slash landing on a survivor or an NPC (only a body: a door, window, barricade or anything else it
+  strikes never plays it), and a sting heard by everyone when a survivor is sacrificed (staked
   to the end, or gone into the woods). Without the files the slash falls back to its pack sound and the rest are
   silent. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
@@ -398,8 +400,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   than at first and slows him by half, the slow falling off linearly to nothing over a second; the first time a player
   takes it in hand they're told "Hold right click to aim". The shotgun stuns Zach half as long as at first (1.05 s). A jar
   of piss in Zach's face also blurs his view under a yellow filter, falling off linearly over two seconds. Zach's
-  machete throws sparks, chips and dust off whatever solid thing its swing meets (a wall, tree, rock, prop, fence or
-  log; more for a charged one), and the charged swing plays at the light swing's speed (the same beats and length;
+  machete throws debris off whatever solid thing its swing meets, by what it's made of (read from what was struck):
+  wood throws long splinters, bark chips and sawdust (and cracks: local sounds cut from five wood breaks); stone grey
+  chips, grit, a few sparks and a cloud of dust; metal a shower of sparks and dark flecks; glass bright shards; plaster
+  and concrete white chips in a big dust cloud; more for a charged swing, and the charged swing plays at the light swing's speed (the same beats and length;
   only how it looks).
   JARVIS shows the user the whole map, its tablet held up until they take another item in hand (it keeps running, the
   tablet put away and the new item shown); night vision tints the view green, with no green halo round the screen,
@@ -471,9 +475,17 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   cal on the table. The Diddy Chamber is a very small dark dungeon of a room: chains on the walls, a big comfy bed with
   red satin sheets and a pile of pillows, and bottles of baby oil all over the floor. Walking into either, its name
   fades up on screen between two thin rules, holds and fades away.
-- **Flood lights**: every generator is wired to a flood light on a steel pole just behind it (a cable along the ground
-  between them): dark until the generator runs, then on for good, a wide cone of light (20 m, 110 degrees across)
-  over the ground in front of it (`VisionLight` cones; the mask draws the nearest lights by where their light reaches).
+- **Generator work sites** (`SandboxWorld.FloodSet`): every generator stands in a work site laid out by hand (one
+  fixed arrangement, turned with the generator): three trailer light towers as tall as a big tree (a cream trailer with
+  red and blue stripes, outriggers and a tow bar, a telescopic mast with four lamp heads on a frame at the top), each
+  wired to it by a cable winding over the ground and throwing a loop of slack; four yellow work lights (a box light on
+  a frame, a twin on a bar, a tripod with one head, a tripod with two), wired too; and the mess of a site gone to seed:
+  a blue tarp, broken glass, planks, corrugated metal, a cable spool, a jerry can, a toolbox, a small portable
+  generator, loose wires, ferns and grass grown up through it. Dark until the generator runs, then on for good: each
+  tower lights the ground all round it (13 m) as brightly and as white as a player's own light, each work light a
+  little round it. Anything that would stand in a wall, tree or rock moves to the nearest clear ground; the towers of a
+  generator inside the building stand outside it, near its room, their cables running in. (Light sources go into the
+  mask at half and the composite doubles them, so a tower can reach a player's light; up to 16 are drawn at once.)
 - **Survivors start scattered**: each at a spot of their own over the playable map, on open ground (not the lake, the
   building, a site or anything solid), at least 30 m apart where the map allows and 35 m from Zach's start, seeded by
   the level so every machine agrees (`SimMapBuilder.ScatteredSpawns`).
