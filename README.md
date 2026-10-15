@@ -298,7 +298,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   slow and the narrowed light all last four seconds after the survivor is out of it, falling off together, linearly,
   over those four seconds. Penjamin reaches 30% less far than the original's, then 20% further than that, then 10%
   further again, then 15% further still (116.9% of the original's reach), in a cone 20% narrower than the original's,
-  then 40% and then 30% narrower again (3.36 degrees either side of the aim), 30% fainter to begin with, its edges
+  then 40% and then 30% narrower again, then 50% wider (5.04 degrees either side of the aim; 50 Nic's 20% wider than that), 30% fainter to begin with, its edges
   ragged and wobbling (the cone's radius pushed in and out by a slow noise rolling with the gas); it acts where it's drawn, the cone plus the width the
   cloud has right from his mouth, so a survivor standing in it close up is still caught. It goes straight through a shield to the health bar. Galaxy gas narrows Zach's
   light by 30% and blurs his view the same way, clearing three seconds after he's out of it. **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
@@ -358,8 +358,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   it's drawn over the terrain unless something standing upright is in front of it. A thrown item never even looks to go into the ground: where the ground ahead rises
   toward it, it's lifted smoothly over the rise (it climbs a little before it gets there) and settles back to its level
   once past. The 0.50 cal cracks when it fires (a sound synthesised for the game in the character of a Noita rifle:
-  a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`); the other guns make no
-  sound, and the charge is silent. Sounds come from
+  a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`); the charge is silent. **Local sounds**: a cue can name a
+  preferred file (`local_*` in `Resources/Audio/Fx`, kept out of git because they're from other games, so they exist
+  only in the user's own copy and builds): the P250's shot, the shotgun's (every shotgun, the golden pump included),
+  the machete's slash landing on a player or NPC, and a sting heard by everyone when a survivor is sacrificed (staked
+  to the end, or gone into the woods). Without the files the slash falls back to its pack sound and the rest are
+  silent. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
 - **Teammates**: a survivor sees the other survivors glow faintly, a soft light about each and a small bright disc that
   shows them through the fog, as in the original.
@@ -426,7 +430,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
   fired with a left click, its charges left kept on it, so dropped (G) and picked up by someone else it has the charges
   it had; Zach can pick one up too, its charges going into his own beam (R), up to a full set. **Daphne Cheng** (a young
-  woman with long dark-brown hair) behaves exactly as Monique does. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
+  woman with long dark-brown hair) hands a P250 to each survivor who talks to her (once each); nobody can slay her, and
+  attacked by anyone she stands her ground and fires her pistol at them for a while (Jaden's pistol), turning to keep
+  them in her sights but never chasing them. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he

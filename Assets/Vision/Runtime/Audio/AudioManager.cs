@@ -165,8 +165,13 @@ namespace Vision.Audio
         /// </summary>
         public bool PlayCue(string cue, Vector2? at = null, float volume = 1f)
         {
-            if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue c) || c.Files.Length == 0) return false;
-            AudioClip clip = SoundBank.Load(c.Files[UnityEngine.Random.Range(0, c.Files.Length)]);
+            if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue c)) return false;
+            AudioClip clip = !string.IsNullOrEmpty(c.Prefer) ? SoundBank.Load(c.Prefer) : null;
+            if (clip == null)
+            {
+                if (c.Files.Length == 0) return false;
+                clip = SoundBank.Load(c.Files[UnityEngine.Random.Range(0, c.Files.Length)]);
+            }
             if (clip == null) return false;
             float pitch = c.Pitch * (1f + UnityEngine.Random.Range(-c.PitchJitter, c.PitchJitter));
             float vol = c.Volume * volume * (1f + UnityEngine.Random.Range(-c.VolumeJitter, c.VolumeJitter));

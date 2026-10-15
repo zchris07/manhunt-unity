@@ -13,6 +13,11 @@ namespace Vision.Audio
         public sealed class Cue
         {
             public string[] Files;
+            /// <summary>
+            /// A local file played instead when it's there (Resources/Audio/Fx/local_*, kept out of git: sounds from other
+            /// games, used only in the user's own builds); without it the cue falls back to <see cref="Files"/>, or is silent.
+            /// </summary>
+            public string Prefer;
             public float Volume = 1f, Pitch = 1f, PitchJitter = 0.06f, VolumeJitter = 0.1f;
             /// <summary>Original units: full volume within Near, silent past Radius.</summary>
             public float Near = 150f, Radius = 1400f;
@@ -32,7 +37,7 @@ namespace Vision.Audio
             // The full charged swing: the heavy swish pitched well down, with a deep, slow whoosh layered under it.
             ["swing_heavy"] = new Cue { Files = new[] { "swishes_swish-9", "swishes_swish-10", "swishes_swish-11", "swishes_swish-12", "swishes_swish-13" }, Volume = 1f, Pitch = 0.64f, PitchJitter = 0.04f, Radius = 1200f },
             ["swing_heavy_low"] = new Cue { Files = new[] { "swishes_swish-7", "swishes_swish-8" }, Volume = 0.85f, Pitch = 0.42f, PitchJitter = 0.03f, Radius = 1200f },
-            ["slash"] = new Cue { Files = new[] { "rpg_knifeslice", "rpg_knifeslice2", "rpg_chop" }, Volume = 0.9f, Radius = 1000f },
+            ["slash"] = new Cue { Prefer = "local_axe_flesh", Files = new[] { "rpg_knifeslice", "rpg_knifeslice2", "rpg_chop" }, Volume = 0.9f, Radius = 1000f },
             ["body_hit"] = new Cue { Files = Range("impact_impactpunch_heavy_", 0, 4), Volume = 0.8f, Radius = 900f },
             ["lunge"] = new Cue { Files = new[] { "swishes_swish-7", "swishes_swish-8" }, Volume = 0.8f, Pitch = 0.7f, Radius = 900f },
             ["kick"] = new Cue { Files = Range("impact_impactmetal_heavy_", 0, 4), Volume = 0.9f, Radius = 1200f },
@@ -41,6 +46,10 @@ namespace Vision.Audio
             ["glass"] = new Cue { Files = new[] { "impact_impactglass_heavy_000", "impact_impactglass_heavy_001", "impact_impactglass_heavy_002", "sfx100_glass_01", "sfx100_glass_02" }, Volume = 1f, Radius = 1300f },
             // Guns. The 0.50 cal's crack, synthesised for the game in the character of a Noita rifle (tools/synth_sniper.py);
             // the other guns stay silent.
+            ["shotgun_shot"] = new Cue { Prefer = "local_tactical_shotgun", Files = new string[0], Volume = 1f, PitchJitter = 0.04f, Near = 250f, Radius = 2600f },
+            ["pistol_shot"] = new Cue { Prefer = "local_p250", Files = new string[0], Volume = 0.9f, PitchJitter = 0.05f, Near = 200f, Radius = 2200f },
+            // A survivor sacrificed (staked to the end, or gone into the woods), gone from the match for good: heard by all.
+            ["sacrificed"] = new Cue { Prefer = "local_noita_game_over", Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f },
             ["sniper_shot"] = new Cue { Files = new[] { "synth_sniper_1", "synth_sniper_2", "synth_sniper_3" }, Volume = 1f, PitchJitter = 0.04f, Near = 300f, Radius = 3000f },
             // Things.
             ["door_open"] = new Cue { Files = new[] { "rpg_dooropen_1", "rpg_dooropen_2" }, Volume = 0.7f, Radius = 900f },

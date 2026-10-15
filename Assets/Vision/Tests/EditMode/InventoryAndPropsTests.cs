@@ -125,7 +125,7 @@ namespace Vision.Tests
         {
             Assert.AreEqual(Balance.HunterWidth * 5f * 0.2f, Balance.Items.Trap.TriggerRadius, 1e-4f, "the trap's trigger 80% smaller");
             Assert.AreEqual(Balance.HunterWidth * 10f * 0.65f * 0.85f * 0.85f, Balance.Items.Trap.GasRadius, 1e-4f, "its cloud 15% smaller, and 15% smaller again");
-            Assert.AreEqual(10f * 0.8f * 0.6f * 0.7f, Balance.Hunter.Vape.HalfAngleDeg, 1e-4f, "Penjamin 30% narrower again");
+            Assert.AreEqual(10f * 0.8f * 0.6f * 0.7f * 1.5f, Balance.Hunter.Vape.HalfAngleDeg, 1e-4f, "Penjamin 30% narrower again, then 50% wider");
         }
 
         [Test]

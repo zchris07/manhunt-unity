@@ -96,6 +96,10 @@ namespace Vision.UI
                     // The strike: wherever the blade meets something solid in its arc, sparks, chips and dust fly off it.
                     if (e.F >= 0f && e.G <= 0f) MacheteImpact(by, e.B >= 2);
                     break;
+                case EventKind.Eliminated:
+                    // Sacrificed (staked to the end, or gone into the woods): out of the match for good.
+                    if (e.Text == "stake" || e.Text == "woods") Audio.PlayCue("sacrificed");
+                    break;
                 case EventKind.Hit:
                     if (e.Text == "slash" || e.Text == "lunge" || e.Text == "punch") Audio.PlayCue("body_hit", Units(e.Pos), 0.8f);
                     break;
@@ -218,12 +222,14 @@ namespace Vision.UI
             {
                 case Vision.Player.ItemType.Pistol:
                     Fire(muzzle, e.Pos, e.F, e.G > 0f ? e.G / Scale.Unit : 900f, PistolRound, 0);
+                    Audio.PlayCue("pistol_shot", Units(e.Pos));
                     break;
                 case Vision.Player.ItemType.Sniper:
                     SniperRound(muzzle, e.Pos, e.F);
                     Audio.PlayCue("sniper_shot", Units(e.Pos));
                     break;
                 default:
+                    Audio.PlayCue("shotgun_shot", Units(e.Pos));
                     // Pellets: "hit|angle*1000:distance,..." (original units).
                     string list = e.Text != null && e.Text.Contains("|") ? e.Text.Substring(e.Text.IndexOf('|') + 1) : "";
                     foreach (string p in list.Split(','))

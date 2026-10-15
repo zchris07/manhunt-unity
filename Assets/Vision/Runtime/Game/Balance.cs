@@ -102,7 +102,8 @@ namespace Vision.Game
                 // The cloud reaches 30% less far than the original's, then 20% further than that, then 10% further again
                 // (ReachMul 1.1 x 0.7 x 1.2 x 1.1, at the user's requests); its cone 20% narrower than the original's 10 deg.
                 // Then 40% narrower again, then 30% narrower again (3.36 deg either side), reaching 15% further.
-                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f * 0.6f * 0.7f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f * 1.15f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
+                // Then 50% wider (5.04 deg either side).
+                public const float Cooldown = 25f, HalfAngleDeg = 10f * 0.8f * 0.6f * 0.7f * 1.5f, ReachMul = 1.1f * 0.7f * 1.2f * 1.1f * 1.15f, DefaultView = 760f, MinView = 400f, MaxView = 2200f;
                 public const float GrowTime = 0.6f, LingerTime = 4f, FadeTime = 1f, Coverage = 0.5f;
                 /// <summary>
                 /// The cloud is seen this much longer before it's fully gone, thinning away over its fade and these extra

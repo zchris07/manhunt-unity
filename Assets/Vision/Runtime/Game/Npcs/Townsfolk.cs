@@ -350,36 +350,24 @@ namespace Vision.Game
     /// Monique Bourgeois: gives the first survivor who talks to her an arrow to Zach (40 s), later ones a Mr Beast bar.
     /// Zach attacks her: she bolts. A survivor attacks her: she pulls out a 0.50 cal and shoots them for ten seconds.
     /// </summary>
-    public class Monique : Walker
+    public sealed class Monique : Walker
     {
-        readonly string name;
-        readonly int kind;
-        readonly Prompt talk;
         bool gaveArrow;
         readonly HashSet<int> fed = new HashSet<int>();
         float armedT, shotCd;
         int targetId;
 
-        public override string Name => name;
-        public override int Kind => kind;
+        public override string Name => "Monique Bourgeois";
+        public override int Kind => 9;
         public override float RadiusUnits => Balance.Monique.Radius;
         public override bool Slashable => alive;
         public bool Armed => armedT > 0f;
         public override NpcFlags Flags => base.Flags | (Armed ? NpcFlags.Armed : 0);
 
-        public Monique(MatchSim sim) : this(sim, "Monique Bourgeois", 9, Prompt.TalkMonique, 202) { }
-
-        /// <summary>Monique's behaviour under another name and look (Daphne Cheng).</summary>
-        protected Monique(MatchSim sim, string name, int kind, Prompt talk, int seed) : base(sim, seed)
-        {
-            this.name = name;
-            this.kind = kind;
-            this.talk = talk;
-            SpawnAnywhere(6f, 600f);
-        }
+        public Monique(MatchSim sim) : base(sim, 202) => SpawnAnywhere(6f, 600f);
 
         bool CanTalk(SimPlayer p) => alive && p.Role == Role.Survivor && FleeT <= 0f && !Armed && !fed.Contains(p.Id) && OnFeet(p) && Near(p, Balance.Monique.Reach);
-        public override Prompt TalkPrompt(MatchSim sim, SimPlayer p) => CanTalk(p) ? talk : Prompt.None;
+        public override Prompt TalkPrompt(MatchSim sim, SimPlayer p) => CanTalk(p) ? Prompt.TalkMonique : Prompt.None;
 
         public override void Talk(MatchSim sim, SimPlayer p)
         {
@@ -392,7 +380,7 @@ namespace Vision.Game
                 gaveArrow = true;
                 p.ArrowT = Balance.Monique.ArrowSec;
                 Speak(Balance.Monique.LineArrow);
-                Sim.Tell(p, $"{name.Split(' ')[0]}'s arrow points to Zach for {Balance.Monique.ArrowSec:0} s");
+                Sim.Tell(p, $"Monique's arrow points to Zach for {Balance.Monique.ArrowSec:0} s");
             }
             else
             {
@@ -457,12 +445,101 @@ namespace Vision.Game
     }
 
     /// <summary>
-    /// Daphne Cheng: behaves exactly as Monique does (an arrow to Zach for the first survivor who talks to her, then Mr
-    /// Beast bars; a survivor who attacks her is shot at with a 0.50 cal; Zach's attack sends her running), with her own
-    /// name and look.
+    /// Daphne Cheng: hands a P250 to each survivor who talks to her (once each). Nobody can slay her. Attacked by anyone
+    /// (a survivor or Zach), she stands her ground and fires her pistol at them for a while, turning to keep them in her
+    /// sights but never chasing; then she goes back to wandering.
     /// </summary>
-    public sealed class Daphne : Monique
+    public sealed class Daphne : Walker
     {
-        public Daphne(MatchSim sim) : base(sim, "Daphne Cheng", 12, Prompt.TalkDaphne, 205) { }
+        readonly HashSet<int> given = new HashSet<int>();
+        float armedT, fireCd;
+        int targetId;
+
+        public override string Name => "Daphne Cheng";
+        public override int Kind => 12;
+        public override float RadiusUnits => Balance.Monique.Radius;
+        /// <summary>A swing reaches her (and sets her off), but she never falls.</summary>
+        public override bool Slashable => alive;
+        public bool Armed => armedT > 0f;
+        public override NpcFlags Flags => base.Flags | (Armed ? NpcFlags.Armed : 0);
+
+        public Daphne(MatchSim sim) : base(sim, 205) => SpawnAnywhere(6f, 600f);
+
+        bool CanTalk(SimPlayer p) => alive && p.Role == Role.Survivor && !Armed && !given.Contains(p.Id) && OnFeet(p) && Near(p, Balance.Monique.Reach);
+        public override Prompt TalkPrompt(MatchSim sim, SimPlayer p) => CanTalk(p) ? Prompt.TalkDaphne : Prompt.None;
+
+        public override void Talk(MatchSim sim, SimPlayer p)
+        {
+            if (!CanTalk(p)) return;
+            given.Add(p.Id);
+            Face(p.Pos);
+            TalkT = 1.5f;
+            Speak("Here. Take this, you'll need it.");
+            Sim.AddItem(p, ItemType.Pistol);
+            Sim.Tell(p, "Got a P250");
+        }
+
+        void Attacked(SimPlayer by)
+        {
+            if (!alive || by == null) return;
+            HurtT = 0.3f;
+            if (!Armed) Speak("Back off!");
+            armedT = Balance.Monique.AttackSec;
+            targetId = by.Id;
+            fireCd = Mathf.Max(fireCd, 0.4f);
+        }
+
+        public override void ItemHit(MatchSim sim, SimPlayer by, string kind) => Attacked(by);
+
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
+        {
+            if (harm) Attacked(h);
+        }
+
+        public override void Update(MatchSim sim, float dt)
+        {
+            if (!alive) return;
+            Tick(dt);
+            Moving = false;
+            Gait = 0;
+            if (Armed)
+            {
+                armedT = Mathf.Max(0f, armedT - dt);
+                fireCd = Mathf.Max(0f, fireCd - dt);
+                SimPlayer t = Sim.Get(targetId);
+                bool up = t != null && (t.Role == Role.Hunter ? t.Health != Health.Eliminated : OnFeet(t) && t.HideState != 2);
+                if (!up) { armedT = 0f; return; }
+                // Where she stands: turning to keep them in her sights, firing while she has a clear line and they're in reach.
+                Face(t.Pos);
+                if (fireCd <= 0f && Vector2.Distance(Pos, t.Pos) <= Scale.D(Balance.Jaden.Gun.Range) && Sim.Geo.LineOfSight(Pos, t.Pos)) Fire();
+                return;
+            }
+            Wander(Balance.Monique.Walk, dt);
+            Gait = Moving ? 1 : 0;
+        }
+
+        /// <summary>One P250 shot along where she faces (Jaden's pistol: its spread, reach and damage).</summary>
+        void Fire()
+        {
+            fireCd = Balance.Jaden.Gun.Cooldown;
+            float a = Facing + Range(-1f, 1f) * Balance.Jaden.Gun.SpreadDeg * Mathf.Deg2Rad;
+            Vector2 dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+            Vector2 s = Pos + dir * (HitRadius + Scale.D(2f));
+            float max = Scale.D(Balance.Jaden.Gun.Range * 1.5f);
+            float best = Mathf.Min(max, Sim.Geo.CastSight(s, dir, max));
+            SimPlayer hit = null;
+            foreach (SimPlayer q in Sim.Order)
+            {
+                bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && OnFeet(q) && q.HideState != 2;
+                if (!ok) continue;
+                float tt = MatchSim.RayCircle(s, dir, q.Pos, q.RadiusD);
+                if (tt < best) { best = tt; hit = q; }
+            }
+            Sim.Emit(Sim.Near(Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = -Id, B = (int)ItemType.Pistol, Pos = Pos, F = a, G = best + HitRadius, Text = hit != null ? "hit" : "" });
+            Sim.Noise(Pos, 900f, "shot");
+            if (hit == null) return;
+            if (hit.Role == Role.Hunter) Sim.HurtHunter(hit, Balance.Jaden.Gun.ZachDamage * Balance.Hunter.Health.Max, null, "bullet");
+            else Sim.HurtSurvivor(hit, Balance.Jaden.Gun.Damage, null, "bullet");
+        }
     }
 }

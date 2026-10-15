@@ -120,24 +120,36 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Daphne_DoesAllThatMoniqueDoes()
+        public void Daphne_GivesAP250_CantBeSlain_AndShootsWhoeverAttacksHer_WithoutChasing()
         {
             Assert.IsTrue(Texts.NpcNames.Contains("Daphne Cheng"));
             var rig = new SimRig(2, 1);
-            SimPlayer s = rig.P(2), s2 = rig.P(3);
-            rig.Place(rig.P(1), 2000f, 2000f);
+            SimPlayer s = rig.P(2), s2 = rig.P(3), zach = rig.P(1);
+            rig.Place(zach, 2000f, 2000f);
             var daphne = new Daphne(rig.Sim) { Pos = U(0, 0) };
             rig.Sim.Npcs.Add(daphne);
-            Assert.IsTrue(rig.Sim.Npcs.Count > 0 && daphne is Monique, "Monique's behaviour");
-            Assert.AreEqual("Daphne Cheng", daphne.Name);
             rig.Place(s, 50f, 0f);
             rig.Place(s2, -2000f, -2000f);
             rig.Run(1);
             Assert.AreEqual(Prompt.TalkDaphne, s.Prompt);
+            s.Inv.Clear();
             rig.Tap(s.Id, Btn.Interact);
-            Assert.Greater(s.ArrowT, 0f, "an arrow to Zach, as Monique gives");
+            Assert.GreaterOrEqual(s.Inv.FirstSlotOf(ItemType.Pistol), 0, "a P250");
+            Assert.IsNull(daphne.HealthFor(Role.Hunter), "nobody can slay her: no health bar");
+            Assert.IsNull(daphne.HealthFor(Role.Survivor));
+
+            // Attacked: she shoots back from where she stands, and still stands after all of it.
+            rig.Place(s, -2000f, 2000f);
+            rig.Place(s2, 200f, 0f);
+            Vector2 at = daphne.Pos;
+            float hp = s2.Hp;
+            for (int i = 0; i < 6; i++) { daphne.ItemHit(rig.Sim, s2, "bottle"); daphne.Slash(rig.Sim, zach, 2); }
             daphne.ItemHit(rig.Sim, s2, "bottle");
-            Assert.IsTrue(daphne.Armed, "attacked by a survivor, she arms herself");
+            Assert.IsTrue(daphne.Armed, "she draws her pistol");
+            rig.Run(Secs(3f));
+            Assert.Less(s2.Hp, hp, "and fires at her attacker");
+            Assert.AreEqual(at, daphne.Pos, "without chasing");
+            Assert.IsTrue(daphne.Alive, "never slain");
             Assert.IsTrue(NpcRoster.Makers.Select(m => m(rig.Sim)).Any(n => n is Daphne), "she's in every match");
         }
 

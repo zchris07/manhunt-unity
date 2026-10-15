@@ -201,6 +201,7 @@ namespace Vision.UI
             else if (n is Sexton sx && sx.State == Sexton.Mode.Talk) prop = PropKind.Tablet;
             else if (n is Jaden && (f & NpcFlags.Armed) != 0) prop = PropKind.Pistol;
             else if (n is Monique && (f & NpcFlags.Armed) != 0) prop = PropKind.Sniper;
+            else if (n is Daphne && (f & NpcFlags.Armed) != 0) prop = PropKind.Pistol;
             else if (n is Waz) prop = PropKind.Magnifier;
             if (dead) prop = PropKind.None;
             if (dead && n is Chacko) clip0 = ActionClips.Sit;
