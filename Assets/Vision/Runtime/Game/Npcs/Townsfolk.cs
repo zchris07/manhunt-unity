@@ -5,17 +5,20 @@ using Vision.Player;
 namespace Vision.Game
 {
     /// <summary>
-    /// Njaaron (the original's folk.ts): "you wanna go to the Y later?". Yes from Zach makes Zach's health come back faster
-    /// for good; yes from a survivor and he comes with them and takes on Zach when Zach comes close or hurts them; no, and
-    /// he fights whoever said it. Zach's hits make him fight back; four kill him, as do three stunning survivor items or
+    /// Njaaron (the original's folk.ts): "you wanna go to the Y later?". Yes from Zach makes Zach's health come back 10%
+    /// faster for good (even once Njaaron's dead), and Njaaron goes with him: he follows Zach about and hunts down any
+    /// survivor Zach lands a swing or an ability on, and any survivor who lands an attack on Zach; nothing of Zach's ever
+    /// hurts or touches him. Yes from a survivor and he comes with them and takes on Zach when Zach comes close or hurts
+    /// them; no, and he fights whoever said it. Zach's hits make him fight back; four kill him, as do three stunning survivor items or
     /// one shot. However he dies, he explodes.
     /// </summary>
     public sealed class Njaaron : Walker
     {
-        public enum Mode { Wander, Ask, Follow, Defend, Attack }
+        public enum Mode { Wander, Ask, Follow, Defend, Attack, Ally }
 
         public Mode State = Mode.Wander;
-        int hp = Balance.Njaaron.Hp, stunHits, askWho, followId, targetId;
+        int hp = Balance.Njaaron.Hp, stunHits, askWho, followId, targetId, allyId, huntId;
+        float huntT;
         /// <summary>Zach takes four points; survivors three stunning hits (or one shot).</summary>
         public override float? HealthFor(Role viewer) => !alive ? (float?)null
             : viewer == Role.Hunter ? hp / (float)Balance.Njaaron.Hp : 1f - stunHits / (float)Balance.Njaaron.StunHits;
@@ -25,9 +28,24 @@ namespace Vision.Game
         public override int Kind => 8;
         public override float RadiusUnits => Balance.Njaaron.Radius;
         public override bool Slashable => alive;
-        public override bool Aggressive => alive && (State == Mode.Attack || State == Mode.Defend);
-        public override NpcFlags Flags => base.Flags | (punchAge < 0.3f ? NpcFlags.Punching : 0) | (State == Mode.Follow ? NpcFlags.Following : 0)
-            | (State == Mode.Attack || State == Mode.Defend ? NpcFlags.Angry : 0);
+        public override bool Aggressive => alive && (State == Mode.Attack || State == Mode.Defend || Hunting);
+        bool Hunting => State == Mode.Ally && huntId != 0 && huntT > 0f;
+        public override NpcFlags Flags => base.Flags | (punchAge < 0.3f ? NpcFlags.Punching : 0) | (State == Mode.Follow || (State == Mode.Ally && !Hunting) ? NpcFlags.Following : 0)
+            | (State == Mode.Attack || State == Mode.Defend || Hunting ? NpcFlags.Angry : 0);
+        /// <summary>Zach, if Njaaron's his friend (0: nobody's).</summary>
+        public int Ally => State == Mode.Ally ? allyId : 0;
+        public override bool SparedBy(SimPlayer by) => by != null && State == Mode.Ally && by.Id == allyId;
+        public override bool VapeHurts => alive && State != Mode.Ally;
+
+        /// <summary>At Zach's side: whoever he hits, or whoever hits him, Njaaron hunts.</summary>
+        public override void PlayerAttacked(MatchSim sim, SimPlayer victim, SimPlayer by)
+        {
+            if (!alive || State != Mode.Ally) return;
+            SimPlayer prey = by.Id == allyId && victim.Role == Role.Survivor ? victim : victim.Id == allyId && by.Role == Role.Survivor ? by : null;
+            if (prey == null) return;
+            huntId = prey.Id;
+            huntT = Balance.Njaaron.AllyHuntSec;
+        }
 
         public Njaaron(MatchSim sim) : base(sim, 201) => SpawnAnywhere(6f, 600f);
 
@@ -62,10 +80,10 @@ namespace Vision.Game
                 if (p.Role == Role.Hunter)
                 {
                     p.NjaaronRegen = true;
-                    Sim.Tell(p, $"Njaaron: health recovery +{Mathf.RoundToInt((Balance.Njaaron.RegenMul - 1f) * 100f)}%");
-                    State = Mode.Wander;
-                    Idle = false;
-                    ModeT = 3f;
+                    Sim.Tell(p, $"Njaaron: health recovery +{Mathf.RoundToInt((Balance.Njaaron.RegenMul - 1f) * 100f)}%, and he's with you");
+                    State = Mode.Ally;
+                    allyId = p.Id;
+                    huntId = 0;
                 }
                 else
                 {
@@ -86,7 +104,7 @@ namespace Vision.Game
 
         public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
         {
-            if (!alive || !harm) return;
+            if (!alive || !harm || SparedBy(h)) return;
             h.Stats.Hits++;
             hp -= power;
             HurtT = 0.3f;
@@ -157,6 +175,28 @@ namespace Vision.Game
             if (StunT > 0f) return;
             switch (State)
             {
+                case Mode.Ally:
+                {
+                    SimPlayer z = Sim.Get(allyId);
+                    if (z == null || z.Role != Role.Hunter || z.Health == Health.Eliminated)
+                    {
+                        State = Mode.Wander;
+                        allyId = huntId = 0;
+                        return;
+                    }
+                    huntT = Mathf.Max(0f, huntT - dt);
+                    SimPlayer prey = Hunting ? Sim.Get(huntId) : null;
+                    if (prey != null && OnFeet(prey) && prey.HideState != 2)
+                    {
+                        Fight(prey, dt);
+                        return;
+                    }
+                    huntId = 0;
+                    // At Zach's side.
+                    WalkTo(z.Pos, Balance.Njaaron.Run, 90f, dt);
+                    Gait = Moving ? 2 : 0;
+                    return;
+                }
                 case Mode.Ask:
                 {
                     SimPlayer p = Sim.Get(askWho);
@@ -348,9 +388,9 @@ namespace Vision.Game
 
     /// <summary>
     /// Monique Bourgeois: gives the first survivor who talks to her an arrow to Zach (40 s), later ones a Mr Beast bar.
-    /// Slashed by Zach, or hit by a survivor's item or round, she pulls out a 0.50 cal and shoots at them for ten seconds
-    /// (each new attack starts the ten seconds again, on whoever made it), reloading as a survivor's does; she holds fire
-    /// while they're down or knocked out, but keeps her rifle up. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam only
+    /// Slashed by Zach, or hit by a survivor's item or round, she pulls out a 0.50 cal and shoots at them, reloading as a
+    /// survivor's does: three shots at most (or ten seconds), then she puts it away; she holds fire while they're down or
+    /// knocked out. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam only
     /// send her running.
     /// </summary>
     public sealed class Monique : Walker
@@ -358,7 +398,7 @@ namespace Vision.Game
         bool gaveArrow;
         readonly HashSet<int> fed = new HashSet<int>();
         float armedT, shotCd;
-        int targetId;
+        int targetId, shots;
 
         public override string Name => "Monique Bourgeois";
         public override int Kind => 9;
@@ -397,7 +437,8 @@ namespace Vision.Game
         {
             if (!alive || by == null || (by.Role != Role.Hunter && by.Role != Role.Survivor)) return;
             HurtT = 0.3f;
-            if (!Armed) shotCd = 0.4f;
+            // A new aggro cycle: three shots at most.
+            if (!Armed) { shotCd = 0.4f; shots = 0; }
             armedT = Balance.Monique.AttackSec;
             targetId = by.Id;
             FleeT = 0f;
@@ -441,6 +482,8 @@ namespace Vision.Game
                     shotCd = Balance.Monique.Reload;
                     Vector2 muzzle = Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * (HitRadius + Scale.D(4f));
                     Sim.SpawnBullet(muzzle, Facing, -Id, Balance.Monique.ShotDamage);
+                    // Her third shot ends it: the rifle away, passive again.
+                    if (++shots >= Balance.Monique.Shots) armedT = 0f;
                 }
                 return;
             }

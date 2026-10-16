@@ -39,6 +39,8 @@ namespace Vision.Visibility
 
         [Tooltip("JARVIS: the viewer's own light fills the whole screen (85%), showing everything on it.")]
         public bool revealAll;
+        [Tooltip("How far JARVIS's light has spread out from the player over the screen as it comes on (0-1; 1 the whole screen).")]
+        [Range(0f, 1f)] public float revealGrow = 1f;
 
         [Header("Teammates (a survivor's view)")]
         [Tooltip("Ground positions of teammates: each gets a small bright disc of the viewer's own light that shows them through the fog.")]

@@ -32,7 +32,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Monique_SlashedByZach_ShootsHimWithHerFiftyCal_ForTheWholeTenSeconds()
+        public void Monique_SlashedByZach_ShootsHimThreeTimes_ThenGoesPassive()
         {
             var rig = new SimRig(1, 1);
             SimPlayer zach = rig.P(1);
@@ -50,10 +50,13 @@ namespace Vision.Tests
                 foreach (Bullet b in rig.Sim.Snipes) if (b.By == -monique.Id) shots.Add(b);
             }
             Assert.Less(zach.Hp, before, "her rounds find him");
-            Assert.Greater(shots.Count, 3, "more than three shots: she keeps at it");
-            Assert.IsTrue(monique.Armed, "still armed nearly ten seconds on");
-            rig.Run(SimRig.Secs(1f));
+            Assert.AreEqual(Balance.Monique.Shots, shots.Count, "three shots an aggro cycle");
+            Assert.AreEqual(3, Balance.Monique.Shots);
             Assert.IsFalse(monique.Armed, "then she puts it away");
+            // A new attack starts a new cycle.
+            zach.KnockT = 0f;
+            monique.Slash(rig.Sim, zach, 1);
+            Assert.IsTrue(monique.Armed);
         }
 
         [Test]

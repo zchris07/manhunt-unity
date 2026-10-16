@@ -519,6 +519,13 @@ namespace Vision.Game
         /// </summary>
         public static bool CanShoot(Npc n, SimPlayer by) => by == null || n.Aggravated || OnScreen(by, n.Pos);
 
+        /// <summary>A player landed an attack or ability on another (Zach on a survivor, a survivor on Zach): the NPCs hear of it.</summary>
+        public void PlayerAttacked(SimPlayer victim, SimPlayer by)
+        {
+            if (victim == null || by == null || victim == by) return;
+            foreach (Npc n in Npcs) n.PlayerAttacked(this, victim, by);
+        }
+
         /// <summary>A bullet or pellet striking a body (a player's or an NPC's): heard by everyone near.</summary>
         public void BulletStruck(Vector2 at) => Noise(at, 1000f, "flesh");
 

@@ -109,7 +109,9 @@ namespace Vision.Player
         // Penjamin's darkness (0-1), eased in and out over the original's 0.6 s: the beam narrows and the dark goes black.
         float darkK;
         // The gas blur (0-1), how long since Zach left the galaxy gas, and how long a survivor's blur has left.
-        float gasBlurK, gasLeftT = 99f;
+        float gasBlurK, gasLeftT = 99f, revealK, jarvisK, jarvisAge;
+        /// <summary>How long JARVIS's light takes to spread out from the player over the whole screen.</summary>
+        public const float RevealSpread = 0.8f;
         Vision.Rendering.VisionComposite composite;
 
         void Awake()
@@ -437,7 +439,7 @@ namespace Vision.Player
         float EdgeDepth(SimPlayer p)
         {
             if (world == null) return 1f;
-            return Mathf.Clamp01((p.Pos.magnitude - world.halfExtent) / Balance.Boundary.Gap);
+            return Mathf.Clamp01((p.Pos.magnitude - world.halfExtent - Balance.Boundary.FirstRing) / Balance.Boundary.InnerGap);
         }
 
         float BoundaryLight(SimPlayer p, float dt)
@@ -512,6 +514,12 @@ namespace Vision.Player
                     composite.gasBlur = gasBlurK;
                     // Piss in the eyes: blurred and yellowed, falling off linearly over two seconds.
                     composite.piss = Mathf.Clamp01(p.PissBlurT / Balance.Items.Piss.BlurTime);
+                    // JARVIS (its user): everything outlined in blue, scanned, as long as it runs.
+                    bool jarvisOn = !zach && p.JarvisT > 0f;
+                    jarvisK = jarvisOn ? Mathf.Min(1f, jarvisK + dt0 / RevealSpread) : Mathf.Max(0f, jarvisK - dt0 / 0.5f);
+                    jarvisAge = jarvisOn ? jarvisAge + dt0 : 0f;
+                    composite.jarvis = jarvisK;
+                    composite.jarvisTime = jarvisAge;
                 }
                 // Hidden: peeking out through the slats (or the grass all round) for the original's short reach.
                 bool peeking = p.HideState == 2;
@@ -539,8 +547,13 @@ namespace Vision.Player
                 viewer.seeThroughEnabled = xrayK > 0f;
                 viewer.seeThroughK = xrayK;
                 viewer.seeThroughStrength = Balance.Xray.Brightness;
-                // JARVIS: while it runs, every survivor sees everything on their screen (Zach doesn't).
-                viewer.revealAll = Host != null && Host.Sim.RevealT > 0f && !zach;
+                // JARVIS: while it runs, every survivor sees everything on their screen (Zach doesn't): ten seconds for
+                // everyone, its whole run for the survivor running it; the light spreads out from the player over the
+                // screen in 0.8 s as it comes on.
+                bool reveal = Host != null && (Host.Sim.RevealT > 0f || p.JarvisT > 0f) && !zach;
+                revealK = reveal ? Mathf.Min(1f, revealK + dt0 / RevealSpread) : 0f;
+                viewer.revealAll = reveal;
+                viewer.revealGrow = revealK * revealK * (3f - 2f * revealK);
             }
             if (animator != null)
             {

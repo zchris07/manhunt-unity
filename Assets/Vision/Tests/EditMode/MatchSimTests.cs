@@ -482,7 +482,7 @@ namespace Vision.Tests
             Assert.AreEqual(ItemType.Shotgun, inv.ItemAt(1));
             Assert.AreEqual(ItemType.Pistol, inv.ItemAt(2), "each gun takes a slot (a second shotgun's shells go into the first)");
             Assert.AreEqual(Balance.Items.Shotgun.Shells, inv.AmountAt(1), 1e-4f, "loaded");
-            foreach (ItemType t in new[] { ItemType.Book, ItemType.Goggles, ItemType.Confit, ItemType.MrBeastBar, ItemType.Trap }) inv.Add(t);
+            foreach (ItemType t in new[] { ItemType.Book, ItemType.DoctorPepper, ItemType.Confit, ItemType.MrBeastBar, ItemType.Trap }) inv.Add(t);
             ItemType? dropped = null;
             inv.Dropped += (t, n, g, a) => dropped = t;
             inv.Add(ItemType.MiniShield);

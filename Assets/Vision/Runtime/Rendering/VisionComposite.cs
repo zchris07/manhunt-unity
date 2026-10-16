@@ -86,6 +86,9 @@ namespace Vision.Rendering
         [Range(0f, 1f)] public float gasBlur;
         [Tooltip("Piss in the eyes: blurs and yellows the whole view, 0-1 (set by the player).")]
         [Range(0f, 1f)] public float piss;
+        [Tooltip("JARVIS (its user): every outline drawn in blue, a scan sweeping out from the player (0-1), and how long it's run.")]
+        [Range(0f, 1f)] public float jarvis;
+        public float jarvisTime;
         [Tooltip("The player's own light (beam and the light round them) dimmed evenly, 0-1: its flicker and dying at the edge of the woods.")]
         [Range(0f, 1f)] public float viewerLight = 1f;
         [Tooltip("The whole screen darkened (1: black), past the edge of the woods.")]
@@ -139,6 +142,7 @@ namespace Vision.Rendering
         static readonly int GasId = Shader.PropertyToID("_VisGas");
         static readonly int PissId = Shader.PropertyToID("_VisPiss");
         static readonly int ViewerId = Shader.PropertyToID("_VisViewer");
+        static readonly int JarvisId = Shader.PropertyToID("_VisJarvis");
 
         Material material;
         VisionCompositePass pass;
@@ -170,6 +174,7 @@ namespace Vision.Rendering
             float px = cam.pixelHeight / 1080f;
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
             material.SetVector(PissId, new Vector4(piss, PissBlurPx * px * piss, 0f, 0f));
+            material.SetVector(JarvisId, new Vector4(jarvis, jarvisTime, 0f, 0f));
             material.SetVector(GasId, new Vector4(gasBlur, GasBlurPx * px * Mathf.Lerp(0.45f, 1f, gasBlur), GasSplitPx * px * gasBlur, GasWarpPx * px * gasBlur));
             material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));
             material.SetColor(DarkTintId, darkTint);

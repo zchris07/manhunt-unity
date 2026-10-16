@@ -28,7 +28,11 @@ namespace Vision.UI
         /// <summary>The Hemp Battery is announced once ever on a machine, as in the original.</summary>
         public const string HempAnnouncedKey = "manhunt.hempAnnounced";
 
-        float zoomK, aimK;
+        float zoomK, aimK, jarvisK;
+        JarvisHud jarvisHud;
+
+        /// <summary>JARVIS widens the view by this much for the survivor running it (eased over half a second).</summary>
+        public const float JarvisZoom = 1.3f;
 
         /// <summary>Who the camera follows while you are out of the match (escaped, sacrificed or spectating), or 0.</summary>
         public int Spectating { get; private set; }
@@ -40,6 +44,9 @@ namespace Vision.UI
             if (me == null) return;
             UpdateCamera(me);
             DrawTrails(me);
+            // JARVIS: its boot and its screen, for the survivor running it.
+            if (jarvisHud == null) jarvisHud = gameObject.AddComponent<JarvisHud>();
+            jarvisHud.Run(me.Role == Role.Survivor ? me.JarvisT : 0f, Balance.Sexton.JarvisUserSec, GameHud.MenuOpen);
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;
             // Penjamin: the gas sound loops while a survivor is in the cloud.
@@ -67,7 +74,10 @@ namespace Vision.UI
             aimK = Mathf.MoveTowards(aimK, me.Aiming ? 1f : 0f, dt * 4f);
             float ae = aimK * aimK * (3f - 2f * aimK);
             float fov = me.FovMul > 0f ? me.FovMul : 1f;
-            cameraRig.zoom = (1f + (Balance.Hunter.Hemp.ZoomOut - 1f) * e) * (1f + (Balance.Items.Sniper.AimZoom - 1f) * ae) / fov;
+            // JARVIS zooms the view out over half a second, for as long as it runs.
+            jarvisK = Mathf.MoveTowards(jarvisK, me.Role == Role.Survivor && me.JarvisT > 0f ? 1f : 0f, dt / 0.5f);
+            float je = jarvisK * jarvisK * (3f - 2f * jarvisK);
+            cameraRig.zoom = (1f + (Balance.Hunter.Hemp.ZoomOut - 1f) * e) * (1f + (Balance.Items.Sniper.AimZoom - 1f) * ae) * (1f + (JarvisZoom - 1f) * je) / fov;
 
             bool out_ = me.Role == Role.Spectator || me.Health == Health.Escaped || me.Health == Health.Eliminated;
             Transform target = player.transform;
@@ -358,8 +368,9 @@ namespace Vision.UI
                     overlays?.Center("THE GATE IS OPEN", 4f);
                     break;
                 case EventKind.Jarvis:
-                    overlays?.Big("JARVIS ONLINE");
-                    Audio.Announce("voice.jarvis");
+                    // Its user gets the boot on their own screen; everyone else the announcement. The voice for all.
+                    if (e.A != me) overlays?.Big("JARVIS ONLINE");
+                    if (!Audio.PlayCue("jarvis_voice")) Audio.Announce("voice.jarvis");
                     break;
                 case EventKind.Hemp:
                     // Only the very first time it's used (ever): the text and the voice, never again.

@@ -174,9 +174,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   stake) eliminates.
 - **Stamina**: eight seconds of sprint (Zach six); running dry locks it for 1.5 s while it refills. Zach can't sprint
   once he's more than halfway into a full charge (0.95 s of its 1.9 s); he can still lunge and use every ability.
-- **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre: the playable circle
-  (90 m out), the second 15.6 m beyond it (30% further than at first) and the end of the world 18 m beyond that (50%
-  further than at first; the world is made that much bigger). NPCs never wander past the first. Past it a survivor's
+- **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre: the first 4.68 m past the
+  playable circle's 90 m (pushed out, so the stretch to the second is 30% shorter: 10.92 m), the second 15.6 m past the
+  playable circle and the end of the world 18 m beyond that (50% further than at first; the world is made that much
+  bigger). NPCs never wander past the first. Past it a survivor's
   light (the beam and the light round them together, evenly, the beam keeping its full reach) is plainly dying: it
   wavers, sags deep about every second, sputters nearly out and back through each sag, and now and then blinks almost
   out, from just past the first ring, growing (deeper and more often, quicker) the further out they go, at its full
@@ -434,8 +435,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   chips, grit, a few sparks and a cloud of dust; metal a shower of sparks and dark flecks; glass bright shards; plaster
   and concrete white chips in a big dust cloud; more for a charged swing, and the charged swing plays at the light swing's speed (the same beats and length;
   only how it looks).
-  JARVIS shows the user the whole map, its tablet held up until they take another item in hand (it keeps running, the
-  tablet put away and the new item shown); night vision tints the view green, with no green halo round the screen,
+  JARVIS shows the user the whole map, with no animation of the body at all (no tablet held up); night vision tints the view green, with no green halo round the screen,
   and the goggles go on over the eyes (the hands stay free). Night vision and the Hemp Battery's x-ray fill the whole vision cone and run on past the edge of the
   screen whichever way you turn; as they come on, the light grows out of the torch to its full reach in half a second
   (the original's animation, quickened), and the Hemp Battery's zoom out and back in takes half a second too. Every attack item but galaxy
@@ -457,8 +457,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   back and shoots until you have lost half your health; three survivor hits kill him and drop his pistol, and Zach
   who slays him gets a lunge charge and more reach. **Marc Cortez** starts in the building, opens doors and hands out
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
-  wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you (Zach saying yes
-  gets his health coming back 20% faster for good, and Njaaron wanders off again); he runs 20% faster than the
+  wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you. Zach saying yes
+  gets his health coming back 10% faster for good (even after Njaaron's slain), and Njaaron goes with Zach: he follows
+  him about and hunts down any survivor Zach lands a swing or an ability on, and any survivor who lands an attack on
+  Zach; nothing of Zach's (his machete, lunge, beam, Penjamin, burst, golden pump) ever touches him; he runs 20% faster than the
   original's (210 units a second); he explodes when he dies. **Soham** says Hi and explodes. Whoever explodes (Chacko, Soham, Njaaron) goes up in a bloody blast: a hot flash, a cloud of red mist, blood sprayed out everywhere in streaking droplets with lumps of gore among them and smoke rolling up after, leaving dark blood stains on the ground for the rest of the match (a ragged pool where they stood, splashes and long streaks out to five metres, spatters beyond). **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
   him first, Zach or a survivor (testing mode gives survivors one to try, in a thirteenth slot on the backslash key).
   A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
@@ -468,7 +470,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   slashed by Zach, or hit by a survivor's item or round, she stands her ground and blasts them with her shotgun (a
   survivor's shotgun with endless shells, its pump worked after every blast) for ten seconds, every new attack starting
   them again, turning to keep them in her sights but never chasing them, firing whenever they're within 630 units and
-  in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal for ten seconds, reloading as a survivor's does; each keeps her gun up the whole ten seconds, holding fire only while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
+  in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal, reloading as a survivor's does, three shots at most an aggro cycle before she puts it away (an attack after that starts her again); Daphne keeps her gun up for ten seconds, holding fire while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
@@ -488,8 +490,24 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   grey hair; Plasma a tall white man with light brown hair (the beast stays purple); Waz a tall Indian man with curly
   hair and a short goatee; Soham a tall Indian man with a bowl cut; Njaaron a slightly muscular Asian man; Jaden an
   Asian man with cartoon-yellow skin; Monique a short Asian woman (tall is 1.88 m, short 1.62 m).
-- **JARVIS**: for its ten seconds every survivor's whole screen is lit and everyone on it shows (the original's
-  reveal), and its user's map is revealed.
+- **JARVIS**: for ten seconds every survivor's whole screen is lit and everyone on it shows (the original's
+  reveal); for the survivor running it, thirty seconds, and their map revealed. Coming on, it boots on their screen in
+  two seconds, after Iron Man's JARVIS start-up (`JarvisHud`): a blue light streaks across the middle, an angular frame
+  draws in round it, "INITIATING J.A.R.V.I.S. 1...." types out with a blinking block cursor, diagnostics flicker under
+  it (network, protocol, memory, CHECKSUM: OK), a segmented bar fills and it all breaks up in a glitch. Psionic waves
+  ripple out from them, close about the body first and sinking to the ground, then ring after ring spreading out over
+  the ground, pulsing; the light spreads out from them over the whole screen in 0.8 s, and the view zooms out 30% over
+  half a second. For as long as it runs: a blue wash, a vignette and scanlines, corner brackets, panels of ticking
+  stats and metrics (uplink, satellite fix, core temperature, power, scan progress, the session counting down, the
+  threat), turning range rings, a scrolling hex dump and a bank of meters; the cursor becomes a square target reticle
+  with a cross in the middle (an airstrike marker); and everything on screen is outlined in blue, scanned (wherever the
+  depth jumps: props, walls, trees, bodies), a scan ring sweeping out from them. Its voice: "I am J.A.R.V.I.S. at your
+  service..." (a local file; without it, the old robot voice). The JARVIS slot sits beside the inventory, and night
+  vision's slot (RMB) beside it.
+- **Night vision** is an ability, not an item: goggles never take an inventory slot, each pair picked up adds its
+  charge to the survivor's night vision, and holding right click uses it, whatever else they're holding or doing (with
+  the 0.50 cal in hand, right click aims it and turns night vision on together, until the charge runs out). There's no
+  animation of the body for it; the goggles go on over the eyes.
 - **The ambulance, the lounge and the notes** (`SandboxWorld.Story`): Chris's ambulance parks in the woods off the
   paths with a row of supplies beside it and a flashing light bar, whose light shows the van's roof and the ground just
   round it (no further) under a soft red then blue tint that swells with each flash; the building's biggest room without a generator is
@@ -711,7 +729,7 @@ ditches and packed dirt on the paths.
   hand pulls the forend straight back along the magazine, 9 cm, a spent red shell kicking out of the port on the right
   to bounce and lie on the ground a while, then pushes it home, at a real pump's speed, the arm solved so the hand stays
   on the forend all the way (scratchpad pump_solve.py), the gun held on aim for the rest of the reload, 1.2 seconds for
-  every shotgun (the 0.50 cal's reload swapped with it: the 0.50 cal now takes 2 seconds), stopped if it's put away; Zach working the golden pump the same way; the
+  the shotgun and one for the Legendary pump (the 0.50 cal takes 2 seconds), stopped if it's put away; Zach working the golden pump the same way; the
   0.50 cal simply held on after it fires, both hands on it, no movement at all; every kick ends in the gun's hold and
   hands straight back to it at full weight, so the support hand never lets go and the body never drops back to the
   walk in between),

@@ -144,6 +144,7 @@ namespace Vision.Net
                 w.Write(s.amounts.Count);
                 foreach (float a in s.amounts) w.Write(a);
             }
+            w.Write(inv.NightVision);
         }
 
         public static void ReadInventory(BinaryReader r, Inventory inv)
@@ -159,6 +160,7 @@ namespace Vision.Net
                 s.amounts.Clear();
                 for (int k = 0; k < n; k++) s.amounts.Add(r.ReadSingle());
             }
+            inv.NightVision = r.ReadSingle();
         }
 
         static void WriteResult(BinaryWriter w, MatchResult res)

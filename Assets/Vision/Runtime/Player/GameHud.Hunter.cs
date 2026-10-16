@@ -32,7 +32,7 @@ namespace Vision.Player
         RectTransform abilityStrip, survivorStrip;
         readonly AbilitySlot[] abilities = new AbilitySlot[6];
         // A survivor's JARVIS (Q) and the Hemp Beam Thomas gave them (R), beside the inventory as in the original.
-        AbilitySlot jarvisSlot;
+        AbilitySlot jarvisSlot, goggleSlot;
         Text hunterStatus, heard, zachRates;
 
         /// <summary>An ability slot: its key cap, its icon, the count at the top right, the name, a cooldown shade and a meter.</summary>
@@ -69,6 +69,8 @@ namespace Vision.Player
             abilityStrip.gameObject.SetActive(false);
             survivorStrip = Node("Survivor Abilities", parent, new Vector2(0.5f, 0f), new Vector2(0f, 0f), new Vector2(0f, 22f), new Vector2(82f + 14f, 86f));
             jarvisSlot = MakeAbility(survivorStrip, "Q", "JARVIS", "tablet", 14f, 76f);
+            // Night vision: an ability now (right click), never a selectable slot.
+            goggleSlot = MakeAbility(survivorStrip, "RMB", "Night vision", "goggles", 14f + 82f, 76f);
             survivorStrip.gameObject.SetActive(false);
             // Zach's speed loss and Hemp recovery sit beside his stamina bar.
             zachRates = kit.Label(Node("Zach Rates", staminaBox, new Vector2(1f, 0.5f), new Vector2(0f, 0.5f), new Vector2(16f, 0f), new Vector2(380f, 38f)), "", 14, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.Mono, 0f);
@@ -124,15 +126,27 @@ namespace Vision.Player
         void RefreshSurvivorAbilities(SimPlayer me, float stripWidth)
         {
             bool survivor = me.Role == Role.Survivor && !MainMenuOpen;
-            bool any = survivor && me.Jarvis != 0;
+            bool hasJarvis = survivor && me.Jarvis != 0, hasGoggles = survivor && (me.Inv.NightVision > 0f || me.GogglesOn);
+            bool any = hasJarvis || hasGoggles;
             survivorStrip.gameObject.SetActive(any);
+            // JARVIS first, night vision beside it (or in its place).
+            jarvisSlot.Root.SetActive(hasJarvis);
+            goggleSlot.Root.SetActive(hasGoggles);
+            ((RectTransform)goggleSlot.Root.transform).anchoredPosition = new Vector2(hasJarvis ? 14f + 82f : 14f, 0f);
+            survivorStrip.sizeDelta = new Vector2(14f + (hasJarvis ? 82f : 0f) + (hasGoggles ? 82f : 0f), 86f);
             // The inventory and these slots together stay centred on the screen, however wide the slots have grown.
             float extra = any ? survivorStrip.sizeDelta.x : 0f;
             strip.anchoredPosition = new Vector2(-extra * 0.5f, 22f);
             if (!any) return;
             survivorStrip.anchoredPosition = new Vector2(stripWidth * 0.5f - extra * 0.5f, 22f);
             int j = me.Jarvis;
-            SetAbility(jarvisSlot, j == 1 || j == 3, j == 3 ? "∞" : j == 2 ? "used" : "", 0f, null, me.JarvisT > 0f, j == 0);
+            if (hasJarvis) SetAbility(jarvisSlot, j == 1 || j == 3, j == 3 ? "∞" : j == 2 ? "used" : "", 0f, null, me.JarvisT > 0f, j == 0);
+            if (hasGoggles)
+            {
+                float nv = me.Inv.NightVision;
+                SetAbility(goggleSlot, nv > 0f || me.Inv.Infinite, me.Inv.Infinite ? "∞" : $"{Mathf.CeilToInt(nv)}s", 0f,
+                    me.Inv.Infinite ? 1f : Mathf.Clamp01(nv / Items.FreshAmount(ItemType.Goggles)), me.GogglesOn);
+            }
         }
 
         void RefreshHunter(SimPlayer me, MatchSim sim)

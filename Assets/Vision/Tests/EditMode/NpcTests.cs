@@ -275,13 +275,19 @@ namespace Vision.Tests
             rig3.Run(1);
             rig3.Tap(h3.Id, Btn.Yes);
             Assert.IsTrue(h3.NjaaronRegen);
-
-            // Four of Zach's points kill him, and he explodes.
+            Assert.AreEqual(1.1f, Balance.Njaaron.RegenMul, 1e-5f, "a 10% healing boost");
+            Assert.AreEqual(Njaaron.Mode.Ally, nj3.State, "and he's with Zach");
+            // Nothing of Zach's touches him now.
+            for (int i = 0; i < Balance.Njaaron.Hp * 2; i++) nj3.Slash(rig3.Sim, h3, 2);
+            Assert.IsTrue(nj3.Alive, "Zach's swings never hurt his friend");
+            Assert.IsTrue(nj3.SparedBy(h3));
+            // A survivor's round kills him, and he explodes; Zach keeps his boost.
             rig3.Sim.Events.Clear();
-            for (int i = 0; i < Balance.Njaaron.Hp; i++) nj3.Slash(rig3.Sim, h3, 1);
+            nj3.ItemHit(rig3.Sim, rig3.P(2), "shot");
             Assert.IsFalse(nj3.Alive);
             Assert.IsTrue(rig3.Sim.Events.Exists(e => e.Kind == EventKind.Explosion));
             Assert.Less(h3.Hp, 1f, "caught in the blast");
+            Assert.IsTrue(h3.NjaaronRegen, "the healing boost stays after he's gone");
         }
 
         [Test]

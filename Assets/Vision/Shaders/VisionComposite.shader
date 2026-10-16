@@ -48,6 +48,7 @@ Shader "Hidden/Vision/Composite"
             float4 _VisGas;        // gassed (Penjamin on a survivor, galaxy gas on Zach): x = strength 0-1, y = blur radius px, z = double vision px, w = warp px
             float4 _VisionViewerPos;
             float4 _VisViewer;     // x = the player's own light dimmed evenly (flicker and dying at the edge of the woods)
+            float4 _VisJarvis;     // JARVIS (its user): x = strength 0-1, y = seconds it's run
 
             // Disc blur: 12 taps on a golden-angle spiral plus the centre.
             half3 DiscBlur(float2 uv, float radiusPx)
@@ -104,6 +105,15 @@ Shader "Hidden/Vision/Composite"
                 float eye = lerp(_VisCamClip.x, _VisCamClip.y, raw);
                 float2 ndc = uv * 2.0 - 1.0;
                 return _VisCamPos.xyz + _VisCamRight.xyz * ndc.x + _VisCamUp.xyz * ndc.y + _VisCamFwd.xyz * eye;
+            }
+
+            float EyeDepth(float2 uv)
+            {
+                float raw = SampleSceneDepth(uv);
+                #if UNITY_REVERSED_Z
+                raw = 1.0 - raw;
+                #endif
+                return lerp(_VisCamClip.x, _VisCamClip.y, raw);
             }
 
             float Hash(float2 p)
@@ -195,6 +205,23 @@ Shader "Hidden/Vision/Composite"
                 {
                     half pl = dot(c, half3(0.2126, 0.7152, 0.0722));
                     c = lerp(c, pl * half3(1.25, 1.05, 0.35) + half3(0.04, 0.03, 0.0), 0.75 * piss);
+                }
+                // JARVIS: everything scanned, its outlines drawn in blue (wherever the depth jumps: the edges of props, walls,
+                // trees and bodies, not the rolling ground), the view tinted cold, a scan ring sweeping out from the player.
+                half jv = _VisJarvis.x;
+                if (jv > 0.002)
+                {
+                    float2 o = 1.5 / _ScreenParams.xy;
+                    float e0 = EyeDepth(uv);
+                    float j1 = abs(EyeDepth(uv + float2(o.x, 0)) - e0), j2 = abs(EyeDepth(uv - float2(o.x, 0)) - e0);
+                    float j3 = abs(EyeDepth(uv + float2(0, o.y)) - e0), j4 = abs(EyeDepth(uv - float2(0, o.y)) - e0);
+                    half edge = smoothstep(0.12, 0.4, max(max(j1, j2), max(j3, j4)));
+                    half3 cyan = half3(0.3, 0.8, 1.0);
+                    c = lerp(c, c * half3(0.78, 0.95, 1.18), 0.35 * jv);
+                    c += cyan * edge * 1.1 * jv;
+                    float sweep = frac(_VisJarvis.y / 2.5);
+                    float sd = distance(ws.xz, _VisionViewerPos.xz);
+                    c += cyan * exp(-abs(sd - sweep * 30.0) * 2.0) * (1.0 - sweep) * 0.35 * jv;
                 }
                 // Out past the edge of the woods the whole screen goes dark, every light with it.
                 c *= 1.0 - saturate(_VisBeam.w);

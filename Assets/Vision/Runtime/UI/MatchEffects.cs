@@ -160,6 +160,10 @@ namespace Vision.UI
                 case EventKind.GenDone:
                     Audio.PlayCue("generator_done", Units(e.Pos));
                     break;
+                case EventKind.Jarvis:
+                    // JARVIS coming on: psionic waves out from whoever's running it.
+                    if (by != null) JarvisWaves(by.Pos);
+                    break;
                 case EventKind.Explosion:
                     // Chacko, Soham or Njaaron blown apart.
                     BloodyExplosion(e.Pos);
@@ -254,7 +258,11 @@ namespace Vision.UI
 
         // ---------------------------------------------------------------- per frame
 
-        void LateUpdate() => Draw();
+        void LateUpdate()
+        {
+            Draw();
+            DrawJarvisWaves();
+        }
 
         /// <summary>Draws this frame's effects (also called by tests).</summary>
         public void Draw()

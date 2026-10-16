@@ -84,6 +84,10 @@ namespace Vision.Game
             || (Flags & (NpcFlags.Armed | NpcFlags.Angry | NpcFlags.Chasing | NpcFlags.Raging | NpcFlags.Defending)) != 0;
         /// <summary>A Soundcloud Burst wave passes over it (from Zach, <paramref name="by"/>).</summary>
         public virtual void BurstHit(MatchSim sim, SimPlayer by) { }
+        /// <summary>A player landed an attack or ability on another (<paramref name="by"/> on <paramref name="victim"/>).</summary>
+        public virtual void PlayerAttacked(MatchSim sim, SimPlayer victim, SimPlayer by) { }
+        /// <summary>Spared by this player's attacks and abilities (Njaaron, once Zach's friend, by Zach's).</summary>
+        public virtual bool SparedBy(SimPlayer by) => false;
         /// <summary>Zach's Hemp Beam touches it (a light hit, as a swing, unless it takes it otherwise).</summary>
         public virtual void BeamHit(MatchSim sim, SimPlayer h) => Slash(sim, h, 1);
         /// <summary>A 0.50 cal round passes through it.</summary>

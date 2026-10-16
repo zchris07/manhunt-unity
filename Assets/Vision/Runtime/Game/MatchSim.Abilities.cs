@@ -103,7 +103,7 @@ namespace Vision.Game
             h.Move.HempT = h.HempOn ? Balance.Hunter.Hemp.Grace : 0f;
         }
 
-        /// <summary>JARVIS (Q, survivors with Sexton's tablet): for 10 s everyone's whole screen is visible; its user sees the map and Zach.</summary>
+        /// <summary>JARVIS (Q, survivors with Sexton's tablet): for 10 s everyone's whole screen is visible; its user's for 30 s, and they see the map and Zach.</summary>
         void TryJarvis(SimPlayer p)
         {
             if (p.Jarvis != 1 && p.Jarvis != 3) return;
@@ -111,7 +111,7 @@ namespace Vision.Game
             // No vision aids past the second ring.
             if (p.Zone >= 2) return;
             if (p.Jarvis == 1) p.Jarvis = 2;
-            p.JarvisT = Balance.Sexton.JarvisRadarSec;
+            p.JarvisT = Balance.Sexton.JarvisUserSec;
             p.JarvisSlot = p.SelSlot;
             RevealT = Balance.Sexton.JarvisRadarSec;
             Emit(null, new GameEvent { Kind = EventKind.Jarvis, A = p.Id });
@@ -157,6 +157,7 @@ namespace Vision.Game
                     if (!Crosses(p.Pos, p.RadiusD)) continue;
                     b.Hit.Add(p);
                     p.ScareT = Balance.Hunter.Burst.ScareTime;
+                    PlayerAttacked(p, Get(b.By));
                     Emit(p.Id, new GameEvent { Kind = EventKind.Scare, A = b.By });
                 }
                 // The wave also stuns NPCs that are being aggressive; any it passes over is set off by it (Monique and
@@ -165,7 +166,7 @@ namespace Vision.Game
                 {
                     if (!n.Solid || b.Hit.Contains(n) || !Crosses(n.Pos, n.HitRadius)) continue;
                     b.Hit.Add(n);
-                    if (n.Aggressive) n.StunT = Mathf.Max(n.StunT, Balance.Hunter.Burst.NpcStun);
+                    if (n.Aggressive && !n.SparedBy(Get(b.By))) n.StunT = Mathf.Max(n.StunT, Balance.Hunter.Burst.NpcStun);
                     n.BurstHit(this, Get(b.By));
                 }
                 if (prev >= maxD) Bursts.RemoveAt(k);

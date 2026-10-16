@@ -49,6 +49,8 @@ namespace Vision.Audio
             // the other guns stay silent.
             ["shotgun_shot"] = new Cue { Prefer = new[] { "local_tactical_shotgun" }, Files = new string[0], Volume = 0.5f, PitchJitter = 0.04f, Near = 250f, Radius = 2600f },
             ["pistol_shot"] = new Cue { Prefer = new[] { "local_p250" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0.05f, Near = 200f, Radius = 2200f },
+            // JARVIS coming on: "I am J.A.R.V.I.S. at your service..." (heard by everyone; the robot voice without the file).
+            ["jarvis_voice"] = new Cue { Prefer = new[] { "local_jarvis_voice" }, Files = new string[0], Volume = 0.85f, PitchJitter = 0f, VolumeJitter = 0f },
             // A survivor sacrificed (staked to the end, or gone into the woods), gone from the match for good: heard by all.
             ["sacrificed"] = new Cue { Prefer = new[] { "local_noita_game_over" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f },
             // The machete biting into wood (a tree, a pole, a door, a crate): one of five cracks, each fading out linearly

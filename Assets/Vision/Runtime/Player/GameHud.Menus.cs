@@ -14,7 +14,7 @@ namespace Vision.Player
         {
             ("W A S D", "Move"), ("Mouse", "Aim"), ("Shift", "Sprint"), ("Ctrl", "Crouch"), ("E", "Interact"),
             ("Left mouse", "Use item"), ("Wheel / 1-8", "Select item"), ("G", "Drop item"), ("Tab", "Arrange inventory"),
-            ("Q", "JARVIS"), ("R", "Hemp Beam (once you have it)"), ("Space", "Barricade · hold breath"), ("Z / C", "Turn the view"), ("M", "Map"),
+            ("Q", "JARVIS"), ("RMB", "Night vision (with goggles)"), ("R", "Hemp Beam (once you have it)"), ("Space", "Barricade · hold breath"), ("Z / C", "Turn the view"), ("M", "Map"),
         };
 
         public static readonly (string key, string action)[] HunterControls =

@@ -126,26 +126,41 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void NightVision_OnlyWhileHeld_UsedUpForGood()
+        public void NightVision_IsAnAbilityOnRightClick_ItsChargeAddedUp_WithAnythingElseInHand()
         {
             SimRig rig = Duel(2000f);
             SimPlayer s = rig.P(2);
             s.Inv.Add(ItemType.Goggles);
-            int slot = s.Inv.FirstSlotOf(ItemType.Goggles) + 1;
-            InputCmd? Held(SimPlayer p) => p.Id == 2 ? new InputCmd { Buttons = Btn.Primary, Item = slot, AimDist = 100f } : (InputCmd?)null;
+            Assert.AreEqual(-1, s.Inv.FirstSlotOf(ItemType.Goggles), "no slot: an ability");
+            Assert.AreEqual(Balance.Items.Goggles.Meter, s.Inv.NightVision, 1e-4f);
+            // A second pair adds its charge.
+            s.Inv.Add(ItemType.Goggles);
+            Assert.AreEqual(Balance.Items.Goggles.Meter * 2f, s.Inv.NightVision, 1e-4f, "picked up again: added on");
+            s.Inv.NightVision = Balance.Items.Goggles.Meter;
+            // Held on right click, with the 0.50 cal in hand: it aims too.
+            s.Inv.Add(ItemType.Sniper);
+            int sniper = s.Inv.FirstSlotOf(ItemType.Sniper) + 1;
+            InputCmd? Held(SimPlayer p) => p.Id == 2 ? new InputCmd { Buttons = Btn.Lunge, Item = sniper, AimDist = 100f } : (InputCmd?)null;
             rig.Run(2, Held);
-            Assert.IsTrue(s.GogglesOn);
+            Assert.IsTrue(s.GogglesOn, "on while right click is held");
+            Assert.IsTrue(s.Aiming, "and the 0.50 cal aimed with it");
             rig.Run(Secs(1f), Held);
-            rig.Run(1, p => p.Id == 2 ? new InputCmd { Item = slot, AimDist = 100f } : (InputCmd?)null);
+            rig.Run(1, p => p.Id == 2 ? new InputCmd { Item = sniper, AimDist = 100f } : (InputCmd?)null);
             Assert.IsFalse(s.GogglesOn, "off when let go");
-            float left = s.Inv.AmountAt(0);
+            float left = s.Inv.NightVision;
             Assert.Less(left, Balance.Items.Goggles.Meter);
             rig.Run(Secs(3f));
-            Assert.AreEqual(left, s.Inv.AmountAt(0), 1e-4f, "no drain while off");
-            s.Inv.SetAmountAt(0, 0.5f);
+            Assert.AreEqual(left, s.Inv.NightVision, 1e-4f, "no drain while off");
+            // Busy with something else (drinking a mini shield): still on.
+            s.Action = ActionKind.Drink;
+            s.ActionT = 0f;
+            s.ActionDur = 5f;
+            rig.Run(3, Held);
+            Assert.IsTrue(s.GogglesOn, "while busy with something else too");
+            s.Inv.NightVision = 0.5f;
             rig.Run(Secs(1f), Held);
             Assert.IsFalse(s.GogglesOn);
-            Assert.AreEqual(0, s.Inv.Count(ItemType.Goggles), "used up");
+            Assert.AreEqual(0f, s.Inv.NightVision, 1e-4f, "used up");
         }
 
         [Test]

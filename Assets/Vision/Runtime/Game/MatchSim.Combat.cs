@@ -243,6 +243,7 @@ namespace Vision.Game
         public void HurtHunter(SimPlayer h, float amount, SimPlayer by, string kind)
         {
             if (h.Role != Role.Hunter || h.Health == Health.Eliminated || h.KnockT > 0f || amount <= 0f) return;
+            if (by != null && by.Role == Role.Survivor) PlayerAttacked(h, by);
             if (h.PissT > 0f && kind != "gas") amount *= Balance.Items.Piss.Mul;
             h.Hp = Mathf.Max(0f, h.Hp - amount / Balance.Hunter.Health.Max);
             if (kind != "gas")
@@ -278,6 +279,7 @@ namespace Vision.Game
         {
             if (q.Role != Role.Survivor || (q.Health != Health.Healthy && q.Health != Health.Wounded) || q.HideState == 2) return;
             bool zach = by != null && by.Role == Role.Hunter;
+            if (zach) PlayerAttacked(q, by);
             bool quiet = kind == "gas" || kind == "vape";
             if (!quiet) CancelAction(q);
             if (zach && !quiet) by.Stats.Hits++;

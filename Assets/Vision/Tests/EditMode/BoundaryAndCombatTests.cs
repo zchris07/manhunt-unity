@@ -49,8 +49,9 @@ namespace Vision.Tests
             var rig = new SimRig(1, 1);
             SimPlayer z = rig.P(1), s = rig.P(2);
             rig.Place(z, 0f, 0f);
-            Assert.AreEqual(90f, rig.Sim.Ring1, 1e-4f, "the first ring is the playable radius");
-            Assert.AreEqual(rig.Sim.Ring1 + 15.6f, rig.Sim.Ring2, 1e-4f, "the second ring 30% further out than its first 12 m");
+            Assert.AreEqual(90f + 15.6f * 0.3f, rig.Sim.Ring1, 1e-4f, "the first ring pushed out past the playable radius");
+            Assert.AreEqual(90f + 15.6f, rig.Sim.Ring2, 1e-4f, "the second ring where it was");
+            Assert.AreEqual(15.6f * 0.7f, rig.Sim.Ring2 - rig.Sim.Ring1, 1e-4f, "the stretch between them 30% shorter");
             Assert.AreEqual(rig.Sim.Ring2 + 18f, rig.Sim.Ring3, 1e-4f, "the end of the world 18 m past it (50% further than 12 m)");
             rig.Place(s, Scale.ToUnits(rig.Sim.Ring1) + 60f, 0f);
             rig.Run(2);
@@ -131,11 +132,10 @@ namespace Vision.Tests
             rig.Tap(2, Btn.Ability);
             Assert.Greater(s.JarvisT, 0f, "JARVIS works past the first ring");
             s.Inv.Add(ItemType.Goggles);
-            int slot = s.Inv.FirstSlotOf(ItemType.Goggles) + 1;
-            rig.Run(3, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Primary, Item = slot, AimDist = 100f } : (InputCmd?)null);
+            rig.Run(3, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Lunge, AimDist = 100f } : (InputCmd?)null);
             Assert.IsTrue(s.GogglesOn, "and night vision");
             rig.Place(s, beyond, 0f);
-            rig.Run(3, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Primary, Item = slot, AimDist = 100f } : (InputCmd?)null);
+            rig.Run(3, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Lunge, AimDist = 100f } : (InputCmd?)null);
             Assert.AreEqual(2, s.Zone);
             Assert.AreEqual(0f, s.JarvisT, "past the second ring JARVIS ends");
             Assert.AreEqual(0f, rig.Sim.RevealT);
@@ -203,7 +203,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void ThePistol_StraysUpToTwoAndAHalfDegrees_EachWay()
+        public void ThePistol_StraysUpToSevenAndAHalfDegrees_EachWay()
         {
             var rig = new SimRig(1, 1, true);
             rig.Place(rig.P(1), 1800f, 1800f);
@@ -212,7 +212,7 @@ namespace Vision.Tests
             List<float> a = Shots(rig, s, ItemType.Pistol, 24, false, 0.4f);
             Assert.AreEqual(24, a.Count);
             Assert.IsTrue(a.All(x => Mathf.Abs(x) <= Balance.Items.Pistol.SpreadDeg + 1e-3f), string.Join(", ", a));
-            Assert.AreEqual(2.5f, Balance.Items.Pistol.SpreadDeg, 1e-5f);
+            Assert.AreEqual(2.5f + 5f, Balance.Items.Pistol.SpreadDeg, 1e-5f);
             Assert.Greater(a.Max(x => Mathf.Abs(x)), 1f, "it does stray");
         }
 

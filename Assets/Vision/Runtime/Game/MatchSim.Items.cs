@@ -78,7 +78,9 @@ namespace Vision.Game
         /// </summary>
         public bool StunHunter(SimPlayer h, float seconds, string kind, SimPlayer by = null, bool exact = false)
         {
-            if (h.Role != Role.Hunter || h.ImmuneT > 0f || h.Health == Health.Eliminated) return false;
+            if (h.Role != Role.Hunter || h.Health == Health.Eliminated) return false;
+            if (by != null && by.Role == Role.Survivor) PlayerAttacked(h, by);
+            if (h.ImmuneT > 0f) return false;
             float dur = seconds * (exact ? 1f : Bal.StunMul);
             h.StunT = Mathf.Max(h.StunT, dur);
             h.ImmuneT = dur + Balance.Items.StunImmunity;
@@ -141,8 +143,6 @@ namespace Vision.Game
                     Consume(p, slot);
                     break;
                 }
-                case ItemType.Goggles:
-                    break;   // held, not toggled: see UpdateItems
                 case ItemType.Shotgun:
                     if (p.ReloadT > 0f) return;
                     FireShotgun(p, cmd.Aim, Balance.Items.Shotgun.PelletDamage, s.golden);
@@ -383,7 +383,8 @@ namespace Vision.Game
                     BreakWindow(win);
                     Noise(s + d * t, 800f, "glass");
                 }
-                float best = wall;
+                // A shut door in the way is blown in.
+                float best = PelletDoors(s, d, wall);
                 SimPlayer hitP = null;
                 Npc hitN = null;
                 foreach (SimPlayer q in Order)
@@ -454,6 +455,7 @@ namespace Vision.Game
                 Vector2 s = o + d * (by.HitRadius + R(2f));
                 float range = R(Balance.Items.Shotgun.Range);
                 float best = Mathf.Min(range, Geo.CastSight(s, d, range));
+                best = PelletDoors(s, d, best);
                 SimPlayer hitP = null;
                 foreach (SimPlayer q in Order)
                 {
@@ -486,6 +488,22 @@ namespace Vision.Game
             Knock(zach, Balance.Items.Shotgun.KbDuration, Balance.Items.Shotgun.KbPeak, Mathf.Atan2(zach.Pos.y - o.y, zach.Pos.x - o.x));
             StunHunter(zach, Balance.Items.Shotgun.Stun, "shotgun");
             HurtHunter(zach, onZach * Balance.Items.Shotgun.ZachBlastDamage / Balance.Items.Shotgun.Pellets, null, "pellet");
+        }
+
+        /// <summary>A shotgun pellet meeting a shut door (not the graveyard's gates, not locked) blows it in; how far the pellet got.</summary>
+        float PelletDoors(Vector2 s, Vector2 d, float best)
+        {
+            for (int i = 0; i < Map.Doors.Count; i++)
+            {
+                if (Doors[i] || DoorBroken[i] || Map.Doors[i].Gate || Map.Doors[i].Shutter || DoorLocked[i]) continue;
+                float t = RaySegment(s, d, Map.Doors[i].A, Map.Doors[i].B);
+                if (float.IsPositiveInfinity(t) || t > best + R(6f)) continue;
+                SetDoor(i, true);
+                DoorBroken[i] = true;
+                Noise(s + d * t, 900f, "door_smash");
+                best = Mathf.Min(best, t);
+            }
+            return best;
         }
 
         /// <summary>The last shotgun blast's pellets (angle, length pairs), for the view.</summary>
@@ -677,7 +695,6 @@ namespace Vision.Game
                 p.ReloadT = Mathf.Max(0f, p.ReloadT - dt);
                 p.ScareT = Mathf.Max(0f, p.ScareT - dt);
                 p.JarvisT = Mathf.Max(0f, p.JarvisT - dt);
-                // Night vision is on only while left click is held with the goggles selected.
                 Inventory.Slot s = p.Selected;
                 // Right click with the 0.50 cal aims it: the scope up, the laser on, and slower on the feet.
                 p.Aiming = p.LastCmd.Has(Btn.Lunge) && s != null && s.item == ItemType.Sniper && p.CanAct && p.HideState == 0 && p.Action == ActionKind.None;
@@ -686,17 +703,18 @@ namespace Vision.Game
                     p.Move.SlowT = Mathf.Max(p.Move.SlowT, 0.1f);
                     p.Move.SlowMul = Mathf.Min(p.Move.SlowMul, Balance.Items.Sniper.AimSlowMul);
                 }
-                bool holding = p.LastCmd.Has(Btn.Primary) && s != null && s.item == ItemType.Goggles;
-                p.GogglesOn = s != null && holding && (p.CanAct || p.Health == Health.Downed) && p.HideState == 0 && p.Zone < 2 && (TestMode || p.Inv.AmountAt(p.SelSlot) > 0f);
-                if (s != null && p.GogglesOn && !TestMode)
+                // Night vision: an ability, held on right click while there's charge (with the 0.50 cal in hand it aims too),
+                // whatever else they're doing; on their feet or down, never past the second ring.
+                bool want = p.Role == Role.Survivor && p.LastCmd.Has(Btn.Lunge);
+                bool able = (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed) && p.Zone < 2;
+                p.GogglesOn = want && able && (TestMode || p.Inv.NightVision > 0f);
+                if (p.GogglesOn && !TestMode && !p.Inv.Infinite)
                 {
-                    float left = p.Inv.AmountAt(p.SelSlot) - dt;
-                    p.Inv.SetAmountAt(p.SelSlot, left);
-                    if (left <= 0f)
+                    p.Inv.NightVision = Mathf.Max(0f, p.Inv.NightVision - dt);
+                    if (p.Inv.NightVision <= 0f)
                     {
-                        p.Inv.Remove(p.SelSlot);
                         p.GogglesOn = false;
-                        Tell(p, "Goggles dead");
+                        Tell(p, "Night vision dead");
                     }
                 }
             }

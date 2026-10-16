@@ -335,7 +335,10 @@ namespace Vision.Game
                 if ((pressed & Btn.Space) != 0 && p.CanAct && p.Action == ActionKind.None && p.Prompt2 == Prompt.DropBarricade) DropBarricade(p, p.Prompt2Target);
                 // Climbing over something (a log, a fence, a broken window): hands busy, no items, guns or abilities.
                 if (p.Move.Climbing) return;
-                if ((pressed & Btn.Primary) != 0 && p.CanAct) UseItem(p, cmd);
+                // Guns fire for as long as left click is held (a shot each time they've reloaded); anything else once a click.
+                Inventory.Slot held = p.Selected;
+                bool gun = held != null && (held.item == ItemType.Pistol || held.item == ItemType.Shotgun || held.item == ItemType.Sniper);
+                if (p.CanAct && ((pressed & Btn.Primary) != 0 || (gun && cmd.Has(Btn.Primary)))) UseItem(p, cmd);
                 if ((pressed & Btn.Drop) != 0) DropItem(p);
                 if ((pressed & Btn.Ability) != 0) TryJarvis(p);
                 return;

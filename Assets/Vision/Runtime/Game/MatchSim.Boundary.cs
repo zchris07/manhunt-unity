@@ -18,7 +18,7 @@ namespace Vision.Game
     public sealed partial class MatchSim
     {
         /// <summary>The rings' radii (design units) about the map's centre: flicker, shutdown, the end of the world.</summary>
-        public float Ring1 => Map.HalfExtent;
+        public float Ring1 => Map.HalfExtent + Balance.Boundary.FirstRing;
         public float Ring2 => Map.HalfExtent + Balance.Boundary.Gap;
         public float Ring3 => Map.HalfExtent + Balance.Boundary.Outer;
 

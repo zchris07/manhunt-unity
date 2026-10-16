@@ -450,18 +450,16 @@ namespace Vision.Tests
                 view.Present(p);
                 Assert.AreSame(ActionClips.AimRifle, layer.Current, "fired, the 0.50 cal is just held on: no kick, no hand let go");
                 p.Aiming = false;
-                // JARVIS: the tablet held up while it runs, put away (JARVIS still running) once they take another item.
+                // JARVIS: no animation at all (no tablet held up): the body just carries on.
                 p.Jarvis = 2;
                 p.JarvisT = 5f;
                 p.JarvisSlot = p.SelSlot;
                 view.Present(p);
-                Assert.AreEqual(PropKind.Tablet, layer.HeldRight, "the tablet up");
-                Assert.AreSame(ActionClips.Tablet, layer.Current);
+                Assert.AreNotEqual(PropKind.Tablet, layer.HeldRight, "no tablet up");
+                Assert.AreNotSame(ActionClips.Tablet, layer.Current, "no arms out");
                 p.SelSlot = 0;
                 view.Present(p);
-                Assert.AreEqual(PropKind.Shotgun, layer.HeldRight, "switched: the new item in hand, the tablet put away");
-                Assert.AreNotSame(ActionClips.Tablet, layer.Current);
-                Assert.Greater(p.JarvisT, 0f, "JARVIS still running");
+                Assert.AreEqual(PropKind.Shotgun, layer.HeldRight);
                 p.Jarvis = 0;
                 p.JarvisT = 0f;
                 p.SelSlot = -1;

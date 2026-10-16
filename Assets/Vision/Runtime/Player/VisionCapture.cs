@@ -549,9 +549,9 @@ namespace Vision.Player
                     yield return Wait(3);
                     yield return Shot("96_drop_and_inventory_editor");
                     gameHud.ToggleEditor(false);
-                    player.SelectedSlot = me8.Inv.FirstSlotOf(ItemType.Goggles);
+                    // Night vision: an ability on right click.
                     yield return Wait(3);
-                    player.ExtraButtons = Btn.Primary;
+                    player.ExtraButtons = Btn.Lunge;
                     yield return new WaitForSeconds(0.5f);
                     gameHud.Refresh();
                     yield return Shot("97_night_vision");
@@ -695,10 +695,9 @@ namespace Vision.Player
                     yield return new WaitForSeconds(0.8f);
                     // Goggles: the x-ray grows out of the torch over half a second; then worn over the eyes.
                     cameraRig.orthographicSize = o;
-                    // (Night vision stays on while the button is held, as in the original.)
-                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Goggles);
+                    // (Night vision stays on while right click is held.)
                     yield return Wait(3);
-                    player.ExtraButtons = Btn.Primary;
+                    player.ExtraButtons = Btn.Lunge;
                     yield return new WaitForSeconds(0.17f);
                     yield return Shot("116_xray_growing");
                     yield return new WaitForSeconds(0.6f);
@@ -712,6 +711,24 @@ namespace Vision.Player
                     player.AimOverride = null;
                     player.SelectedSlot = -1;
                     yield return new WaitForSeconds(0.4f);
+                }
+                // JARVIS: the waves going out, the boot half way through, then its screen running.
+                {
+                    SimPlayer meJ = host.Local;
+                    meJ.Jarvis = 1;
+                    player.ExtraButtons = Btn.Ability;
+                    yield return Wait(2);
+                    player.ExtraButtons = Btn.None;
+                    yield return new WaitForSeconds(0.3f);
+                    yield return Shot("119_jarvis_waves");
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot("119b_jarvis_boot");
+                    yield return new WaitForSeconds(1.8f);
+                    yield return Shot("119c_jarvis_running");
+                    meJ.JarvisT = 0f;
+                    host.Sim.RevealT = 0f;
+                    meJ.Jarvis = 0;
+                    yield return new WaitForSeconds(0.8f);
                 }
                 // The view turned 45 degrees at the building (its doors and windows on every side show), an office door up
                 // close, a vault over a fallen log, JARVIS lighting the whole screen, and the blur of Penjamin's gas.

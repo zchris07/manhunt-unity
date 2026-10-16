@@ -200,8 +200,9 @@ namespace Vision.Game
             public static class Pistol
             {
                 public const int Shots = 10;
-                // Each shot strays up to 2.5 degrees either side of the aim (the original's 1.5, at the user's request).
-                public const float Reload = 0.35f, Range = BeamRange, SpreadDeg = 2.5f, Damage = 0.1f, ZachDamage = 10f, Stun = 0.1f, KbPeak = 300f, KbDuration = 0.2f;
+                // Each shot strays up to 7.5 degrees either side of the aim (the original's 1.5, then 2.5, then 5 more at the user's request).
+                /// <summary>(Its bloom 5 degrees wider than at first, 2.5 to 7.5; firing 40% faster, a shot every 0.25 s.)</summary>
+                public const float Reload = 0.35f / 1.4f, Range = BeamRange, SpreadDeg = 2.5f + 5f, Damage = 0.1f, ZachDamage = 10f, Stun = 0.1f, KbPeak = 300f, KbDuration = 0.2f;
             }
 
             public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 5f, BlurTime = 2f; }
@@ -209,7 +210,7 @@ namespace Vision.Game
             public const float AnywhereShare = 0.3f;
             public const float UseSlow = 0.5f, UseSlowTime = 0.8f;
 
-            public static class Golden { public const int Shells = 5; public const float Reload = Shotgun.Reload; }
+            public static class Golden { public const int Shells = 5; public const float Reload = 1f; }
 
             public static class Sniper
             {
@@ -227,7 +228,7 @@ namespace Vision.Game
             public static class ZachPump
             {
                 public const int Shots = 10;
-                public const float Reload = Shotgun.Reload, PelletDamage = 0.09f, Stun = 0.1f, KbPeak = 380f, KbDuration = 0.2f;
+                public const float Reload = 1f, PelletDamage = 0.09f, Stun = 0.1f, KbPeak = 380f, KbDuration = 0.2f;
             }
 
             public static class Energy { public const float Duration = 20f, RefillMul = 1.5f, BonusSec = 2f, SpeedMul = 0.15f; }
@@ -262,6 +263,11 @@ namespace Vision.Game
             /// made that much bigger).
             /// </summary>
             public const float Gap = 12f * 1.3f, KillGap = 12f * 1.5f, Outer = Gap + KillGap;
+            /// <summary>
+            /// The first ring stands this far past the map's edge (30% of <see cref="Gap"/>, 4.68 m), so the stretch from it to
+            /// the shutdown ring (still <see cref="Gap"/> past the edge) is 30% shorter: <see cref="InnerGap"/>.
+            /// </summary>
+            public const float FirstRing = Gap * 0.3f, InnerGap = Gap - FirstRing;
             /// <summary>Zach's halo once his light has died past the second ring: its reach (m) and brightness.</summary>
             public const float HaloRadius = 4f, HaloIntensity = 0.8f;
             public const float ShutdownTime = 3f, TickEvery = 3f, TickDamage = 0.2f, CrossCost = 20f, CrossLockout = 10f;
@@ -286,6 +292,8 @@ namespace Vision.Game
             public const float TalkTime = 1.6f, HandTime = 0.45f, Reach = 72f;
             public const float AudioNear = 60f, AudioFar = 950f, AudioCurve = 3f;
             public const float JarvisRadarSec = 10f;
+            /// <summary>How long JARVIS runs for the survivor holding it (everyone else's screens are lit for <see cref="JarvisRadarSec"/>).</summary>
+            public const float JarvisUserSec = 30f;
             public const string SecondLine = "This is powerful tech, NAME. Be careful with it type shi";
             public const float SecondTalkTime = 2.4f, LeaveTime = 7f, JarvisMinimapMul = 1.2f;
 
@@ -352,7 +360,8 @@ namespace Vision.Game
             public const float Radius = 14f, Reach = 70f, Walk = 70f, Run = 175f * 1.2f;
             public const int Hp = 4, StunHits = 3;
             public const float Stun = 1.2f, AngrySec = 10f, PunchHp = 10f, SurvivorPunch = 0.1f, PunchRange = 40f, PunchCooldown = 0.9f, KbPeak = 300f, KbDuration = 0.25f;
-            public const float ZachClose = 380f, ZachLose = 800f, RegenMul = 1.2f, AskSec = 8f, ZachBlast = 20f, SurvivorBlast = 0.5f, BlastRadius = 240f;
+            public const float AllyHuntSec = 20f;
+            public const float ZachClose = 380f, ZachLose = 800f, RegenMul = 1.1f, AskSec = 8f, ZachBlast = 20f, SurvivorBlast = 0.5f, BlastRadius = 240f;
             public const string LineAsk = "you wanna go to the Y later?", LineYes = "Let's go!", LineNo = "cmon man";
         }
 
@@ -361,6 +370,8 @@ namespace Vision.Game
         public static class Monique
         {
             public const float Radius = 14f, Reach = 70f, Walk = 60f, FleeMul = 2f, FleeTime = 6f, ArrowSec = 40f, AttackSec = 10f, ShotDamage = 0.4f;
+            /// <summary>The most 0.50 cal shots she fires before putting it away (an attack after that starts her again).</summary>
+            public const int Shots = 3;
             /// <summary>Monique's 0.50 cal reloads as a survivor's does.</summary>
             public const float Reload = Items.Sniper.Reload;
             public const string LineArrow = "spoiler alert", LineHi = "Hi there";

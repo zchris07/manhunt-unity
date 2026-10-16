@@ -71,8 +71,6 @@ namespace Vision.Characters
             {
                 Inventory.Slot s = p.Selected;
                 PropKind held = s != null ? PropModels.ForItem(s.item, s.golden) : PropKind.None;
-                // JARVIS's tablet, until they take something else in hand (JARVIS keeps running).
-                if (p.HoldingTablet) held = PropKind.Tablet;
                 bool hands = p.Health == Game.Health.Healthy || p.Health == Game.Health.Wounded;
                 right = hands ? (held != PropKind.None ? held : PropKind.Flashlight) : PropKind.None;
             }
@@ -137,7 +135,6 @@ namespace Vision.Characters
             }
             if (p.Move.Climbing) return ActionClips.Climb;
             if (p.VapeT > 0f) return ActionClips.CoverEyes;
-            if (p.HoldingTablet) return ActionClips.Tablet;
             Inventory.Slot s = p.Selected;
             if (s != null)
             {

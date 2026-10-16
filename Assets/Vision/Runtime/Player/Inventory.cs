@@ -186,8 +186,19 @@ namespace Vision.Player
             return Mathf.Max(0, count);
         }
 
+        /// <summary>
+        /// Night vision's charge (seconds): goggles never take a slot; each pair picked up adds its charge here, used on
+        /// right click as an ability.
+        /// </summary>
+        public float NightVision;
+
         void AddOne(ItemType item, float amount, bool golden)
         {
+            if (item == ItemType.Goggles)
+            {
+                NightVision += amount;
+                return;
+            }
             // Another shotgun: whatever shells are left in it go into the one already carried (a plain shotgun's into a
             // plain shotgun's, the Legendary pump's into a Legendary pump's: they never share).
             if (item == ItemType.Shotgun)
@@ -269,6 +280,7 @@ namespace Vision.Player
         public void Clear()
         {
             foreach (Slot s in slots) s.Clear();
+            NightVision = 0f;
             Changed?.Invoke();
         }
     }

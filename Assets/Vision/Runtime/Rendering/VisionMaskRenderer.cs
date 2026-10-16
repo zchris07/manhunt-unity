@@ -105,6 +105,8 @@ namespace Vision.Rendering
         Vector2 coverMin;
         /// <summary>The share of the viewer's own light JARVIS lays over the whole screen (the original's 0.85).</summary>
         public const float RevealLight = 0.85f;
+        /// <summary>How far JARVIS's spreading light reaches from the player once grown (past every corner of the screen).</summary>
+        float RevealReach => CoverSize * 0.75f;
         readonly List<Vector2> shadowPolygon = new List<Vector2>(8);
 
         // Debug: last polygons as line strips for the overlay.
@@ -347,15 +349,30 @@ namespace Vision.Rendering
             }
 
             // JARVIS: every survivor's whole screen lit by their own light for its ten seconds, everyone on it shown.
+            // As it comes on, the light spreads out from the player over the screen (a growing disc), then fills it.
             if (viewer.revealAll)
             {
                 polygon.Clear();
                 float sz = CoverSize;
-                polygon.Add(coverMin);
-                polygon.Add(coverMin + new Vector2(sz, 0f));
-                polygon.Add(coverMin + new Vector2(sz, sz));
-                polygon.Add(coverMin + new Vector2(0f, sz));
-                AddPolygon(polygon, false, coverMin + Vector2.one * (sz * 0.5f), blue * RevealLight, sz * 2f, 2f);
+                float grow = Mathf.Clamp01(viewer.revealGrow);
+                if (grow >= 0.999f)
+                {
+                    polygon.Add(coverMin);
+                    polygon.Add(coverMin + new Vector2(sz, 0f));
+                    polygon.Add(coverMin + new Vector2(sz, sz));
+                    polygon.Add(coverMin + new Vector2(0f, sz));
+                    AddPolygon(polygon, false, coverMin + Vector2.one * (sz * 0.5f), blue * RevealLight, sz * 2f, 2f);
+                }
+                else if (grow > 0f)
+                {
+                    float r = grow * RevealReach;
+                    for (int i = 0; i < 48; i++)
+                    {
+                        float a = i * Mathf.PI * 2f / 48f;
+                        polygon.Add(origin + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r);
+                    }
+                    AddPolygon(polygon, true, origin, blue * RevealLight, r, 0.85f);
+                }
                 polygons++;
             }
 
@@ -480,7 +497,7 @@ namespace Vision.Rendering
                 b = OverLowLight * DistanceFalloff(d, coneRangeW, coneStartW)
                     * BeamFalloff(to, new Vector2(Mathf.Cos(viewer.FacingAngle), Mathf.Sin(viewer.FacingAngle)), viewer.coneHalfAngleDeg * Mathf.Deg2Rad, viewer.coneEdgeSoftness);
             if (Contains(proximityPolygon, p)) b = Mathf.Max(b, DistanceFalloff(d, proximityW, viewer.proximityFalloffStart));
-            if (viewer.revealAll) b = Mathf.Max(b, RevealLight);
+            if (viewer.revealAll && (viewer.revealGrow >= 0.999f || d <= viewer.revealGrow * RevealReach)) b = Mathf.Max(b, RevealLight);
             foreach (Vector2 c in allyDiscs)
             {
                 float da = (p - c).magnitude;
