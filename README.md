@@ -234,11 +234,20 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   what's behind them as anything standing does). (The building yard's tall chain-link fence stays solid: the way out is
   through the gate.) **The graveyard** has one way in, a pair of ornate wrought-iron gates between stone pillars (arched
   tops, bars rising into gilded spear points, rings along the foot, scrolls and a ringed cross), chained and padlocked
-  at the start, and a generator always stands in its middle among the graves. Its fence stands 20% taller than at
-  first, posts crowned with tall spikes and a collar of thorns and every bar rising past the top rail into a spear
-  point. Survivors can't climb it (it's on its own physics layer, which only Zach's body passes); Zach can, any time,
-  taking five times as long as over a log (400% longer), except the two metres of fence beside each gate pillar,
-  a plain wall even to him, so going for the gateway he never starts climbing the fence beside it. A survivor at the gates picks the lock (E): a heavy iron dial
+  at the start, and a generator always stands in its middle among the graves. It's 22 m by 17 m, half as much ground
+  again as at first. Its fence stands 20% taller than at first, posts crowned with tall spikes and a collar of thorns
+  and every bar rising past the top rail into a spear point, and no one climbs it, Zach included: it's a solid wall to
+  every body (sight and shots pass between its bars), so the gates are the only way in. The graves stand in four plots
+  of neat rows facing the gates, either side of the walk from the gates to the generator and of the walk across
+  between its two light towers, where their cables run; a marble angel on a pedestal stands at the head of the walk
+  behind the generator. Ten kinds of headstone, each carved: a round-topped tablet on a plinth with a bordered,
+  lettered panel and a cross cut above it, a ringed Celtic cross on two steps with knotwork down its shaft, an obelisk
+  on a die with a bronze plaque, a broken tablet whose top lies fallen on the grave, a weathered wooden cross hung with
+  an ivy wreath inside a picket rail, a ledger slab over the whole grave with a cross in relief, the angel, a gothic
+  arched tablet between pinnacled pilasters, a chest tomb with panelled sides and its lid knocked askew, and a double
+  tablet for two. Most graves are kerbed in stone with corner posts and filled with chippings or earth, or heaped
+  with earth, a few sunk with a footstone; some have a vase of flowers (some wilted) or a grave lantern, and moss
+  creeps up the bases. A survivor at the gates picks the lock (E): a heavy iron dial
   fills the middle of the screen with a gilded mark on its ring and a bright tick sweeping round, and E, Space or a
   click stops it; five times on the mark (each spin faster, the mark narrower, turning the other way) and the lock
   gives, the chain falls away and the gates swing in; two misses and the pins drop, back to the first. Five pins and
@@ -480,8 +489,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   red and blue stripes, outriggers and a tow bar, a telescopic mast with four lamp heads on a frame at the top), each
   wired to it by a cable winding over the ground and throwing a loop of slack; four yellow work lights (a box light on
   a frame, a twin on a bar, a tripod with one head, a tripod with two), wired too; and the mess of a site gone to seed:
-  a blue tarp, broken glass, planks, corrugated metal, a cable spool, a jerry can, a toolbox, a small portable
-  generator, loose wires, ferns and grass grown up through it. Dark until the generator runs, then on for good: each
+  broken glass, planks, corrugated metal, a cable spool, a jerry can, a toolbox, a small portable generator, loose
+  wires, ferns and grass grown up through it. The graveyard's is bare: just the generator, two towers either side of
+  it on the walk between the graves, and their two cables. Dark until the generator runs, then on for good: each
   tower lights the ground all round it (13 m) as brightly and as white as a player's own light, each work light a
   little round it. Anything that would stand in a wall, tree or rock moves to the nearest clear ground; the towers of a
   generator inside the building stand outside it, near its room, their cables running in. (Light sources go into the

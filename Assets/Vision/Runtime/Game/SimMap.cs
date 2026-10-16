@@ -147,15 +147,14 @@ namespace Vision.Game
             foreach (var (a, b, half) in Lows) if (SimMap.SegmentDistance(p, a, b) < half + radius) return true;
             return false;
         }
-        /// <summary>Optional: how much longer vaulting each of <see cref="Lows"/> takes, and whether only Zach can (by index).</summary>
+        /// <summary>Optional: how much longer vaulting each of <see cref="Lows"/> takes (by index).</summary>
         public readonly List<float> LowSlow = new List<float>();
-        public readonly List<bool> LowHunterOnly = new List<bool>();
         public float Vault(Vector2 p, float radius, bool hunter)
         {
             float v = 0f;
             for (int i = 0; i < Lows.Count; i++)
                 if (SimMap.SegmentDistance(p, Lows[i].a, Lows[i].b) < Lows[i].half + radius)
-                    v = Mathf.Max(v, MatchSim.VaultFor(hunter, i < LowSlow.Count ? LowSlow[i] : 1f, i < LowHunterOnly.Count && LowHunterOnly[i]));
+                    v = Mathf.Max(v, MatchSim.VaultFor(i < LowSlow.Count ? LowSlow[i] : 1f));
             return v;
         }
     }

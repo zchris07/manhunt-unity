@@ -7,10 +7,12 @@ namespace Vision.World
     /// <summary>
     /// Every generator's work site, laid out by hand (one fixed arrangement, turned with the generator): three trailer
     /// light towers as tall as a big tree round it, each wired to it by a cable winding and looping over the ground; four
-    /// yellow work lights about it, wired too; and the mess of a work site gone to seed: a blue tarp, broken glass, planks,
-    /// a sheet of corrugated metal, a cable spool, a jerry can, a toolbox, a small portable generator, loose wires, and
-    /// ferns and grass grown up through it all. Dark until the generator runs, then on for good: each tower lights the
-    /// ground all round it as brightly as a player's own light, the work lights a little round each.
+    /// yellow work lights about it, wired too; and the mess of a work site gone to seed: broken glass, planks, a sheet of
+    /// corrugated metal, a cable spool, a jerry can, a toolbox, a small portable generator, loose wires, and ferns and
+    /// grass grown up through it all. The graveyard's is bare: the generator, two towers either side of it on the walk
+    /// between the graves (<see cref="GraveTowerSpots"/>) and their two cables, nothing else. Dark until the generator
+    /// runs, then on for good: each tower lights the ground all round it as brightly as a player's own light, the work
+    /// lights a little round each.
     /// Anything that would stand in a wall, a tree or a rock moves to the nearest clear ground (the towers of a generator
     /// inside the building stand outside it, near its room).
     /// </summary>
@@ -19,7 +21,7 @@ namespace Vision.World
         /// <summary>A tower's light: how far round it (design units), lit as brightly as a player's own light.</summary>
         public const float TowerLightRange = 13f, WorkLightRange = 3.4f;
 
-        enum Clutter { Tarp, Glass, Planks, MetalSheet, Spool, JerryCan, ToolBox, PortableGenerator, Overgrowth, BigOvergrowth }
+        enum Clutter { Glass, Planks, MetalSheet, Spool, JerryCan, ToolBox, PortableGenerator, Overgrowth, BigOvergrowth }
 
         // The layout, in metres from the generator: x to its right, z to its front; yaws in degrees from its front.
         static readonly (float x, float z)[] TowerSpots = { (-5.2f, 3.4f), (5.4f, 2.2f), (0.6f, -5.8f) };
@@ -27,12 +29,12 @@ namespace Vision.World
             { (-2.4f, -2.9f, 3, 30f), (3.1f, -2.6f, 0, -35f), (-3.6f, 0.2f, 2, 80f), (2.2f, 4.4f, 1, 200f) };
         static readonly (float x, float z, Clutter what, float yaw)[] ClutterSpots =
         {
-            (1.6f, -1.6f, Clutter.Tarp, 20f), (-1.9f, 1.8f, Clutter.Glass, 0f), (3.6f, 0.3f, Clutter.Glass, 70f),
+            (-1.9f, 1.8f, Clutter.Glass, 0f), (3.6f, 0.3f, Clutter.Glass, 70f),
             (-3.9f, -2.0f, Clutter.Planks, 35f), (0.2f, 3.2f, Clutter.MetalSheet, 100f), (-1.5f, -1.2f, Clutter.Spool, 60f),
             (1.4f, 1.3f, Clutter.JerryCan, 15f), (-0.9f, 2.5f, Clutter.ToolBox, -25f), (4.2f, -1.4f, Clutter.PortableGenerator, 140f),
             (-4.6f, 1.6f, Clutter.BigOvergrowth, 0f), (3.9f, 3.6f, Clutter.Overgrowth, 0f), (-2.6f, -4.4f, Clutter.BigOvergrowth, 0f),
             (2.4f, -4.6f, Clutter.Overgrowth, 0f), (-5.6f, -0.9f, Clutter.Overgrowth, 0f), (5.8f, -0.4f, Clutter.BigOvergrowth, 0f),
-            (0.8f, -3.4f, Clutter.Glass, 210f), (-2.8f, 4.6f, Clutter.Tarp, 130f),
+            (0.8f, -3.4f, Clutter.Glass, 210f),
         };
         // Each cable: where it runs (a tower 0-2, a work light 3-6, or a loose end at a point), and how it winds: how far
         // it sways, how many times, where it throws a loop (part of the way along; 0 none).
@@ -77,15 +79,21 @@ namespace Vision.World
                 return !Physics.CheckBox(c, new Vector3(half, height * 0.5f, half) * s, transform.rotation, solid, QueryTriggerInteraction.Ignore);
             }
             var lampOn = glowMaterial != null ? glowMaterial : lowPolyMaterial;
+            // The graveyard's: two towers on the walk between the graves, and only their cables.
+            bool graveyard = Layout.Graveyard.width > 0f && (g - Layout.Graveyard.center).sqrMagnitude < 0.25f;
+            var spots = new List<(Vector2 at, bool fixedSpot)>();
+            if (graveyard) foreach (Vector2 t in GraveTowerSpots) spots.Add((GraveLocal(t.x, t.y), true));
+            else foreach (var (tx, tz) in TowerSpots) spots.Add((At(tx, tz), false));
 
-            // The three towers: at their places, or the nearest clear ground outside (round the generator, further out).
+            // The towers: at their places, or the nearest clear ground outside (round the generator, further out); the
+            // graveyard's where its graves leave room for them.
             var towers = new List<Vector2>();
-            foreach (var (tx, tz) in TowerSpots)
+            foreach (var (want, fixedSpot) in spots)
             {
-                Vector2 want = At(tx, tz), spot = want;
+                Vector2 spot = want;
                 bool Good(Vector2 p) => !(building.xMin - 1.8f < p.x && p.x < building.xMax + 1.8f && building.yMin - 1.8f < p.y && p.y < building.yMax + 1.8f)
                     && Clear(p, 1.3f, 3f) && towers.TrueForAll(o => (o - p).sqrMagnitude > 9f);
-                if (!Good(spot))
+                if (!fixedSpot && !Good(spot))
                 {
                     float a0 = Mathf.Atan2(want.y - g.y, want.x - g.x), r0 = (want - g).magnitude;
                     bool found = false;
@@ -129,6 +137,7 @@ namespace Vision.World
             var works = new List<Vector2?>();
             foreach (var (wx, wz, kind, wyaw) in WorkSpots)
             {
+                if (graveyard) break;
                 Vector2 p = At(wx, wz);
                 if (!Clear(p, 0.4f, kind >= 2 ? 1.8f : 0.6f)) { works.Add(null); continue; }
                 works.Add(p);
@@ -158,12 +167,12 @@ namespace Vision.World
             // What lies about.
             foreach (var (cx, cz, what, cyaw) in ClutterSpots)
             {
+                if (graveyard) break;
                 Vector2 p = At(cx, cz);
                 bool green = what == Clutter.Overgrowth || what == Clutter.BigOvergrowth;
                 if ((green && Indoors(p)) || !Clear(p, 0.3f, 0.4f)) continue;
                 Mesh m = what switch
                 {
-                    Clutter.Tarp => LowPolyModels.Tarp(rng, 2.2f, 1.6f, new Color(0.14f, 0.36f, 0.66f)),
                     Clutter.Glass => LowPolyModels.GlassShards(rng),
                     Clutter.Planks => LowPolyModels.Planks(rng),
                     Clutter.MetalSheet => LowPolyModels.MetalSheet(rng),
@@ -216,10 +225,10 @@ namespace Vision.World
             for (int i = 0; i < CableRuns.Length; i++)
             {
                 var (to, sway, waves, loop) = CableRuns[i];
-                Vector2? end = to < 3 ? (to < towers.Count ? towers[to] : (Vector2?)null) : works[to - 3];
+                Vector2? end = to < 3 ? (to < towers.Count ? towers[to] : (Vector2?)null) : to - 3 < works.Count ? works[to - 3] : null;
                 if (end.HasValue) Cable(end.Value, sway, waves, loop, i * 1.7f);
             }
-            foreach (var (lx, lz) in LooseEnds) Cable(At(lx, lz), 0.4f, 2.5f, 0.6f, lx);
+            if (!graveyard) foreach (var (lx, lz) in LooseEnds) Cable(At(lx, lz), 0.4f, 2.5f, 0.6f, lx);
         }
 
         void BuildCablePiece(List<Vector3> pts, Color color, Transform parent)

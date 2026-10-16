@@ -101,8 +101,7 @@ namespace Vision.Game
             Tell(p, "The graveyard gates are open");
         }
 
-        /// <summary>Survivors, and Zach (slowly), over the fence: whether a body here is climbing, and how much slower than a log.</summary>
-        public static float VaultFor(bool hunter, float slow, bool hunterOnly) =>
-            hunterOnly ? (hunter ? Balance.Graveyard.ZachFenceSlow : 0f) : Mathf.Max(1f, slow);
+        /// <summary>Over a log or fence: how much slower than over a log (at least as long).</summary>
+        public static float VaultFor(float slow) => Mathf.Max(1f, slow);
     }
 }

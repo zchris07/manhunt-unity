@@ -220,7 +220,7 @@ namespace Vision.Game
         {
             float v = 0f;
             foreach (SandboxWorld.LowObstacle o in world.Lows)
-                if (SimMap.SegmentDistance(p, o.A, o.B) < o.Half + radius) v = Mathf.Max(v, MatchSim.VaultFor(hunter, o.Slow, o.HunterOnly));
+                if (SimMap.SegmentDistance(p, o.A, o.B) < o.Half + radius) v = Mathf.Max(v, MatchSim.VaultFor(o.Slow));
             return v;
         }
 

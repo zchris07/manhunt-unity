@@ -213,9 +213,8 @@ namespace Vision.Player
                     TopDownCamera.TestZoom = Mathf.Clamp(TopDownCamera.TestZoom * (w > 0f ? 0.88f : 1f / 0.88f), TopDownCamera.TestZoomMin, TopDownCamera.TestZoomMax);
             }
             else if (!GameSession.TestingMode) TopDownCamera.TestZoom = 1f;
-            // Only Zach's body passes the graveyard's fence (to climb it); survivors run into it.
-            int exclude = p.Role == Role.Hunter ? 1 << SandboxWorld.GraveFenceLayer : 0;
-            if (cc != null && cc.excludeLayers.value != exclude) cc.excludeLayers = exclude;
+            // Every body runs into the graveyard's fence, Zach's too.
+            if (cc != null && cc.excludeLayers.value != 0) cc.excludeLayers = 0;
 
             // Testing mode: T switches between Zach and a survivor where you stand.
             if (!menu && Pressed(switchRole) && h.Sim.TestMode && h.SwitchRole())

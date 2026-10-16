@@ -300,8 +300,8 @@ namespace Vision.Tests
                 Assert.AreEqual(world.Layout.Logs.Count + fallen, world.Lows.Count(o => !o.Fence), "every log and fallen tree is a low obstacle");
 
                 // Every split-rail fence is vaulted: on the vault layer (players pass through, NPCs don't), with a vault
-                // strip. The graveyard's spiked iron fence, 20% taller, only Zach climbs: on its own layer, which bodies run
-                // into (his controller leaves it out), its strips his alone.
+                // strip. The graveyard's spiked iron fence, 20% taller, no one climbs, Zach included: on its own layer,
+                // which every body runs into, with no vault strip.
                 var fences = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Fence" || t.name == "Iron Fence").ToList();
                 Assert.Greater(fences.Count(t => t.name == "Fence"), 0, "the map has fences");
                 Assert.Greater(fences.Count(t => t.name == "Iron Fence"), 0, "and the graveyard's");
@@ -313,24 +313,39 @@ namespace Vision.Tests
                     Assert.AreEqual(grave ? SandboxWorld.GraveFenceLayer : SandboxWorld.VaultLayer, f.gameObject.layer, $"{f.name}: vaulted");
                     Assert.AreNotEqual(0, Vfx.UprightMask & (1 << f.gameObject.layer), "it still stands upright, covering lines like a wall");
                 }
-                Assert.AreEqual(fences.Count, world.Lows.Count(o => o.Fence), "a vault strip per fence");
-                Assert.AreEqual(fences.Count(t => t.name == "Iron Fence"), world.Lows.Count(o => o.Fence && o.HunterOnly), "the graveyard's for Zach alone");
+                Assert.AreEqual(fences.Count(t => t.name == "Fence"), world.Lows.Count(o => o.Fence), "a vault strip per split-rail fence, none on the graveyard's");
+                foreach (Transform f in fences.Where(t => t.name == "Iron Fence"))
+                    Assert.IsNotNull(f.GetComponent<BoxCollider>(), "the graveyard's fence a solid wall to every body");
                 // The one way in: the gates, locked, between their pillars.
                 Door gates = world.Doors.Single(d => d.gate);
                 Assert.NotNull(gates.hinge2, "two leaves");
                 Assert.IsTrue(gates.lockVisual != null && gates.lockVisual.activeSelf, "chained and padlocked");
                 Assert.AreEqual(2, root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Gate Pillar"));
                 Assert.AreEqual(SandboxWorld.GateHalfWidth * 2f, Vector2.Distance(gates.a, gates.b), 1e-3f);
-                // Beside the gates the fence is a plain wall, even to Zach: no climbing strip starts near the gateway.
-                Assert.AreEqual(2, root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Gate Fence Wall" && t.GetComponent<BoxCollider>() != null && t.gameObject.layer == 0));
-                foreach (SandboxWorld.LowObstacle o in world.Lows.Where(o => o.HunterOnly))
-                    foreach (Vector2 end in new[] { gates.a, gates.b })
-                        Assert.GreaterOrEqual(SimMap.SegmentDistance(end, o.A, o.B), SandboxWorld.GateFenceSolid, "no climbing right beside the gates");
+                // Half as much ground again as at first (18 by 14), its graves in rows facing the gates, clear of the walk
+                // from the gates to the generator (an angel at its head behind it), of the walk across between the two
+                // light towers where their cables run, and of the towers' ground.
+                Rect gy = world.Layout.Graveyard;
+                Assert.AreEqual(18f * 14f * 1.5f, gy.width * gy.height, 2f, "half as big again");
+                Quaternion toGrave = Quaternion.Inverse(Quaternion.Euler(0f, world.Layout.GraveyardYaw, 0f));
+                var stones = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Headstone").ToList();
+                Assert.Greater(stones.Count, 25, "rows of graves");
+                foreach (Transform t in stones)
+                {
+                    Vector3 l = world.transform.InverseTransformPoint(t.position);
+                    Vector3 gl = toGrave * new Vector3(l.x - gy.center.x, 0f, l.z - gy.center.y);
+                    Assert.IsFalse(Mathf.Abs(gl.x) < 1.8f && gl.z < 4f, $"a grave at {gl} on the walk from the gates");
+                    Assert.IsFalse(gl.z > -2f && gl.z < 2.6f, $"a grave at {gl} on the walk between the towers");
+                    foreach (Vector2 tw in SandboxWorld.GraveTowerSpots)
+                        Assert.Greater(Vector2.Distance(new Vector2(gl.x, gl.z), tw), 2f, "clear of the light towers");
+                    Assert.Less(Mathf.Abs(gl.x), gy.width * 0.5f - 0.5f, "inside the fence");
+                    Assert.NotNull(t.GetComponent<BoxCollider>(), "solid");
+                }
                 // Built of short panels, each sat on the ground under it: none sinks into a rise of the ground.
                 foreach (Transform f in fences.Where(t => t.name == "Iron Fence"))
                 {
                     float plen = f.GetComponent<MeshFilter>().sharedMesh.bounds.max.x * f.lossyScale.x / world.transform.lossyScale.x;
-                    Assert.LessOrEqual(plen, SandboxWorld.GateFenceSolid + SandboxWorld.IronPanel + 0.7f, "a short panel");
+                    Assert.LessOrEqual(plen, SandboxWorld.IronPanel + 0.12f, "a short panel (its end post's thorns a little past it)");
                     Vector3 l = world.transform.InverseTransformPoint(f.position);
                     Vector3 along = world.transform.InverseTransformDirection(f.right).normalized;
                     for (float k = 0f; k <= 1.001f; k += 0.125f)

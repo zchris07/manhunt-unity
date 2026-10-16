@@ -142,7 +142,18 @@ namespace Vision.World
                 Line(f.A + ab * f.GapEnd, f.B, 0.25f, new Color32(96, 72, 48, 255));
             }
             Line(layout.DockStart, layout.DockEnd, layout.DockHalfWidth * 2f, new Color32(110, 92, 70, 255));
-            Outline(layout.Graveyard, 0.2f, new Color32(40, 40, 42, 255));
+            {
+                // The graveyard's fence, turned as it stands.
+                Rect gy = layout.Graveyard;
+                Quaternion turn = Quaternion.Euler(0f, layout.GraveyardYaw, 0f);
+                var corners = new Vector2[4];
+                for (int k = 0; k < 4; k++)
+                {
+                    Vector3 v = turn * new Vector3((k == 1 || k == 2 ? 0.5f : -0.5f) * gy.width, 0f, (k >= 2 ? 0.5f : -0.5f) * gy.height);
+                    corners[k] = gy.center + new Vector2(v.x, v.z);
+                }
+                for (int k = 0; k < 4; k++) Line(corners[k], corners[(k + 1) % 4], 0.2f, new Color32(40, 40, 42, 255));
+            }
             Outline(layout.Playground, 0.15f, new Color32(120, 70, 50, 255));
             foreach (Rect place in new[] { layout.Sushi, layout.Chamber })
             {

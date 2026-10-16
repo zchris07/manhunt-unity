@@ -194,37 +194,6 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void OnlyZach_ClimbsTheGraveyardFence_FiveTimesAsSlowlyAsALog()
-        {
-            int Crossing(bool hunter, bool graveyard, out bool climbed)
-            {
-                var rig = new SimRig(1, 1);
-                rig.Geo.Lows.Add((SimRig.U(100, -80), SimRig.U(100, 80), Scale.D(10f)));
-                rig.Geo.LowSlow.Add(1f);
-                rig.Geo.LowHunterOnly.Add(graveyard);
-                SimPlayer who = hunter ? rig.P(1) : rig.P(2), other = hunter ? rig.P(2) : rig.P(1);
-                rig.Place(who, 0f, 0f);
-                rig.Place(other, 0f, -2000f);
-                int ticks = 0;
-                climbed = false;
-                for (int i = 0; i < Secs(14f); i++)
-                {
-                    rig.Run(1, p => p.Id == who.Id ? new InputCmd { Move = Vector2.right, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
-                    if (who.Move.Climbing) ticks++;
-                    if (Scale.ToUnits(who.Pos.x) > 160f) break;
-                }
-                climbed = ticks > 0;
-                return ticks;
-            }
-            Crossing(false, true, out bool survivorClimbs);
-            Assert.IsFalse(survivorClimbs, "survivors can't climb it (the fence stops them: its own physics layer)");
-            int log = Crossing(true, false, out _), fence = Crossing(true, true, out bool zachClimbs);
-            Assert.IsTrue(zachClimbs, "Zach can");
-            Assert.AreEqual(5f, fence / (float)log, 0.6f, "taking 400% longer than over a log");
-            Assert.AreEqual(5f, Balance.Graveyard.ZachFenceSlow);
-        }
-
-        [Test]
         public void TheGasTrap_IsPlantedByHoldingTheButton_LettingGoStartsItOver()
         {
             var rig = new SimRig(1, 1);

@@ -75,6 +75,8 @@ namespace Vision.World
         public float DockHalfWidth;
 
         public Rect Graveyard;
+        /// <summary>The graveyard's size (metres, along its gate side and front to back): half as much ground again as 18 by 14.</summary>
+        public static readonly Vector2 GraveyardSize = new Vector2(22f, 17.15f);
         public float GraveyardYaw;
         public Rect Playground;
         /// <summary>
@@ -331,10 +333,16 @@ namespace Vision.World
 
         void PlaceFeatures()
         {
-            Vector2 g = Site(12f);
-            Graveyard = new Rect(g.x - 9f, g.y - 7f, 18f, 14f);
+            // 22 m by 17 m: half as much ground again as the first 18 by 14.
+            Vector2 g = Site(14.5f);
+            Graveyard = new Rect(g.x - GraveyardSize.x * 0.5f, g.y - GraveyardSize.y * 0.5f, GraveyardSize.x, GraveyardSize.y);
             GraveyardYaw = rng.Next(4) * 90f + Range(-12f, 12f);
-            KeepRects.Add(Expand(Graveyard, 1.5f));
+            {
+                // Kept clear as turned: its bounds square to the map.
+                float a = GraveyardYaw * Mathf.Deg2Rad, c = Mathf.Abs(Mathf.Cos(a)), sn = Mathf.Abs(Mathf.Sin(a));
+                float w = Graveyard.width * c + Graveyard.height * sn, h = Graveyard.width * sn + Graveyard.height * c;
+                KeepRects.Add(Expand(new Rect(g.x - w * 0.5f, g.y - h * 0.5f, w, h), 1.5f));
+            }
             // There's always a generator in the middle of the graveyard.
             WoodsGenerators.Add(Graveyard.center);
             Vector2 p = Site(10f);

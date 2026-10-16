@@ -89,8 +89,8 @@ namespace Vision.World
         /// </summary>
         public const int VaultLayer = 13;
         /// <summary>
-        /// The graveyard's fence: survivors (and NPCs) run into it; only Zach's body passes it (his controller leaves this
-        /// layer out), climbing over it five times as slowly as a log.
+        /// The graveyard's fence: no one climbs it, Zach included; every body runs into it (sight and shots pass between
+        /// its bars). The gates are the only way in.
         /// </summary>
         public const int GraveFenceLayer = 14;
 
@@ -98,7 +98,7 @@ namespace Vision.World
         /// A thing players vault (design units, the level's plane): a fallen log or tree, or a fence. <see cref="Slow"/> is how
         /// much longer it takes to get over than a log (1, or 0 meaning 1; the graveyard's spiked fence 1.5).
         /// </summary>
-        public struct LowObstacle { public Vector2 A, B; public float Half, Height, Slow; public bool Fence, HunterOnly; }
+        public struct LowObstacle { public Vector2 A, B; public float Half, Height, Slow; public bool Fence; }
         public readonly List<LowObstacle> Lows = new List<LowObstacle>();
 
         /// <summary>
@@ -125,24 +125,21 @@ namespace Vision.World
 
         /// <summary>How high the body goes over a broken window's sill, and over a fallen log or tree (design units).</summary>
         public const float WindowVaultHeight = 0.55f, LogVaultHeight = 0.42f;
-        /// <summary>How high the body goes over a split-rail fence and over the graveyard's iron fence (Zach only).</summary>
-        public const float FenceVaultHeight = 0.8f, IronFenceVaultHeight = 1.1f;
+        /// <summary>How high the body goes over a split-rail fence.</summary>
+        public const float FenceVaultHeight = 0.8f;
         /// <summary>The graveyard's iron fence is built of panels at most this long (metres), each sat on the ground under it.</summary>
         public const float IronPanel = 2.5f;
         /// <summary>A fence's vault strip reaches this far either side of it (the level's units), as far as a log's.</summary>
         public const float FenceVaultHalf = 0.3f;
 
-        /// <summary>
-        /// Makes a fence vaultable: players pass through its collider (climbing over it), NPCs don't. A
-        /// <paramref name="hunterOnly"/> one (the graveyard's) only Zach climbs.
-        /// </summary>
-        void MakeVaultable(GameObject go, BoxCollider box, float height, float slow, bool hunterOnly = false)
+        /// <summary>Makes a fence vaultable: players pass through its collider (climbing over it), NPCs don't.</summary>
+        void MakeVaultable(GameObject go, BoxCollider box, float height, float slow)
         {
-            go.layer = hunterOnly ? GraveFenceLayer : VaultLayer;
+            go.layer = VaultLayer;
             Transform t = box.transform;
             Vector3 c = box.center, e = new Vector3(box.size.x * 0.5f, 0f, 0f);
             Vector3 a = transform.InverseTransformPoint(t.TransformPoint(c - e)), b = transform.InverseTransformPoint(t.TransformPoint(c + e));
-            Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = FenceVaultHalf, Height = height, Slow = slow, Fence = true, HunterOnly = hunterOnly });
+            Lows.Add(new LowObstacle { A = new Vector2(a.x, a.z), B = new Vector2(b.x, b.z), Half = FenceVaultHalf, Height = height, Slow = slow, Fence = true });
         }
 
         /// <summary>Records a lying obstacle from its box collider, and makes it low: vaulted, seen and shot over.</summary>
@@ -422,7 +419,7 @@ namespace Vision.World
                 if (p.magnitude > halfExtent - 3f) return true;
                 if ((building.Contains(p) && !(layout.Plan != null && layout.Plan.InNotch(p, 1.4f))) || yard.Contains(p) || layout.LakeDepth(p) > -1.5f) return true;
                 foreach (Rect r in cabins) if (r.Contains(p)) return true;
-                if (layout.Graveyard.Contains(p) || layout.Playground.Contains(p)) return true;
+                if (InGraveyard(layout, p, 0f) || layout.Playground.Contains(p)) return true;
                 foreach (Vector2 pole in layout.PowerPoles) if ((pole - p).sqrMagnitude < 1.6f * 1.6f) return true;
                 foreach (Vector2 g in layout.WoodsGenerators) if ((g - p).sqrMagnitude < 2.2f * 2.2f) return true;
                 foreach (MapLayout.Kit k in layout.Kits) if ((k.Centre - p).sqrMagnitude < 3.2f * 3.2f) return true;
@@ -611,7 +608,7 @@ namespace Vision.World
                 float d = (cl.Centre - p).magnitude / (cl.Radius * 0.75f);
                 if (d < 1.4f) c = Color.Lerp(c, Ground.Path * 0.95f, 0.6f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1.4f, 0.8f, d + (n3 - 0.5f) * 0.3f)));
             }
-            if (Expand(Layout.Graveyard, 0.5f).Contains(p)) c = Color.Lerp(c, Ground.GraveGrass, 0.7f);
+            if (InGraveyard(p, 0.5f)) c = Color.Lerp(c, Ground.GraveGrass, 0.7f);
             c = Color.Lerp(c, Ground.Rocky, 0.8f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(27f, 35f, Terrain.SlopeDeg(x, z))));
             c = Color.Lerp(c, Ground.Mud, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.1f, -1.8f, Terrain.Natural(x, z))));
             float lake = Layout.LakeDepth(p);
@@ -747,7 +744,8 @@ namespace Vision.World
             for (int i = 0; i < total * 0.37f; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (Flat(p)) continue;
+                // (None in the graveyard: its grounds are kept.)
+                if (Flat(p) || InGraveyard(p)) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
                 float s = Range(0.05f, 0.14f);
                 bool bone = rng.NextDouble() < 0.2;
@@ -858,12 +856,13 @@ namespace Vision.World
                     }
                 }
 
-            // Plant life: shrubs, ferns, tall grass, reeds in ditches and by the lake, dead shrubs, flowers, mushrooms.
+            // Plant life: shrubs, ferns, tall grass, reeds in ditches and by the lake, dead shrubs, flowers, mushrooms (none
+            // grown up in the graveyard, its grass kept short).
             int plants = Mathf.RoundToInt(260f / 1600f * Mathf.PI * WorldRadius * WorldRadius);
             for (int i = 0; i < plants; i++)
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
-                if (p.magnitude > lim || Bare(p) || OnPath(p) < 0.2f || blocked.AnyWithin(p, 0.7f)) continue;
+                if (p.magnitude > lim || Bare(p) || OnPath(p) < 0.2f || blocked.AnyWithin(p, 0.7f) || InGraveyard(p, 0.3f)) continue;
                 float dead = Deadness(p.x, p.y), moist = Moisture(p.x, p.y), wood = Woodland(p.x, p.y);
                 bool wet = Terrain.Natural(p.x, p.y) < -1.3f || Layout.LakeDepth(p) > -4f;
                 float roll = (float)rng.NextDouble();
@@ -1057,8 +1056,6 @@ namespace Vision.World
 
         /// <summary>Half the width of the graveyard's gateway (the level's units): two leaves, each this wide.</summary>
         public const float GateHalfWidth = 1.1f;
-        /// <summary>How much of the fence beside each gate pillar is a plain wall, never climbed, even by Zach (the level's units).</summary>
-        public const float GateFenceSolid = 2f;
 
         /// <summary>
         /// The graveyard's gates: two ornate iron leaves filling the gateway from <paramref name="start"/> along
@@ -1382,64 +1379,65 @@ namespace Vision.World
 
         // ---------------------------------------------------------------- graveyard
 
+        /// <summary>
+        /// Where the graveyard's two light towers stand, metres from its middle (x along its gate side, z from the gates
+        /// towards its back): either side of the generator, on the walk across between the rows of graves.
+        /// </summary>
+        public static readonly Vector2[] GraveTowerSpots = { new Vector2(-6.8f, 0.35f), new Vector2(6.8f, 0.35f) };
+        /// <summary>The rows of graves (their stones, metres from the graveyard's middle towards its back), and their columns either side of the walk from the gates.</summary>
+        static readonly float[] GraveRows = { 7.55f, 4.85f, -2.3f, -5.0f }, GraveColumns = { 2.4f, 4.1f, 5.8f, 7.5f, 9.2f };
+        // How often each headstone style stands (the angels and chest tombs rarest).
+        static readonly int[] GraveStyleWeights = { 16, 10, 7, 8, 9, 7, 2, 12, 5, 8 };
+
+        /// <summary>A point of the graveyard (the level's plane) from metres along its own axes: x along the gate side, z from the gates to the back.</summary>
+        Vector2 GraveLocal(float x, float z)
+        {
+            Vector3 v = Quaternion.Euler(0f, Layout.GraveyardYaw, 0f) * new Vector3(x, 0f, z);
+            return Layout.Graveyard.center + new Vector2(v.x, v.z);
+        }
+
+        /// <summary>Whether a point (the level's plane) is inside the graveyard's fence, turned as it stands (or within <paramref name="margin"/> of it).</summary>
+        bool InGraveyard(Vector2 p, float margin = 0f) => InGraveyard(Layout, p, margin);
+
+        static bool InGraveyard(MapLayout layout, Vector2 p, float margin)
+        {
+            Rect g = layout.Graveyard;
+            if (g.width <= 0f) return false;
+            Vector2 d = p - g.center;
+            Vector3 v = Quaternion.Euler(0f, -layout.GraveyardYaw, 0f) * new Vector3(d.x, 0f, d.y);
+            return Mathf.Abs(v.x) < g.width * 0.5f + margin && Mathf.Abs(v.z) < g.height * 0.5f + margin;
+        }
+
         void BuildGraveyard()
         {
             Transform parent = Group("Graveyard");
             Rect g = Layout.Graveyard;
             Quaternion q = Quaternion.Euler(0f, Layout.GraveyardYaw, 0f);
-            Vector2 Local(float x, float z)
-            {
-                Vector3 v = q * new Vector3(x, 0f, z);
-                return g.center + new Vector2(v.x, v.z);
-            }
+            Vector2 Local(float x, float z) => GraveLocal(x, z);
             float hx = g.width * 0.5f, hz = g.height * 0.5f;
             // Iron fence round the plot; the only way in is the pair of gates between stone pillars in the middle of the
-            // south side. Survivors can't climb the fence; Zach can, slowly.
+            // south side. No one climbs the fence, Zach included.
             const float gateHalf = GateHalfWidth, pillar = 0.44f;
             float sideEnd = gateHalf + pillar;
             var sides = new[] { (new Vector2(-hx, -hz), new Vector2(-sideEnd, -hz)), (new Vector2(sideEnd, -hz), new Vector2(hx, -hz)),
                                 (new Vector2(hx, -hz), new Vector2(hx, hz)), (new Vector2(hx, hz), new Vector2(-hx, hz)), (new Vector2(-hx, hz), new Vector2(-hx, -hz)) };
             float fh = LowPolyModels.IronFenceHeight;
-            var pieces = new List<(float from, float to)>();
-            for (int si = 0; si < sides.Length; si++)
+            foreach (var (a0, b0) in sides)
             {
-                var (a0, b0) = sides[si];
                 Vector2 a = Local(a0.x, a0.y), b = Local(b0.x, b0.y);
                 float len = Vector2.Distance(a, b);
                 Vector2 d = (b - a) / len;
                 // Each side in short panels, each set at the lowest of the ground under it (one rigid run the length of a
-                // side, set at its lower end, sank into the ground wherever the ground rose along it). The panel next to
-                // the gates keeps the solid stretch with a little climbable fence after it.
-                bool gateAtEnd = si == 0, gateAtStart = si == 1;   // the west panel runs up to the gate, the east one away from it
-                float solid = Mathf.Min(GateFenceSolid, len), gatePiece = si < 2 ? Mathf.Min(len, solid + IronPanel) : 0f;
-                if (si < 2 && len - gatePiece < 0.6f) gatePiece = len;
-                float runFrom = gateAtStart ? gatePiece : 0f, runTo = gateAtEnd ? len - gatePiece : len;
-                pieces.Clear();
-                if (gateAtStart) pieces.Add((0f, gatePiece));
-                int n = runTo - runFrom > 0.05f ? Mathf.Max(1, Mathf.CeilToInt((runTo - runFrom) / IronPanel)) : 0;
-                for (int k = 0; k < n; k++) pieces.Add((Mathf.Lerp(runFrom, runTo, k / (float)n), Mathf.Lerp(runFrom, runTo, (k + 1) / (float)n)));
-                if (gateAtEnd) pieces.Add((len - gatePiece, len));
-                foreach (var (from, to) in pieces)
+                // side, set at its lower end, sank into the ground wherever the ground rose along it).
+                int n = Mathf.Max(1, Mathf.CeilToInt(len / IronPanel));
+                for (int k = 0; k < n; k++)
                 {
+                    float from = len * k / n, to = len * (k + 1) / n, plen = to - from;
                     Vector2 pa = a + d * from, pb = a + d * to;
-                    float plen = to - from;
                     float baseY = Mathf.Min(Mathf.Min(H(pa), H(pb)), H((pa + pb) * 0.5f)) - 0.05f;
                     GameObject f = Piece("Iron Fence", LowPolyModels.IronFence(rng, plen), parent, new Vector3(pa.x, baseY, pa.y), -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-                    bool atGate = (gateAtStart && from < 1e-4f) || (gateAtEnd && to > len - 1e-4f);
-                    if (!atGate)
-                    {
-                        MakeVaultable(f, AddBox(f, new Vector3(plen * 0.5f, fh * 0.5f, 0f), new Vector3(plen, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
-                        continue;
-                    }
-                    // Next to the pillar: a plain wall even to Zach, so brushing the fence as he goes for the gateway
-                    // never starts a climb.
-                    float s0 = Mathf.Min(solid, plen), keep = plen - s0, keepFrom = gateAtEnd ? 0f : s0;
-                    var wall = new GameObject("Gate Fence Wall");
-                    wall.transform.SetParent(f.transform, false);
-                    AddBox(wall, new Vector3(gateAtEnd ? plen - s0 * 0.5f : s0 * 0.5f, fh * 0.5f, 0f), new Vector3(s0, fh, 0.12f));
-                    if (keep > 0.3f)
-                        MakeVaultable(f, AddBox(f, new Vector3(keepFrom + keep * 0.5f, fh * 0.5f, 0f), new Vector3(keep, fh, 0.12f)), IronFenceVaultHeight, 1f, true);
-                    else f.layer = GraveFenceLayer;
+                    f.layer = GraveFenceLayer;
+                    AddBox(f, new Vector3(plen * 0.5f, fh * 0.5f, 0f), new Vector3(plen, fh, 0.12f));
                 }
             }
             foreach (float s in new[] { -1f, 1f })
@@ -1452,23 +1450,10 @@ namespace Vision.World
                 Vector2 a = Local(-gateHalf, -hz), b = Local(gateHalf, -hz);
                 MakeGate(parent, a, (b - a).normalized, gateHalf * 2f, Mathf.Min(H(a), H(b), H((a + b) * 0.5f)) - 0.03f);
             }
-            // Rows of graves facing the gate, some missing, some crooked; the middle kept clear round the generator, with
-            // an aisle to it from the gates.
-            for (int row = 0; row < 4; row++)
-                for (int col = 0; col < 7; col++)
-                {
-                    if (rng.NextDouble() < 0.18) continue;
-                    float x = -hx + 1.6f + col * (g.width - 3.2f) / 6f + Range(-0.3f, 0.3f);
-                    float z = hz - 1.6f - row * 2.9f + Range(-0.2f, 0.2f);
-                    if ((Mathf.Abs(x) < 2.7f && Mathf.Abs(z) < 2.3f) || (Mathf.Abs(x) < 1.5f && z < 0f)) continue;
-                    Vector2 p = Local(x, z);
-                    int style = rng.Next(LowPolyModels.HeadstoneStyles);
-                    GameObject stone = Piece("Headstone", LowPolyModels.Headstone(rng, style), parent, Vector3.zero, 0f);
-                    stone.transform.SetLocalPositionAndRotation(new Vector3(p.x, H(p) - 0.02f, p.y), q * Quaternion.Euler(0f, 180f + Range(-6f, 6f), 0f));
-                    AddBox(stone, new Vector3(0f, 0.45f, 0f), new Vector3(0.6f, 0.9f, 0.3f));
-                }
+
             // Dead trees in two corners.
-            foreach (var (cx, cz, kind) in new[] { (-hx + 1.3f, hz - 1.2f, LowPolyModels.DeadTreeKind.Elm), (hx - 1.4f, -hz + 1.6f, LowPolyModels.DeadTreeKind.Oak) })
+            var trees = new[] { (-hx + 1.2f, hz - 1.0f, LowPolyModels.DeadTreeKind.Elm), (hx - 1.2f, -hz + 1.3f, LowPolyModels.DeadTreeKind.Oak) };
+            foreach (var (cx, cz, kind) in trees)
             {
                 Vector2 p = Local(cx, cz);
                 GameObject t = Prop(library != null ? library.trees : null, (int)kind * 3 + 2, parent,
@@ -1476,6 +1461,50 @@ namespace Vision.World
                 t.transform.SetLocalPositionAndRotation(Upright(p, 0.4f), Quaternion.Euler(0f, Range(0f, 360f), 0f));
                 blocked.Add(p);
             }
+
+            // The graves, in four plots of neat rows facing the gates: either side of the walk from the gates to the
+            // generator, and of the walk across between its two light towers (where their cables run); an angel at the
+            // head of the walk behind the generator. Nothing stands on the towers' ground or the trees'; the odd grave lost,
+            // each stone a little crooked.
+            var keep = new List<(Vector2 at, float r)>();
+            foreach (Vector2 t in GraveTowerSpots) keep.Add((t, 2.3f));
+            foreach (var (cx, cz, _) in trees) keep.Add((new Vector2(cx, cz), 1.4f));
+            bool Free(float x, float z)
+            {
+                var plot = Rect.MinMaxRect(x - LowPolyModels.GraveHalfWidth, z - LowPolyModels.GraveFront, x + LowPolyModels.GraveHalfWidth, z + LowPolyModels.GraveBack);
+                foreach (var (at, r) in keep)
+                {
+                    var near = new Vector2(Mathf.Clamp(at.x, plot.xMin, plot.xMax), Mathf.Clamp(at.y, plot.yMin, plot.yMax));
+                    if ((near - at).sqrMagnitude < r * r) return false;
+                }
+                return true;
+            }
+            void Grave(float x, float z, int style, float yaw)
+            {
+                Vector2 p = Local(x, z);
+                GameObject stone = Piece("Headstone", LowPolyModels.Headstone(rng, style), parent, Vector3.zero, 0f);
+                stone.transform.SetLocalPositionAndRotation(new Vector3(p.x, H(p) - 0.02f, p.y), q * Quaternion.Euler(0f, 180f + yaw, 0f));
+                var (centre, size) = LowPolyModels.HeadstoneSolid(style);
+                AddBox(stone, centre, size);
+            }
+            int Style()
+            {
+                int total = 0;
+                foreach (int w in GraveStyleWeights) total += w;
+                int roll = rng.Next(total);
+                for (int k = 0; k < GraveStyleWeights.Length; k++)
+                    if ((roll -= GraveStyleWeights[k]) < 0) return k;
+                return 0;
+            }
+            Grave(0f, hz - 1.3f, 6, 0f);
+            foreach (float z in GraveRows)
+                foreach (float side in new[] { -1f, 1f })
+                    foreach (float col in GraveColumns)
+                    {
+                        float x = side * col;
+                        if (!Free(x, z) || rng.NextDouble() < 0.08) continue;
+                        Grave(x + Range(-0.06f, 0.06f), z + Range(-0.05f, 0.05f), Style(), Range(-3f, 3f));
+                    }
             blocked.Add(g.center);
         }
 

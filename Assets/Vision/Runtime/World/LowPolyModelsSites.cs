@@ -155,50 +155,369 @@ namespace Vision.World
 
         // ------------------------------------------------------------------ graveyard
 
-        /// <summary>Headstone styles: 0 rounded slab, 1 cross, 2 obelisk, 3 slanted broken slab, 4 wooden cross, 5 flat plaque.</summary>
-        public const int HeadstoneStyles = 6;
+        /// <summary>
+        /// Headstone styles: 0 round-topped tablet on a plinth, 1 ringed Celtic cross on stepped bases, 2 obelisk on a die
+        /// with a bronze plaque, 3 broken tablet (its top fallen on the grave), 4 weathered wooden cross hung with a wreath
+        /// inside a picket rail, 5 ledger slab over the whole grave, 6 angel on a pedestal, 7 gothic arched tablet between
+        /// pinnacles, 8 chest tomb, 9 double tablet.
+        /// </summary>
+        public const int HeadstoneStyles = 10;
 
-        /// <summary>A headstone facing +Z (its front), with a grave mound in front of it.</summary>
+        /// <summary>
+        /// The ground a grave takes, from its headstone (at the origin) out over the grave in front: half its width, how far
+        /// behind the stone and how far in front.
+        /// </summary>
+        public const float GraveHalfWidth = 0.52f, GraveBack = 0.3f, GraveFront = 2.05f;
+
+        /// <summary>A headstone's solid part (its collider), centre and size in its own frame.</summary>
+        public static (Vector3 centre, Vector3 size) HeadstoneSolid(int style) => style switch
+        {
+            1 => (new Vector3(0f, 0.68f, 0f), new Vector3(0.62f, 1.36f, 0.42f)),
+            2 => (new Vector3(0f, 1.0f, 0f), new Vector3(0.62f, 2.0f, 0.62f)),
+            3 => (new Vector3(0f, 0.3f, 0f), new Vector3(0.74f, 0.6f, 0.34f)),
+            4 => (new Vector3(0f, 0.55f, 0f), new Vector3(0.52f, 1.1f, 0.2f)),
+            5 => (new Vector3(0f, 0.22f, 0.9f), new Vector3(0.86f, 0.44f, 2.04f)),
+            6 => (new Vector3(0f, 1.1f, 0f), new Vector3(0.7f, 2.2f, 0.6f)),
+            7 => (new Vector3(0f, 0.56f, 0f), new Vector3(0.84f, 1.12f, 0.36f)),
+            8 => (new Vector3(0f, 0.4f, 0.9f), new Vector3(0.96f, 0.8f, 2.04f)),
+            9 => (new Vector3(0f, 0.46f, 0f), new Vector3(1.02f, 0.92f, 0.34f)),
+            _ => (new Vector3(0f, 0.53f, 0f), new Vector3(0.72f, 1.06f, 0.34f)),
+        };
+
+        static readonly Color Marble = new Color(0.68f, 0.67f, 0.64f), Sandstone = new Color(0.56f, 0.50f, 0.40f);
+        static readonly Color Bronze = new Color(0.33f, 0.30f, 0.18f), Ivy = new Color(0.20f, 0.30f, 0.16f);
+        static readonly Color[] Blooms = { new Color(0.62f, 0.16f, 0.16f), new Color(0.80f, 0.78f, 0.72f), new Color(0.72f, 0.60f, 0.22f), new Color(0.46f, 0.30f, 0.52f) };
+
+        /// <summary>
+        /// A grave facing +Z (its front): the stone at the origin and the grave before it, out to <see cref="GraveFront"/>.
+        /// Each style is carved: a plinth or stepped base, letters cut in its face, a border or a cross; most graves are
+        /// kerbed in stone and filled with chippings, or heaped with earth, some with a footstone; some have a vase of
+        /// flowers (a few wilted), a lantern, moss creeping up the base.
+        /// </summary>
         public static Mesh Headstone(System.Random rng, int style)
         {
             var b = new LowPolyMeshBuilder(rng);
-            Color stone = b.Next() < 0.5f ? Site.Granite : Site.GraniteDark;
-            // The grave in front: a low sunken mound.
-            b.AddBlob(new Vector3(0f, 0f, 1.05f), new Vector3(0.45f, 0.12f, 0.95f), 0, 0.15f, _ => b.Jitter(Site.Grave, 0.12f), true);
-            float tilt = b.Range(-8f, 8f), lean = b.Range(-6f, 10f);
-            Quaternion q = Quaternion.Euler(lean, 0f, tilt);
+            float pick = b.Next();
+            Color stone = b.Jitter(pick < 0.35f ? Site.Granite : pick < 0.6f ? Site.GraniteDark : pick < 0.82f ? Marble : Sandstone, 0.04f);
+            Color plinth = Shade(stone, 0.86f), cut = Shade(stone, 0.55f), panel = Shade(stone, 0.9f);
+            float tilt = b.Range(-3.5f, 3.5f), lean = b.Range(-2f, 5f);
+            Quaternion q = Quaternion.Euler(lean, 0f, tilt), id = Quaternion.identity;
+
+            // Letters cut into a face: lines of shadow, the name's line widest (the face's front at z, after turning by rot).
+            void Letters(Quaternion rot, float x, float top, float z, float width, int lines)
+            {
+                for (int i = 0; i < lines; i++)
+                {
+                    float w = width * (i == 0 ? 0.85f : b.Range(0.4f, 0.72f));
+                    AddBoxAt(b, rot * new Vector3(x, top - i * 0.07f, z), new Vector3(w, i == 0 ? 0.028f : 0.02f, 0.012f), rot, cut);
+                }
+            }
+            // A small cross cut into a face.
+            void Cross(Quaternion rot, Vector3 at, float size)
+            {
+                AddBoxAt(b, rot * at, new Vector3(size * 0.22f, size, 0.012f), rot, cut);
+                AddBoxAt(b, rot * (at + new Vector3(0f, size * 0.18f, 0f)), new Vector3(size * 0.62f, size * 0.2f, 0.012f), rot, cut);
+            }
+
+            bool covered = style == 5 || style == 8;
+            if (!covered) Plot(b, stone, style == 4);
             switch (style)
             {
                 case 1:
-                    AddBoxAt(b, new Vector3(0f, 0.55f, 0f), new Vector3(0.14f, 1.1f, 0.12f), q, stone);
-                    AddBoxAt(b, q * new Vector3(0f, 0.78f, 0f), new Vector3(0.56f, 0.13f, 0.12f), q, stone);
-                    AddBoxAt(b, new Vector3(0f, 0.08f, 0f), new Vector3(0.4f, 0.16f, 0.3f), Quaternion.identity, stone * 0.9f);
+                {
+                    // A ringed cross on two steps.
+                    AddBoxAt(b, new Vector3(0f, 0.08f, 0f), new Vector3(0.62f, 0.16f, 0.42f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.22f, 0f), new Vector3(0.44f, 0.12f, 0.3f), id, Shade(plinth, 1.05f));
+                    Letters(id, 0f, 0.09f, 0.212f, 0.42f, 1);
+                    AddBoxAt(b, q * new Vector3(0f, 0.78f, 0f), new Vector3(0.15f, 1.0f, 0.12f), q, stone);
+                    AddBoxAt(b, q * new Vector3(0f, 1.0f, 0f), new Vector3(0.58f, 0.14f, 0.12f), q, stone);
+                    var ring = new List<Vector3>();
+                    for (int k = 0; k <= 12; k++)
+                    {
+                        float a = k / 12f * Mathf.PI * 2f;
+                        ring.Add(q * new Vector3(Mathf.Cos(a) * 0.18f, 1.0f + Mathf.Sin(a) * 0.18f, 0f));
+                    }
+                    var radii = new float[ring.Count];
+                    for (int k = 0; k < radii.Length; k++) radii[k] = 0.03f;
+                    b.AddTube(ring, radii, 4, stone, 0.05f, 0f, 0f, null, false, false);
+                    b.AddBlob(q * new Vector3(0f, 1.0f, 0.065f), new Vector3(0.045f, 0.045f, 0.025f), 0, 0.1f, _ => panel);
+                    // Knotwork down the shaft, in a few cut bands.
+                    for (int k = 0; k < 4; k++) AddBoxAt(b, q * new Vector3(0f, 0.42f + k * 0.12f, 0.062f), new Vector3(0.09f, 0.025f, 0.01f), q, cut);
                     break;
+                }
                 case 2:
-                    AddBoxAt(b, new Vector3(0f, 0.15f, 0f), new Vector3(0.45f, 0.3f, 0.45f), Quaternion.identity, stone * 0.9f);
-                    b.AddFrustum(new Vector3(0f, 0.3f, 0f), q * new Vector3(0f, 1.6f, 0f) + Vector3.up * 0.3f, 0.17f, 0.1f, 4, stone, 0.08f);
-                    b.AddCone(q * new Vector3(0f, 1.6f, 0f) + Vector3.up * 0.3f, q * new Vector3(0f, 1.82f, 0f) + Vector3.up * 0.3f, 0.12f, 4, stone, 0.08f);
+                {
+                    // An obelisk: two steps, a die with a bronze plaque under a cornice, a tapering shaft and its point.
+                    AddBoxAt(b, new Vector3(0f, 0.06f, 0f), new Vector3(0.62f, 0.12f, 0.62f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.18f, 0f), new Vector3(0.5f, 0.12f, 0.5f), id, Shade(plinth, 1.05f));
+                    AddBoxAt(b, new Vector3(0f, 0.42f, 0f), new Vector3(0.38f, 0.36f, 0.38f), id, stone);
+                    AddBoxAt(b, new Vector3(0f, 0.625f, 0f), new Vector3(0.45f, 0.05f, 0.45f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.43f, 0.195f), new Vector3(0.24f, 0.18f, 0.015f), id, Bronze);
+                    for (int i = 0; i < 3; i++) AddBoxAt(b, new Vector3(0f, 0.48f - i * 0.05f, 0.204f), new Vector3(i == 0 ? 0.17f : 0.12f, 0.016f, 0.008f), id, Shade(Bronze, 0.55f));
+                    Taper(b, q * new Vector3(0f, 0.65f, 0f), 0.15f, 1.12f, 0.09f, q, stone);
+                    Taper(b, q * new Vector3(0f, 1.77f, 0f), 0.095f, 0.2f, 0.004f, q, stone);
+                    Cross(q, new Vector3(0f, 1.38f, 0.125f), 0.16f);
                     break;
+                }
                 case 3:
-                    q = Quaternion.Euler(b.Range(14f, 24f), 0f, b.Range(-14f, 14f));
-                    AddBoxAt(b, q * new Vector3(0f, 0.32f, 0f), new Vector3(0.6f, 0.62f, 0.12f), q, stone * 0.85f);
-                    b.AddBlob(new Vector3(0.45f, 0.05f, 0.3f), new Vector3(0.18f, 0.06f, 0.12f), 0, 0.3f, _ => stone * 0.8f, true);
+                {
+                    // A broken tablet: the stump standing jagged on its plinth, the top fallen face up on the grave.
+                    AddBoxAt(b, new Vector3(0f, 0.07f, 0f), new Vector3(0.72f, 0.14f, 0.32f), id, plinth);
+                    Quaternion qs = Quaternion.Euler(b.Range(4f, 10f), 0f, b.Range(-6f, 6f));
+                    AddBoxAt(b, qs * new Vector3(0f, 0.31f, 0f), new Vector3(0.58f, 0.34f, 0.13f), qs, stone);
+                    for (int k = 0; k < 3; k++)
+                        AddBoxAt(b, qs * new Vector3(-0.2f + k * 0.2f, 0.5f + b.Range(-0.02f, 0.05f), 0f), new Vector3(0.18f, 0.1f, 0.12f),
+                            qs * Quaternion.Euler(0f, 0f, b.Range(-30f, 30f)), stone);
+                    Letters(qs, 0f, 0.4f, 0.07f, 0.4f, 2);
+                    Quaternion qf = Quaternion.Euler(b.Range(-4f, 4f), b.Range(-28f, 28f), b.Range(-4f, 4f));
+                    Vector3 fallen = new Vector3(b.Range(-0.08f, 0.08f), 0.11f, 0.78f);
+                    AddBoxAt(b, fallen, new Vector3(0.56f, 0.1f, 0.5f), qf, Shade(stone, 0.95f));
+                    b.AddTube(new[] { fallen + qf * new Vector3(0f, -0.05f, 0.25f), fallen + qf * new Vector3(0f, 0.05f, 0.25f) }, new[] { 0.28f, 0.28f }, 10, Shade(stone, 0.95f), 0.05f);
+                    for (int i = 0; i < 3; i++)
+                        AddBoxAt(b, fallen + qf * new Vector3(0f, 0.052f, 0.18f - i * 0.08f), new Vector3(i == 0 ? 0.32f : 0.22f, 0.01f, 0.025f), qf, cut);
+                    for (int k = 0; k < 4; k++)
+                        b.AddBlob(new Vector3(b.Range(-0.4f, 0.4f), 0.03f, b.Range(0.25f, 1.3f)), new Vector3(0.06f, 0.04f, 0.05f) * b.Range(0.6f, 1.3f), 0, 0.3f, _ => Shade(stone, 0.9f), true);
                     break;
+                }
                 case 4:
-                    AddBoxAt(b, new Vector3(0f, 0.5f, 0f), new Vector3(0.08f, 1f, 0.06f), q, Site.WeatheredDark);
-                    AddBoxAt(b, q * new Vector3(0f, 0.72f, 0f), new Vector3(0.44f, 0.07f, 0.06f), q, Site.WeatheredDark);
+                {
+                    // A weathered wooden cross, a tin nameplate and a wreath of ivy hung on it.
+                    Color wood = b.Jitter(Site.WeatheredDark, 0.08f);
+                    AddBoxAt(b, q * new Vector3(0f, 0.55f, 0f), new Vector3(0.09f, 1.1f, 0.07f), q, wood);
+                    AddBoxAt(b, q * new Vector3(0f, 0.82f, 0f), new Vector3(0.52f, 0.08f, 0.07f), q, wood);
+                    Taper(b, q * new Vector3(0f, 1.1f, 0f), 0.06f, 0.06f, 0.01f, q, Shade(wood, 0.8f));
+                    AddBoxAt(b, q * new Vector3(0f, 0.82f, 0.042f), new Vector3(0.17f, 0.055f, 0.012f), q, new Color(0.42f, 0.42f, 0.40f));
+                    Vector3 hub = q * new Vector3(0f, 0.55f, 0.07f);
+                    for (int k = 0; k < 11; k++)
+                    {
+                        float a = k / 11f * Mathf.PI * 2f;
+                        b.AddBlob(hub + q * new Vector3(Mathf.Cos(a) * 0.12f, Mathf.Sin(a) * 0.12f, 0f), new Vector3(0.045f, 0.045f, 0.03f), 0, 0.3f, _ => b.Jitter(Ivy, 0.2f));
+                    }
+                    for (int k = 0; k < 3; k++)
+                        b.AddBlob(hub + q * new Vector3(b.Range(-0.12f, 0.12f), -0.1f + b.Range(-0.03f, 0.03f), 0.03f), Vector3.one * 0.022f, 0, 0.1f, _ => Blooms[0]);
                     break;
+                }
                 case 5:
-                    AddBoxAt(b, new Vector3(0f, 0.08f, 0.2f), new Vector3(0.55f, 0.16f, 0.4f), Quaternion.Euler(-12f, 0f, 0f), stone);
+                {
+                    // A ledger: a slab over the whole grave on a base, a cross in relief down it, a small tablet at its head.
+                    AddBoxAt(b, new Vector3(0f, 0.06f, 0.9f), new Vector3(0.86f, 0.12f, 2.02f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.17f, 0.9f), new Vector3(0.78f, 0.1f, 1.94f), id, stone);
+                    AddBoxAt(b, new Vector3(0f, 0.235f, 0.9f), new Vector3(0.68f, 0.03f, 1.84f), id, panel);
+                    AddBoxAt(b, new Vector3(0f, 0.26f, 1.02f), new Vector3(0.07f, 0.025f, 1.3f), id, stone);
+                    AddBoxAt(b, new Vector3(0f, 0.26f, 0.7f), new Vector3(0.42f, 0.025f, 0.07f), id, stone);
+                    AddBoxAt(b, new Vector3(0f, 0.38f, 0f), new Vector3(0.62f, 0.3f, 0.16f), id, stone);
+                    b.AddTube(new[] { new Vector3(0f, 0.53f, -0.08f), new Vector3(0f, 0.53f, 0.08f) }, new[] { 0.18f, 0.18f }, 8, stone, 0.05f);
+                    Letters(id, 0f, 0.47f, 0.083f, 0.44f, 3);
+                    if (b.Next() < 0.6f) b.AddBlob(new Vector3(b.Range(-0.25f, 0.25f), 0.25f, b.Range(1.2f, 1.7f)), new Vector3(0.12f, 0.03f, 0.18f), 0, 0.3f, _ => b.Jitter(Site.Moss, 0.15f), true);
                     break;
+                }
+                case 6:
+                {
+                    // An angel on a pedestal, head bowed, hands together, wings half spread.
+                    AddBoxAt(b, new Vector3(0f, 0.07f, 0f), new Vector3(0.66f, 0.14f, 0.56f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.45f, 0f), new Vector3(0.5f, 0.62f, 0.42f), id, stone);
+                    AddBoxAt(b, new Vector3(0f, 0.795f, 0f), new Vector3(0.58f, 0.07f, 0.5f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.46f, 0.214f), new Vector3(0.36f, 0.42f, 0.01f), id, panel);
+                    Letters(id, 0f, 0.6f, 0.222f, 0.3f, 4);
+                    Color white = b.Jitter(Marble, 0.03f);
+                    b.AddTube(new[] { new Vector3(0f, 0.83f, 0f), new Vector3(0f, 1.2f, 0.01f), new Vector3(0f, 1.55f, 0.02f), new Vector3(0f, 1.68f, 0.02f) },
+                        new[] { 0.19f, 0.14f, 0.1f, 0.085f }, 8, white, 0.05f);
+                    b.AddBlob(new Vector3(0f, 1.79f, 0.06f), new Vector3(0.07f, 0.08f, 0.07f), 1, 0.05f, _ => white);
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        b.AddFrustum(new Vector3(s * 0.09f, 1.64f, 0.02f), new Vector3(s * 0.02f, 1.44f, 0.11f), 0.032f, 0.026f, 5, white, 0.05f);
+                        AddBoxAt(b, new Vector3(s * 0.19f, 1.58f, -0.1f), new Vector3(0.06f, 0.62f, 0.2f), Quaternion.Euler(0f, s * 18f, s * -24f), white);
+                        AddBoxAt(b, new Vector3(s * 0.24f, 1.36f, -0.12f), new Vector3(0.05f, 0.5f, 0.16f), Quaternion.Euler(0f, s * 18f, s * -12f), Shade(white, 0.95f));
+                    }
+                    b.AddBlob(new Vector3(0f, 0.2f, 0.24f), new Vector3(0.18f, 0.06f, 0.06f), 0, 0.3f, _ => b.Jitter(Site.Moss, 0.15f), true);
+                    break;
+                }
+                case 7:
+                {
+                    // A gothic tablet: a pointed arch between two pinnacled pilasters, its recessed panel lettered.
+                    AddBoxAt(b, new Vector3(0f, 0.07f, 0f), new Vector3(0.84f, 0.14f, 0.36f), id, plinth);
+                    AddBoxAt(b, q * new Vector3(0f, 0.47f, 0f), new Vector3(0.58f, 0.66f, 0.14f), q, stone);
+                    Gable(b, q, new Vector3(0f, 0.8f, 0f), 0.3f, 0.3f, 0.07f, stone);
+                    AddBoxAt(b, q * new Vector3(0f, 0.48f, 0.072f), new Vector3(0.38f, 0.48f, 0.01f), q, panel);
+                    Gable(b, q, new Vector3(0f, 0.72f, 0.072f), 0.19f, 0.17f, 0.006f, panel);
+                    b.AddBlob(q * new Vector3(0f, 0.95f, 0.07f), new Vector3(0.04f, 0.04f, 0.02f), 0, 0.1f, _ => cut);
+                    Letters(q, 0f, 0.62f, 0.08f, 0.3f, 4);
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        AddBoxAt(b, q * new Vector3(s * 0.34f, 0.54f, 0f), new Vector3(0.1f, 0.8f, 0.18f), q, Shade(stone, 1.04f));
+                        Taper(b, q * new Vector3(s * 0.34f, 0.94f, 0f), 0.06f, 0.2f, 0.004f, q, Shade(stone, 1.04f));
+                    }
+                    break;
+                }
+                case 8:
+                {
+                    // A chest tomb: panelled sides between corner pilasters, an overhanging lid knocked a little askew.
+                    AddBoxAt(b, new Vector3(0f, 0.05f, 0.9f), new Vector3(0.96f, 0.1f, 2.02f), id, plinth);
+                    AddBoxAt(b, new Vector3(0f, 0.38f, 0.9f), new Vector3(0.8f, 0.56f, 1.8f), id, stone);
+                    foreach (float sx in new[] { -1f, 1f })
+                        foreach (float sz in new[] { -1f, 1f })
+                            AddBoxAt(b, new Vector3(sx * 0.4f, 0.38f, 0.9f + sz * 0.9f), new Vector3(0.1f, 0.56f, 0.1f), id, Shade(stone, 1.05f));
+                    foreach (float sx in new[] { -1f, 1f })
+                        for (int k = 0; k < 2; k++)
+                        {
+                            float z = 0.48f + k * 0.84f;
+                            AddBoxAt(b, new Vector3(sx * 0.402f, 0.38f, z), new Vector3(0.012f, 0.36f, 0.66f), id, panel);
+                            b.AddBlob(new Vector3(sx * 0.41f, 0.38f, z), new Vector3(0.01f, 0.07f, 0.07f), 0, 0.1f, _ => cut);
+                        }
+                    AddBoxAt(b, new Vector3(0f, 0.38f, 1.802f), new Vector3(0.6f, 0.36f, 0.012f), id, panel);
+                    Letters(id, 0f, 0.5f, 1.81f, 0.48f, 4);
+                    Quaternion lid = Quaternion.Euler(0f, b.Range(-4f, 4f), 0f);
+                    Vector3 lc = new Vector3(b.Range(-0.03f, 0.03f), 0.7f, 0.9f + b.Range(-0.04f, 0.04f));
+                    AddBoxAt(b, lc, new Vector3(0.96f, 0.08f, 2.0f), lid, plinth);
+                    AddBoxAt(b, lc + Vector3.up * 0.06f, new Vector3(0.84f, 0.04f, 1.88f), lid, stone);
+                    AddBoxAt(b, lc + lid * new Vector3(0f, 0.09f, 0.1f), new Vector3(0.07f, 0.025f, 0.9f), lid, panel);
+                    AddBoxAt(b, lc + lid * new Vector3(0f, 0.09f, -0.12f), new Vector3(0.36f, 0.025f, 0.07f), lid, panel);
+                    if (b.Next() < 0.6f) b.AddBlob(lc + lid * new Vector3(b.Range(-0.3f, 0.3f), 0.08f, b.Range(-0.8f, 0.8f)), new Vector3(0.16f, 0.03f, 0.22f), 0, 0.3f, _ => b.Jitter(Site.Moss, 0.15f), true);
+                    break;
+                }
+                case 9:
+                {
+                    // A double tablet for two: twin rounded tops, a lettered panel under each, a cross between.
+                    AddBoxAt(b, new Vector3(0f, 0.07f, 0.02f), new Vector3(1.0f, 0.14f, 0.34f), id, plinth);
+                    AddBoxAt(b, q * new Vector3(0f, 0.42f, 0f), new Vector3(0.9f, 0.56f, 0.13f), q, stone);
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        b.AddTube(new[] { q * new Vector3(s * 0.22f, 0.7f, -0.065f), q * new Vector3(s * 0.22f, 0.7f, 0.065f) }, new[] { 0.22f, 0.22f }, 10, stone, 0.05f);
+                        AddBoxAt(b, q * new Vector3(s * 0.22f, 0.5f, 0.068f), new Vector3(0.32f, 0.44f, 0.01f), q, panel);
+                        Letters(q, s * 0.22f, 0.64f, 0.076f, 0.26f, 4);
+                    }
+                    Cross(q, new Vector3(0f, 0.76f, 0.068f), 0.16f);
+                    break;
+                }
                 default:
-                    // Rounded slab: a box with a half-disc top.
-                    AddBoxAt(b, q * new Vector3(0f, 0.36f, 0f), new Vector3(0.58f, 0.72f, 0.14f), q, stone);
-                    b.AddTube(new[] { q * new Vector3(0f, 0.72f, -0.07f), q * new Vector3(0f, 0.72f, 0.07f) }, new[] { 0.29f, 0.29f }, 8, stone, 0.06f);
+                {
+                    // A round-topped tablet on a plinth, a bordered panel lettered, a cross cut above it.
+                    AddBoxAt(b, new Vector3(0f, 0.07f, 0.02f), new Vector3(0.72f, 0.14f, 0.32f), id, plinth);
+                    AddBoxAt(b, q * new Vector3(0f, 0.45f, 0f), new Vector3(0.58f, 0.62f, 0.13f), q, stone);
+                    b.AddTube(new[] { q * new Vector3(0f, 0.76f, -0.065f), q * new Vector3(0f, 0.76f, 0.065f) }, new[] { 0.29f, 0.29f }, 10, stone, 0.05f);
+                    AddBoxAt(b, q * new Vector3(0f, 0.46f, 0.068f), new Vector3(0.46f, 0.5f, 0.01f), q, panel);
+                    Letters(q, 0f, 0.62f, 0.076f, 0.36f, 4);
+                    Cross(q, new Vector3(0f, 0.86f, 0.07f), 0.13f);
                     break;
+                }
             }
-            if (b.Next() < 0.4f) b.AddBlob(new Vector3(b.Range(-0.2f, 0.2f), 0.02f, 0.12f), new Vector3(0.22f, 0.08f, 0.1f), 0, 0.3f, _ => b.Jitter(Site.Moss, 0.15f), true);
+            if (style != 6 && b.Next() < 0.45f)
+                b.AddBlob(new Vector3(b.Range(-0.25f, 0.25f), 0.03f, b.Range(0.1f, 0.2f)), new Vector3(0.18f, 0.07f, 0.07f), 0, 0.3f, _ => b.Jitter(Site.Moss, 0.15f), true);
+            if (!covered && style != 4)
+            {
+                if (b.Next() < 0.4f) Vase(b, new Vector3(b.Next() < 0.5f ? -0.3f : 0.3f, 0f, 0.36f));
+                else if (b.Next() < 0.15f) Lantern(b, new Vector3(b.Next() < 0.5f ? -0.32f : 0.32f, 0f, 0.34f));
+            }
             return b.ToMesh("Headstone");
+        }
+
+        static Color Shade(Color c, float k) => new Color(c.r * k, c.g * k, c.b * k, 1f);
+
+        /// <summary>
+        /// The grave before a stone: kerbed in stone and filled with chippings or earth, or a heap of earth, or sunk with a
+        /// footstone; or (<paramref name="picket"/>) a heap inside a low picket rail.
+        /// </summary>
+        static void Plot(LowPolyMeshBuilder b, Color stone, bool picket)
+        {
+            float r = b.Next();
+            if (picket)
+            {
+                b.AddBlob(new Vector3(0f, 0f, 1.05f), new Vector3(0.38f, 0.13f, 0.82f), 0, 0.15f, _ => b.Jitter(Site.Grave, 0.12f), true);
+                Color wood = Site.Weathered;
+                foreach (float x in new[] { -0.44f, 0.44f })
+                {
+                    for (float z = 0.3f; z < 1.95f; z += 0.24f)
+                    {
+                        if (b.Next() < 0.12f) continue;
+                        Quaternion lean = Quaternion.Euler(b.Range(-8f, 8f), 0f, b.Range(-8f, 8f));
+                        AddBoxAt(b, new Vector3(x, 0.17f, z), new Vector3(0.04f, 0.34f, 0.05f), lean, b.Jitter(wood, 0.1f));
+                    }
+                    AddBoxAt(b, new Vector3(x, 0.24f, 1.12f), new Vector3(0.03f, 0.04f, 1.68f), Quaternion.Euler(b.Range(-2f, 2f), 0f, 0f), Site.WeatheredDark);
+                }
+                return;
+            }
+            if (r < 0.48f)
+            {
+                // Kerbs round the grave, corner posts at its foot, filled with pale chippings or bare earth.
+                Color kerb = Shade(stone, 0.92f);
+                AddBoxAt(b, new Vector3(-0.44f, 0.065f, 1.06f), new Vector3(0.08f, 0.13f, 1.76f), Quaternion.identity, kerb);
+                AddBoxAt(b, new Vector3(0.44f, 0.065f, 1.06f), new Vector3(0.08f, 0.13f, 1.76f), Quaternion.identity, kerb);
+                AddBoxAt(b, new Vector3(0f, 0.065f, 1.94f), new Vector3(0.96f, 0.13f, 0.08f), Quaternion.identity, kerb);
+                foreach (float x in new[] { -0.44f, 0.44f })
+                {
+                    AddBoxAt(b, new Vector3(x, 0.09f, 1.94f), new Vector3(0.12f, 0.18f, 0.12f), Quaternion.identity, Shade(stone, 0.97f));
+                    b.AddCone(new Vector3(x, 0.18f, 1.94f), new Vector3(x, 0.23f, 1.94f), 0.06f, 4, Shade(stone, 0.97f), 0.05f);
+                }
+                Color fill = b.Next() < 0.55f ? new Color(0.58f, 0.57f, 0.53f) : Site.Grave;
+                AddBoxAt(b, new Vector3(0f, 0.04f, 1.06f), new Vector3(0.8f, 0.08f, 1.76f), Quaternion.identity, fill);
+                for (int k = 0; k < 6; k++)
+                    b.AddBlob(new Vector3(b.Range(-0.32f, 0.32f), 0.08f, b.Range(0.3f, 1.8f)), Vector3.one * b.Range(0.02f, 0.035f), 0, 0.3f, _ => b.Jitter(fill, 0.15f), true);
+            }
+            else if (r < 0.85f)
+            {
+                b.AddBlob(new Vector3(0f, 0f, 1.05f), new Vector3(0.44f, 0.13f, 0.9f), 0, 0.15f, _ => b.Jitter(Site.Grave, 0.12f), true);
+                if (b.Next() < 0.5f) b.AddBlob(new Vector3(b.Range(-0.2f, 0.2f), 0.1f, b.Range(0.6f, 1.5f)), new Vector3(0.12f, 0.05f, 0.12f), 0, 0.3f, _ => b.Jitter(Site.Moss, 0.2f), true);
+            }
+            else
+            {
+                // Sunk a little, with a footstone at its foot.
+                b.AddBlob(new Vector3(0f, -0.02f, 1.05f), new Vector3(0.42f, 0.04f, 0.88f), 0, 0.1f, _ => b.Jitter(Shade(Site.Grave, 0.85f), 0.1f), true);
+                AddBoxAt(b, new Vector3(0f, 0.09f, 1.9f), new Vector3(0.32f, 0.18f, 0.09f), Quaternion.Euler(b.Range(-6f, 6f), 0f, b.Range(-5f, 5f)), stone);
+            }
+        }
+
+        /// <summary>A stone vase of flowers before a grave, a few of them wilting.</summary>
+        static void Vase(LowPolyMeshBuilder b, Vector3 at)
+        {
+            Color vase = b.Next() < 0.5f ? new Color(0.48f, 0.47f, 0.45f) : Bronze;
+            b.AddFrustum(at, at + Vector3.up * 0.05f, 0.05f, 0.04f, 6, vase, 0.05f);
+            b.AddFrustum(at + Vector3.up * 0.05f, at + Vector3.up * 0.17f, 0.04f, 0.062f, 6, vase, 0.05f);
+            Color bloom = Blooms[Mathf.Min(Blooms.Length - 1, (int)(b.Next() * Blooms.Length))];
+            bool wilted = b.Next() < 0.3f;
+            int n = 3 + (int)(b.Next() * 4f);
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 top = at + Vector3.up * 0.17f, tip = top + new Vector3(b.Range(-0.08f, 0.08f), b.Range(0.1f, 0.2f), b.Range(-0.06f, 0.08f));
+                if (wilted && b.Next() < 0.6f) tip += new Vector3(0f, -0.1f, 0.06f);
+                b.AddFrustum(top, tip, 0.008f, 0.006f, 3, Ivy, 0.1f);
+                b.AddBlob(tip, Vector3.one * b.Range(0.025f, 0.035f), 0, 0.2f, _ => wilted ? Shade(bloom, 0.55f) : b.Jitter(bloom, 0.1f));
+            }
+        }
+
+        /// <summary>A small iron grave lantern, its glass fogged.</summary>
+        static void Lantern(LowPolyMeshBuilder b, Vector3 at)
+        {
+            b.AddBox(at + new Vector3(-0.06f, 0f, -0.06f), new Vector3(0.12f, 0.03f, 0.12f), Site.Iron, 0.05f);
+            b.AddBox(at + new Vector3(-0.045f, 0.03f, -0.045f), new Vector3(0.09f, 0.12f, 0.09f), new Color(0.55f, 0.55f, 0.5f), 0.05f);
+            b.AddCone(at + Vector3.up * 0.15f, at + Vector3.up * 0.22f, 0.075f, 4, Site.Iron, 0.05f);
+        }
+
+        /// <summary>A four-sided taper (an obelisk's shaft, a pinnacle) up from <paramref name="foot"/>, square to <paramref name="rot"/>.</summary>
+        static void Taper(LowPolyMeshBuilder b, Vector3 foot, float halfFoot, float height, float halfTop, Quaternion rot, Color color)
+        {
+            var c = new Vector3[8];
+            int k = 0;
+            foreach (var (y, h) in new[] { (0f, halfFoot), (height, halfTop) })
+            {
+                c[k++] = foot + rot * new Vector3(-h, y, -h);
+                c[k++] = foot + rot * new Vector3(h, y, -h);
+                c[k++] = foot + rot * new Vector3(h, y, h);
+                c[k++] = foot + rot * new Vector3(-h, y, h);
+            }
+            b.AddHexahedron(c, color, 0.06f);
+        }
+
+        /// <summary>A pointed gable (a gothic arch's top) standing on <paramref name="at"/>, turned by <paramref name="rot"/>.</summary>
+        static void Gable(LowPolyMeshBuilder b, Quaternion rot, Vector3 at, float halfWidth, float height, float halfDepth, Color color)
+        {
+            Vector3 P(float x, float y, float z) => rot * (at + new Vector3(x, y, z));
+            Vector3 lf = P(-halfWidth, 0f, halfDepth), rf = P(halfWidth, 0f, halfDepth), tf = P(0f, height, halfDepth);
+            Vector3 lb = P(-halfWidth, 0f, -halfDepth), rb = P(halfWidth, 0f, -halfDepth), tb = P(0f, height, -halfDepth);
+            Vector3 inside = P(0f, height * 0.3f, 0f);
+            b.AddTriangleOutward(lf, rf, tf, color, inside);
+            b.AddTriangleOutward(lb, rb, tb, color, inside);
+            b.AddQuadOutward(lf, tf, tb, lb, color, 0.05f, inside);
+            b.AddQuadOutward(rf, tf, tb, rb, color, 0.05f, inside);
         }
 
         static void AddBoxAt(LowPolyMeshBuilder b, Vector3 centre, Vector3 size, Quaternion rot, Color color)

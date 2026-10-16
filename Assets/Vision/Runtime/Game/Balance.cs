@@ -387,15 +387,14 @@ namespace Vision.Game
         /// <see cref="PickChecks"/> timing checks (stop the spinning tick on its mark; each spins faster with a narrower mark);
         /// <see cref="PickMisses"/> misses start it over. Unlocked, the gates swing open and open and close freely. Closed
         /// again, Zach can only smash them in (<see cref="GateHits"/>: four full charged swings, two hits each, or eight
-        /// light ones). Survivors can't climb the fence; Zach can, taking <see cref="ZachFenceSlow"/> times as long as a log
-        /// (400% longer).
+        /// light ones). No one climbs the fence, Zach included.
         /// </summary>
         public static class Graveyard
         {
             public const int PickChecks = 5, PickMisses = 2, GateHits = 4 * 2;
             public static readonly float[] PickSpeeds = { 200f, 230f, 260f, 290f, 320f };
             public static readonly float[] PickWidths = { 36f, 32f, 29f, 27f, 25f };
-            public const float PickPause = 0.45f, ZachFenceSlow = 5f;
+            public const float PickPause = 0.45f;
         }
 
         /// <summary>

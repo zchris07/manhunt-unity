@@ -188,12 +188,15 @@ namespace Vision.Tests
                 Assert.AreEqual(1, chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Comfy Bed"));
 
                 // Every generator's work site: three light towers as tall as a big tree, lighting all round them as brightly as
-                // a player's own light, work lights, cables and clutter; all dark until it runs, then on for good.
+                // a player's own light, work lights, cables and clutter; all dark until it runs, then on for good. The
+                // graveyard's: two towers and their cables alone.
                 foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform)))
                 {
+                    bool grave = (Plane(g) - L.Graveyard.center).magnitude < 0.5f;
                     var towers = g.floods.Where(l => l.bright).ToList();
-                    Assert.AreEqual(3, towers.Count, $"{g.name}: three light towers");
-                    Assert.Greater(g.floods.Count(l => !l.bright), 0, "and work lights");
+                    Assert.AreEqual(grave ? 2 : 3, towers.Count, $"{g.name}: its light towers");
+                    if (grave) Assert.AreEqual(0, g.floods.Count(l => !l.bright), "the graveyard's: no work lights");
+                    else Assert.Greater(g.floods.Count(l => !l.bright), 0, "and work lights");
                     foreach (VisionLight t in towers)
                     {
                         Assert.IsFalse(t.IsCone, "a radius of light, not a beam");
@@ -206,7 +209,8 @@ namespace Vision.Tests
                     Assert.IsTrue(g.lamps.All(r => r.sharedMaterial == g.lampOn), "its lamps lit");
                 }
                 Assert.Greater(root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Cable"), 10, "cables winding to every light");
-                Assert.Greater(root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Tarp" || t.name == "Glass" || t.name == "Planks" || t.name == "Overgrowth" || t.name == "BigOvergrowth"), 10, "a work site gone to seed");
+                Assert.AreEqual(0, root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Tarp"), "no tarps");
+                Assert.Greater(root.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Glass" || t.name == "Planks" || t.name == "Overgrowth" || t.name == "BigOvergrowth"), 10, "a work site gone to seed");
 
                 // Survivors start scattered over the map, apart, away from Zach, on open ground.
                 SimMap map = SimMapBuilder.Build(world);
