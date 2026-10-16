@@ -28,10 +28,10 @@ namespace Vision.Tests
             foreach (string wood in new[] { "Conifer_07", "DeadTree_12", "Power Pole", "Door", "Crate", "Fence", "Log", "Hanging Tree" })
                 Assert.AreEqual(MatchEffects.Surface.Wood, Of(wood), wood);
             // Sturdy metal: cars, generators, light towers, lockers, the exit gate.
-            foreach (string heavy in new[] { "Car_02", "Generator", "Light Tower", "Locker", "Exit Gate", "Ambulance", "Fridge" })
+            foreach (string heavy in new[] { "Car_02", "Light Tower", "Locker", "Exit Gate", "Ambulance", "Fridge" })
                 Assert.AreEqual(MatchEffects.Surface.HeavyMetal, Of(heavy), heavy);
             // Other metal: fences, gates, lampposts, barrels.
-            foreach (string metal in new[] { "Iron Fence", "Yard Fence", "Graveyard Gates", "LanternPost", "BurningBarrel", "Rack" })
+            foreach (string metal in new[] { "Iron Fence", "Yard Fence", "Graveyard Gates", "LanternPost", "BurningBarrel", "Rack", "Generator" })
                 Assert.AreEqual(MatchEffects.Surface.Metal, Of(metal), metal);
             // Walls of a structure (a rock's "wall" is stone, as are the gate's pillars).
             foreach (string wall in new[] { "Outer Wall", "Wall", "Plank Wall" })

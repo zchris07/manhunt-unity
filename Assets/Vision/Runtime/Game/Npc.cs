@@ -79,6 +79,11 @@ namespace Vision.Game
         public virtual bool TripsTraps => false;
         /// <summary>Aggressive right now: a Soundcloud Burst wave stuns it.</summary>
         public virtual bool Aggressive => false;
+        /// <summary>Roused (alert, armed, angry, chasing, raging): a player's rounds strike it even off their screen.</summary>
+        public virtual bool Aggravated => Aggressive || AlertLevel > 0.01f
+            || (Flags & (NpcFlags.Armed | NpcFlags.Angry | NpcFlags.Chasing | NpcFlags.Raging | NpcFlags.Defending)) != 0;
+        /// <summary>A Soundcloud Burst wave passes over it (from Zach, <paramref name="by"/>).</summary>
+        public virtual void BurstHit(MatchSim sim, SimPlayer by) { }
         /// <summary>A 0.50 cal round passes through it.</summary>
         public virtual void Snipe(MatchSim sim, SimPlayer shooter) => ItemHit(sim, shooter, "shot");
         /// <summary>A survivor attacked Chacko: go after them (Jaden, Plasma, Shane).</summary>

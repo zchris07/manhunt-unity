@@ -147,8 +147,66 @@ namespace Vision.Characters
             .R(Bone.UpperArmR, ur.x + raise, ur.y, ur.z).R(Bone.ForearmR, fr).R(Bone.HandR, hr.x + flip, hr.y, hr.z)
             .R(Bone.UpperArmL, ul.x + raise, ul.y, ul.z).R(Bone.ForearmL, fl).R(Bone.HandL, hl.x, hl.y, hl.z);
 
-        static ActionPose ShotgunHold(float sx = 2f, float sy = 14f, float raise = 0f, float flip = 0f, float pumpBack = 0f) =>
-            Shouldered(sx, sy, 2f, 10f, 8f, (-33.8f, -63.2f, 24.6f), -111.4f, (55.2f, 34.4f, 49.7f), (-50.1f + pumpBack * 0.4f, 8.1f, 8f), -78.4f - pumpBack, (9.9f, -43f, -14f), raise, flip);
+        // The support arm through the pump's stroke, solved so the hand slides straight back along the gun with the
+        // forend, 0, 4.5 and 9 cm (scratchpad pump_solve.py), while the gun stays shouldered.
+        static readonly (Vector3 u, float f, Vector3 h)[] PumpArm =
+        {
+            (new Vector3(-50.1f, 8.1f, 8f), -78.4f, new Vector3(9.9f, -43f, -14f)),
+            (new Vector3(-45f, 10.9f, 10.1f), -87.9f, new Vector3(11.4f, -41.6f, -18.4f)),
+            (new Vector3(-40.3f, 14.5f, 12.2f), -96.3f, new Vector3(12f, -40f, -22.2f)),
+        };
+
+        static ActionPose ShotgunHold(float sx = 2f, float sy = 14f, float raise = 0f, float flip = 0f, float stroke = 0f)
+        {
+            float k = Mathf.Clamp01(stroke) * 2f;
+            int i = Mathf.Min(1, (int)k);
+            float u = k - i;
+            Vector3 ua = Vector3.Lerp(PumpArm[i].u, PumpArm[i + 1].u, u), ha = Vector3.Lerp(PumpArm[i].h, PumpArm[i + 1].h, u);
+            float fa = Mathf.Lerp(PumpArm[i].f, PumpArm[i + 1].f, u);
+            return Shouldered(sx, sy, 2f, 10f, 8f, (-33.8f, -63.2f, 24.6f), -111.4f, (55.2f, 34.4f, 49.7f), (ua.x, ua.y, ua.z), fa, (ha.x, ha.y, ha.z), raise, flip);
+        }
+
+        /// <summary>When a pump clip works the pump: from <c>start</c>, back over <c>stroke</c> seconds, a beat, forward again.</summary>
+        static readonly Dictionary<ActionClip, (float start, float stroke)> pumps = new Dictionary<ActionClip, (float, float)>();
+        const float PumpDwell = 0.05f;
+
+        /// <summary>How far back the pump is in a clip at a time (0 forward, 1 fully back): the forend follows it.</summary>
+        public static float PumpStroke(ActionClip clip, float t)
+        {
+            if (clip == null || !pumps.TryGetValue(clip, out var p)) return 0f;
+            float back = p.start + p.stroke, fwd = back + PumpDwell;
+            if (t <= p.start || t >= fwd + p.stroke) return 0f;
+            if (t < back) return Mathf.SmoothStep(0f, 1f, (t - p.start) / p.stroke);
+            if (t <= fwd) return 1f;
+            return Mathf.SmoothStep(1f, 0f, (t - fwd) / p.stroke);
+        }
+
+        /// <summary>
+        /// A pump gun fired and worked, over <paramref name="length"/> seconds: the kick (shoulder driven back, muzzle up), then
+        /// the support hand pulls the forend straight back along the magazine (the spent shell kicked out of the port at the
+        /// back of the stroke, "rack") and pushes it forward again to chamber the next, at the speed a real pump is worked,
+        /// and the gun stays on aim for the rest of the reload, holding that pose at the end.
+        /// </summary>
+        static ActionClip PumpClip(string name, float length)
+        {
+            float start = Mathf.Clamp(0.25f * length, 0.2f, 0.5f), stroke = Mathf.Clamp(0.15f * length, 0.09f, 0.22f);
+            float back = start + stroke, fwd = back + PumpDwell + stroke;
+            var c = new ActionClip(name, length)
+                .Key(0f, ShotgunHold())
+                .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
+                .Key(0.16f, ShotgunHold(-2f, 17f, -2f, 0f))
+                .Key(start, ShotgunHold())
+                .Key(back, ShotgunHold(0f, 14.5f, -1.5f, 0f, 1f))
+                .Key(back + PumpDwell, ShotgunHold(0f, 14.5f, -1.5f, 0f, 1f))
+                .Key(fwd, ShotgunHold(0f, 14f, -0.5f, 0f, 0f))
+                .Key(Mathf.Min(length, fwd + 0.12f), ShotgunHold())
+                .Key(length, ShotgunHold())
+                .Event(back, "rack")
+                .Blend(0.03f, 0.12f)
+                .HoldAtEnd();
+            pumps[c] = (start, stroke);
+            return c;
+        }
 
         static ActionPose RifleHold(float sx = 6f, float sy = 14f, float raise = 0f, float flip = 0f) =>
             Shouldered(sx, sy, 3f, 10f, 13f, (-35.4f, -65f, 26.9f), -103.9f, (49.2f, 28.1f, 43.6f), (-62.5f, -5.1f, 14.5f), -54.5f, (3.4f, -27.3f, 2.7f), raise, flip);
@@ -178,34 +236,17 @@ namespace Vision.Characters
             .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
             .Key(0.14f, ShotgunHold(-3f, 18f, -3f, -2f))
             .Key(0.42f, ShotgunHold())
-            .Blend(0.03f, 0.12f);
+            .Blend(0.03f, 0.12f)
+            .HoldAtEnd();
 
         /// <summary>Zach's golden pump: the kick, then the support hand racks the pump back and forward.</summary>
-        public static readonly ActionClip RecoilPump = new ActionClip("RecoilPump", 0.62f)
-            .Key(0f, ShotgunHold())
-            .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
-            .Key(0.16f, ShotgunHold(-2f, 17f, -2f, 0f))
-            .Key(0.3f, ShotgunHold(0f, 15f, 0f, 0f, 22f))
-            .Key(0.42f, ShotgunHold())
-            .Key(0.62f, ShotgunHold())
-            .Event(0.3f, "rack")
-            .Blend(0.03f, 0.12f);
+        public static readonly ActionClip RecoilPump = PumpClip("RecoilPump", 0.62f);
 
         /// <summary>
         /// A survivor's shotgun after each shot, over its reload: the kick, then the support hand works the pump, back to
         /// eject the spent shell and forward to chamber the next, and the gun settles back on aim as the reload ends.
         /// </summary>
-        static ActionClip PumpReload(string name, float reload) => new ActionClip(name, reload)
-            .Key(0f, ShotgunHold())
-            .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
-            .Key(0.16f, ShotgunHold(-2f, 17f, -2f, 0f))
-            .Key(reload * 0.3f, ShotgunHold(0f, 15f, -1f, 0f, 2f))
-            .Key(reload * 0.45f, ShotgunHold(0f, 15f, -2f, 0f, 26f))
-            .Key(reload * 0.6f, ShotgunHold(0f, 15f, -1f, 0f, 0f))
-            .Key(reload * 0.68f, ShotgunHold(0f, 14f, 0f, 0f, 3f))
-            .Key(reload, ShotgunHold())
-            .Event(reload * 0.45f, "rack")
-            .Blend(0.03f, 0.12f);
+        static ActionClip PumpReload(string name, float reload) => PumpClip(name, reload);
 
         /// <summary>The shotgun's pump worked over its two-second reload.</summary>
         public static readonly ActionClip PumpReloadShotgun = PumpReload("RecoilPumpReload", Vision.Game.Balance.Items.Shotgun.Reload);
@@ -232,7 +273,8 @@ namespace Vision.Characters
             .Key(0.05f, HipHold(-6f, 18f, -12f, -4f))
             .Key(0.2f, HipHold(-1f, 13f, -5f, -1f))
             .Key(0.6f, HipHold())
-            .Blend(0.03f, 0.15f);
+            .Blend(0.03f, 0.15f)
+            .HoldAtEnd();
 
         /// <summary>The 0.50 cal's heavy kick: the body shoved back a step's worth, the muzzle climbing; a slow settle.</summary>
         public static readonly ActionClip RecoilRifle = new ActionClip("RecoilRifle", 0.6f)
@@ -240,7 +282,8 @@ namespace Vision.Characters
             .Key(0.05f, RifleHold(-5f, 23f, -9f, -3f))
             .Key(0.2f, RifleHold(-1f, 19f, -4f, -1f))
             .Key(0.6f, RifleHold())
-            .Blend(0.03f, 0.15f);
+            .Blend(0.03f, 0.15f)
+            .HoldAtEnd();
 
         /// <summary>A pistol held in both hands, Weaver style.</summary>
         public static readonly ActionClip AimPistol = new ActionClip("AimPistol", 1f, true)
@@ -253,7 +296,8 @@ namespace Vision.Characters
             .Key(0.035f, PistolHold(-1f, -6f, -10f, 6f))
             .Key(0.12f, PistolHold(1f, -2f, -3f, 2f))
             .Key(0.26f, PistolHold())
-            .Blend(0.03f, 0.1f);
+            .Blend(0.03f, 0.1f)
+            .HoldAtEnd();
 
         /// <summary>JARVIS: holding up the tablet, looking at it.</summary>
         public static readonly ActionClip Tablet = new ActionClip("Tablet", 1f, true)

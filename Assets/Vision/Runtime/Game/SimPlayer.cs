@@ -158,6 +158,13 @@ namespace Vision.Game
         /// <summary>Penjamin: seconds the slow and burn last, their strength, seconds of darkness.</summary>
         public float VapeT, VapeSlow, VapeDps, DarkT, VapeSlowT;
         public float ViewReach;
+        /// <summary>
+        /// The ground this player's screen shows (design units): a rectangle half <see cref="ViewHalf"/> across its own axes,
+        /// turned <see cref="ViewYaw"/> (radians), its middle <see cref="ViewOffset"/> from the player. Zero: not known
+        /// (bots, tests), and nothing is off their screen.
+        /// </summary>
+        public Vector2 ViewHalf, ViewOffset;
+        public float ViewYaw;
 
         // Zach's attack.
         public float AttackCd, AttackWindup, SwingT;

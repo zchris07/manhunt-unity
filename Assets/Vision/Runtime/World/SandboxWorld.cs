@@ -720,7 +720,10 @@ namespace Vision.World
             }
             PathNetwork paths = Terrain.Paths;
             float OnPath(Vector2 p) => paths != null ? Terrain.PathClearance(p.x, p.y) : float.MaxValue;
-            bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p);
+            // (Nothing grows or lies about inside Miga Sushi or the Diddy Chamber.)
+            Rect sushi = Expand(Layout.Sushi, 0.6f), chamber = Expand(Layout.Chamber, 0.6f);
+            bool Indoors(Vector2 p) => (Layout.Sushi.width > 0f && sushi.Contains(p)) || (Layout.Chamber.width > 0f && chamber.Contains(p));
+            bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p) || Indoors(p);
             float lim = WorldRadius - 0.8f;
 
             // Short grass blades (dead or green with the ground), pebbles and bone-pale debris, over the world's circle.
@@ -745,7 +748,7 @@ namespace Vision.World
             {
                 var p = new Vector2(Range(-lim, lim), Range(-lim, lim));
                 // (None in the graveyard: its grounds are kept.)
-                if (Flat(p) || InGraveyard(p)) continue;
+                if (Flat(p) || InGraveyard(p) || Indoors(p)) continue;
                 LowPolyMeshBuilder b = ChunkAt(p);
                 float s = Range(0.05f, 0.14f);
                 bool bone = rng.NextDouble() < 0.2;

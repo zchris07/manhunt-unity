@@ -372,8 +372,8 @@ namespace Vision.World
                 return new Vector2(0f, -HalfExtent * 0.8f);
             }
             int DoorToward(Vector2 p) => Mathf.Abs(p.y) >= Mathf.Abs(p.x) ? (p.y > 0f ? 2 : 0) : (p.x > 0f ? 3 : 1);
-            Vector2 s = Outskirt(7f, null);
-            Sushi = new Rect(s.x - 5f, s.y - 4f, 10f, 8f);
+            Vector2 s = Outskirt(8.5f, null);
+            Sushi = new Rect(s.x - 6.5f, s.y - 5f, 13f, 10f);
             SushiDoor = DoorToward(s);
             KeepRects.Add(Expand(Sushi, 2f));
             Vector2 c = Outskirt(4f, s);

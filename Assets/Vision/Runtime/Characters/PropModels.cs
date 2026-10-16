@@ -8,8 +8,8 @@ namespace Vision.Characters
     /// <summary>
     /// Held props: separate flat-shaded, vertex-coloured meshes of at most <see cref="MaxTriangles"/> triangles, built
     /// in the grip's frame (the hand closes round the origin; the prop points along +Z, its top is +Y), so a socket on the
-    /// hand bone holds them. They follow the original's item art: a side-by-side double-barrelled shotgun with a wooden
-    /// stock, the mini shield as a small round flask of glowing blue liquid with a stopper (Fortnite's small shield
+    /// hand bone holds them. They follow the original's item art, but the shotgun is a pump-action (a single barrel over a
+    /// magazine tube, a wooden stock, the wooden forend its own piece that slides as the pump is worked), the mini shield as a small round flask of glowing blue liquid with a stopper (Fortnite's small shield
     /// potion), galaxy gas as a stout whippit tank in a galaxy wrap with a silver shoulder and a valve.
     /// </summary>
     public static class PropModels
@@ -166,6 +166,26 @@ namespace Vision.Characters
         static Color H(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
 
         static readonly Dictionary<PropKind, Mesh> cache = new Dictionary<PropKind, Mesh>();
+        static readonly Dictionary<PropKind, Mesh> forends = new Dictionary<PropKind, Mesh>();
+
+        /// <summary>
+        /// A pump gun's forend, its own piece in the gun's frame, round the magazine tube where the support hand holds it
+        /// (it slides back toward the receiver as the pump is worked); null for every other prop.
+        /// </summary>
+        public static Mesh Forend(PropKind kind)
+        {
+            if (kind != PropKind.Shotgun && kind != PropKind.GoldenPump) return null;
+            if (forends.TryGetValue(kind, out Mesh m) && m != null) return m;
+            var b = new B();
+            Color body = kind == PropKind.GoldenPump ? H(0xb8862a) : H(0x7a4520), groove = kind == PropKind.GoldenPump ? H(0x8a6418) : H(0x4e2c14);
+            b.Box(new Vector3(0f, 0.002f, 0.215f), new Vector3(0.022f, 0.017f, 0.07f), body);
+            foreach (float z in new[] { 0.19f, 0.24f })
+                b.Box(new Vector3(0f, -0.016f, z), new Vector3(0.0225f, 0.0015f, 0.006f), groove);
+            m = b.Mesh(kind + " Forend");
+            m.hideFlags = HideFlags.DontSave;
+            forends[kind] = m;
+            return m;
+        }
 
         public static Mesh Get(PropKind kind)
         {
@@ -210,12 +230,13 @@ namespace Vision.Characters
                     break;
                 }
                 case PropKind.Shotgun:
-                    // The original's shotgun: side-by-side barrels over a wooden forend, a wooden stock.
+                    // A pump-action: a wooden stock, the steel receiver with its ejection port on the right, a single barrel
+                    // over the magazine tube, the trigger guard; the forend is its own piece (Forend).
                     b.Box(new Vector3(0f, -0.022f, -0.17f), new Vector3(0.018f, 0.04f, 0.13f), wood, Quaternion.Euler(8f, 0f, 0f));
-                    b.Box(new Vector3(0f, 0.012f, 0.03f), new Vector3(0.024f, 0.028f, 0.075f), H(0x3a3c40));
-                    b.Tube(new Vector3(-0.0125f, 0.028f, 0f), 0.09f, 0.62f, 0.012f, 0.012f, 6, H(0x5a6270), true, black);
-                    b.Tube(new Vector3(0.0125f, 0.028f, 0f), 0.09f, 0.62f, 0.012f, 0.012f, 6, H(0x6b7482), true, black);
-                    b.Box(new Vector3(0f, 0.004f, 0.25f), new Vector3(0.022f, 0.016f, 0.09f), H(0x7a4520));
+                    b.Box(new Vector3(0f, 0.014f, 0.03f), new Vector3(0.021f, 0.03f, 0.08f), H(0x3a3c40));
+                    b.Box(new Vector3(0.0215f, 0.022f, 0.05f), new Vector3(0.002f, 0.009f, 0.022f), black);
+                    b.Tube(new Vector3(0f, 0.03f, 0f), 0.1f, 0.62f, 0.0115f, 0.011f, 6, H(0x5a6270), true, black);
+                    b.Tube(new Vector3(0f, 0.004f, 0f), 0.1f, 0.5f, 0.0095f, 0.0095f, 6, H(0x44484e), true, H(0x2a2c30));
                     b.Box(new Vector3(0f, -0.03f, 0.0f), new Vector3(0.008f, 0.02f, 0.03f), black);
                     break;
                 case PropKind.GoldenPump:
@@ -225,7 +246,7 @@ namespace Vision.Characters
                     b.Box(new Vector3(0f, -0.02f, -0.16f), new Vector3(0.018f, 0.04f, 0.13f), stock, Quaternion.Euler(8f, 0f, 0f));
                     b.Box(new Vector3(0f, 0.01f, 0.05f), new Vector3(0.02f, 0.03f, 0.1f), body);
                     b.Tube(new Vector3(0f, 0.025f, 0f), 0.14f, 0.62f, 0.012f, 0.012f, 6, gold ? H(0xe8c050) : metal, true, black);
-                    b.Box(new Vector3(0f, -0.004f, 0.3f), new Vector3(0.02f, 0.018f, 0.07f), stock);
+                    b.Tube(new Vector3(0f, 0.0f, 0f), 0.14f, 0.5f, 0.0095f, 0.0095f, 6, H(0xb8902c), true, H(0x8a6a20));
                     b.Box(new Vector3(0f, -0.04f, -0.01f), new Vector3(0.012f, 0.03f, 0.016f), body, Quaternion.Euler(-15f, 0f, 0f));
                     break;
                 }

@@ -4,8 +4,12 @@ namespace Vision.World
 {
     public static partial class LowPolyModels
     {
-        /// <summary>Chris Zelley's ambulance at the original's footprint (300 x 150 units): width (x), height, length (z).</summary>
-        public static readonly Vector3 AmbulanceSize = new Vector3(4.5f, 3.3f, 9f);
+        /// <summary>The ambulance as modelled (the original's 300 x 150 unit footprint): width (x), height, length (z).</summary>
+        static readonly Vector3 AmbulanceModel = new Vector3(4.5f, 3.3f, 9f);
+        /// <summary>It stands 40% smaller than that.</summary>
+        public const float AmbulanceScale = 0.6f;
+        /// <summary>Chris Zelley's ambulance as it stands: width (x), height, length (z).</summary>
+        public static readonly Vector3 AmbulanceSize = AmbulanceModel * AmbulanceScale;
 
         /// <summary>
         /// Chris Zelley's ambulance: a white box-bodied ambulance (cab toward +Z), a red stripe down each side, the blue star
@@ -14,7 +18,7 @@ namespace Vision.World
         public static Mesh Ambulance(System.Random rng)
         {
             var b = new LowPolyMeshBuilder(rng);
-            Vector3 size = AmbulanceSize;
+            Vector3 size = AmbulanceModel;
             float w = size.x * 0.5f, l = size.z * 0.5f;
             Color white = new Color(0.86f, 0.87f, 0.85f), red = new Color(0.72f, 0.1f, 0.1f), blue = new Color(0.12f, 0.3f, 0.75f);
             Color glass = new Color(0.1f, 0.12f, 0.15f), tyre = new Color(0.07f, 0.07f, 0.08f), trim = new Color(0.25f, 0.26f, 0.28f);
@@ -68,7 +72,13 @@ namespace Vision.World
                     float x0 = s * (w - 0.35f), x1 = s * (w + 0.04f);
                     b.AddFrustum(new Vector3(x0, 0.55f, z), new Vector3(x1, 0.55f, z), 0.55f, 0.55f, sides, tyre, 0.04f);
                 }
-            return b.ToMesh("Ambulance");
+            // Built at the model's size, standing 40% smaller.
+            Mesh m = b.ToMesh("Ambulance");
+            var v = m.vertices;
+            for (int i = 0; i < v.Length; i++) v[i] *= AmbulanceScale;
+            m.vertices = v;
+            m.RecalculateBounds();
+            return m;
         }
 
         /// <summary>One of the Four Notes: a creepy photo lying face up in the leaves, pinned by a pebble.</summary>

@@ -36,6 +36,11 @@ namespace Vision.Game
             /// this (as far as the loudest sound is heard), each hearing it fall off with distance.
             /// </summary>
             public const float HearingRadius = 3000f;
+            /// <summary>
+            /// A player's bullets and pellets only strike an NPC that isn't already roused within this much of what their
+            /// screen shows (1.1 times its half width and half height about its middle).
+            /// </summary>
+            public const float OffscreenMargin = 1.1f;
         }
 
         public static class Survivor
@@ -353,7 +358,9 @@ namespace Vision.Game
 
         public static class Monique
         {
-            public const float Radius = 14f, Reach = 70f, Walk = 60f, FleeMul = 2f, FleeTime = 6f, ArrowSec = 40f, AttackSec = 10f, ShotDamage = 0.4f, Reload = 1.2f;
+            public const float Radius = 14f, Reach = 70f, Walk = 60f, FleeMul = 2f, FleeTime = 6f, ArrowSec = 40f, AttackSec = 10f, ShotDamage = 0.4f;
+            /// <summary>Monique's 0.50 cal reloads as a survivor's does.</summary>
+            public const float Reload = Items.Sniper.Reload;
             public const string LineArrow = "spoiler alert", LineHi = "Hi there";
         }
 

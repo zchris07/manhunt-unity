@@ -446,6 +446,7 @@ namespace Vision.Net
                 case Net.Command.DropSlot: sim.DropSlot(id, a); break;
                 case Net.Command.Spectate: sim.CycleSpectate(sp, a); break;
                 case Net.Command.ViewReach: sp.ViewReach = v.x; break;
+                case Net.Command.ViewRect: Game.MatchHost.UnpackView(sp, v, a, b); break;
                 case Net.Command.SwitchRole: if (sim.TestMode) sim.SwitchRole(id); break;
                 case Net.Command.TestFx: if (sim.TestMode) sim.PlayTestFx(id, (TestFx)a); break;
                 case Net.Command.Teleport: if (sim.TestMode) sim.Teleport(id, v); break;

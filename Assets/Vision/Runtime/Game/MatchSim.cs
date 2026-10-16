@@ -503,6 +503,22 @@ namespace Vision.Game
             if (to.Length > 0) Emit(to, new GameEvent { Kind = EventKind.Noise, Pos = at, F = r, Text = kind });
         }
 
+        /// <summary>Whether a point is on a player's screen (within <paramref name="margin"/> times what it shows); always, if it isn't known.</summary>
+        public static bool OnScreen(SimPlayer p, Vector2 at, float margin = Balance.Net.OffscreenMargin)
+        {
+            if (p == null || p.ViewHalf.x <= 0f || p.ViewHalf.y <= 0f) return true;
+            Vector2 rel = at - (p.Pos + p.ViewOffset);
+            float c = Mathf.Cos(p.ViewYaw), s = Mathf.Sin(p.ViewYaw);
+            float x = rel.x * c + rel.y * s, y = -rel.x * s + rel.y * c;
+            return Mathf.Abs(x) <= p.ViewHalf.x * margin && Mathf.Abs(y) <= p.ViewHalf.y * margin;
+        }
+
+        /// <summary>
+        /// Whether a player's bullet or pellet can strike an NPC: always once it's roused (alert, armed, angry, chasing),
+        /// otherwise only on the shooter's screen (an NPC they can't see is never set on them by a stray round).
+        /// </summary>
+        public static bool CanShoot(Npc n, SimPlayer by) => by == null || n.Aggravated || OnScreen(by, n.Pos);
+
         /// <summary>A bullet or pellet striking a body (a player's or an NPC's): heard by everyone near.</summary>
         public void BulletStruck(Vector2 at) => Noise(at, 1000f, "flesh");
 

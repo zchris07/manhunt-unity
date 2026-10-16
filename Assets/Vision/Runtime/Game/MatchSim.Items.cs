@@ -324,7 +324,7 @@ namespace Vision.Game
             }
             foreach (Npc n in Npcs)
             {
-                if (!n.Solid) continue;
+                if (!n.Solid || !CanShoot(n, p)) continue;
                 float t = RayCircle(s, d, n.Pos, n.HitRadius);
                 if (t < best) { best = t; hitN = n; hitP = null; }
             }
@@ -394,7 +394,7 @@ namespace Vision.Game
                 }
                 foreach (Npc n in Npcs)
                 {
-                    if (!n.Solid) continue;
+                    if (!n.Solid || !CanShoot(n, p)) continue;
                     float t = RayCircle(s, d, n.Pos, n.HitRadius);
                     if (t < best) { best = t; hitN = n; hitP = null; }
                 }

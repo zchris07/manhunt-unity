@@ -183,6 +183,23 @@ namespace Vision.Tests
                 Vector2 Plane(Component c) { Vector3 l = world.transform.InverseTransformPoint(c.transform.position); return new Vector2(l.x, l.z); }
                 var inSushi = world.Pickups.Where(p => L.Sushi.Contains(Plane(p))).Select(p => p.item).ToList();
                 CollectionAssert.AreEquivalent(new[] { ItemType.HempBeam, ItemType.Sniper }, inSushi, "a Hemp Beam and a 0.50 cal");
+                // A Japanese restaurant, in detail: 13 by 10, the bar and its stools, the sake shelf, menu plaques, a tatami room
+                // with low tables behind shoji, tables and chairs, paper lanterns, the cat and the bonsai, a scroll.
+                Assert.AreEqual(13f * 10f, L.Sushi.width * L.Sushi.height, 0.01f);
+                Transform sushi = root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Miga Sushi");
+                int Pieces(string name) => sushi.GetComponentsInChildren<Transform>(true).Count(t => t.name == name);
+                foreach (string piece in new[] { "Sushi Counter", "Sake Shelf", "Menu Plaques", "Tatami", "Shoji", "Wall Scroll", "Maneki Neko", "Bonsai" })
+                    Assert.AreEqual(1, Pieces(piece), piece);
+                Assert.AreEqual(2, Pieces("Low Table"));
+                Assert.GreaterOrEqual(Pieces("Stool"), 8, "a row of stools at the bar");
+                Assert.GreaterOrEqual(Pieces("Paper Lantern"), 6, "lanterns down the middle, over the bar and by the door");
+                Assert.AreEqual(8, Pieces("Chair"), "two tables of four");
+                // No rocks or trees inside it.
+                foreach (Collider col in root.GetComponentsInChildren<Collider>(true))
+                {
+                    if (!(col.name.StartsWith("Rock") || col.name.StartsWith("Conifer") || col.name.StartsWith("DeadTree"))) continue;
+                    Assert.IsFalse(L.Sushi.Contains(Plane(col)), $"{col.name} inside Miga Sushi");
+                }
                 Transform chamber = root.GetComponentsInChildren<Transform>(true).First(t => t.name == "Diddy Chamber");
                 Assert.Greater(chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Baby Oil"), 6, "baby oil all over");
                 Assert.AreEqual(1, chamber.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Comfy Bed"));

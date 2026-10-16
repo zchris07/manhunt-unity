@@ -43,7 +43,8 @@ namespace Vision.Characters
             Layer.Hold(PropKind.None, true);
         }
 
-        bool OneShotPlaying => oneShot != null && Layer.IsPlaying(oneShot);
+        /// <summary>A one-shot still playing (a gun's kick that has played through and holds the aim pose doesn't count).</summary>
+        bool OneShotPlaying => oneShot != null && Layer.IsPlaying(oneShot) && !(oneShot.HoldEnd && Layer.AtEnd(oneShot));
 
         void PlayOnce(ActionClip clip, float speed = 1f, float startAt = 0f)
         {
@@ -101,8 +102,12 @@ namespace Vision.Characters
             if (OneShotPlaying) return;
 
             ActionClip state = zach ? HunterState(p) : SurvivorState(p);
-            if (state != null) Layer.Play(state);
+            // A gun's kick played through hands straight over to holding the gun (it ends in that pose): no fade through
+            // the walk in between, so the support hand never leaves the gun.
+            bool handOver = oneShot != null && oneShot.HoldEnd && Layer.AtEnd(oneShot);
+            if (state != null) Layer.Play(state, 1f, false, 0f, handOver);
             else Layer.Stop();
+            if (handOver) oneShot = null;
         }
 
         static ActionClip SurvivorState(SimPlayer p)

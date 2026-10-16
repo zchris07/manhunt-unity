@@ -17,7 +17,7 @@ namespace Vision.Net
     }
 
     /// <summary>The testing and match commands a client asks the host for.</summary>
-    public enum Command : byte { MoveSlot = 1, Spectate = 2, ViewReach = 3, SwitchRole = 4, TestFx = 5, Teleport = 6, RespawnNpcs = 7, SpawnDummy = 8, ClearDummies = 9, DropSlot = 10 }
+    public enum Command : byte { MoveSlot = 1, Spectate = 2, ViewReach = 3, SwitchRole = 4, TestFx = 5, Teleport = 6, RespawnNpcs = 7, SpawnDummy = 8, ClearDummies = 9, DropSlot = 10, ViewRect = 11 }
 
     /// <summary>Helpers for the binary wire format: strings, vectors, and frames of [length][type][payload].</summary>
     public static class Wire

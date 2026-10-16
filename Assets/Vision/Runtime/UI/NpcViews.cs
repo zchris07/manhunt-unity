@@ -224,10 +224,13 @@ namespace Vision.UI
                 else if (prop == PropKind.Sniper) clip = ActionClips.AimRifle;
                 else if ((f & NpcFlags.Talking) != 0 && !n.Moving) clip = ActionClips.Talk;
             }
-            bool oneShot = v.Layer.Current == ActionClips.RecoilPistol || v.Layer.Current == ActionClips.RecoilLong || v.Layer.Current == ActionClips.RecoilRifle;
+            ActionClip cur = v.Layer.Current;
+            bool kick = cur == ActionClips.RecoilPistol || cur == ActionClips.RecoilLong || cur == ActionClips.RecoilRifle;
+            bool oneShot = kick && !v.Layer.AtEnd(cur);
             if (!oneShot)
             {
-                if (clip != null) v.Layer.Play(clip);
+                // A kick played through hands straight back to holding the gun (no fade through the walk between).
+                if (clip != null) v.Layer.Play(clip, 1f, false, 0f, kick);
                 else v.Layer.Stop();
             }
             if ((f & NpcFlags.Hurt) != 0 && v.Layer.Reaction.sqrMagnitude < 4f) v.Layer.React(Vector2.up, 0.5f);

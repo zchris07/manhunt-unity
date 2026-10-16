@@ -171,7 +171,7 @@ namespace Vision.Tests
                     int frames = Mathf.CeilToInt((clip.Length + clip.BlendOut + 0.3f) / dt);
                     for (int f = 0; f < frames; f++)
                     {
-                        if (clip.Loop && f * dt >= clip.Length) layer.Stop();
+                        if ((clip.Loop || clip.HoldEnd) && f * dt >= clip.Length) layer.Stop();
                         animator.Step(dt);
                         layer.Step(dt);
                         for (int i = 0; i < 21; i++)   // the body bones (fingers follow the hand)
@@ -343,6 +343,73 @@ namespace Vision.Tests
             Assert.AreEqual(1.2f, p.BodyFacing, 1e-5f, "while beaming the body faces the beam");
             p.BeamT = 0f;
             Assert.AreEqual(0f, p.BodyFacing, 1e-5f);
+        }
+
+        [Test]
+        public void AGunsKick_HandsStraightBackToHoldingIt_ThePumpIsWorked_AndAShellFlies()
+        {
+            GameObject go = NewCharacter(out ActionLayer layer, out CharacterView view);
+            try
+            {
+                var p = new SimPlayer(1, "S", Role.Survivor, Vector2.zero);
+                view.SetSpec(CharacterSpec.Survivor());
+                p.Inv.Add(ItemType.Shotgun);
+                p.SelSlot = 0;
+                for (int i = 0; i < 60; i++) { view.Present(p); layer.Step(0.02f); }
+                Assert.AreSame(ActionClips.AimLong, layer.Current);
+                Assert.IsNotNull(layer.Forend, "the pump gun's forend is its own piece");
+                int shells = Object.FindObjectsByType<ShellCasing>(FindObjectsSortMode.None).Length;
+                view.OnEvent(new GameEvent { Kind = EventKind.Shot, A = 1, B = (int)ItemType.Shotgun }, p, null);
+                ActionClip pump = ActionClips.PumpReloadShotgun;
+                float backAt = 0f, mostBack = 0f, lowest = 1f;
+                for (float t = 0f; t < pump.Length + 0.3f; t += 0.01f)
+                {
+                    view.Present(p);
+                    layer.Step(0.01f);
+                    float back = -layer.Forend.localPosition.z;
+                    if (back > mostBack) { mostBack = back; backAt = t; }
+                    if (t > pump.Length - 0.05f) lowest = Mathf.Min(lowest, layer.Weight);
+                }
+                Assert.AreEqual(ActionLayer.PumpTravel, mostBack, 0.005f, "the forend pulled all the way back");
+                Assert.Less(backAt, pump.Length * 0.6f, "worked at a real pump's speed, early in the reload");
+                Assert.AreEqual(0f, -layer.Forend.localPosition.z, 1e-4f, "and pushed home again");
+                Assert.AreSame(ActionClips.AimLong, layer.Current, "back to holding it");
+                Assert.Greater(lowest, 0.99f, "handed straight over at full weight: the support hand never leaves the gun");
+                Assert.AreEqual(shells + 1, Object.FindObjectsByType<ShellCasing>(FindObjectsSortMode.None).Length, "a spent shell kicked out");
+                // The P250's snap hands back the same way.
+                p.Inv.Add(ItemType.Pistol);
+                p.SelSlot = 1;
+                for (int i = 0; i < 40; i++) { view.Present(p); layer.Step(0.02f); }
+                view.OnEvent(new GameEvent { Kind = EventKind.Shot, A = 1, B = (int)ItemType.Pistol }, p, null);
+                lowest = 1f;
+                for (float t = 0f; t < ActionClips.RecoilPistol.Length + 0.3f; t += 0.01f)
+                {
+                    view.Present(p);
+                    layer.Step(0.01f);
+                    if (t > ActionClips.RecoilPistol.Length - 0.05f) lowest = Mathf.Min(lowest, layer.Weight);
+                }
+                Assert.AreSame(ActionClips.AimPistol, layer.Current);
+                Assert.Greater(lowest, 0.99f, "no dip back to the walk after the pistol's kick");
+            }
+            finally
+            {
+                foreach (ShellCasing c in Object.FindObjectsByType<ShellCasing>(FindObjectsSortMode.None)) Object.DestroyImmediate(c.gameObject);
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void AShell_FallsBouncesAndLiesOnTheGround()
+        {
+            var c = ShellCasing.Eject(new Vector3(0f, 1.4f, 0f), new Vector3(1.3f, 1.5f, 0f), 0f, 1f, null, 0);
+            try
+            {
+                for (int i = 0; i < 300 && !c.Resting; i++) c.Step(1f / 60f);
+                Assert.IsTrue(c.Resting, "it comes to rest");
+                Assert.AreEqual(0.009f, c.transform.position.y, 0.002f, "lying on the ground");
+                Assert.Greater(c.transform.position.x, 0.5f, "out to the side");
+            }
+            finally { Object.DestroyImmediate(c.gameObject); }
         }
 
         [Test]

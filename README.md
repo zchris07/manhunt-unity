@@ -348,8 +348,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the scene, so a wall or a tree between it and the camera hides it, as it does the bullets), to the
   original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Every
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
-  side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once
-  and a closed door it stays on for a second and a half is blown open. Guns flash
+  side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once,
+  and a door (shut, or standing open with its panel swung across it) or a pallet (standing or dropped) it stays on for
+  a second and a half is destroyed; never the graveyard's gates. A player's bullets and pellets only strike an NPC
+  that isn't already roused (alert, armed, angry, chasing) within 1.1 times of what their own screen shows (each
+  client tells the host the rectangle of ground its screen covers), so a stray round never sets off an NPC they can't
+  see; once roused, an NPC can be struck anywhere. Guns flash
   at the end of the barrel and every round (a pistol's, Jaden's, each pellet, the 0.50 cal's) flies out of it as a fast
   projectile drawn like Noita's: a single thin streak of white pixels, bright at its head and fading to nothing at its
   tail, at least one of the screen's art pixels thick (a few real pixels, as Noita's are), with no glow and no lingering
@@ -374,12 +378,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the charge is silent. **Local sounds**: a cue can name a
   preferred file (`local_*` in `Resources/Audio/Fx`, kept out of git because they're from other games, so they exist
   only in the user's own copy and builds): the P250's shot; the shotgun's (every shotgun, the golden pump included),
-  half as loud as at first; the 0.50 cal's (a bolt-action rifle's whole clip, the shot and the bolt worked, as loud as
-  the shotgun and held to the end); the machete's slash landing on a survivor or an NPC (only a body: a door,
+  half as loud as at first; the 0.50 cal's (a bolt-action rifle's whole clip played to its end, the shot, the bolt
+  worked and the ring of it, as loud as the shotgun, its last stretch falling away by an inverse square so the ringing
+  never cuts off); the machete's slash landing on a survivor or an NPC (only a body: a door,
   window, barricade or anything else it strikes never plays it); the machete into wood (trees, evergreens, power
   poles, the cabins' doors, crates; one of five cracks, half as loud as at first, each fading out linearly to
-  nothing), into sturdy metal (the building's doors, its exit gate, cars, generators, light towers, lockers; one of
-  three clangs, as loud and fading the same way), into other metal (fences, the graveyard's gates, lampposts,
+  nothing), into sturdy metal (the building's doors, its exit gate, cars, light towers, lockers; one of
+  three clangs, as loud and fading the same way), into other metal (generators, fences, the graveyard's gates, lampposts,
   barrels, racks; one of nine hits, as loud, held to the end) and into the wall of a building, cabin or shack (one of
   three slams); a window breaking; a bullet or pellet striking any body, a player's or an NPC's (one of three,
   quiet, held to the end); and a sting heard by everyone when a survivor is sacrificed (staked to the end, or gone
@@ -392,7 +397,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   shows them through the fog, as in the original.
 - **Item icons** (`ItemIcons`, `tools/icons`): every inventory slot and ability shows the original's own item art,
   rendered from its canvas drawing code: the bottle, the Grapes of Wrath, night vision goggles, the double-barrelled
-  shotgun and golden pump, Doctor Pepper, galaxy gas as a whippit tank in a galaxy wrap, duck confit, the Mr Beast bar,
+  shotgun (held in the hand as a pump-action) and golden pump, Doctor Pepper, galaxy gas as a whippit tank in a galaxy wrap, duck confit, the Mr Beast bar,
   the mini shield as Fortnite's little flask of blue liquid, the P250, the 0.50 cal, the jar, JARVIS's tablet, the Hemp
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
@@ -453,20 +458,21 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   who slays him gets a lunge charge and more reach. **Marc Cortez** starts in the building, opens doors and hands out
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
   wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you; he explodes
-  when he dies. **Soham** says Hi and explodes. **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
+  when he dies. **Soham** says Hi and explodes. Whoever explodes (Chacko, Soham, Njaaron) goes up in a bloody blast: a hot flash, a cloud of red mist, blood sprayed out everywhere in streaking droplets with lumps of gore among them and smoke rolling up after, leaving dark blood stains on the ground for the rest of the match (a ragged pool where they stood, splashes and long streaks out to five metres, spatters beyond). **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
   him first, Zach or a survivor (testing mode gives survivors one to try, in a thirteenth slot on the backslash key).
   A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
   fired with a left click, its charges left kept on it, so dropped (G) and picked up by someone else it has the charges
   it had; Zach can pick one up too, its charges going into his own beam (R), up to a full set. **Daphne Cheng** (a young
   woman with long dark-brown hair) hands a P250 to each survivor who talks to her (once each); nobody can slay her, and
-  attacked by anyone she stands her ground and fires her pistol at them for a while (Jaden's pistol), turning to keep
-  them in her sights but never chasing them. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her with a 0.50 cal. Name tags,
+  attacked by anyone (a survivor, or Zach: his machete, Penjamin's gas or a Soundcloud Burst) she stands her ground
+  and fires her pistol (Jaden's) at them for ten seconds, every new attack starting them again, turning to keep them in
+  her sights but never chasing them, firing whenever they're in reach and in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her (Zach too: his machete, gas or burst) with a 0.50 cal for ten seconds, reloading as a survivor's does; neither she nor Daphne runs off, and each keeps her gun up the whole ten seconds, holding fire only while her target's down. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
   hands you JARVIS and walks off. Hit him as a survivor and he defends himself with Hemp Beams; three hits slay him,
   Zach's machete or a survivor's bottles, books, jars, rounds or shotgun blasts alike (his health bar shows to both),
-  and he drops his Hemp Beam on the ground for whoever takes it (E). **Chris Zelley** paces round his ambulance until a survivor enlists him; then the first survivor
+  and he drops his Hemp Beam on the ground for whoever takes it (E). **Chris Zelley** paces round his ambulance (40% smaller than at first) until a survivor enlists him; then the first survivor
   left downed or staked too long gets a sprinting paramedic, a revive, and a halo and wings as he ascends. **Plasma.TTV**
   says "ggs" and hands out golden pumps; attack him and GAMER RAGE turns him into a purple beast who punches you down
   (only the beast can die, and drops his pump); the beast keeps his size but squeezes through doorways like a man. **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
@@ -494,9 +500,15 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   in play.
 - **Miga Sushi and the Diddy Chamber** (`SandboxWorld.Places`): two buildings out on the edge of the playable map,
   far apart, each on flattened ground with its doorway facing in toward the middle, walled (blocking movement, sight
-  and shots) and lit inside. Miga Sushi is a little sushi restaurant: the noren curtain and a red sign with a fish over
-  the door, a sushi bar with a glass case and plates of nigiri, stools, a table; a Hemp Beam lies on the bar and a 0.50
-  cal on the table. The Diddy Chamber is a very small dark dungeon of a room: chains on the walls, a big comfy bed with
+  and shots) and lit inside; nothing grows or lies about inside them (no grass, plants, stones, rocks or trees). Miga
+  Sushi is a Japanese restaurant, 13 by 10 m, built of dark timber posts and beams over pale plaster: the noren curtain,
+  a red sign with a fish and red paper lanterns at the door; a sushi bar across the back with a conveyor belt of
+  coloured plates of nigiri, a glass case of fish and soy, ginger and tea at each of its wooden stools; behind it the
+  chef's cabinet with a rice cooker and a cutting board, shelves of sake bottles and a row of wooden menu plaques; a
+  tatami room to one side of the entrance behind a shoji screen, with two low tables set with tea and sushi, floor
+  cushions and a hanging scroll of a carp; two wooden tables of four on the other side; red and white lanterns down
+  the middle and over the bar, a beckoning cat and a bonsai on the bar. A Hemp Beam lies on the bar by the cat and a
+  0.50 cal on a table. The Diddy Chamber is a very small dark dungeon of a room: chains on the walls, a big comfy bed with
   red satin sheets and a pile of pillows, and bottles of baby oil all over the floor. Walking into either, its name
   fades up on screen between two thin rules, holds and fades away.
 - **Generator work sites** (`SandboxWorld.FloodSet`): every generator stands in a work site laid out by hand (one
@@ -674,7 +686,8 @@ ditches and packed dirt on the paths.
   straight until it clips down to the point, bevelled to the edge, with blood smeared and spattered over it. The **NPCs** use the original's look table (skin, hair, shirt,
   jacket, trousers, shoes) with features to fine-tune later: hair styles, a backwards cap, glasses, a headset, hoods,
   hi-vis bands, a star of life, a checked flannel, a jersey band.
-- **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, double-barrelled shotgun, golden pump,
+- **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, pump-action shotgun, golden pump (both
+  pumps' forends their own pieces, sliding back and forward as the pump is worked),
   P250, 0.50 cal, flashlight, magnifier, tablet, controller, bottle, book, jar, can, bar, the mini shield's flask, the
   galaxy gas tank, night vision goggles) held on hand sockets, or worn on the face; guns sit in the fist as in a real
   hand, the barrel along the forearm.
@@ -692,9 +705,14 @@ ditches and packed dirt on the paths.
   the forend, the body bladed; the 0.50 cal carried at the hip, its grip low by the right hip and the support hand
   under the forend, until right click brings it up: the stock into the shoulder, the cheek down on it and the eye to the
   scope, the support hand far out, the upper body steady over the walking legs, eased in over a quarter of a second)
-  and its kick (the pistol's muzzle flip; the shotgun's shove, then the support hand working the pump back and
-  forward over the reload, two seconds for the shotgun and one for the Legendary pump, stopped if it's put away;
-  Zach racking the golden pump; the 0.50 cal simply held on after it fires, both hands on it, no movement at all),
+  and its kick (the pistol's muzzle flip; the shotgun's shove, then the pump worked as a real one is: the support
+  hand pulls the forend straight back along the magazine, 9 cm, a spent red shell kicking out of the port on the right
+  to bounce and lie on the ground a while, then pushes it home, at a real pump's speed, the arm solved so the hand stays
+  on the forend all the way (scratchpad pump_solve.py), the gun held on aim for the rest of the reload, two seconds for
+  the shotgun and one for the Legendary pump, stopped if it's put away; Zach working the golden pump the same way; the
+  0.50 cal simply held on after it fires, both hands on it, no movement at all; every kick ends in the gun's hold and
+  hands straight back to it at full weight, so the support hand never lets go and the body never drops back to the
+  walk in between),
   JARVIS,
   stunned, coughing in Penjamin's gas, the scare, staked, carried, crawling; Chacko flinching on the couch; Zach
   stunned (reeling on the spot: his knees buckling in turn as his weight rolls round in a slow circle, the torso

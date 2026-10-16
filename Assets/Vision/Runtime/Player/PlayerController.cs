@@ -377,6 +377,19 @@ namespace Vision.Player
                 far = Mathf.Max(far, new Vector2(hit.x - at.x, hit.z - at.z).magnitude);
             }
             Host.ReportViewReach(Scale.ToUnits(far / Mathf.Max(1e-3f, world.transform.lossyScale.x)));
+            // The ground the screen shows, as a rectangle on the level's plane (the camera is orthographic, so its edges
+            // meet the ground square): across from the left edge's middle to the right's, up from the bottom's to the top's.
+            Vector2? OnGround(Vector2 vp)
+            {
+                Ray ray = viewCamera.ViewportPointToRay(vp);
+                if (Mathf.Abs(ray.direction.y) < 1e-4f) return null;
+                Vector3 hitAt = world.transform.InverseTransformPoint(ray.origin + ray.direction * ((at.y - ray.origin.y) / ray.direction.y));
+                return new Vector2(hitAt.x, hitAt.z);
+            }
+            Vector2? eL = OnGround(new Vector2(0f, 0.5f)), eR = OnGround(new Vector2(1f, 0.5f)), eB = OnGround(new Vector2(0.5f, 0f)), eT = OnGround(new Vector2(0.5f, 1f)), eC = OnGround(new Vector2(0.5f, 0.5f));
+            if (!eL.HasValue || !eR.HasValue || !eB.HasValue || !eT.HasValue || !eC.HasValue) return;
+            Vector2 across = eR.Value - eL.Value, upward = eT.Value - eB.Value;
+            Host.ReportView(new Vector2(across.magnitude * 0.5f, upward.magnitude * 0.5f), Mathf.Atan2(across.y, across.x), eC.Value - p.Pos);
         }
 
         float AimDistance()

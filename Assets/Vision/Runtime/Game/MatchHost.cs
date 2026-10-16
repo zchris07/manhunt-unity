@@ -225,6 +225,38 @@ namespace Vision.Game
         }
 
         float sentReach, sentReachAt;
+        Vector2 sentHalf, sentOffset;
+        float sentYaw, sentViewAt;
+
+        /// <summary>
+        /// The ground this screen shows (design units): half its size across the screen's own axes, how it's turned
+        /// (radians) and where its middle is from the player; the host needs it so stray rounds don't set off NPCs the
+        /// shooter can't see.
+        /// </summary>
+        public void ReportView(Vector2 half, float yaw, Vector2 offset)
+        {
+            SimPlayer me = Local;
+            if (me == null) return;
+            me.ViewHalf = half;
+            me.ViewYaw = yaw;
+            me.ViewOffset = offset;
+            if (!Remote || Time.unscaledTime - sentViewAt < 0.25f) return;
+            if ((half - sentHalf).magnitude < 0.05f && Mathf.Abs(Mathf.DeltaAngle(yaw * Mathf.Rad2Deg, sentYaw * Mathf.Rad2Deg)) < 1f && (offset - sentOffset).magnitude < 0.05f) return;
+            sentHalf = half;
+            sentYaw = yaw;
+            sentOffset = offset;
+            sentViewAt = Time.unscaledTime;
+            int packed = (Mathf.Clamp(Mathf.RoundToInt(offset.x * 100f), -32000, 32000) << 16) | (Mathf.Clamp(Mathf.RoundToInt(offset.y * 100f), -32000, 32000) & 0xffff);
+            SendCommand?.Invoke(Vision.Net.Command.ViewRect, Mathf.RoundToInt(yaw * 10000f), packed, half);
+        }
+
+        /// <summary>The host's side of <see cref="ReportView"/>.</summary>
+        public static void UnpackView(SimPlayer p, Vector2 half, int yaw, int packed)
+        {
+            p.ViewHalf = half;
+            p.ViewYaw = yaw / 10000f;
+            p.ViewOffset = new Vector2((packed >> 16) / 100f, (short)(packed & 0xffff) / 100f);
+        }
 
         /// <summary>How far this screen reaches (original units): the host needs it for Penjamin and teammates' glow.</summary>
         public void ReportViewReach(float units)

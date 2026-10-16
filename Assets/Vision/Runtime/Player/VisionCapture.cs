@@ -274,6 +274,7 @@ namespace Vision.Player
             if (L.Fences.Count > 0) places.Add(("36_fence", (L.Fences[0].A + L.Fences[0].B) * 0.5f + new Vector2(0f, -3f), Vector2.up));
             if (L.GrassPatches.Count > 0) places.Add(("39_tall_grass", L.GrassPatches[0].Centre + new Vector2(0f, -L.GrassPatches[0].Radius - 2f), Vector2.up));
             if (L.WoodsGenerators.Count > 0) places.Add(("40_woods_generator", L.WoodsGenerators[0] + new Vector2(-2.5f, -2.5f), new Vector2(1f, 1f)));
+            if (L.Sushi.width > 0f) places.Add(("43_miga_sushi", L.Sushi.center, Vector2.up));
             foreach (MapLayout.Kit k in L.Kits)
                 if (k.Kind == MapLayout.KitKind.Shack) { places.Add(("41_shack", k.Centre + new Vector2(0f, -5f), Vector2.up)); break; }
             foreach (MapLayout.Kit k in L.Kits)
@@ -328,6 +329,16 @@ namespace Vision.Player
                 yield return Stage(player, V(hallAt), hallAim, wanderer, away);
                 yield return Wait(8);
                 yield return Shot("60b_building_hallway_lit");
+                // A body blown apart a few metres up the lit hallway: the blast, then the stains it leaves.
+                var effects = UnityEngine.Object.FindAnyObjectByType<Vision.UI.MatchEffects>();
+                if (effects != null)
+                {
+                    effects.OnEvent(new GameEvent { Kind = EventKind.Explosion, Pos = hallAt + hallAim.normalized * 1.8f });
+                    yield return Wait(4);
+                    yield return Shot("60c_bloody_explosion");
+                    yield return Wait(90);
+                    yield return Shot("60d_blood_stains");
+                }
                 if (litHost != null && litHost.Sim != null)
                     for (int i = 0; i < was.Count && i < litHost.Sim.Gens.Length; i++) { litHost.Sim.Gens[i].Progress = was[i].Item1; litHost.Sim.Gens[i].Repaired = was[i].Item2; }
                 foreach (GeneratorObjective g in power.generators) g.SetState(0f, false);

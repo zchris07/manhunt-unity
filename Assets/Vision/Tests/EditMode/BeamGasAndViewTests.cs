@@ -103,6 +103,34 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheBeam_DestroysADoorStandingOpen_AndAPallet_ButNeverTheGraveyardGates()
+        {
+            // A door standing open, its panel swung out across the beam.
+            var rig = new SimRig(1, 1, false, 1, m => m.Doors.Add(new SimMap.DoorDef { A = U(200, 10), B = U(200, 90), StartsOpen = true }));
+            SimPlayer s = rig.P(2);
+            rig.Place(s, 0f, 0f);
+            rig.Place(rig.P(1), 0f, 2500f);
+            Assert.IsTrue(rig.Sim.Doors[0], "standing open");
+            Beam(rig, s, Balance.Hunter.Beam.DoorTime + 0.3f);
+            Assert.IsTrue(rig.Sim.DoorBroken[0], "the open door burned through");
+            // A pallet standing in the way.
+            rig = new SimRig(1, 1, false, 1, m => m.Barricades.Add(new SimMap.BarricadeDef { A = U(250, -60), B = U(250, 60), Pos = U(250, 0) }));
+            s = rig.P(2);
+            rig.Place(s, 0f, 0f);
+            rig.Place(rig.P(1), 0f, 2500f);
+            Beam(rig, s, Balance.Hunter.Beam.DoorTime + 0.3f);
+            Assert.AreEqual(BarricadeState.Broken, rig.Sim.Barricades[0], "the pallet destroyed");
+            // The graveyard's gates hold.
+            rig = new SimRig(1, 1, false, 1, m => m.Doors.Add(new SimMap.DoorDef { A = U(300, -60), B = U(300, 60), Gate = true }));
+            rig.Geo.Sight = (from, dir, max) => rig.Sim.Doors[0] ? max : Mathf.Min(max, MatchSim.RaySegment(from, dir, rig.Map.Doors[0].A, rig.Map.Doors[0].B));
+            s = rig.P(2);
+            rig.Place(s, 0f, 0f);
+            rig.Place(rig.P(1), 0f, 2500f);
+            Beam(rig, s, Balance.Hunter.Beam.DoorTime + 0.8f);
+            Assert.IsFalse(rig.Sim.DoorBroken[0], "never the graveyard's gates");
+        }
+
+        [Test]
         public void Penjamin_GoesStraightThroughTheShield_AndReaches20PercentFurtherThanItWas()
         {
             var rig = new SimRig(1, 1);

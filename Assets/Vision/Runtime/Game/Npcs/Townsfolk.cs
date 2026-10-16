@@ -348,7 +348,9 @@ namespace Vision.Game
 
     /// <summary>
     /// Monique Bourgeois: gives the first survivor who talks to her an arrow to Zach (40 s), later ones a Mr Beast bar.
-    /// Zach attacks her: she bolts. A survivor attacks her: she pulls out a 0.50 cal and shoots them for ten seconds.
+    /// Attacked by anyone (Zach's machete, his Penjamin gas or Soundcloud Burst, a survivor's item or round), she pulls out
+    /// a 0.50 cal and shoots at them for ten seconds (each new attack starts the ten seconds again, on whoever made it),
+    /// reloading as a survivor's does; she holds fire while they're down or knocked out, but keeps her rifle up.
     /// </summary>
     public sealed class Monique : Walker
     {
@@ -392,28 +394,18 @@ namespace Vision.Game
 
         void Attacked(SimPlayer by)
         {
-            if (!alive) return;
+            if (!alive || by == null || (by.Role != Role.Hunter && by.Role != Role.Survivor)) return;
             HurtT = 0.3f;
-            if (by.Role == Role.Hunter)
-            {
-                armedT = 0f;
-                StartFlee(by.Pos, Balance.Monique.FleeTime);
-            }
-            else if (by.Role == Role.Survivor)
-            {
-                armedT = Balance.Monique.AttackSec;
-                targetId = by.Id;
-                shotCd = 0.4f;
-                FleeT = 0f;
-            }
+            if (!Armed) shotCd = 0.4f;
+            armedT = Balance.Monique.AttackSec;
+            targetId = by.Id;
+            FleeT = 0f;
         }
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind) => Attacked(by);
-
-        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
-        {
-            if (harm) Attacked(h);
-        }
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true) => Attacked(h);
+        public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by);
+        public override void BurstHit(MatchSim sim, SimPlayer by) => Attacked(by);
 
         public override void Update(MatchSim sim, float dt)
         {
@@ -426,15 +418,15 @@ namespace Vision.Game
                 armedT = Mathf.Max(0f, armedT - dt);
                 shotCd = Mathf.Max(0f, shotCd - dt);
                 SimPlayer t = Sim.Get(targetId);
-                if (t != null && t.Role == Role.Survivor && OnFeet(t))
+                if (t == null) return;
+                // Rifle up on them the whole time; she fires whenever they can be hurt.
+                Face(t.Pos);
+                bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t) && t.HideState != 2;
+                if (up && shotCd <= 0f)
                 {
-                    Face(t.Pos);
-                    if (shotCd <= 0f)
-                    {
-                        shotCd = Balance.Monique.Reload;
-                        Vector2 muzzle = Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * (HitRadius + Scale.D(4f));
-                        Sim.SpawnBullet(muzzle, Facing, -Id, Balance.Monique.ShotDamage);
-                    }
+                    shotCd = Balance.Monique.Reload;
+                    Vector2 muzzle = Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * (HitRadius + Scale.D(4f));
+                    Sim.SpawnBullet(muzzle, Facing, -Id, Balance.Monique.ShotDamage);
                 }
                 return;
             }
@@ -446,8 +438,9 @@ namespace Vision.Game
 
     /// <summary>
     /// Daphne Cheng: hands a P250 to each survivor who talks to her (once each). Nobody can slay her. Attacked by anyone
-    /// (a survivor or Zach), she stands her ground and fires her pistol at them for a while, turning to keep them in her
-    /// sights but never chasing; then she goes back to wandering.
+    /// (a survivor, or Zach: his machete, Penjamin gas or Soundcloud Burst), she stands her ground and fires her pistol at
+    /// them for ten seconds (each new attack starts them again), turning to keep them in her sights but never chasing;
+    /// she fires whenever they're in her pistol's reach and in sight, and holds it up between; then she wanders again.
     /// </summary>
     public sealed class Daphne : Walker
     {
@@ -481,7 +474,7 @@ namespace Vision.Game
 
         void Attacked(SimPlayer by)
         {
-            if (!alive || by == null) return;
+            if (!alive || by == null || (by.Role != Role.Hunter && by.Role != Role.Survivor)) return;
             HurtT = 0.3f;
             if (!Armed) Speak("Back off!");
             armedT = Balance.Monique.AttackSec;
@@ -490,11 +483,9 @@ namespace Vision.Game
         }
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind) => Attacked(by);
-
-        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
-        {
-            if (harm) Attacked(h);
-        }
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true) => Attacked(h);
+        public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by);
+        public override void BurstHit(MatchSim sim, SimPlayer by) => Attacked(by);
 
         public override void Update(MatchSim sim, float dt)
         {
@@ -507,17 +498,17 @@ namespace Vision.Game
                 armedT = Mathf.Max(0f, armedT - dt);
                 fireCd = Mathf.Max(0f, fireCd - dt);
                 SimPlayer t = Sim.Get(targetId);
-                bool up = t != null && (t.Role == Role.Hunter ? t.Health != Health.Eliminated : OnFeet(t) && t.HideState != 2);
-                if (!up) { armedT = 0f; return; }
-                // Where she stands: turning to keep them in her sights, firing while she has a clear line and they're in reach.
+                if (t == null) return;
+                // Where she stands: turning to keep them in her sights, firing while she has a clear line and they're in her
+                // pistol's reach (and can be hurt).
                 Face(t.Pos);
-                if (fireCd <= 0f && Vector2.Distance(Pos, t.Pos) <= Scale.D(Balance.Jaden.Gun.Range) && Sim.Geo.LineOfSight(Pos, t.Pos)) Fire();
+                bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t) && t.HideState != 2;
+                if (up && fireCd <= 0f && Vector2.Distance(Pos, t.Pos) <= Scale.D(Balance.Jaden.Gun.Range * 1.5f) && Sim.Geo.LineOfSight(Pos, t.Pos)) Fire();
                 return;
             }
             Wander(Balance.Monique.Walk, dt);
             Gait = Moving ? 1 : 0;
         }
-
         /// <summary>One P250 shot along where she faces (Jaden's pistol: its spread, reach and damage).</summary>
         void Fire()
         {

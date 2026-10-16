@@ -94,6 +94,13 @@ namespace Vision.Characters
             return this;
         }
 
+        /// <summary>Ends holding its last pose (a gun's kick, ending back on aim), for whatever follows to take over from.</summary>
+        public ActionClip HoldAtEnd()
+        {
+            HoldEnd = true;
+            return this;
+        }
+
         static Vector3 Get(ActionPose p, Bone b) => p.Rot.TryGetValue(b, out Vector3 v) ? v : Vector3.zero;
 
         static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float u)
@@ -192,8 +199,12 @@ namespace Vision.Characters
             if (bones == null || bones.Length == 0) bones = animator != null ? animator.bones : null;
         }
 
-        /// <summary>Plays a clip (restarting it if <paramref name="restart"/>); the one before fades out.</summary>
-        public void Play(ActionClip clip, float playSpeed = 1f, bool restart = false, float startAt = 0f)
+        /// <summary>
+        /// Plays a clip (restarting it if <paramref name="restart"/>); the one before fades out. With
+        /// <paramref name="takeOver"/> it takes over from the one before at that clip's weight, with no fade (a gun's kick
+        /// handing back to holding the gun: the kick ends in the hold's pose, so nothing moves).
+        /// </summary>
+        public void Play(ActionClip clip, float playSpeed = 1f, bool restart = false, float startAt = 0f, bool takeOver = false)
         {
             if (clip == null) { Stop(); return; }
             if (clip == current && !stopping && !restart)
@@ -201,17 +212,21 @@ namespace Vision.Characters
                 speed = playSpeed;
                 return;
             }
-            if (current != null && weight > 0.001f)
+            float carried = takeOver && current != null && !stopping ? weight : 0f;
+            if (current != null && weight > 0.001f && carried <= 0f)
             {
                 if (fades.Count >= 3) fades.RemoveAt(0);
                 fades.Add(new Fade { Clip = current, Time = time, Weight = weight });
             }
             current = clip;
             time = Mathf.Max(0f, startAt);
-            weight = 0f;
+            weight = carried;
             speed = playSpeed;
             stopping = false;
         }
+
+        /// <summary>Whether a clip that holds its last pose has played through and is holding it.</summary>
+        public bool AtEnd(ActionClip clip) => clip != null && current == clip && !stopping && !clip.Loop && time >= clip.Length;
 
         /// <summary>Blends the current clip out.</summary>
         public void Stop()
@@ -266,6 +281,27 @@ namespace Vision.Characters
             mf.sharedMesh = PropModels.Get(kind);
             mf.transform.localRotation = PropModels.Muzzle(kind).HasValue ? GunSeat : Quaternion.identity;
             mf.gameObject.SetActive(kind != PropKind.None);
+            // A pump gun's forend is its own piece, sliding along the magazine as the pump is worked.
+            if (!left)
+            {
+                Mesh fm = PropModels.Forend(kind);
+                if (fm != null && forend == null)
+                {
+                    var go = new GameObject("Forend");
+                    go.transform.SetParent(mf.transform, false);
+                    go.layer = gameObject.layer;
+                    forend = go.AddComponent<MeshFilter>();
+                    var r = go.AddComponent<MeshRenderer>();
+                    r.sharedMaterial = mf.GetComponent<MeshRenderer>().sharedMaterial;
+                    r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                if (forend != null)
+                {
+                    forend.sharedMesh = fm;
+                    forend.transform.localPosition = Vector3.zero;
+                    forend.gameObject.SetActive(fm != null);
+                }
+            }
             if (left) HeldLeft = kind;
             else HeldRight = kind;
         }
@@ -323,6 +359,7 @@ namespace Vision.Characters
             if (bones == null || bones.Length < HumanoidSkeleton.BoneCount) Wire();
             if (bones == null || bones.Length < HumanoidSkeleton.BoneCount) return;
             Advance(dt);
+            if (forend != null) forend.transform.localPosition = new Vector3(0f, 0f, -PumpTravel * ActionClips.PumpStroke(current, time));
             foreach (Fade f in fades) ApplyClip(f.Clip, f.Time, f.Weight);
             ApplyClip(current, time, weight);
             ApplyReaction(dt);
@@ -370,8 +407,32 @@ namespace Vision.Characters
                     for (float k = Mathf.Floor(a); k <= Mathf.Floor(b); k++)
                         if (k + e > a && k + e <= b) EventFired?.Invoke(clip, name);
                 }
-                else if (t > from && t <= to) EventFired?.Invoke(clip, name);
+                else if (t > from && t <= to)
+                {
+                    EventFired?.Invoke(clip, name);
+                    if (name == "rack") EjectShell();
+                }
             }
+        }
+
+        /// <summary>How far the forend slides back on a full pump stroke (metres, the gun's own frame).</summary>
+        public const float PumpTravel = 0.09f;
+        /// <summary>Where the ejection port is on a pump gun, in its own frame (the right side of the receiver).</summary>
+        static readonly Vector3 EjectionPort = new Vector3(0.024f, 0.02f, 0.05f);
+        MeshFilter forend;
+
+        /// <summary>The pump's forend on the gun in the right hand (none for other props).</summary>
+        public Transform Forend => forend != null && forend.gameObject.activeSelf ? forend.transform : null;
+
+        void EjectShell()
+        {
+            if (propR == null || !propR.gameObject.activeInHierarchy || (HeldRight != PropKind.Shotgun && HeldRight != PropKind.GoldenPump)) return;
+            Transform g = propR.transform;
+            float s = transform.lossyScale.x;
+            Vector3 at = g.TransformPoint(EjectionPort);
+            Vector3 v = (g.right * Random.Range(1.1f, 1.6f) + g.up * Random.Range(1.2f, 1.8f) - g.forward * Random.Range(0.1f, 0.4f)) * s;
+            var r = propR.GetComponent<MeshRenderer>();
+            ShellCasing.Eject(at, v, transform.position.y, s, r != null ? r.sharedMaterial : null, gameObject.layer);
         }
 
         static float Ease(float w) => w * w * (3f - 2f * w);

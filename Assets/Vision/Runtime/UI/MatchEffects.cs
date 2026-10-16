@@ -160,6 +160,10 @@ namespace Vision.UI
                 case EventKind.GenDone:
                     Audio.PlayCue("generator_done", Units(e.Pos));
                     break;
+                case EventKind.Explosion:
+                    // Chacko, Soham or Njaaron blown apart.
+                    BloodyExplosion(e.Pos);
+                    break;
                 case EventKind.GatePowered:
                 case EventKind.GateOpen:
                     Audio.PlayCue("gate", Units(sim.Map.Lever));

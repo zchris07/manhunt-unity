@@ -435,7 +435,9 @@ namespace Vision.UI
             ("Rock Wall", Surface.Stone), ("Plank Wall", Surface.Wall), ("Outer Wall", Surface.Wall), ("Wall", Surface.Wall),
             ("Graveyard Gates", Surface.Metal),
             // Sturdy metal.
-            ("Exit Gate", Surface.HeavyMetal), ("Roll-up", Surface.HeavyMetal), ("Generator", Surface.HeavyMetal), ("Car", Surface.HeavyMetal),
+            // (A generator clanks like the lighter metal.)
+            ("Generator", Surface.Metal),
+            ("Exit Gate", Surface.HeavyMetal), ("Roll-up", Surface.HeavyMetal), ("Car", Surface.HeavyMetal),
             ("Ambulance", Surface.HeavyMetal), ("Light Tower", Surface.HeavyMetal), ("Work Light", Surface.HeavyMetal), ("Flood", Surface.HeavyMetal),
             ("Locker", Surface.HeavyMetal), ("Fridge", Surface.HeavyMetal), ("Vending", Surface.HeavyMetal),
             // Wood that sounds like metal by name.
