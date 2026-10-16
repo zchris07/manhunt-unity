@@ -118,37 +118,68 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void PastTheFirstRing_VisionAidsStop_AJarvisEnds_AndZachsBeamWontFire()
+        public void VisionAids_WorkPastTheFirstRing_StopPastTheSecond_AndZachsBeamWontFirePastTheFirst()
         {
             var rig = new SimRig(1, 1, true);
             SimPlayer z = rig.P(1), s = rig.P(2);
             rig.Place(z, 0f, 0f);
-            rig.Place(s, 300f, 0f);
+            float between = Scale.ToUnits(rig.Sim.Ring1) + 60f, beyond = Scale.ToUnits(rig.Sim.Ring2) + 60f;
+            rig.Place(s, between, 0f);
+            rig.Run(1);
+            Assert.AreEqual(1, s.Zone, "between the rings");
             s.Jarvis = 1;
             rig.Tap(2, Btn.Ability);
-            Assert.Greater(s.JarvisT, 0f, "JARVIS on inside the ring");
-            rig.Place(s, Scale.ToUnits(rig.Sim.Ring1) + 60f, 0f);
-            rig.Run(1);
-            Assert.AreEqual(0f, s.JarvisT, "it ends as they cross");
-            Assert.AreEqual(0f, rig.Sim.RevealT);
-            s.Jarvis = 3;
-            rig.Tap(2, Btn.Ability);
-            Assert.AreEqual(0f, s.JarvisT, "and won't start out here");
+            Assert.Greater(s.JarvisT, 0f, "JARVIS works past the first ring");
             s.Inv.Add(ItemType.Goggles);
             int slot = s.Inv.FirstSlotOf(ItemType.Goggles) + 1;
             rig.Run(3, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Primary, Item = slot, AimDist = 100f } : (InputCmd?)null);
-            Assert.IsFalse(s.GogglesOn, "no night vision");
+            Assert.IsTrue(s.GogglesOn, "and night vision");
+            rig.Place(s, beyond, 0f);
+            rig.Run(3, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Primary, Item = slot, AimDist = 100f } : (InputCmd?)null);
+            Assert.AreEqual(2, s.Zone);
+            Assert.AreEqual(0f, s.JarvisT, "past the second ring JARVIS ends");
+            Assert.AreEqual(0f, rig.Sim.RevealT);
+            Assert.IsFalse(s.GogglesOn, "and no night vision");
+            s.Jarvis = 3;
+            rig.Tap(2, Btn.Ability);
+            Assert.AreEqual(0f, s.JarvisT, "nor will it start out there");
             z.Hemp = 2;
-            rig.Tap(1, Btn.Ability);
-            Assert.IsTrue(z.HempOn, "the Hemp Battery on inside");
-            rig.Place(z, -(Scale.ToUnits(rig.Sim.Ring1) + 60f), 0f);
+            rig.Place(z, -between, 0f);
             rig.Run(1);
-            Assert.IsFalse(z.HempOn, "off past the ring");
+            rig.Tap(1, Btn.Ability);
+            Assert.IsTrue(z.HempOn, "the Hemp Battery works past the first ring");
+            rig.Place(z, -beyond, 0f);
+            rig.Run(1);
+            Assert.IsFalse(z.HempOn, "off past the second");
             rig.Tap(1, Btn.Ability);
             Assert.IsFalse(z.HempOn, "and can't be turned on");
+            rig.Place(z, -between, 0f);
+            rig.Run(1);
             z.BeamCharges = 1;
             rig.Tap(1, Btn.Beam);
-            Assert.AreEqual(0f, z.BeamT, "no Hemp Beam");
+            Assert.AreEqual(0f, z.BeamT, "no Hemp Beam past the first ring");
+        }
+
+        [Test]
+        public void ABulletStrikingABody_IsHeard_ByEveryoneWithinHearing()
+        {
+            var rig = new SimRig(2, 1, true);
+            SimPlayer z = rig.P(1), s = rig.P(2), far = rig.P(3);
+            rig.Place(s, 0f, 0f);
+            rig.Place(z, 160f, 0f);
+            rig.Place(far, -2400f, 0f);
+            s.Inv.Add(ItemType.Shotgun);
+            int slot = s.Inv.FirstSlotOf(ItemType.Shotgun) + 1;
+            RunCollect(rig, Secs(1.5f));
+            List<GameEvent> ev = RunCollect(rig, 1, p => p.Id == 2 ? new InputCmd { Buttons = Btn.Primary, Item = slot, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+            GameEvent flesh = ev.FirstOrDefault(e => e.Kind == EventKind.Noise && e.Text == "flesh");
+            Assert.NotNull(flesh, "the pellets striking Zach");
+            Assert.Less(Vector2.Distance(flesh.Pos, z.Pos), Scale.D(5f), "where he stands");
+            Assert.Contains(3, flesh.To, "heard 2400 units away");
+            Assert.AreEqual(3000f, Balance.Net.HearingRadius);
+            // Any cue (a window, a door) reaches everyone within hearing too.
+            rig.Sim.Noise(Vector2.zero, 700f, "smash");
+            Assert.Contains(3, rig.Sim.Events.Last().To);
         }
 
         // ---------------------------------------------------------------- guns and traps
@@ -212,6 +243,12 @@ namespace Vision.Tests
             float free = Walk(false), aiming = Walk(true);
             Assert.IsTrue(s.Aiming);
             Assert.AreEqual(Balance.Items.Sniper.AimSlowMul, aiming / free, 0.03f, "30% slower while aiming");
+            // No sprinting while it's aimed (Shift held does nothing); let go of the aim and they sprint again.
+            RunCollect(rig, Secs(0.5f), p => p.Id == s.Id ? new InputCmd { Buttons = Btn.Lunge | Btn.Run, Item = slot, Move = Vector2.right, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+            Assert.IsTrue(s.Aiming);
+            Assert.IsFalse(s.Move.Sprinting, "no sprint while aiming the 0.50 cal");
+            RunCollect(rig, Secs(0.5f), p => p.Id == s.Id ? new InputCmd { Buttons = Btn.Run, Item = slot, Move = Vector2.right, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+            Assert.IsTrue(s.Move.Sprinting, "sprinting again once the aim's let go");
         }
 
         [Test]

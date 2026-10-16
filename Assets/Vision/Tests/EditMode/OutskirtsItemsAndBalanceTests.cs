@@ -190,7 +190,20 @@ namespace Vision.Tests
                 // Every generator's work site: three light towers as tall as a big tree, lighting all round them as brightly as
                 // a player's own light, work lights, cables and clutter; all dark until it runs, then on for good. The
                 // graveyard's: two towers and their cables alone.
-                foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform)))
+                // The building's generators have no work site: either one running lights every room of the building.
+                BuildingPower power = root.GetComponentInChildren<BuildingPower>();
+                Assert.NotNull(power, "the building's lights");
+                Assert.AreEqual(2, power.generators.Count, "wired to both of the building's generators");
+                foreach (GeneratorObjective g in power.generators) Assert.AreEqual(0, g.floods.Count, "no work site in the building");
+                foreach (BuildingPlan.Room r in L.Plan.Rooms)
+                    Assert.IsTrue(power.lights.Any(l => r.Area.Contains(Plane(l))), $"a light in the {r.Name}");
+                Assert.IsTrue(power.lights.All(l => !l.enabled), "dark until one runs");
+                power.generators[0].SetState(1f, true);
+                power.Refresh();
+                Assert.IsTrue(power.lights.All(l => l.enabled), "one running lights the whole building");
+                power.generators[0].SetState(0f, false);
+                power.Refresh();
+                foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform) && !power.generators.Contains(g)))
                 {
                     bool grave = (Plane(g) - L.Graveyard.center).magnitude < 0.5f;
                     var towers = g.floods.Where(l => l.bright).ToList();

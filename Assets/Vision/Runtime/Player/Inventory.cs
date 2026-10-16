@@ -188,6 +188,15 @@ namespace Vision.Player
 
         void AddOne(ItemType item, float amount, bool golden)
         {
+            // Another shotgun: whatever shells are left in it go into the one already carried (a plain shotgun's into a
+            // plain shotgun's, the Legendary pump's into a Legendary pump's: they never share).
+            if (item == ItemType.Shotgun)
+                foreach (Slot s in slots)
+                    if (s.count > 0 && s.item == ItemType.Shotgun && s.golden == golden && s.amounts.Count > 0)
+                    {
+                        s.amounts[0] += amount;
+                        return;
+                    }
             bool weapon = Items.IsWeapon(item);
             if (!weapon)
                 foreach (Slot s in slots)

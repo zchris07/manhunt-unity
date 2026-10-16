@@ -97,7 +97,8 @@ namespace Vision.Player
         }
 
         /// <summary>
-        /// Under Zach's health bar, as exact as the original shows them and updated every frame: the speed his wounds take
+        /// Under Zach's health bar, as exact as the original shows them and updated every frame: his health points (to a
+        /// tenth, out of 100) and beside them the speed his wounds take
         /// (continuous with his health, to 0.01%, plus what each time he went down takes for good) and, with the Hemp
         /// Battery, the healing rate it gives (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%).
         /// </summary>
@@ -105,7 +106,8 @@ namespace Vision.Player
         {
             var sb = new System.Text.StringBuilder();
             float slow = (1f - MatchRules.HunterHealthMul(me.Hp, me.Downs)) * 100f;
-            sb.Append($"<color=#b8b09a>SPEED -{slow:0.00}% FROM HEALTH");
+            float hp = me.Hp * Balance.Hunter.Health.Max;
+            sb.Append($"<color=#b8b09a>HP {hp:0.0}/{Balance.Hunter.Health.Max:0}   SPEED -{slow:0.00}% FROM HEALTH");
             if (me.Downs > 0) sb.Append($" ({Mathf.Min(Balance.Hunter.Health.DownPenaltyMax, me.Downs * Balance.Hunter.Health.DownPenalty) * 100f:0}% FOR GOOD)");
             sb.Append("</color>");
             if (me.Hemp > 0)

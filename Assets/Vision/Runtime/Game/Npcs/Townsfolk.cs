@@ -538,6 +538,7 @@ namespace Vision.Game
             Sim.Emit(Sim.Near(Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = -Id, B = (int)ItemType.Pistol, Pos = Pos, F = a, G = best + HitRadius, Text = hit != null ? "hit" : "" });
             Sim.Noise(Pos, 900f, "shot");
             if (hit == null) return;
+            Sim.BulletStruck(hit.Pos);
             if (hit.Role == Role.Hunter) Sim.HurtHunter(hit, Balance.Jaden.Gun.ZachDamage * Balance.Hunter.Health.Max, null, "bullet");
             else Sim.HurtSurvivor(hit, Balance.Jaden.Gun.Damage, null, "bullet");
         }

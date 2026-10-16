@@ -31,6 +31,11 @@ namespace Vision.Game
             public const float ReconnectGraceSec = 30f;
             public const int MaxPlayers = 10;
             public const float MaxSensingRadius = BeamRange + 100f;
+            /// <summary>
+            /// How far (original units) a sound carries to other players: every event that makes one goes to everyone within
+            /// this (as far as the loudest sound is heard), each hearing it fall off with distance.
+            /// </summary>
+            public const float HearingRadius = 3000f;
         }
 
         public static class Survivor

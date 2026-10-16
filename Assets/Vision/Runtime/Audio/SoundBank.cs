@@ -43,16 +43,29 @@ namespace Vision.Audio
             ["kick"] = new Cue { Files = Range("impact_impactmetal_heavy_", 0, 4), Volume = 0.9f, Radius = 1200f },
             ["smash"] = new Cue { Files = Range("impact_impactwood_heavy_", 0, 4), Volume = 1f, Radius = 1300f },
             ["splinter"] = new Cue { Files = Range("impact_impactplank_medium_", 0, 4), Volume = 0.8f, Radius = 1000f },
-            ["glass"] = new Cue { Files = new[] { "impact_impactglass_heavy_000", "impact_impactglass_heavy_001", "impact_impactglass_heavy_002", "sfx100_glass_01", "sfx100_glass_02" }, Volume = 1f, Radius = 1300f },
+            // A window breaking.
+            ["glass"] = new Cue { Prefer = new[] { "local_glass_break" }, Files = new[] { "impact_impactglass_heavy_000", "impact_impactglass_heavy_001", "impact_impactglass_heavy_002", "sfx100_glass_01", "sfx100_glass_02" }, Volume = 0.8f, Radius = 1300f },
             // Guns. The 0.50 cal's crack, synthesised for the game in the character of a Noita rifle (tools/synth_sniper.py);
             // the other guns stay silent.
-            ["shotgun_shot"] = new Cue { Prefer = new[] { "local_tactical_shotgun" }, Files = new string[0], Volume = 1f, PitchJitter = 0.04f, Near = 250f, Radius = 2600f },
+            ["shotgun_shot"] = new Cue { Prefer = new[] { "local_tactical_shotgun" }, Files = new string[0], Volume = 0.5f, PitchJitter = 0.04f, Near = 250f, Radius = 2600f },
             ["pistol_shot"] = new Cue { Prefer = new[] { "local_p250" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0.05f, Near = 200f, Radius = 2200f },
             // A survivor sacrificed (staked to the end, or gone into the woods), gone from the match for good: heard by all.
             ["sacrificed"] = new Cue { Prefer = new[] { "local_noita_game_over" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f },
-            // The machete biting into wood (a wall, a tree, a door, a crate): one of five cracks.
-            ["machete_wood"] = new Cue { Prefer = new[] { "local_wood_hit_1", "local_wood_hit_2", "local_wood_hit_3", "local_wood_hit_4", "local_wood_hit_5" }, Files = new string[0], Volume = 0.85f, PitchJitter = 0.06f, Near = 150f, Radius = 1300f },
-            ["sniper_shot"] = new Cue { Files = new[] { "synth_sniper_1", "synth_sniper_2", "synth_sniper_3" }, Volume = 1f, PitchJitter = 0.04f, Near = 300f, Radius = 3000f },
+            // The machete biting into wood (a tree, a pole, a door, a crate): one of five cracks, each fading out linearly
+            // to nothing over its length.
+            ["machete_wood"] = new Cue { Prefer = new[] { "local_wood_hit_1", "local_wood_hit_2", "local_wood_hit_3", "local_wood_hit_4", "local_wood_hit_5" }, Files = new string[0], Volume = 0.425f, PitchJitter = 0.06f, Near = 150f, Radius = 1300f },
+            // Into sturdy metal (the building's doors, a car, a generator, a light tower, a locker): one of three clangs,
+            // as loud as the wood and fading out the same way.
+            ["metal_heavy"] = new Cue { Prefer = new[] { "local_metal_heavy_1", "local_metal_heavy_2", "local_metal_heavy_3" }, Files = new string[0], Volume = 0.425f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
+            // Into lighter metal (fences, the graveyard's gates, lampposts, barrels, racks): one of nine, as loud, held to the end.
+            ["metal_light"] = new Cue { Prefer = new[] { "local_metal_1", "local_metal_2", "local_metal_3", "local_metal_4", "local_metal_5", "local_metal_6", "local_metal_7", "local_metal_8", "local_metal_9" }, Files = new string[0], Volume = 0.425f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
+            // Into a wall of a building, a cabin or a shack: one of three slams.
+            ["wall_slam"] = new Cue { Prefer = new[] { "local_wall_slam_1", "local_wall_slam_2", "local_wall_slam_3" }, Files = new string[0], Volume = 0.5f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
+            // A bullet or pellet striking a body (a player or an NPC): one of three, quiet, held to the end.
+            ["bullet_flesh"] = new Cue { Prefer = new[] { "local_headshot_1", "local_headshot_2", "local_headshot_3" }, Files = new string[0], Volume = 0.3f, PitchJitter = 0.04f, VolumeJitter = 0f, Near = 150f, Radius = 1200f },
+            // The 0.50 cal: the bolt-action rifle's whole clip (the shot and the bolt worked), as loud as the shotgun and
+            // held to the end; without it, the synthesised crack.
+            ["sniper_shot"] = new Cue { Prefer = new[] { "local_bolt_sniper" }, Files = new[] { "synth_sniper_1", "synth_sniper_2", "synth_sniper_3" }, Volume = 0.5f, PitchJitter = 0.02f, VolumeJitter = 0f, Near = 300f, Radius = 3000f },
             // Things.
             ["door_open"] = new Cue { Files = new[] { "rpg_dooropen_1", "rpg_dooropen_2" }, Volume = 0.7f, Radius = 900f },
             ["door_close"] = new Cue { Files = new[] { "rpg_doorclose_1", "rpg_doorclose_2", "rpg_doorclose_3", "rpg_doorclose_4" }, Volume = 0.7f, Radius = 900f },

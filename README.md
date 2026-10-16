@@ -177,12 +177,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **The edge of the woods** (`MatchSim.Boundary`): three invisible rings round the map's centre: the playable circle
   (90 m out), the second 15.6 m beyond it (30% further than at first) and the end of the world 18 m beyond that (50%
   further than at first; the world is made that much bigger). NPCs never wander past the first. Past it a survivor's
-  light (the beam and the light round them together, evenly, the beam keeping its full reach) wavers and now and then
-  sags and recovers like a failing bulb, each sag eased in and out rather than strobing, faint just past the first ring (half
-  as strong again as at first there) and growing (deeper and more often sags, a stronger waver, quicker) the further out they go, at its full strength by
-  the second; there's no warning sign between the rings, only the flicker (DON'T WANDER OFF and a big arrow pointing
-  the way back in show only once the light is dying past the second); night vision, JARVIS and the Hemp Battery stop working (a JARVIS running
-  ends; Zach's Hemp Beam won't fire either). Past the second the light grows fainter and fainter over three seconds,
+  light (the beam and the light round them together, evenly, the beam keeping its full reach) is plainly dying: it
+  wavers, sags deep about every second, sputters nearly out and back through each sag, and now and then blinks almost
+  out, from just past the first ring, growing (deeper and more often, quicker) the further out they go, at its full
+  strength by the second; there's no warning sign between the rings, only the flicker (DON'T WANDER OFF and a big
+  arrow pointing the way back in show only once the light is dying past the second). Night vision, JARVIS and the
+  Hemp Battery still work between the rings and stop past the second (a JARVIS running ends); Zach's Hemp Beam won't
+  fire past the first. Past the second the light grows fainter and fainter over three seconds,
   flickering faster, deeper and more erratically, until it's out and a survivor's whole screen is black; then a
   survivor loses 20 health straight through the shield every three seconds, the screen's edges pulsing red with each
   bite, and at zero is gone at once, not downed ("NAME wandered into the woods"). The third is where the world ends: a
@@ -222,7 +223,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   at once), and the flinch from a hit is a spring integrated in small steps and kept to a believable angle, so a long
   frame can no longer fling an arm over the head and leave it there.
 - **Pallets, doors and windows**: Space slams a pallet (Zach caught under it is stunned); two machete hits break a
-  dropped pallet, two break a closed door (it stays open for good, the panel gone), one smashes a window, which
+  dropped pallet, two break a door, shut or standing open (struck across its doorway or on the panel swung out from
+  its hinge; it stays open for good, the panel gone), one smashes a window, which
   anyone can then climb through slowly. **Crouching** (Ctrl) lowers the hips and bends the knees. **Fallen logs and
   fallen trees** (found by kind, so the baked prop library's fallen trees count too) are knee-high: everyone sees, lights and shoots over them (the ground past one shows in the dimmer
   see-through shade, as behind a wall with night vision, while people standing behind it show in full), Zach's Burst
@@ -278,7 +280,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   far, the drops start again. Blood thrown off a hit or a charged cut is the same dark crimson.
 - **Zach's kit** (`MatchEffects`, `SoundBank`, `GameHud.Hunter`): his HUD is the original's ability bar (machete or
   golden pump, lunge, Soundcloud Burst, Hemp Battery, Penjamin, Hemp Beam) with keys, icons, cooldown shades, charges and
-  meters (the Hemp Beam's is the leaf), beside his stamina bar the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
+  meters (the Hemp Beam's is the leaf), beside his stamina bar his health points (to a tenth, out of 100) and the exact speed his wounds take (continuous with his health, to 0.01%) and, with the Hemp Battery, his healing rate (1 + 10% of the charge left, to 0.0001x, with the charge to 0.01%), his status lines (stunned, abilities off) and the generators he has
   heard being repaired. His machete (always in his right hand) cuts in a wide **X**, back and forth along a figure 8:
   the forehand starts raised up beside his head, further back and out to the side, the blade lying back behind his
   head (as Jason holds it), comes over the top and falls from beside his right shoulder, mostly side to side, across
@@ -367,14 +369,24 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   Thrown bottles, books and jars also fly level at the height they left the hand, and where a rise would cover one
   it's drawn over the terrain unless something standing upright is in front of it. A thrown item never even looks to go into the ground: where the ground ahead rises
   toward it, it's lifted smoothly over the rise (it climbs a little before it gets there) and settles back to its level
-  once past. The 0.50 cal cracks when it fires (a sound synthesised for the game in the character of a Noita rifle:
-  a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`); the charge is silent. **Local sounds**: a cue can name a
+  once past. Without its local sound the 0.50 cal cracks when it fires (a sound synthesised for the game in the
+  character of a Noita rifle: a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`);
+  the charge is silent. **Local sounds**: a cue can name a
   preferred file (`local_*` in `Resources/Audio/Fx`, kept out of git because they're from other games, so they exist
-  only in the user's own copy and builds): the P250's shot, the shotgun's (every shotgun, the golden pump included),
-  the machete's slash landing on a survivor or an NPC (only a body: a door, window, barricade or anything else it
-  strikes never plays it), and a sting heard by everyone when a survivor is sacrificed (staked
-  to the end, or gone into the woods). Without the files the slash falls back to its pack sound and the rest are
-  silent. Sounds come from
+  only in the user's own copy and builds): the P250's shot; the shotgun's (every shotgun, the golden pump included),
+  half as loud as at first; the 0.50 cal's (a bolt-action rifle's whole clip, the shot and the bolt worked, as loud as
+  the shotgun and held to the end); the machete's slash landing on a survivor or an NPC (only a body: a door,
+  window, barricade or anything else it strikes never plays it); the machete into wood (trees, evergreens, power
+  poles, the cabins' doors, crates; one of five cracks, half as loud as at first, each fading out linearly to
+  nothing), into sturdy metal (the building's doors, its exit gate, cars, generators, light towers, lockers; one of
+  three clangs, as loud and fading the same way), into other metal (fences, the graveyard's gates, lampposts,
+  barrels, racks; one of nine hits, as loud, held to the end) and into the wall of a building, cabin or shack (one of
+  three slams); a window breaking; a bullet or pellet striking any body, a player's or an NPC's (one of three,
+  quiet, held to the end); and a sting heard by everyone when a survivor is sacrificed (staked to the end, or gone
+  into the woods). The first thing a 0.50 cal round goes into sounds as the machete striking it would. Without the
+  files the slash, the window and the 0.50 cal fall back to their own sounds and the rest are silent. Every sound is
+  heard by every player within 3000 units (the match sends each to everyone within hearing), falling off with
+  distance from where it happens. Sounds come from
   the fetched CC0 packs, picked at random per cue with pitch and volume jitter, placed and panned where they happen.
 - **Teammates**: a survivor sees the other survivors glow faintly, a soft light about each and a small bright disc that
   shows them through the fog, as in the original.
@@ -395,8 +407,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   slot smoothly into a rectangle that fits its picture and name (the book reads GRAPES OF WRATH, the trap GALAXY GAS
   TRAP, the bar MR BEAST BAR, the golden shotgun LEGENDARY PUMP, the goggles NIGHT VISION GOGGLES), and it eases back to the square when
   the item goes, or to fit whatever's swapped in, never smaller than the square.
-  Each pistol shot strays up to 2.5 degrees either side of the aim. Holding right click with the 0.50 cal aims it: the
-  view widens 15%, you move 30% slower, and a red laser sight runs from the barrel along the aim to the first solid
+  A shotgun picked up while carrying one adds whatever shells are left in it to the one carried (no second shotgun
+  in the inventory); the Legendary pump is a different gun and never shares shells with a shotgun. Each pistol shot
+  strays up to 2.5 degrees either side of the aim. Holding right click with the 0.50 cal aims it: the
+  view widens 15%, you move 30% slower and can't sprint, and a red laser sight runs from the barrel along the aim to the first solid
   thing in its way (never the ground), seen by everyone: a perfectly straight line, over the ground and behind whatever
   stands nearer (see rounds above), drawn as Noita's laser sight. A faint red haze three pixels either side flickers in
   clumps and now and then drops out; the one-pixel core is red static, every pixel flickering on its own, broken into
@@ -409,7 +423,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   than at first and slows him by half, the slow falling off linearly to nothing over a second; the first time a player
   takes it in hand they're told "Hold right click to aim". The shotgun stuns Zach half as long as at first (1.05 s). A jar
   of piss in Zach's face also blurs his view under a yellow filter, falling off linearly over two seconds. Zach's
-  machete throws debris off whatever solid thing its swing meets, by what it's made of (read from what was struck):
+  machete throws debris off every solid thing its swing meets (up to five in a swing, each where it was struck),
+  by what it's made of (read from what was struck):
   wood throws long splinters, bark chips and sawdust (and cracks: local sounds cut from five wood breaks); stone grey
   chips, grit, a few sparks and a cloud of dust; metal a shower of sparks and dark flecks; glass bright shards; plaster
   and concrete white chips in a big dust cloud; more for a charged swing, and the charged swing plays at the light swing's speed (the same beats and length;
@@ -493,8 +508,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   wires, ferns and grass grown up through it. The graveyard's is bare: just the generator, two towers either side of
   it on the walk between the graves, and their two cables. Dark until the generator runs, then on for good: each
   tower lights the ground all round it (13 m) as brightly and as white as a player's own light, each work light a
-  little round it. Anything that would stand in a wall, tree or rock moves to the nearest clear ground; the towers of a
-  generator inside the building stand outside it, near its room, their cables running in. (Light sources go into the
+  little round it. Anything that would stand in a wall, tree or rock moves to the nearest clear ground. The
+  building's two generators have no work site: once either runs, the whole building is lit, every room and hallway
+  by a grid of ceiling lights about 7 m apart (`BuildingPower`). (Light sources go into the
   mask at half and the composite doubles them, so a tower can reach a player's light; up to 16 are drawn at once.)
 - **Survivors start scattered**: each at a spot of their own over the playable map, on open ground (not the lake, the
   building, a site or anything solid), at least 30 m apart where the map allows and 35 m from Zach's start, seeded by
@@ -676,7 +692,9 @@ ditches and packed dirt on the paths.
   the forend, the body bladed; the 0.50 cal carried at the hip, its grip low by the right hip and the support hand
   under the forend, until right click brings it up: the stock into the shoulder, the cheek down on it and the eye to the
   scope, the support hand far out, the upper body steady over the walking legs, eased in over a quarter of a second)
-  and its kick (the pistol's muzzle flip, the shotgun's shove, the rifle's heavy slam, Zach racking the golden pump),
+  and its kick (the pistol's muzzle flip; the shotgun's shove, then the support hand working the pump back and
+  forward over the reload, two seconds for the shotgun and one for the Legendary pump, stopped if it's put away;
+  Zach racking the golden pump; the 0.50 cal simply held on after it fires, both hands on it, no movement at all),
   JARVIS,
   stunned, coughing in Penjamin's gas, the scare, staked, carried, crawling; Chacko flinching on the couch; Zach
   stunned (reeling on the spot: his knees buckling in turn as his weight rolls round in a slow circle, the torso

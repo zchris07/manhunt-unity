@@ -192,6 +192,27 @@ namespace Vision.Characters
             .Blend(0.03f, 0.12f);
 
         /// <summary>
+        /// A survivor's shotgun after each shot, over its reload: the kick, then the support hand works the pump, back to
+        /// eject the spent shell and forward to chamber the next, and the gun settles back on aim as the reload ends.
+        /// </summary>
+        static ActionClip PumpReload(string name, float reload) => new ActionClip(name, reload)
+            .Key(0f, ShotgunHold())
+            .Key(0.04f, ShotgunHold(-6f, 21f, -7f, -4f))
+            .Key(0.16f, ShotgunHold(-2f, 17f, -2f, 0f))
+            .Key(reload * 0.3f, ShotgunHold(0f, 15f, -1f, 0f, 2f))
+            .Key(reload * 0.45f, ShotgunHold(0f, 15f, -2f, 0f, 26f))
+            .Key(reload * 0.6f, ShotgunHold(0f, 15f, -1f, 0f, 0f))
+            .Key(reload * 0.68f, ShotgunHold(0f, 14f, 0f, 0f, 3f))
+            .Key(reload, ShotgunHold())
+            .Event(reload * 0.45f, "rack")
+            .Blend(0.03f, 0.12f);
+
+        /// <summary>The shotgun's pump worked over its two-second reload.</summary>
+        public static readonly ActionClip PumpReloadShotgun = PumpReload("RecoilPumpReload", Vision.Game.Balance.Items.Shotgun.Reload);
+        /// <summary>The Legendary pump's, over its one-second reload.</summary>
+        public static readonly ActionClip PumpReloadGolden = PumpReload("RecoilPumpReloadGolden", Vision.Game.Balance.Items.Golden.Reload);
+
+        /// <summary>
         /// Aiming the 0.50 cal (right click): the stock comes up into the shoulder and the cheek down onto it, the eye behind
         /// the scope, the support hand far out; the upper body stays steady over the walking legs, as a rifleman glides
         /// on the move. Eased in and out over about a quarter of a second from the hip.
@@ -611,7 +632,7 @@ namespace Vision.Characters
         /// <summary>Every clip, for the animation lab.</summary>
         public static IEnumerable<ActionClip> All => new[]
         {
-            Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, AimRifle, RecoilRifle,
+            Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, PumpReloadShotgun, PumpReloadGolden, AimRifle, RecoilRifle,
             AimPistol, RecoilPistol, HipRifle, RecoilHip, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
             Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes, Reel, SitFlinch,
         };

@@ -100,6 +100,31 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void Zach_SmashesADoorStandingOpen_TooWithTwoSwipes()
+        {
+            var (sim, _) = Arena();
+            SimPlayer zach = sim.AddPlayer(1, "Zach", Role.Hunter, SimRig.U(40, 1000));
+            sim.AddPlayer(2, "S", Role.Survivor, SimRig.U(-2000, -2000));
+            sim.AddPlayer(3, "T", Role.Survivor, SimRig.U(-2000, -1900));
+            sim.SetDoor(0, true);
+            zach.Facing = 0f;
+            Swipe(sim, 1);
+            Assert.IsFalse(sim.DoorBroken[0]);
+            Assert.AreEqual(1, sim.DoorHits[0], "the open door took the swipe");
+            Swipe(sim, 1);
+            Assert.IsTrue(sim.DoorBroken[0], "two swipes smash it, open or shut");
+            // Swung out from its hinge (here back towards x 21), the panel's struck there too, out of reach of the doorway.
+            var (sim2, _) = Arena();
+            SimPlayer z2 = sim2.AddPlayer(1, "Zach", Role.Hunter, SimRig.U(-30, 948));
+            sim2.AddPlayer(2, "S", Role.Survivor, SimRig.U(-2000, -2000));
+            sim2.AddPlayer(3, "T", Role.Survivor, SimRig.U(-2000, -1900));
+            sim2.SetDoor(0, true);
+            z2.Facing = 0f;
+            Swipe(sim2, 1);
+            Assert.AreEqual(1, sim2.DoorHits[0], "the swung-out panel took the swipe");
+        }
+
+        [Test]
         public void Crouching_DropsTheHips_AndBendsTheKnees_FeetStayDown()
         {
             GameObject go = PropFactory.CreateCharacter("C", null, null);

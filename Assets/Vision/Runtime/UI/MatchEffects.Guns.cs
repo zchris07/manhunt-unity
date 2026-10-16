@@ -116,7 +116,7 @@ namespace Vision.UI
         }
 
         /// <summary>A burst due where a 0.50 cal round goes into or out of something, when the round gets there.</summary>
-        struct Pierce { public float At, Up; public Vector3 Pos, Out, Normal; }
+        struct Pierce { public float At, Up; public Vector3 Pos, Out, Normal; public string Cue; }
 
         readonly List<Round> rounds = new List<Round>();
         readonly List<Pierce> pierces = new List<Pierce>();
@@ -204,6 +204,7 @@ namespace Vision.UI
             {
                 if (pierces[i].At > now) continue;
                 PierceBurst(Lift(cam, pierces[i].Pos, pierces[i].Up), pierces[i].Out, pierces[i].Normal);
+                if (pierces[i].Cue != null) Audio.PlayCue(pierces[i].Cue, Units(OnPlane(pierces[i].Pos, out _)));
                 pierces.RemoveAt(i);
             }
         }
@@ -290,6 +291,7 @@ namespace Vision.UI
             // It flies the laser's perfectly straight, level line, from the barrel to the end of its reach (Fire's line).
             int mask = Vfx.SolidMask & ~(1 << SandboxWorld.LowLayer);
             Vector3 prev = FlightPoint(r.From, dir, r.Up, 0f);
+            bool sounded = false;
             for (float a = 0f; a < len; a += FlightStep)
             {
                 float b = Mathf.Min(len, a + FlightStep);
@@ -302,12 +304,19 @@ namespace Vision.UI
                     float k = (b - a) / sl;
                     // In: every surface met going out along this piece; out: every surface met coming back along it.
                     int n = Physics.RaycastNonAlloc(prev, sd, pierceHits, sl, mask, QueryTriggerInteraction.Ignore);
+                    // The first thing it goes into (not a body: that's the bullet's own sound) sounds as the machete would.
+                    int first = -1;
+                    if (!sounded)
+                        for (int i = 0; i < n; i++)
+                            if (pierceHits[i].collider.gameObject.layer != SandboxWorld.CharacterLayer && (first < 0 || pierceHits[i].distance < pierceHits[first].distance)) first = i;
                     for (int i = 0; i < n; i++)
                     {
                         // A burst on the straight line it's drawn along, where it meets the thing.
                         float at = a + pierceHits[i].distance * k;
-                        pierces.Add(new Pierce { At = r.Born + at / speed, Up = r.Up, Pos = RoundPoint(r, dir, len, at), Out = -sd, Normal = pierceHits[i].normal });
+                        pierces.Add(new Pierce { At = r.Born + at / speed, Up = r.Up, Pos = RoundPoint(r, dir, len, at), Out = -sd, Normal = pierceHits[i].normal,
+                            Cue = i == first ? CueFor(SurfaceAt(pierceHits[i].collider)) : null });
                     }
+                    if (first >= 0) sounded = true;
                     n = Physics.RaycastNonAlloc(next, -sd, pierceHits, sl, mask, QueryTriggerInteraction.Ignore);
                     for (int i = 0; i < n; i++)
                     {
@@ -321,12 +330,18 @@ namespace Vision.UI
         }
 
         readonly RaycastHit[] bladeHits = new RaycastHit[16];
+        readonly List<(Collider c, float d, Vector3 at, Vector3 normal, Vector3 dir)> struck = new List<(Collider, float, Vector3, Vector3, Vector3)>();
+        readonly HashSet<string> struckCues = new HashSet<string>();
+
+        /// <summary>The most things one swing throws debris off.</summary>
+        const int MaxStruck = 5;
 
         /// <summary>
         /// Zach's machete striking: a fan of rays across the swing's arc at chest height, out to its reach (a charged swing's
-        /// longer and wider); where the nearest meets something solid (a wall, tree, rock, prop, fence or log; never the
-        /// ground or a body), sparks, chips and dust fly off it, more for a charged swing. Only the look: what the swing
-        /// hits is the match's.
+        /// longer and wider); every solid thing the rays meet first (a wall, tree, rock, prop, fence or log; never the
+        /// ground or a body) throws off sparks, chips and dust where it was struck, more for a charged swing, and sounds
+        /// by what it's made of (once for each kind of sound in a swing; a door's sound is the match's, as it's struck
+        /// open or shut). Only the look and the sound: what the swing hits is the match's.
         /// </summary>
         void MacheteImpact(SimPlayer by, bool heavy)
         {
@@ -336,46 +351,133 @@ namespace Vision.UI
             float arc = Balance.Hunter.Attack.ArcDeg * (heavy ? Balance.Hunter.Attack.ChargeArcMul : 1f) * Mathf.Deg2Rad;
             Vector3 from = go.transform.position + Vector3.up * 1.05f * S;
             int mask = Vfx.SolidMask & ~((1 << Vfx.OverGroundLayer) | (1 << SandboxWorld.GroundLayer) | (1 << SandboxWorld.CharacterLayer));
-            const int rays = 9;
-            float best = float.MaxValue;
-            Vector3 at = Vector3.zero, normal = Vector3.up, dir = Vector3.forward;
-            Collider struck = null;
+            const int rays = 13;
+            struck.Clear();
             for (int i = 0; i < rays; i++)
             {
                 Vector3 d = WorldDir(by.Facing + arc * (i / (rays - 1f) - 0.5f));
                 int n = Physics.RaycastNonAlloc(from, d, bladeHits, reach, mask, QueryTriggerInteraction.Ignore);
+                int best = -1;
                 for (int k = 0; k < n; k++)
                 {
-                    if (bladeHits[k].collider.transform.IsChildOf(go.transform) || bladeHits[k].distance >= best) continue;
-                    best = bladeHits[k].distance;
-                    struck = bladeHits[k].collider;
-                    at = bladeHits[k].point;
-                    normal = bladeHits[k].normal;
-                    dir = d;
+                    if (bladeHits[k].collider.transform.IsChildOf(go.transform)) continue;
+                    if (best < 0 || bladeHits[k].distance < bladeHits[best].distance) best = k;
                 }
+                if (best < 0) continue;
+                // Each thing once, where it was struck nearest.
+                RaycastHit h = bladeHits[best];
+                int at = struck.FindIndex(x => x.c == h.collider);
+                if (at < 0) struck.Add((h.collider, h.distance, h.point, h.normal, d));
+                else if (h.distance < struck[at].d) struck[at] = (h.collider, h.distance, h.point, h.normal, d);
             }
-            if (best == float.MaxValue) return;
-            Surface what = SurfaceOf(struck);
-            SurfaceBurst(at, Vector3.Reflect(dir, normal), normal, what, heavy ? 1.7f : 1f);
-            if (what == Surface.Wood) Audio.PlayCue("machete_wood", Units(by.Pos));
+            if (struck.Count == 0) return;
+            struck.Sort((x, y) => x.d.CompareTo(y.d));
+            struckCues.Clear();
+            for (int i = 0; i < struck.Count && i < MaxStruck; i++)
+            {
+                var (c, _, point, normal, dir) = struck[i];
+                Surface what = SurfaceAt(c);
+                SurfaceBurst(point, Vector3.Reflect(dir, normal), normal, Look(c, what), (heavy ? 1.7f : 1f) * (i == 0 ? 1f : 0.75f));
+                if (IsDoor(c)) continue;
+                string cue = CueFor(what);
+                if (cue != null && struckCues.Add(cue)) Audio.PlayCue(cue, Units(OnPlane(point, out _)));
+            }
         }
 
-        /// <summary>What a struck thing is made of, as its debris shows it.</summary>
-        public enum Surface { Wood, Stone, Metal, Glass, Plaster }
+        /// <summary>
+        /// A door struck (by Zach's machete) or smashed in: the building's doors are steel and clang, the cabins' crack like
+        /// wood; one standing open (no collider for the blade's rays) throws its debris from here too.
+        /// </summary>
+        void DoorStruck(Vector2 at, MatchSim sim, bool smashed)
+        {
+            bool metal = false;
+            if (world != null && world.Layout != null)
+            {
+                Rect b = world.Layout.Building;
+                metal = b.width > 0f && at.x > b.xMin - 0.6f && at.x < b.xMax + 0.6f && at.y > b.yMin - 0.6f && at.y < b.yMax + 0.6f;
+            }
+            Audio.PlayCue(metal ? "metal_heavy" : "machete_wood", Units(at));
+            if (smashed) Audio.PlayCue(metal ? "slam" : "smash", Units(at));
+            for (int i = 0; i < sim.Map.Doors.Count; i++)
+            {
+                if (!sim.Doors[i]) continue;
+                Vector2 c = MatchSim.ClosestOnSegment(at, sim.Map.Doors[i].A, sim.Map.Doors[i].B);
+                if ((c - at).sqrMagnitude > 4f) continue;
+                SurfaceBurst(Ground(at, 1.05f), Vector3.up, Vector3.up, metal ? Surface.HeavyMetal : Surface.Wood, 1f);
+                break;
+            }
+        }
 
+        static bool IsDoor(Collider c)
+        {
+            for (Transform t = c != null ? c.transform : null; t != null; t = t.parent) if (t.name == "Door") return true;
+            return false;
+        }
+
+        /// <summary>What a struck thing is made of, as its debris shows it and as it sounds.</summary>
+        public enum Surface { Wood, Stone, Metal, HeavyMetal, Glass, Plaster, Wall }
+
+        /// <summary>The sound of the machete (or a 0.50 cal round) striking a thing made of this; none for stone, glass or plaster.</summary>
+        public static string CueFor(Surface what) => what switch
+        {
+            Surface.Wood => "machete_wood",
+            Surface.HeavyMetal => "metal_heavy",
+            Surface.Metal => "metal_light",
+            Surface.Wall => "wall_slam",
+            _ => null,
+        };
+
+        // In order: the first word found in the struck thing's name (then its parents') decides.
         static readonly (string word, Surface what)[] SurfaceWords =
         {
-            ("Window", Surface.Glass), ("Glass", Surface.Glass), ("Pane", Surface.Glass),
-            ("Iron", Surface.Metal), ("Gate", Surface.Metal), ("Generator", Surface.Metal), ("Car", Surface.Metal), ("Ambulance", Surface.Metal),
-            ("Flood", Surface.Metal), ("Light Tower", Surface.Metal), ("Locker", Surface.Metal), ("Metal", Surface.Metal), ("Barrel", Surface.Metal),
-            ("Steel", Surface.Metal), ("Pole", Surface.Metal), ("Swing", Surface.Metal), ("Slide", Surface.Metal), ("Spool", Surface.Metal),
-            ("Rock", Surface.Stone), ("Boulder", Surface.Stone), ("Grave", Surface.Stone), ("Pillar", Surface.Stone), ("Stone", Surface.Stone),
-            ("Plank", Surface.Wood), ("Wood", Surface.Wood), ("Log", Surface.Wood), ("Door", Surface.Wood), ("Wardrobe", Surface.Wood),
-            ("Table", Surface.Wood), ("Chair", Surface.Wood), ("Crate", Surface.Wood), ("Fence", Surface.Wood), ("Pallet", Surface.Wood),
-            ("Barricade", Surface.Wood), ("Bed", Surface.Wood), ("Stake", Surface.Wood), ("Tree", Surface.Wood), ("Trunk", Surface.Wood),
-            ("Stump", Surface.Wood), ("Spruce", Surface.Wood), ("Pine", Surface.Wood), ("Fir", Surface.Wood), ("Oak", Surface.Wood),
-            ("Snag", Surface.Wood), ("Counter", Surface.Wood), ("Shelf", Surface.Wood), ("Desk", Surface.Wood),
+            ("Window Sill", Surface.Plaster), ("Window", Surface.Glass), ("Glass", Surface.Glass), ("Pane", Surface.Glass),
+            // Walls of a building, a cabin, a shack (a rock's wall is stone).
+            ("Rock Wall", Surface.Stone), ("Plank Wall", Surface.Wall), ("Outer Wall", Surface.Wall), ("Wall", Surface.Wall),
+            ("Graveyard Gates", Surface.Metal),
+            // Sturdy metal.
+            ("Exit Gate", Surface.HeavyMetal), ("Roll-up", Surface.HeavyMetal), ("Generator", Surface.HeavyMetal), ("Car", Surface.HeavyMetal),
+            ("Ambulance", Surface.HeavyMetal), ("Light Tower", Surface.HeavyMetal), ("Work Light", Surface.HeavyMetal), ("Flood", Surface.HeavyMetal),
+            ("Locker", Surface.HeavyMetal), ("Fridge", Surface.HeavyMetal), ("Vending", Surface.HeavyMetal),
+            // Wood that sounds like metal by name.
+            ("Power Pole", Surface.Wood), ("Spool", Surface.Wood),
+            // Stone.
+            ("Rock", Surface.Stone), ("Boulder", Surface.Stone), ("Grave", Surface.Stone), ("Headstone", Surface.Stone), ("Pillar", Surface.Stone),
+            ("Stone", Surface.Stone), ("Toilet", Surface.Stone),
+            // Other metal.
+            ("Iron", Surface.Metal), ("Yard Fence", Surface.Metal), ("Gate", Surface.Metal), ("Lantern", Surface.Metal), ("Lamp", Surface.Metal),
+            ("Barrel", Surface.Metal), ("Rack", Surface.Metal), ("Stall", Surface.Metal), ("Metal", Surface.Metal), ("Steel", Surface.Metal),
+            ("Pole", Surface.Metal), ("Swing", Surface.Metal), ("Slide", Surface.Metal), ("Climber", Surface.Metal), ("Roundabout", Surface.Metal),
+            ("Sink", Surface.Metal),
+            // Wood.
+            ("Conifer", Surface.Wood), ("Plank", Surface.Wood), ("Wood", Surface.Wood), ("Log", Surface.Wood), ("Door", Surface.Wood),
+            ("Wardrobe", Surface.Wood), ("Table", Surface.Wood), ("Chair", Surface.Wood), ("Crate", Surface.Wood), ("Boxes", Surface.Wood),
+            ("Fence", Surface.Wood), ("Pallet", Surface.Wood), ("Barricade", Surface.Wood), ("Bed", Surface.Wood), ("Stake", Surface.Wood),
+            ("Tree", Surface.Wood), ("Trunk", Surface.Wood), ("Stump", Surface.Wood), ("Spruce", Surface.Wood), ("Pine", Surface.Wood),
+            ("Fir", Surface.Wood), ("Oak", Surface.Wood), ("Snag", Surface.Wood), ("Counter", Surface.Wood), ("Shelf", Surface.Wood),
+            ("Desk", Surface.Wood), ("Workbench", Surface.Wood), ("Seesaw", Surface.Wood),
         };
+
+        /// <summary>What a struck thing is made of, where it stands: the building's doors are steel.</summary>
+        Surface SurfaceAt(Collider c)
+        {
+            Surface what = SurfaceOf(c);
+            if (what == Surface.Wood && IsDoor(c) && world != null && world.Layout != null)
+            {
+                Vector2 at = OnPlane(c.bounds.center, out _);
+                Rect b = world.Layout.Building;
+                if (b.width > 0f && at.x > b.xMin - 0.6f && at.x < b.xMax + 0.6f && at.y > b.yMin - 0.6f && at.y < b.yMax + 0.6f) return Surface.HeavyMetal;
+            }
+            return what;
+        }
+
+        /// <summary>The debris a struck thing throws: a wall's by what it's built of (planks, or plaster and brick).</summary>
+        static Surface Look(Collider c, Surface what)
+        {
+            if (what != Surface.Wall) return what;
+            for (Transform t = c != null ? c.transform : null; t != null; t = t.parent)
+                if (t.name.IndexOf("Plank", System.StringComparison.OrdinalIgnoreCase) >= 0) return Surface.Wood;
+            return Surface.Plaster;
+        }
 
         /// <summary>Reads a struck collider's material from its name and its parents' (walls with nothing else are plaster).</summary>
         public static Surface SurfaceOf(Collider c)
@@ -422,6 +524,7 @@ namespace Vision.UI
                     Spark(N(4));
                     break;
                 case Surface.Metal:
+                case Surface.HeavyMetal:
                     Spark(N(20));
                     for (int i = 0; i < N(5); i++) Chip(new Color(0.12f, 0.12f, 0.13f, 1f), new Color(0.3f, 0.3f, 0.32f, 1f), 2f, 5f, 0.025f, 0.6f);
                     for (int i = 0; i < N(2); i++) Dust(new Color(0.4f, 0.4f, 0.42f, 0.3f), 0.14f, 0.9f, 2f);

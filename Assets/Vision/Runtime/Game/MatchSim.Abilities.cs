@@ -74,7 +74,7 @@ namespace Vision.Game
         /// <summary>Hemp Battery (Q): on or off. On: wider view, light through walls, faster, while its charge lasts.</summary>
         void TryHemp(SimPlayer h)
         {
-            if (!AbilitiesOn(h) || h.Zone >= 1) return;
+            if (!AbilitiesOn(h) || h.Zone >= 2) return;
             if (h.HempOn)
             {
                 h.HempOn = false;
@@ -108,8 +108,8 @@ namespace Vision.Game
         {
             if (p.Jarvis != 1 && p.Jarvis != 3) return;
             if (p.Health == Health.Eliminated || p.Health == Health.Escaped) return;
-            // No vision aids past the first ring.
-            if (p.Zone >= 1) return;
+            // No vision aids past the second ring.
+            if (p.Zone >= 2) return;
             if (p.Jarvis == 1) p.Jarvis = 2;
             p.JarvisT = Balance.Sexton.JarvisRadarSec;
             p.JarvisSlot = p.SelSlot;
@@ -577,11 +577,13 @@ namespace Vision.Game
                     if (q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2)
                     {
                         b.Hit.Add(q);
+                        BulletStruck(q.Pos);
                         HurtSurvivor(q, b.Damage >= 0f ? b.Damage : 10f, shooter, "bullet");
                     }
                     else if (q.Role == Role.Hunter && q.Health != Health.Eliminated)
                     {
                         b.Hit.Add(q);
+                        BulletStruck(q.Pos);
                         HurtHunter(q, Balance.Items.Sniper.ZachHp, shooter, "bullet");
                         Knock(q, Balance.Items.Sniper.KbDuration, Balance.Items.Sniper.KbPeak, Mathf.Atan2(b.Dir.y, b.Dir.x));
                         q.SniperSlowT = Balance.Items.Sniper.SlowTime;
@@ -596,6 +598,7 @@ namespace Vision.Game
                         if (!n.Solid || b.Hit.Contains(n)) continue;
                         if (SimMap.SegmentDistance(n.Pos, a, e) > n.HitRadius + hitR) continue;
                         b.Hit.Add(n);
+                        BulletStruck(n.Pos);
                         n.Snipe(this, shooter);
                     }
                 if (b.Front >= maxD) Snipes.RemoveAt(k);

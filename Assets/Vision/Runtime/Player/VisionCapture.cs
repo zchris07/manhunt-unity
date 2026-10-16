@@ -313,6 +313,27 @@ namespace Vision.Player
                 yield return Shot(name + "_scene");
                 composite.debugView = VisionComposite.DebugView.Final;
             }
+            // The building's longest hallway again, its generators running: every room lit by its ceiling lights.
+            BuildingPower power = world.GetComponentInChildren<BuildingPower>();
+            int hallShot = places.FindIndex(x => x.name == "60_building_hallway");
+            if (power != null && hallShot >= 0)
+            {
+                MatchHost litHost = MatchHost.For(world);
+                var was = new System.Collections.Generic.List<(float, bool)>();
+                if (litHost != null && litHost.Sim != null)
+                    foreach (GenState o in litHost.Sim.Gens) { was.Add((o.Progress, o.Repaired)); o.Progress = 1f; o.Repaired = true; }
+                foreach (GeneratorObjective g in power.generators) g.SetState(1f, true);
+                power.Refresh();
+                var (_, hallAt, hallAim) = places[hallShot];
+                yield return Stage(player, V(hallAt), hallAim, wanderer, away);
+                yield return Wait(8);
+                yield return Shot("60b_building_hallway_lit");
+                if (litHost != null && litHost.Sim != null)
+                    for (int i = 0; i < was.Count && i < litHost.Sim.Gens.Length; i++) { litHost.Sim.Gens[i].Progress = was[i].Item1; litHost.Sim.Gens[i].Repaired = was[i].Item2; }
+                foreach (GeneratorObjective g in power.generators) g.SetState(0f, false);
+                power.Refresh();
+            }
+
             // Hiding in the tall grass: the player vanishes, the prompt offers the way out.
             if (L.GrassPatches.Count > 0 && gameHud != null)
             {

@@ -331,6 +331,8 @@ namespace Vision.Game
             HitTraps(s, d, best, p.Name);
             Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = p.Id, B = (int)ItemType.Pistol, Pos = p.Pos, F = a, G = best + p.RadiusD + R(2f), Text = hitP != null ? "hit" : "" });
             Noise(p.Pos, 1000f, "shot");
+            if (hitN != null) BulletStruck(hitN.Pos);
+            else if (hitP != null) BulletStruck(hitP.Pos);
             if (hitN != null) hitN.ItemHit(this, p, "shot");
             else if (hitP != null && hitP.Role == Role.Hunter)
             {
@@ -413,6 +415,9 @@ namespace Vision.Game
             }
             Emit(Near(o, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = p.Id, B = (int)ItemType.Shotgun, Pos = o, F = aim, G = zachGun || golden ? 1f : 0f, Text = text.ToString() });
             Noise(o, 1100f, "shot");
+            foreach (SimPlayer q in onSurvivor.Keys) BulletStruck(q.Pos);
+            if (zach != null) BulletStruck(zach.Pos);
+            foreach (Npc n in new HashSet<Npc>(npcs)) BulletStruck(n.Pos);
             foreach (var kv in onSurvivor)
             {
                 SimPlayer q = kv.Key;
@@ -630,7 +635,7 @@ namespace Vision.Game
                     p.Move.SlowMul = Mathf.Min(p.Move.SlowMul, Balance.Items.Sniper.AimSlowMul);
                 }
                 bool holding = p.LastCmd.Has(Btn.Primary) && s != null && s.item == ItemType.Goggles;
-                p.GogglesOn = s != null && holding && (p.CanAct || p.Health == Health.Downed) && p.HideState == 0 && p.Zone == 0 && (TestMode || p.Inv.AmountAt(p.SelSlot) > 0f);
+                p.GogglesOn = s != null && holding && (p.CanAct || p.Health == Health.Downed) && p.HideState == 0 && p.Zone < 2 && (TestMode || p.Inv.AmountAt(p.SelSlot) > 0f);
                 if (s != null && p.GogglesOn && !TestMode)
                 {
                     float left = p.Inv.AmountAt(p.SelSlot) - dt;

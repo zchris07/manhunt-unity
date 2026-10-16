@@ -119,17 +119,17 @@ namespace Vision.Game
                     Noise(c, 700f, "smash");
                     if (BarricadeHits[i] >= Balance.Hunter.Attack.BarricadeHits) SetBarricade(i, BarricadeState.Broken);
                 }
-                // Two swings smash a closed door (it stays open for good). The graveyard's gates, closed again once
-                // unlocked, take four full charged swings (eight hits); locked, they don't give at all.
+                // Two swings smash a door, shut or standing open (the panel's gone, the doorway open for good). The
+                // graveyard's gates, closed again once unlocked, take four full charged swings (eight hits); locked, they
+                // don't give at all; open, they're left be.
                 for (int i = 0; i < Map.Doors.Count && !hit; i++)
                 {
-                    if (Doors[i] || DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i]) continue;
-                    Vector2 c = ClosestOnSegment(h.Pos, Map.Doors[i].A, Map.Doors[i].B);
-                    if (!InSwipe(h, c, R(6f))) continue;
-                    hit = true;
                     bool gate = Map.Doors[i].Gate;
+                    if (DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i] || (Doors[i] && gate)) continue;
+                    if (!DoorInSwipe(h, i, out Vector2 c)) continue;
+                    hit = true;
                     DoorHits[i] += power;
-                    Noise(c, 700f, gate ? "gate_hit" : "smash");
+                    Noise(c, 700f, gate ? "gate_hit" : "door_hit");
                     if (DoorHits[i] >= (gate ? Balance.Graveyard.GateHits : Balance.Hunter.Attack.DoorHits))
                     {
                         SetDoor(i, true);
@@ -165,6 +165,30 @@ namespace Vision.Game
                 h.Move.SlowMul = Mathf.Min(h.Move.SlowMul, Balance.Hunter.Attack.MissSlowMul);
             }
         }
+
+        /// <summary>
+        /// Whether a door's panel is in the swipe: across its doorway when shut; open, swung out from its hinge (either way,
+        /// as far as the door's open angle) or still in the doorway as it swings. <paramref name="c"/>: the point struck.
+        /// </summary>
+        bool DoorInSwipe(SimPlayer h, int i, out Vector2 c)
+        {
+            Vector2 a = Map.Doors[i].A, b = Map.Doors[i].B;
+            c = ClosestOnSegment(h.Pos, a, b);
+            if (InSwipe(h, c, R(6f))) return true;
+            if (!Doors[i]) return false;
+            Vector2 along = b - a;
+            foreach (float s in new[] { 1f, -1f })
+            {
+                float ang = s * DoorOpenDeg * Mathf.Deg2Rad, cs = Mathf.Cos(ang), sn = Mathf.Sin(ang);
+                Vector2 leaf = a + new Vector2(along.x * cs - along.y * sn, along.x * sn + along.y * cs);
+                c = ClosestOnSegment(h.Pos, a, leaf);
+                if (InSwipe(h, c, R(6f))) return true;
+            }
+            return false;
+        }
+
+        /// <summary>How far a door swings open (degrees), as the level shows it.</summary>
+        public const float DoorOpenDeg = 100f;
 
         public static Vector2 ClosestOnSegment(Vector2 p, Vector2 a, Vector2 b)
         {

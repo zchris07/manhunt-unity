@@ -95,6 +95,9 @@ namespace Vision.Characters
             }
             if (p.ScareT > 0f && lastScare <= 0f) PlayOnce(ActionClips.Cringe);
             lastScare = p.ScareT;
+            // Working the pump stops once the shotgun's out of their hands.
+            if (OneShotPlaying && (oneShot == ActionClips.PumpReloadShotgun || oneShot == ActionClips.PumpReloadGolden)
+                && right != PropKind.Shotgun && right != PropKind.GoldenPump) oneShot = null;
             if (OneShotPlaying) return;
 
             ActionClip state = zach ? HunterState(p) : SurvivorState(p);
@@ -187,12 +190,16 @@ namespace Vision.Characters
                     if (e.A == self.Id) PlayOnce(ActionClips.Throw);
                     break;
                 case EventKind.Shot:
-                    // The kick of each gun: the pistol's snap, the shotgun's shove (Zach's pump racked after it), the 0.50's slam.
+                    // The kick of each gun: the pistol's snap, the shotgun's shove and the pump worked over its reload (Zach's
+                    // golden pump racked after it); the 0.50 cal is simply held on, both hands on it, no change at all.
                     if (e.A == self.Id)
                     {
                         var gun = (Vision.Player.ItemType)e.B;
-                        PlayOnce(gun == ItemType.Pistol ? ActionClips.RecoilPistol : gun == ItemType.Sniper ? (self.Aiming ? ActionClips.RecoilRifle : ActionClips.RecoilHip)
-                            : self.Role == Role.Hunter ? ActionClips.RecoilPump : ActionClips.RecoilLong);
+                        if (gun == ItemType.Sniper) break;
+                        bool golden = e.G > 0f || (e.Text != null && e.Text.Contains("gold"));
+                        PlayOnce(gun == ItemType.Pistol ? ActionClips.RecoilPistol
+                            : self.Role == Role.Hunter ? ActionClips.RecoilPump
+                            : golden ? ActionClips.PumpReloadGolden : ActionClips.PumpReloadShotgun);
                     }
                     break;
                 case EventKind.Talk:

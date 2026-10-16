@@ -413,10 +413,11 @@ namespace Vision.Player
 
         /// <summary>
         /// The light at the edge of the woods (MatchSim.Boundary), as a brightness for the whole of the player's light at once
-        /// (the beam and the light round them dim together, evenly; the beam never shortens). Past the first ring it wavers
-        /// and now and then sags and recovers, each sag eased in and out over a few frames like a failing bulb rather than
-        /// strobing; past the second it grows fainter and fainter over 3 s while it flickers faster, deeper and more
-        /// erratically, until it's out; a survivor's whole screen goes black with it at the end (<see cref="edgeDark"/>).
+        /// (the beam and the light round them dim together, evenly; the beam never shortens). Past the first ring it's
+        /// plainly dying: it wavers, sags deep every second or so, sputters on and off through each sag, and blinks nearly
+        /// out now and then, more and deeper further out; past the second it grows fainter and fainter over 3 s while it
+        /// flickers faster, deeper and more erratically, until it's out; a survivor's whole screen goes black with it at the
+        /// end (<see cref="edgeDark"/>).
         /// Returns the light's brightness (0-1).
         /// </summary>
         /// <summary>How far between the first ring and the second they are (0 at the first, 1 at the second).</summary>
@@ -445,18 +446,21 @@ namespace Vision.Player
             // strength by the second (where the dying takes over from it).
             float deep = EdgeDepth(p);
             // Time runs faster through the noise as it dies (and a little faster further out): it quickens and turns erratic.
-            flickT += dt * (Mathf.Lerp(0.6f, 1f, deep) + 2.5f * dying);
+            flickT += dt * (Mathf.Lerp(1.6f, 2.2f, deep) + 2.5f * dying);
             float waver = Mathf.PerlinNoise(flickT * 1.3f, 0.37f);
-            // Sags: a smooth noise crossing a threshold, eased in and out (never a single-frame strobe), more often and
-            // deeper further out and as it dies; and a fine tremor once it's dying.
+            // Sags: a smooth noise crossing a threshold, often (about every second), more often and deeper further out and
+            // as it dies; and a fine tremor once it's dying.
             float sagNoise = Mathf.PerlinNoise(flickT * 2.6f, 4.1f);
-            float from = Mathf.Lerp(0.76f, 0.64f, deep) - 0.24f * dying, to = Mathf.Lerp(0.86f, 0.8f, deep) - 0.16f * dying;
+            float from = Mathf.Lerp(0.5f, 0.42f, deep) - 0.12f * dying, to = Mathf.Lerp(0.62f, 0.54f, deep) - 0.08f * dying;
             float sag = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(from, to, sagNoise));
+            // Through a sag the bulb sputters, cutting nearly out and back in a few times.
+            float sputter = sag * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.48f, 0.6f, Mathf.PerlinNoise(flickT * 14f, 2.3f)));
+            // And now and then, sag or not, it blinks almost out for a moment.
+            float blink = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.7f, 0.78f, Mathf.PerlinNoise(flickT * 5.3f, 7.7f)));
             float tremor = (Mathf.PerlinNoise(flickT * 6.1f, 9.7f) - 0.5f) * 0.5f * dying;
-            // (At the first ring half as strong again as at first: a 0.045 waver and sags 18% deep.)
-            float wave = Mathf.Lerp(0.03f * 1.5f, 0.1f, deep);
-            float depth = Mathf.Lerp(Mathf.Lerp(0.12f * 1.5f, 0.45f, deep), 0.85f, dying);
-            float flick = (1f - wave + wave * waver) * (1f - depth * sag) * (1f + tremor);
+            float wave = Mathf.Lerp(0.12f, 0.18f, deep);
+            float depth = Mathf.Lerp(Mathf.Lerp(0.5f, 0.7f, deep), 0.85f, dying);
+            float flick = (1f - wave + wave * waver) * (1f - depth * sag) * (1f - 0.8f * sputter) * (1f - 0.85f * blink) * (1f + tremor);
             // Fainter and fainter until it's out at 3 s.
             float envelope = 1f - Mathf.SmoothStep(0f, 1f, dying);
             return Mathf.Clamp01(flick * envelope);

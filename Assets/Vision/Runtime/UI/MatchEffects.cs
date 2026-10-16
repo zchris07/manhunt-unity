@@ -141,9 +141,11 @@ namespace Vision.UI
                         case "book": Audio.PlayCue("book_hit", Units(e.Pos)); break;
                         case "piss": Audio.PlayCue("splash", Units(e.Pos)); break;
                         case "smash": Audio.PlayCue("splinter", Units(e.Pos)); break;
-                        case "door_smash": Audio.PlayCue("smash", Units(e.Pos)); break;
-                        case "gate_hit": Audio.PlayCue("kick", Units(e.Pos)); break;
-                        case "gate_smash": Audio.PlayCue("kick", Units(e.Pos)); Audio.PlayCue("slam", Units(e.Pos)); break;
+                        case "door_hit": DoorStruck(e.Pos, sim, false); break;
+                        case "door_smash": DoorStruck(e.Pos, sim, true); break;
+                        case "gate_hit": Audio.PlayCue("metal_light", Units(e.Pos)); break;
+                        case "gate_smash": Audio.PlayCue("metal_light", Units(e.Pos)); Audio.PlayCue("slam", Units(e.Pos)); break;
+                        case "flesh": Audio.PlayCue("bullet_flesh", Units(e.Pos)); break;
                         case "gate_unlock": Audio.PlayCue("gate_unlock", Units(e.Pos)); Audio.PlayCue("gate_swing", Units(e.Pos)); break;
                         case "gen_kick":
                         case "gen_explode": Audio.PlayCue("kick", Units(e.Pos)); break;

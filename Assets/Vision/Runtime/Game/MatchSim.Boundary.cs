@@ -46,7 +46,9 @@ namespace Vision.Game
                 if (p.Zone == 2) p.ShutdownT = Mathf.Min(Balance.Boundary.ShutdownTime, p.ShutdownT + dt);
                 // Back inside the second ring, the light comes back about twice as fast as it went.
                 else p.ShutdownT = Mathf.Max(0f, p.ShutdownT - 2f * dt);
-                if (p.Zone >= 1) VisionItemsOff(p);
+                if (p.Zone >= 2) VisionItemsOff(p);
+                // Zach's Hemp Beam stops at the first ring.
+                if (p.Zone >= 1 && p.Role == Role.Hunter && p.BeamT > 0f) p.BeamT = 0f;
                 if (gone || pinned) continue;
 
                 if (p.Role == Role.Survivor)
@@ -82,7 +84,7 @@ namespace Vision.Game
             }
         }
 
-        /// <summary>Night vision, JARVIS and the Hemp Battery don't work past the first ring; nor does Zach's Hemp Beam.</summary>
+        /// <summary>Night vision, JARVIS and the Hemp Battery work up to the second ring, not past it.</summary>
         void VisionItemsOff(SimPlayer p)
         {
             p.GogglesOn = false;
@@ -91,11 +93,7 @@ namespace Vision.Game
                 p.JarvisT = 0f;
                 RevealT = 0f;
             }
-            if (p.Role == Role.Hunter)
-            {
-                p.HempOn = false;
-                if (p.BeamT > 0f) p.BeamT = 0f;
-            }
+            if (p.Role == Role.Hunter) p.HempOn = false;
         }
 
         /// <summary>Gone into the dark: eliminated at once, without being downed.</summary>

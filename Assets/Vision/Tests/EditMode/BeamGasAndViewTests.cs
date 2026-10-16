@@ -210,7 +210,7 @@ namespace Vision.Tests
             Assert.AreEqual(1.0437f, MatchRules.HempRegenMul(0.437f), 1e-6f);
             var z = new SimPlayer(1, "Z", Role.Hunter, Vector2.zero) { Hp = 0.863f, Hemp = 1, HempLeft = Balance.Hunter.Hemp.Duration * 0.4371f };
             string text = GameHud.ZachRates(z);
-            StringAssert.Contains("SPEED -5.48% FROM HEALTH", text);
+            StringAssert.Contains("HP 86.3/100   SPEED -5.48% FROM HEALTH", text);
             StringAssert.Contains("RECOVERY x1.0437 (HEMP 43.71%)", text);
         }
 

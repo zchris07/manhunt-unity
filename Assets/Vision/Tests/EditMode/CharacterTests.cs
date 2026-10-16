@@ -157,7 +157,7 @@ namespace Vision.Tests
                     // Let the gait settle, play the clip once through (or one loop), then stop and blend out.
                     // Clips that always follow another (a recoil follows the aim, the staking follows the carry, a charged cut the
                     // charge) start from it.
-                    ActionClip prelude = clip == ActionClips.RecoilLong || clip == ActionClips.RecoilPump ? ActionClips.AimLong : clip == ActionClips.RecoilRifle ? ActionClips.AimRifle : clip == ActionClips.RecoilHip ? ActionClips.HipRifle
+                    ActionClip prelude = clip == ActionClips.RecoilLong || clip == ActionClips.RecoilPump || clip == ActionClips.PumpReloadShotgun || clip == ActionClips.PumpReloadGolden ? ActionClips.AimLong : clip == ActionClips.RecoilRifle ? ActionClips.AimRifle : clip == ActionClips.RecoilHip ? ActionClips.HipRifle
                         : clip == ActionClips.RecoilPistol ? ActionClips.AimPistol : clip == ActionClips.StakeBody ? ActionClips.Carry
                         : clip == ActionClips.SwingHeavy ? ActionClips.Charge : clip == ActionClips.SwingHeavyBack ? ActionClips.ChargeBack : null;
                     if (prelude != null) layer.Play(prelude, 1f, true);
@@ -365,16 +365,23 @@ namespace Vision.Tests
                 Assert.AreEqual(PropKind.Shotgun, layer.HeldRight);
                 Assert.AreSame(ActionClips.AimLong, layer.Current);
                 view.OnEvent(new GameEvent { Kind = EventKind.Shot, A = 1, B = (int)ItemType.Shotgun }, p, null);
-                Assert.AreSame(ActionClips.RecoilLong, layer.Current, "the kick");
-                for (int i = 0; i < 100; i++) layer.Step(0.01f);
+                Assert.AreSame(ActionClips.PumpReloadShotgun, layer.Current, "the kick, then the pump worked");
+                Assert.AreEqual(Balance.Items.Shotgun.Reload, ActionClips.PumpReloadShotgun.Length, 1e-4f, "over the reload");
+                Assert.AreEqual(Balance.Items.Golden.Reload, ActionClips.PumpReloadGolden.Length, 1e-4f, "the Legendary pump's over its own");
+                view.OnEvent(new GameEvent { Kind = EventKind.Shot, A = 1, B = (int)ItemType.Shotgun, G = 1f }, p, null);
+                Assert.AreSame(ActionClips.PumpReloadGolden, layer.Current);
+                for (int i = 0; i < 50; i++) layer.Step(0.01f);
                 p.Inv.Add(ItemType.Sniper);
                 p.SelSlot = 1;
                 view.Present(p);
                 Assert.AreEqual(PropKind.Sniper, layer.HeldRight);
-                Assert.AreSame(ActionClips.HipRifle, layer.Current, "the 0.50 cal at the hip until it's aimed");
+                Assert.AreSame(ActionClips.HipRifle, layer.Current, "the pump stops with the shotgun put away; the 0.50 cal at the hip until it's aimed");
                 p.Aiming = true;
                 view.Present(p);
                 Assert.AreSame(ActionClips.AimRifle, layer.Current, "aimed (right click): shouldered, cheek on the scope");
+                view.OnEvent(new GameEvent { Kind = EventKind.Shot, A = 1, B = (int)ItemType.Sniper }, p, null);
+                view.Present(p);
+                Assert.AreSame(ActionClips.AimRifle, layer.Current, "fired, the 0.50 cal is just held on: no kick, no hand let go");
                 p.Aiming = false;
                 // JARVIS: the tablet held up while it runs, put away (JARVIS still running) once they take another item.
                 p.Jarvis = 2;

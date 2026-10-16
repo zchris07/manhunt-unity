@@ -346,7 +346,8 @@ namespace Vision.Game
             AbilitiesLocked = p.AbilityLockT > 0f,
             SpeedMode = speedMode,
             // More than halfway into a full charge, Zach can't sprint.
-            NoSprint = p.Role == Role.Hunter && p.ChargeT > Balance.Hunter.Attack.ChargeMax * 0.5f,
+            // No sprint while Zach holds a charge past halfway, nor while the 0.50 cal is aimed.
+            NoSprint = (p.Role == Role.Hunter && p.ChargeT > Balance.Hunter.Attack.ChargeMax * 0.5f) || p.Aiming,
         };
 
         // ---------------------------------------------------------------- the tick
@@ -492,12 +493,18 @@ namespace Vision.Game
             return to.ToArray();
         }
 
-        /// <summary>A visual cue at a spot (particles for explosions, glass and splinters).</summary>
+        /// <summary>
+        /// A cue at a spot (particles for explosions, glass and splinters, and their sounds): sent to everyone within
+        /// <paramref name="r"/>, or as far as sounds carry (<see cref="Balance.Net.HearingRadius"/>) if that's further.
+        /// </summary>
         public void Noise(Vector2 at, float r, string kind)
         {
-            int[] to = Near(at, r);
+            int[] to = Near(at, Mathf.Max(r, Balance.Net.HearingRadius));
             if (to.Length > 0) Emit(to, new GameEvent { Kind = EventKind.Noise, Pos = at, F = r, Text = kind });
         }
+
+        /// <summary>A bullet or pellet striking a body (a player's or an NPC's): heard by everyone near.</summary>
+        public void BulletStruck(Vector2 at) => Noise(at, 1000f, "flesh");
 
         public void Feed(string text) => Emit(null, new GameEvent { Kind = EventKind.Feed, Text = text });
 

@@ -12,7 +12,8 @@ namespace Vision.World
     /// grass grown up through it all. The graveyard's is bare: the generator, two towers either side of it on the walk
     /// between the graves (<see cref="GraveTowerSpots"/>) and their two cables, nothing else. Dark until the generator
     /// runs, then on for good: each tower lights the ground all round it as brightly as a player's own light, the work
-    /// lights a little round each.
+    /// lights a little round each. The building's generators have no work site: either one running lights the whole
+    /// building, every room (<see cref="BuildingPower"/>).
     /// Anything that would stand in a wall, a tree or a rock moves to the nearest clear ground (the towers of a generator
     /// inside the building stand outside it, near its room).
     /// </summary>
@@ -50,8 +51,53 @@ namespace Vision.World
         void BuildFloodSets()
         {
             Physics.SyncTransforms();
-            foreach (var (gen, objective) in pendingSets) if (gen != null) BuildFloodSet(gen, objective);
+            var indoors = new List<GeneratorObjective>();
+            foreach (var (gen, objective) in pendingSets)
+            {
+                if (gen == null) continue;
+                Vector3 l = transform.InverseTransformPoint(gen.transform.position);
+                if (Layout.Building.Contains(new Vector2(l.x, l.z))) indoors.Add(objective);
+                else BuildFloodSet(gen, objective);
+            }
             pendingSets.Clear();
+            if (indoors.Count > 0) BuildBuildingLights(indoors);
+        }
+
+        /// <summary>The building's ceiling lights are spaced about this far apart (metres), room by room.</summary>
+        public const float RoomLightSpacing = 7f;
+
+        /// <summary>
+        /// The building's ceiling lights: every room (hallways too) lit by a grid of lights, each reaching past the corners
+        /// of its share of the room, all dark until one of the building's generators runs.
+        /// </summary>
+        void BuildBuildingLights(List<GeneratorObjective> generators)
+        {
+            BuildingPlan plan = Layout.Plan;
+            if (plan == null) return;
+            Transform root = Group("Building Lights");
+            BuildingPower power = root.gameObject.AddComponent<BuildingPower>();
+            power.generators.AddRange(generators);
+            foreach (BuildingPlan.Room r in plan.Rooms)
+            {
+                int nx = Mathf.Max(1, Mathf.CeilToInt(r.Area.width / RoomLightSpacing)), nz = Mathf.Max(1, Mathf.CeilToInt(r.Area.height / RoomLightSpacing));
+                float cw = r.Area.width / nx, ch = r.Area.height / nz;
+                float range = Mathf.Sqrt(cw * cw + ch * ch) * 0.5f + 1.5f;
+                for (int i = 0; i < nx; i++)
+                    for (int j = 0; j < nz; j++)
+                    {
+                        var go = new GameObject("Room Light");
+                        go.transform.SetParent(root, false);
+                        go.transform.localPosition = new Vector3(r.Area.xMin + cw * (i + 0.5f), BuildingFloor, r.Area.yMin + ch * (j + 0.5f));
+                        var light = go.AddComponent<VisionLight>();
+                        light.range = range;
+                        light.height = 2.2f;
+                        light.intensity = 0.9f;
+                        light.falloffStart = 0.75f;
+                        light.flickerAmount = 0.01f;
+                        light.enabled = false;
+                        power.lights.Add(light);
+                    }
+            }
         }
 
         void BuildFloodSet(GameObject gen, GeneratorObjective objective)
