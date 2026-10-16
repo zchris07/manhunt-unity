@@ -39,7 +39,6 @@ namespace Vision.Tests
             ["Sexton.JarvisMinimapMul"] = "unused in the original too",
             ["Shane.StepsNear"] = "Shane's steps use the audio manager's distance falloff",
             ["Shane.StepsFar"] = "Shane's steps use the audio manager's distance falloff",
-            ["Monique.FleeTime"] = "the user's rule: attacked by Zach, Monique no longer runs; she turns her 0.50 cal on him",
             ["Chris.AmbulanceLength"] = "the original's map generator; the Unity ambulance is a model of its own size",
             ["Chris.AmbulanceWidth"] = "the original's map generator; the Unity ambulance is a model of its own size",
             ["Lights.MaxPolygonsPerFrame"] = "the Unity mask renderer has its own nearest-lights cap",

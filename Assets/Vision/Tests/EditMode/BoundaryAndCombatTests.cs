@@ -197,7 +197,7 @@ namespace Vision.Tests
                 List<GameEvent> ev = RunCollect(rig, 1, p => p.Id == s.Id ? new InputCmd { Buttons = held | Btn.Primary, Item = slot, Aim = aim, AimDist = 100f } : (InputCmd?)null);
                 foreach (GameEvent e in ev)
                     if (e.Kind == EventKind.Shot && e.A == s.Id) angles.Add(Mathf.DeltaAngle(aim * Mathf.Rad2Deg, e.F * Mathf.Rad2Deg));
-                RunCollect(rig, Secs(1.3f), p => p.Id == s.Id ? new InputCmd { Buttons = held, Item = slot, Aim = aim, AimDist = 100f } : (InputCmd?)null);
+                RunCollect(rig, Secs(Mathf.Max(Balance.Items.Sniper.Reload, Balance.Items.Shotgun.Reload) + 0.1f), p => p.Id == s.Id ? new InputCmd { Buttons = held, Item = slot, Aim = aim, AimDist = 100f } : (InputCmd?)null);
             }
             return angles;
         }

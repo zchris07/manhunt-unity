@@ -348,9 +348,10 @@ namespace Vision.Game
 
     /// <summary>
     /// Monique Bourgeois: gives the first survivor who talks to her an arrow to Zach (40 s), later ones a Mr Beast bar.
-    /// Attacked by anyone (Zach's machete, his Penjamin gas or Soundcloud Burst, a survivor's item or round), she pulls out
-    /// a 0.50 cal and shoots at them for ten seconds (each new attack starts the ten seconds again, on whoever made it),
-    /// reloading as a survivor's does; she holds fire while they're down or knocked out, but keeps her rifle up.
+    /// Slashed by Zach, or hit by a survivor's item or round, she pulls out a 0.50 cal and shoots at them for ten seconds
+    /// (each new attack starts the ten seconds again, on whoever made it), reloading as a survivor's does; she holds fire
+    /// while they're down or knocked out, but keeps her rifle up. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam only
+    /// send her running.
     /// </summary>
     public sealed class Monique : Walker
     {
@@ -403,9 +404,22 @@ namespace Vision.Game
         }
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind) => Attacked(by);
-        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true) => Attacked(h);
-        public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by);
-        public override void BurstHit(MatchSim sim, SimPlayer by) => Attacked(by);
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
+        {
+            if (harm) Attacked(h);
+        }
+        // Gassed, burst or beamed: she runs (her gun put away), never fights.
+        public override bool VapeHurts => false;
+        public override void Provoke(MatchSim sim, SimPlayer by) => Flee(by);
+        public override void BurstHit(MatchSim sim, SimPlayer by) => Flee(by);
+        public override void BeamHit(MatchSim sim, SimPlayer h) => Flee(h);
+
+        void Flee(SimPlayer from)
+        {
+            if (!alive || from == null) return;
+            armedT = 0f;
+            StartFlee(from.Pos, Balance.Monique.FleeTime);
+        }
 
         public override void Update(MatchSim sim, float dt)
         {
@@ -413,7 +427,7 @@ namespace Vision.Game
             Tick(dt);
             Moving = false;
             Gait = 0;
-            if (Armed)
+            if (Armed && FleeT <= 0f)
             {
                 armedT = Mathf.Max(0f, armedT - dt);
                 shotCd = Mathf.Max(0f, shotCd - dt);
@@ -437,10 +451,11 @@ namespace Vision.Game
     }
 
     /// <summary>
-    /// Daphne Cheng: hands a P250 to each survivor who talks to her (once each). Nobody can slay her. Attacked by anyone
-    /// (a survivor, or Zach: his machete, Penjamin gas or Soundcloud Burst), she stands her ground and fires her pistol at
-    /// them for ten seconds (each new attack starts them again), turning to keep them in her sights but never chasing;
-    /// she fires whenever they're in her pistol's reach and in sight, and holds it up between; then she wanders again.
+    /// Daphne Cheng: hands a P250 to each survivor who talks to her (once each). Nobody can slay her. Slashed by Zach, or
+    /// hit by a survivor's item or round, she stands her ground and blasts them with her shotgun (a survivor's shotgun with
+    /// endless shells, pumped after every shot) for ten seconds (each new attack starts them again), turning to keep them in
+    /// her sights but never chasing; she fires whenever they're in reach and in sight. Zach's Penjamin gas, Soundcloud
+    /// Burst or Hemp Beam only send her running.
     /// </summary>
     public sealed class Daphne : Walker
     {
@@ -483,9 +498,25 @@ namespace Vision.Game
         }
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind) => Attacked(by);
-        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true) => Attacked(h);
-        public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by);
-        public override void BurstHit(MatchSim sim, SimPlayer by) => Attacked(by);
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
+        {
+            if (harm) Attacked(h);
+        }
+        // Gassed, burst or beamed: she runs (her gun put away), never fights.
+        public override bool VapeHurts => false;
+        public override void Provoke(MatchSim sim, SimPlayer by) => Flee(by);
+        public override void BurstHit(MatchSim sim, SimPlayer by) => Flee(by);
+        public override void BeamHit(MatchSim sim, SimPlayer h) => Flee(h);
+
+        void Flee(SimPlayer from)
+        {
+            if (!alive || from == null) return;
+            armedT = 0f;
+            StartFlee(from.Pos, Balance.Monique.FleeTime);
+        }
+
+        /// <summary>How far she'll fire her shotgun at someone (original units).</summary>
+        public const float ShotgunReach = 630f;
 
         public override void Update(MatchSim sim, float dt)
         {
@@ -493,45 +524,31 @@ namespace Vision.Game
             Tick(dt);
             Moving = false;
             Gait = 0;
+            fireCd = Mathf.Max(0f, fireCd - dt);
+            if (FleeT > 0f)
+            {
+                RunAway(Balance.Sexton.Flee * Balance.Monique.FleeMul, dt);
+                Gait = Moving ? 2 : 0;
+                return;
+            }
             if (Armed)
             {
                 armedT = Mathf.Max(0f, armedT - dt);
-                fireCd = Mathf.Max(0f, fireCd - dt);
                 SimPlayer t = Sim.Get(targetId);
                 if (t == null) return;
-                // Where she stands: turning to keep them in her sights, firing while she has a clear line and they're in her
-                // pistol's reach (and can be hurt).
+                // Where she stands: turning to keep them in her sights, firing while she has a clear line and they're in
+                // reach (and can be hurt); the pump worked between blasts.
                 Face(t.Pos);
                 bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t) && t.HideState != 2;
-                if (up && fireCd <= 0f && Vector2.Distance(Pos, t.Pos) <= Scale.D(Balance.Jaden.Gun.Range * 1.5f) && Sim.Geo.LineOfSight(Pos, t.Pos)) Fire();
+                if (up && fireCd <= 0f && Vector2.Distance(Pos, t.Pos) <= Scale.D(ShotgunReach) && Sim.Geo.LineOfSight(Pos, t.Pos))
+                {
+                    fireCd = Balance.Items.Shotgun.Reload;
+                    Sim.NpcShotgun(this, Facing);
+                }
                 return;
             }
             Wander(Balance.Monique.Walk, dt);
             Gait = Moving ? 1 : 0;
-        }
-        /// <summary>One P250 shot along where she faces (Jaden's pistol: its spread, reach and damage).</summary>
-        void Fire()
-        {
-            fireCd = Balance.Jaden.Gun.Cooldown;
-            float a = Facing + Range(-1f, 1f) * Balance.Jaden.Gun.SpreadDeg * Mathf.Deg2Rad;
-            Vector2 dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-            Vector2 s = Pos + dir * (HitRadius + Scale.D(2f));
-            float max = Scale.D(Balance.Jaden.Gun.Range * 1.5f);
-            float best = Mathf.Min(max, Sim.Geo.CastSight(s, dir, max));
-            SimPlayer hit = null;
-            foreach (SimPlayer q in Sim.Order)
-            {
-                bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && OnFeet(q) && q.HideState != 2;
-                if (!ok) continue;
-                float tt = MatchSim.RayCircle(s, dir, q.Pos, q.RadiusD);
-                if (tt < best) { best = tt; hit = q; }
-            }
-            Sim.Emit(Sim.Near(Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = -Id, B = (int)ItemType.Pistol, Pos = Pos, F = a, G = best + HitRadius, Text = hit != null ? "hit" : "" });
-            Sim.Noise(Pos, 900f, "shot");
-            if (hit == null) return;
-            Sim.BulletStruck(hit.Pos);
-            if (hit.Role == Role.Hunter) Sim.HurtHunter(hit, Balance.Jaden.Gun.ZachDamage * Balance.Hunter.Health.Max, null, "bullet");
-            else Sim.HurtSurvivor(hit, Balance.Jaden.Gun.Damage, null, "bullet");
         }
     }
 }

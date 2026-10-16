@@ -519,7 +519,7 @@ namespace Vision.Game
                 if (h.BeamHit.TryGetValue(key, out float last) && Time - last < Balance.Hunter.Beam.NpcHitEvery - 1e-6f) continue;
                 h.BeamHit[key] = Time;
                 if (vsZach) n.ItemHit(this, h, "bottle");
-                else if (n.Slashable) n.Slash(this, h, 1);
+                else if (n.Slashable) n.BeamHit(this, h);
             }
         }
 

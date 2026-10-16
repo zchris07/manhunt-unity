@@ -377,8 +377,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   character of a Noita rifle: a click-sharp, bright crack falling in pitch over a low thump, `tools/synth_sniper.py`);
   the charge is silent. **Local sounds**: a cue can name a
   preferred file (`local_*` in `Resources/Audio/Fx`, kept out of git because they're from other games, so they exist
-  only in the user's own copy and builds): the P250's shot; the shotgun's (every shotgun, the golden pump included),
-  half as loud as at first; the 0.50 cal's (a bolt-action rifle's whole clip played to its end, the shot, the bolt
+  only in the user's own copy and builds): the P250's shot; the shotgun's (every shotgun, the golden pump and Daphne's included),
+  half as loud as at first, its last stretch falling away by an inverse square; the 0.50 cal's (a bolt-action rifle's whole clip played to its end, the shot, the bolt
   worked and the ring of it, as loud as the shotgun, its last stretch falling away by an inverse square so the ringing
   never cuts off); the machete's slash landing on a survivor or an NPC (only a body: a door,
   window, barricade or anything else it strikes never plays it); the machete into wood (trees, evergreens, power
@@ -457,16 +457,18 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   back and shoots until you have lost half your health; three survivor hits kill him and drop his pistol, and Zach
   who slays him gets a lunge charge and more reach. **Marc Cortez** starts in the building, opens doors and hands out
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
-  wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you; he explodes
-  when he dies. **Soham** says Hi and explodes. Whoever explodes (Chacko, Soham, Njaaron) goes up in a bloody blast: a hot flash, a cloud of red mist, blood sprayed out everywhere in streaking droplets with lumps of gore among them and smoke rolling up after, leaving dark blood stains on the ground for the rest of the match (a ragged pool where they stood, splashes and long streaks out to five metres, spatters beyond). **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
+  wanna go to the Y later?" (Y or N): yes and he follows you and fights Zach off, no and he fights you (Zach saying yes
+  gets his health coming back 20% faster for good, and Njaaron wanders off again); he runs 20% faster than the
+  original's (210 units a second); he explodes when he dies. **Soham** says Hi and explodes. Whoever explodes (Chacko, Soham, Njaaron) goes up in a bloody blast: a hot flash, a cloud of red mist, blood sprayed out everywhere in streaking droplets with lumps of gore among them and smoke rolling up after, leaving dark blood stains on the ground for the rest of the match (a ragged pool where they stood, splashes and long streaks out to five metres, spatters beyond). **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
   him first, Zach or a survivor (testing mode gives survivors one to try, in a thirteenth slot on the backslash key).
   A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
   fired with a left click, its charges left kept on it, so dropped (G) and picked up by someone else it has the charges
   it had; Zach can pick one up too, its charges going into his own beam (R), up to a full set. **Daphne Cheng** (a young
   woman with long dark-brown hair) hands a P250 to each survivor who talks to her (once each); nobody can slay her, and
-  attacked by anyone (a survivor, or Zach: his machete, Penjamin's gas or a Soundcloud Burst) she stands her ground
-  and fires her pistol (Jaden's) at them for ten seconds, every new attack starting them again, turning to keep them in
-  her sights but never chasing them, firing whenever they're in reach and in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her (Zach too: his machete, gas or burst) with a 0.50 cal for ten seconds, reloading as a survivor's does; neither she nor Daphne runs off, and each keeps her gun up the whole ten seconds, holding fire only while her target's down. Name tags,
+  slashed by Zach, or hit by a survivor's item or round, she stands her ground and blasts them with her shotgun (a
+  survivor's shotgun with endless shells, its pump worked after every blast) for ten seconds, every new attack starting
+  them again, turning to keep them in her sights but never chasing them, firing whenever they're within 630 units and
+  in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal for ten seconds, reloading as a survivor's does; each keeps her gun up the whole ten seconds, holding fire only while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
@@ -708,8 +710,8 @@ ditches and packed dirt on the paths.
   and its kick (the pistol's muzzle flip; the shotgun's shove, then the pump worked as a real one is: the support
   hand pulls the forend straight back along the magazine, 9 cm, a spent red shell kicking out of the port on the right
   to bounce and lie on the ground a while, then pushes it home, at a real pump's speed, the arm solved so the hand stays
-  on the forend all the way (scratchpad pump_solve.py), the gun held on aim for the rest of the reload, two seconds for
-  the shotgun and one for the Legendary pump, stopped if it's put away; Zach working the golden pump the same way; the
+  on the forend all the way (scratchpad pump_solve.py), the gun held on aim for the rest of the reload, 1.2 seconds for
+  every shotgun (the 0.50 cal's reload swapped with it: the 0.50 cal now takes 2 seconds), stopped if it's put away; Zach working the golden pump the same way; the
   0.50 cal simply held on after it fires, both hands on it, no movement at all; every kick ends in the gun's hold and
   hands straight back to it at full weight, so the support hand never lets go and the body never drops back to the
   walk in between),

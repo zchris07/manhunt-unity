@@ -103,7 +103,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void TheShotgun_StunsAndShovesZach_ReloadsTwoSeconds_SixShells()
+        public void TheShotgun_StunsAndShovesZach_ReloadsInItsTime_SixShells()
         {
             SimRig rig = Duel(200f);
             SimPlayer s = rig.P(2), h = rig.P(1);
@@ -114,7 +114,7 @@ namespace Vision.Tests
             rig.Run(Secs(0.5f));
             Assert.Greater(Scale.ToUnits(h.Pos.x - x0), 40f * Scale.GlobalMove, "shoved back (at the global 70% movement)");
             Assert.AreEqual(5f, s.Inv.AmountAt(0), 1e-4f);
-            Assert.Greater(s.ReloadT, 1f);
+            Assert.AreEqual(Balance.Items.Shotgun.Reload - 0.5f, s.ReloadT, 0.05f, "reloading (1.2 s, half a second gone)");
             Use(rig, s, ItemType.Shotgun);
             Assert.AreEqual(5f, s.Inv.AmountAt(0), 1e-4f, "still reloading");
             for (int i = 0; i < 5; i++)

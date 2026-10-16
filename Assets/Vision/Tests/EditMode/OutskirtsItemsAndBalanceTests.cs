@@ -150,7 +150,7 @@ namespace Vision.Tests
             float hp = s2.Hp;
             for (int i = 0; i < 6; i++) { daphne.ItemHit(rig.Sim, s2, "bottle"); daphne.Slash(rig.Sim, zach, 2); }
             daphne.ItemHit(rig.Sim, s2, "bottle");
-            Assert.IsTrue(daphne.Armed, "she draws her pistol");
+            Assert.IsTrue(daphne.Armed, "she draws her shotgun");
             rig.Run(Secs(3f));
             Assert.Less(s2.Hp, hp, "and fires at her attacker");
             Assert.AreEqual(at, daphne.Pos, "without chasing");

@@ -57,7 +57,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void MoniqueAndDaphne_TurnOnZach_ForHisGasAndHisBurst()
+        public void MoniqueAndDaphne_RunFromZachsGasBurstAndBeam_OnlyHisMacheteSetsThemShooting()
         {
             var rig = new SimRig(1, 1);
             SimPlayer zach = rig.P(1);
@@ -65,14 +65,52 @@ namespace Vision.Tests
             rig.Place(rig.P(2), -2000f, -2000f);
             var monique = Add(rig, new Monique(rig.Sim), 400, 0);
             var daphne = Add(rig, new Daphne(rig.Sim), 0, 400);
+            Assert.IsFalse(monique.VapeHurts, "Penjamin's gas never counts as a swing at her");
+            Assert.IsFalse(daphne.VapeHurts);
             monique.Provoke(rig.Sim, zach);
-            Assert.IsTrue(monique.Armed, "Penjamin's gas sets her off");
+            Assert.IsFalse(monique.Armed, "Penjamin's gas: no gun");
+            Assert.AreNotEqual(NpcFlags.None, monique.Flags & NpcFlags.Fleeing, "she runs");
             // A Soundcloud Burst wave rolling over Daphne.
             rig.Sim.Bursts.Add(new BurstWave { Origin = zach.Pos, Dir = Vector2.up, T0 = rig.Sim.Time, By = zach.Id });
-            rig.Run(SimRig.Secs(1.5f));
-            Assert.IsTrue(daphne.Armed, "the burst sets her off");
-            Assert.AreEqual(NpcFlags.None, daphne.Flags & NpcFlags.Fleeing, "she stands and fights, no running");
-            Assert.AreEqual(NpcFlags.None, monique.Flags & NpcFlags.Fleeing);
+            rig.Run(SimRig.Secs(0.5f));
+            Assert.IsFalse(daphne.Armed, "the burst: no gun");
+            Assert.AreNotEqual(NpcFlags.None, daphne.Flags & NpcFlags.Fleeing, "she runs");
+            // Zach's Hemp Beam sends them running too, already armed or not.
+            daphne.Slash(rig.Sim, zach, 1);
+            Assert.IsTrue(daphne.Armed, "his machete: she fights");
+            daphne.BeamHit(rig.Sim, zach);
+            Assert.IsFalse(daphne.Armed, "his beam: she runs instead");
+            monique.Slash(rig.Sim, zach, 1);
+            Assert.IsTrue(monique.Armed, "his machete: Monique fights");
+        }
+
+        [Test]
+        public void Daphne_BlastsHerShotgun_EndlesslyAtWhoeverSlashesHer()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer zach = rig.P(1);
+            var daphne = Add(rig, new Daphne(rig.Sim), 0, 0);
+            rig.Place(zach, 150f, 0f);
+            rig.Place(rig.P(2), -2000f, -2000f);
+            daphne.Slash(rig.Sim, zach, 1);
+            int blasts = 0;
+            float hp = zach.Hp;
+            for (int i = 0; i < SimRig.Secs(Balance.Monique.AttackSec - 0.3f); i++)
+            {
+                foreach (SimPlayer p in rig.Sim.Order) rig.Sim.SubmitInput(p.Id, new InputCmd { Aim = p.Facing, AimDist = 100f });
+                rig.Sim.Step();
+                foreach (GameEvent e in rig.Sim.Events) if (e.Kind == EventKind.Shot && e.A == -daphne.Id && e.B == (int)ItemType.Shotgun) blasts++;
+                rig.Sim.Events.Clear();
+                // Zach back on his feet each time, to keep her firing.
+                zach.KnockT = 0f;
+                zach.Hp = 1f;
+                rig.Sim.Teleport(zach.Id, SimRig.U(150f, 0f));
+            }
+            Assert.Less(Balance.Items.Shotgun.Reload * (blasts - 1), Balance.Monique.AttackSec, "a blast every reload");
+            Assert.Greater(blasts, 5, "shotgun blasts, endless shells");
+            Assert.AreEqual(1.2f, Balance.Items.Shotgun.Reload, 1e-5f, "the shotgun reloads in the 0.50 cal's old 1.2 s");
+            Assert.AreEqual(2f, Balance.Items.Sniper.Reload, 1e-5f, "the 0.50 cal in the shotgun's old 2 s");
+            Assert.AreEqual(175f * 1.2f, Balance.Njaaron.Run, 1e-3f, "Njaaron runs 20% faster");
         }
 
         static void SnipeAt(SimRig rig, SimPlayer s, float aim, System.Action before = null)

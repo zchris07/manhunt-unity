@@ -84,6 +84,8 @@ namespace Vision.Game
             || (Flags & (NpcFlags.Armed | NpcFlags.Angry | NpcFlags.Chasing | NpcFlags.Raging | NpcFlags.Defending)) != 0;
         /// <summary>A Soundcloud Burst wave passes over it (from Zach, <paramref name="by"/>).</summary>
         public virtual void BurstHit(MatchSim sim, SimPlayer by) { }
+        /// <summary>Zach's Hemp Beam touches it (a light hit, as a swing, unless it takes it otherwise).</summary>
+        public virtual void BeamHit(MatchSim sim, SimPlayer h) => Slash(sim, h, 1);
         /// <summary>A 0.50 cal round passes through it.</summary>
         public virtual void Snipe(MatchSim sim, SimPlayer shooter) => ItemHit(sim, shooter, "shot");
         /// <summary>A survivor attacked Chacko: go after them (Jaden, Plasma, Shane).</summary>

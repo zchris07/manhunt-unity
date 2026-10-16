@@ -436,6 +436,58 @@ namespace Vision.Game
             HurtHunter(zach, onZach * Balance.Items.Shotgun.ZachBlastDamage / Balance.Items.Shotgun.Pellets, p, "pellet");
         }
 
+        /// <summary>
+        /// An NPC's shotgun blast along <paramref name="aim"/> (Daphne's, endless shells): a survivor's shotgun, its pellets,
+        /// spread, reach and damage, striking players only; Zach is shoved and stunned as by a survivor's blast.
+        /// </summary>
+        public void NpcShotgun(Npc by, float aim)
+        {
+            Vector2 o = by.Pos;
+            var pellets = new List<float>();
+            var onSurvivor = new Dictionary<SimPlayer, int>();
+            SimPlayer zach = null;
+            int onZach = 0;
+            for (int i = 0; i < Balance.Items.Shotgun.Pellets; i++)
+            {
+                float a = aim + RandRange(-1f, 1f) * Balance.Items.Shotgun.SpreadDeg * Mathf.Deg2Rad;
+                var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                Vector2 s = o + d * (by.HitRadius + R(2f));
+                float range = R(Balance.Items.Shotgun.Range);
+                float best = Mathf.Min(range, Geo.CastSight(s, d, range));
+                SimPlayer hitP = null;
+                foreach (SimPlayer q in Order)
+                {
+                    bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
+                    if (!ok) continue;
+                    float t = RayCircle(s, d, q.Pos, q.RadiusD);
+                    if (t < best) { best = t; hitP = q; }
+                }
+                pellets.Add(a);
+                pellets.Add(best + by.HitRadius + R(2f));
+                if (hitP != null && hitP.Role == Role.Hunter) { zach = hitP; onZach++; }
+                else if (hitP != null) onSurvivor[hitP] = (onSurvivor.TryGetValue(hitP, out int n0) ? n0 : 0) + 1;
+            }
+            bool hit = zach != null || onSurvivor.Count > 0;
+            var text = new System.Text.StringBuilder(hit ? "hit|" : "|");
+            for (int i = 0; i + 1 < pellets.Count; i += 2)
+            {
+                if (i > 0) text.Append(',');
+                text.Append(Mathf.RoundToInt(pellets[i] * 1000f)).Append(':').Append(Mathf.RoundToInt(Scale.ToUnits(pellets[i + 1])));
+            }
+            Emit(Near(o, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = -by.Id, B = (int)ItemType.Shotgun, Pos = o, F = aim, G = 0f, Text = text.ToString() });
+            Noise(o, 1100f, "shot");
+            foreach (var kv in onSurvivor)
+            {
+                BulletStruck(kv.Key.Pos);
+                HurtSurvivor(kv.Key, kv.Value * Balance.Items.Shotgun.PelletDamage, null, "pellet");
+            }
+            if (zach == null) return;
+            BulletStruck(zach.Pos);
+            Knock(zach, Balance.Items.Shotgun.KbDuration, Balance.Items.Shotgun.KbPeak, Mathf.Atan2(zach.Pos.y - o.y, zach.Pos.x - o.x));
+            StunHunter(zach, Balance.Items.Shotgun.Stun, "shotgun");
+            HurtHunter(zach, onZach * Balance.Items.Shotgun.ZachBlastDamage / Balance.Items.Shotgun.Pellets, null, "pellet");
+        }
+
         /// <summary>The last shotgun blast's pellets (angle, length pairs), for the view.</summary>
         public float[] LastPellets;
 

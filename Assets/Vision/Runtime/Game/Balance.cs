@@ -193,7 +193,8 @@ namespace Vision.Game
             public static class Shotgun
             {
                 public const int Shells = 6, Pellets = 8;
-                public const float Reload = 2f, Range = BeamRange, SpreadDeg = 9f, PelletDamage = 0.15f, Stun = 2.1f * 0.5f, KbPeak = 520f, KbDuration = 0.3f, ZachBlastDamage = 25f;
+                /// <summary>(Reloads swapped with the 0.50 cal's: the shotgun now 1.2 s, the 0.50 cal 2 s.)</summary>
+                public const float Reload = 1.2f, Range = BeamRange, SpreadDeg = 9f, PelletDamage = 0.15f, Stun = 2.1f * 0.5f, KbPeak = 520f, KbDuration = 0.3f, ZachBlastDamage = 25f;
             }
 
             public static class Pistol
@@ -208,14 +209,14 @@ namespace Vision.Game
             public const float AnywhereShare = 0.3f;
             public const float UseSlow = 0.5f, UseSlowTime = 0.8f;
 
-            public static class Golden { public const int Shells = 5; public const float Reload = 1f; }
+            public static class Golden { public const int Shells = 5; public const float Reload = Shotgun.Reload; }
 
             public static class Sniper
             {
                 public const int Shots = 3;
                 /// <summary>Hit, Zach is slowed by this much, falling off linearly to nothing over <see cref="SlowTime"/> seconds.</summary>
                 public const float Slow = 0.5f, SlowTime = 1f;
-                public const float Reload = 1.2f, PelletSpeed = 4000f, Speed = 8000f, ZachHp = 25f, KbPeak = 1100f * 0.75f, KbDuration = 0.5f, SprintLock = 3f, GenDamage = 0.3f, HitRadius = 5f, LaserMax = 6000f;
+                public const float Reload = 2f, PelletSpeed = 4000f, Speed = 8000f, ZachHp = 25f, KbPeak = 1100f * 0.75f, KbDuration = 0.5f, SprintLock = 3f, GenDamage = 0.3f, HitRadius = 5f, LaserMax = 6000f;
                 /// <summary>
                 /// Right click aims it (the user's rule): the scope at the eye, the laser on, the view 15% wider, movement 30%
                 /// slower, and the round goes exactly where it's aimed; fired from the hip it strays up to 5 degrees either side.
@@ -226,7 +227,7 @@ namespace Vision.Game
             public static class ZachPump
             {
                 public const int Shots = 10;
-                public const float Reload = 1f, PelletDamage = 0.09f, Stun = 0.1f, KbPeak = 380f, KbDuration = 0.2f;
+                public const float Reload = Shotgun.Reload, PelletDamage = 0.09f, Stun = 0.1f, KbPeak = 380f, KbDuration = 0.2f;
             }
 
             public static class Energy { public const float Duration = 20f, RefillMul = 1.5f, BonusSec = 2f, SpeedMul = 0.15f; }
@@ -347,7 +348,8 @@ namespace Vision.Game
 
         public static class Njaaron
         {
-            public const float Radius = 14f, Reach = 70f, Walk = 70f, Run = 175f;
+            /// <summary>(Runs 20% faster than the original's 175.)</summary>
+            public const float Radius = 14f, Reach = 70f, Walk = 70f, Run = 175f * 1.2f;
             public const int Hp = 4, StunHits = 3;
             public const float Stun = 1.2f, AngrySec = 10f, PunchHp = 10f, SurvivorPunch = 0.1f, PunchRange = 40f, PunchCooldown = 0.9f, KbPeak = 300f, KbDuration = 0.25f;
             public const float ZachClose = 380f, ZachLose = 800f, RegenMul = 1.2f, AskSec = 8f, ZachBlast = 20f, SurvivorBlast = 0.5f, BlastRadius = 240f;

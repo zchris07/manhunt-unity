@@ -79,7 +79,8 @@ namespace Vision.UI
             if (e.Kind != EventKind.Shot || e.A >= 0) return;
             foreach (View v in views.Values)
                 if (v.Npc.Id == -e.A && v.Layer != null)
-                    v.Layer.Play(e.B == (int)Vision.Player.ItemType.Pistol ? ActionClips.RecoilPistol : e.B == (int)Vision.Player.ItemType.Sniper ? ActionClips.RecoilRifle : ActionClips.RecoilLong, 1f, true);
+                    v.Layer.Play(e.B == (int)Vision.Player.ItemType.Pistol ? ActionClips.RecoilPistol : e.B == (int)Vision.Player.ItemType.Sniper ? ActionClips.RecoilRifle
+                        : v.Npc is Daphne ? ActionClips.PumpReloadShotgun : ActionClips.RecoilLong, 1f, true);
         }
 
         Vector3 Ground(Vector2 at)
@@ -201,7 +202,7 @@ namespace Vision.UI
             else if (n is Sexton sx && sx.State == Sexton.Mode.Talk) prop = PropKind.Tablet;
             else if (n is Jaden && (f & NpcFlags.Armed) != 0) prop = PropKind.Pistol;
             else if (n is Monique && (f & NpcFlags.Armed) != 0) prop = PropKind.Sniper;
-            else if (n is Daphne && (f & NpcFlags.Armed) != 0) prop = PropKind.Pistol;
+            else if (n is Daphne && (f & NpcFlags.Armed) != 0) prop = PropKind.Shotgun;
             else if (n is Waz) prop = PropKind.Magnifier;
             if (dead) prop = PropKind.None;
             if (dead && n is Chacko) clip0 = ActionClips.Sit;
@@ -222,10 +223,11 @@ namespace Vision.UI
                 else if ((f & NpcFlags.Raging) != 0 && !n.Moving) clip = ActionClips.Rage;
                 else if (prop == PropKind.Pistol) clip = ActionClips.AimPistol;
                 else if (prop == PropKind.Sniper) clip = ActionClips.AimRifle;
+                else if (prop == PropKind.Shotgun) clip = ActionClips.AimLong;
                 else if ((f & NpcFlags.Talking) != 0 && !n.Moving) clip = ActionClips.Talk;
             }
             ActionClip cur = v.Layer.Current;
-            bool kick = cur == ActionClips.RecoilPistol || cur == ActionClips.RecoilLong || cur == ActionClips.RecoilRifle;
+            bool kick = cur == ActionClips.RecoilPistol || cur == ActionClips.RecoilLong || cur == ActionClips.RecoilRifle || cur == ActionClips.PumpReloadShotgun;
             bool oneShot = kick && !v.Layer.AtEnd(cur);
             if (!oneShot)
             {
