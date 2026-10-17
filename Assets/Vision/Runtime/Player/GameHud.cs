@@ -187,6 +187,7 @@ namespace Vision.Player
             labelShadow.effectDistance = new Vector2(1f, -1f);
             BuildHeadBars(root);
             BuildWander(root);
+            BuildMoniqueArrow(headBarRoot);
             BuildPlaceBanner(root);
             BuildLockpick(root);
             BuildSkillCheck(root);
@@ -528,6 +529,7 @@ namespace Vision.Player
             RefreshNpcTags(me);
             RefreshHeadBars(me);
             RefreshWander(me);
+            RefreshMoniqueArrow(me);
             RefreshPlaceBanner(me);
             RefreshLockpick(me, host != null ? host.Sim : null);
             RefreshSkillCheck(me, host != null ? host.Sim : null);

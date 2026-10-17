@@ -97,7 +97,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   their input and position 30 times a second; the host sends each player only what changed (20 snapshots a second,
   about 15 KB/s each), with the events meant for them. Zach is never told where a hidden survivor is. Spectators and the
   eliminated watch the others (left click or the arrow keys). A player whose connection drops has 30 s to come back to
-  their place. When the night ends everyone sees the results; the host's **Back to lobby** brings them all back.
+  their place. When the night ends everyone sees the results; the host's **Back to lobby** brings them all back (the results put away for good, never coming back up over the lobby), and **Leave** takes you to the title screen.
 - `Vision.Net`: `Wire` (framing and the message types), `Transport` (a TCP connection with its own reader and writer
   threads, the listener), `FieldPlan` and `Snapshot` (the state codec: each section field by field, sent when changed),
   `Lobby`, `NetServer`, `NetClient`, and `NetSession`, which joins them to the game.
@@ -470,7 +470,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   slashed by Zach, or hit by a survivor's item or round, she stands her ground and blasts them with her shotgun (a
   survivor's shotgun with endless shells, its pump worked after every blast) for ten seconds, every new attack starting
   them again, turning to keep them in her sights but never chasing them, firing whenever they're within 630 units and
-  in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach, then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal, reloading as a survivor's does, three shots at most an aggro cycle before she puts it away (an attack after that starts her again); Daphne keeps her gun up for ten seconds, holding fire while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
+  in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach (for 40 s a red arrow circles the survivor on their screen, pointing at Zach wherever he is, the seconds left under it), then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal, reloading as a survivor's does, three shots at most an aggro cycle before she puts it away (an attack after that starts her again); Daphne keeps her gun up for ten seconds, holding fire while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he

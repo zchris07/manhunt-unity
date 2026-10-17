@@ -141,13 +141,21 @@ namespace Vision.Player
             return ringTex;
         }
 
+        /// <summary>
+        /// Whether a finished match's results go up: once per result, never in testing mode, and never over the lobby or the
+        /// title screen (the finished match's result stays on the sim after the host takes everyone back to the lobby, and
+        /// would otherwise come straight back up over it with no way out).
+        /// </summary>
+        public static bool ShouldShowResults(MatchResult result, MatchResult shown, bool testMode, bool inLobby, bool onMainMenu)
+            => result != null && result != shown && !testMode && !inLobby && !onMainMenu;
+
         /// <summary>The clock, the results when the match ends, and the stake auras over staked teammates (survivors see them anywhere).</summary>
         void RefreshMatch(SimPlayer me)
         {
             MatchSim sim = host != null ? host.Sim : null;
             if (sim == null) return;
             clock.text = sim.Result != null ? Clock(sim.Result.DurationSec) : Clock(sim.Time);
-            if (sim.Result != null && sim.Result != shownResult && !sim.TestMode) ShowResults(sim.Result);
+            if (ShouldShowResults(sim.Result, shownResult, sim.TestMode, lobbyOpen, MainMenuOpen)) ShowResults(sim.Result);
 
             int used = 0;
             Camera cam = Camera.main;

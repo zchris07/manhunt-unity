@@ -245,5 +245,51 @@ namespace Vision.Tests
             Assert.Contains("TEST EFFECTS", texts, "the testing panel");
             foreach (var (_, label) in MatchSim.TestFxButtons) Assert.Contains(label.ToUpperInvariant(), texts);
         }
+
+        [Test]
+        public void TheResults_NeverComeBackUpOverTheLobbyOrTheTitleScreen()
+        {
+            var r = new MatchResult { Winner = Winner.Hunters, Reason = "all eliminated" };
+            Assert.IsTrue(GameHud.ShouldShowResults(r, null, false, false, false), "the match just ended: up they go");
+            Assert.IsFalse(GameHud.ShouldShowResults(r, r, false, false, false), "once");
+            Assert.IsFalse(GameHud.ShouldShowResults(r, null, false, true, false), "back in the lobby, the old result stays put away");
+            Assert.IsFalse(GameHud.ShouldShowResults(r, null, false, false, true), "nor over the title screen after Leave");
+            Assert.IsFalse(GameHud.ShouldShowResults(r, null, true, false, false), "testing mode has no end");
+            Assert.IsFalse(GameHud.ShouldShowResults(null, null, false, false, false));
+            Assert.IsTrue(GameHud.ShouldShowResults(new MatchResult(), r, false, false, false), "a fresh result (a snapshot's copy) is a new one");
+        }
+
+        [Test]
+        public void MoniquesArrow_ShowsOnTheHud_PointingAtZach_AndReachesJoiners()
+        {
+            SandboxWorld world = NewWorld();
+            var camGo = new GameObject("Camera") { tag = "MainCamera" };
+            try
+            {
+                Camera cam = camGo.AddComponent<Camera>();
+                var hud = hudGo.AddComponent<GameHud>();
+                hud.world = world;
+                hud.StartTesting(false);
+                MatchHost host = MatchHost.For(world);
+                SimPlayer me = host.Local;
+                Assert.AreEqual(Role.Survivor, me.Role);
+                Assert.NotNull(host.SpawnDummy(Role.Hunter), "a Zach to point at");
+                cam.transform.position = world.transform.TransformPoint(new Vector3(me.Pos.x, world.GroundHeight(me.Pos) + 30f, me.Pos.y));
+                cam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                hud.Refresh();
+                Assert.IsFalse(hud.MoniqueArrowShowing, "no arrow until Monique gives one");
+                me.ArrowT = Balance.Monique.ArrowSec;
+                hud.Refresh();
+                Assert.IsTrue(hud.MoniqueArrowShowing, "her arrow, on the survivor's screen");
+                Assert.AreEqual("ZACH 40s", hud.MoniqueArrowText);
+                me.ArrowT = 0f;
+                hud.Refresh();
+                Assert.IsFalse(hud.MoniqueArrowShowing, "gone when its time's up");
+                // The time left goes out in every player's snapshot, so a joiner's HUD has it too.
+                var plan = Vision.Net.SnapshotFrame.PlayerPlan;
+                Assert.IsTrue(Enumerable.Range(0, plan.Count).Any(i => plan.NameOf(i) == nameof(SimPlayer.ArrowT)));
+            }
+            finally { Object.DestroyImmediate(camGo); }
+        }
     }
 }
