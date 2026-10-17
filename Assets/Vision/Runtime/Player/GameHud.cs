@@ -188,6 +188,7 @@ namespace Vision.Player
             BuildHeadBars(root);
             BuildWander(root);
             BuildMoniqueArrow(headBarRoot);
+            BuildGhost(root);
             BuildPlaceBanner(root);
             BuildLockpick(root);
             BuildSkillCheck(root);
@@ -374,8 +375,8 @@ namespace Vision.Player
                     if (host != null && e.A == host.LocalId) flash = 1f;
                     break;
                 case EventKind.Jarvis:
-                    // JARVIS shows the user the whole map.
-                    if (host != null && e.A == host.LocalId) map.RevealAll();
+                    // JARVIS shows every survivor the whole map.
+                    if (host != null && host.Local != null && host.Local.Role == Role.Survivor && host.Local.JarvisT > 0f) map.RevealAll();
                     break;
             }
         }
@@ -400,7 +401,7 @@ namespace Vision.Player
             map.Update(visible && !MainMenuOpen);
             // The inventory draws above the full map (its own canvas, sorted on top), so it's hidden outright on the main
             // menu and in the lobby rather than left to be covered.
-            bool bar = !MainMenuOpen && !lobbyOpen && player != null && player.Me != null;
+            bool bar = !MainMenuOpen && !lobbyOpen && player != null && player.Me != null && !player.Me.Ghost;
             if (strip.gameObject.activeSelf != bar) strip.gameObject.SetActive(bar);
             if (player == null || player.Me == null) return;
             Refresh();
@@ -468,7 +469,9 @@ namespace Vision.Player
                 slotIcons[i].enabled = icon != null;
                 if (icon != null && slotIcons[i].texture != icon) slotIcons[i].texture = icon;
                 int count = inv.CountAt(i);
-                slotCounts[i].text = !item.HasValue ? "" : inv.Infinite ? "∞" : count > 1 ? count.ToString() : "";
+                // A gun (and the Hemp Beam) shows its rounds left out of its capacity: 5/5, 4/5...
+                string rounds = inv.RoundsAt(i);
+                slotCounts[i].text = !item.HasValue ? "" : inv.Infinite ? "∞" : rounds ?? (count > 1 ? count.ToString() : "");
                 slotNames[i].text = item.HasValue ? (golden ? "LEGENDARY PUMP" : Items.Short(item.Value).ToUpperInvariant()) : "";
             }
             LayoutSlots(inv, limit);
@@ -530,6 +533,7 @@ namespace Vision.Player
             RefreshHeadBars(me);
             RefreshWander(me);
             RefreshMoniqueArrow(me);
+            RefreshGhost(me);
             RefreshPlaceBanner(me);
             RefreshLockpick(me, host != null ? host.Sim : null);
             RefreshSkillCheck(me, host != null ? host.Sim : null);
@@ -557,10 +561,14 @@ namespace Vision.Player
             int need = sim.Bal.RequiredGenerators;
             string gens = $"<color=#9c9b91>Generators {Mathf.Min(running, need)}/{need}</color>";
             if (sim.Result != null) return $"{sim.Result.Reason}\n<color=#9c9b91>{(sim.Result.Winner == Winner.Hunters ? "Zach wins" : "Survivors win")}</color>";
-            if (me.Role == Role.Hunter) return $"Hunt them down: carry the downed to a stake\n{gens}";
+            if (me.Ghost) return "You're a ghost: left click or F sends out a Ghost Pulse\n<color=#9c9b91>Nothing you do touches the NPCs</color>";
+            if (me.Role == Role.Hunter)
+                return sim.HatchOpen ? $"The hatch is open by the dock: slam it shut (E)\n{gens}" : $"Hunt them down: carry the downed to a stake\n{gens}";
             if (me.Role == Role.Spectator) return "Spectating";
-            if (sim.Gate.Open) return "The gate is open: get out through the yard\n<color=#9c9b91>North side of the building</color>";
-            if (sim.Gate.Powered) return $"Hold E at the gate lever to open it\n{gens}";
+            if (sim.HatchOpen) return "The hatch is open by the lake's dock: jump in to escape\n<color=#9c9b91>Or open a gate</color>";
+            if (sim.Gate.Open || sim.Gate2.Open)
+                return "A gate is open: get out through its yard\n<color=#9c9b91>The building's north side, or beside Miga Sushi</color>";
+            if (sim.Gate.Powered) return "Hold E at a gate's lever to open it\n<color=#9c9b91>The building's north side, or beside Miga Sushi</color>";
             return $"Repair the generators\n{gens}";
         }
 

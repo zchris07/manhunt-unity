@@ -15,6 +15,7 @@ namespace Vision.Player
         static readonly string[] Outcomes = { "escaped", "Escaped", "eliminated", "Sacrificed", "survived", "Survived", "hunter", "Zach" };
 
         GameObject results;
+        bool endGameShown, hatchShown;
         Text resultsBanner, resultsLine, clock;
         RectTransform resultsTable;
         MatchResult shownResult;
@@ -154,7 +155,13 @@ namespace Vision.Player
         {
             MatchSim sim = host != null ? host.Sim : null;
             if (sim == null) return;
-            clock.text = sim.Result != null ? Clock(sim.Result.DurationSec) : Clock(sim.Time);
+            clock.text = sim.Result != null ? Clock(sim.Result.DurationSec) : sim.EndGame ? $"<color=#e0503c>END GAME  {Clock(Mathf.Ceil(sim.EndGameT))}</color>" : Clock(sim.Time);
+            clock.supportRichText = true;
+            // The end game starting, and the hatch opening: said once, in the middle of the screen.
+            if (sim.EndGame && !endGameShown) Overlays?.Center("THE END GAME HAS BEGUN", 4f);
+            endGameShown = sim.EndGame;
+            if (sim.HatchOpen && !hatchShown) Overlays?.Center(me.Role == Role.Hunter ? "THE HATCH IS OPEN · BY THE DOCK" : "THE HATCH IS OPEN · BY THE DOCK · JUMP IN", 4f);
+            hatchShown = sim.HatchOpen;
             if (ShouldShowResults(sim.Result, shownResult, sim.TestMode, lobbyOpen, MainMenuOpen)) ShowResults(sim.Result);
 
             int used = 0;

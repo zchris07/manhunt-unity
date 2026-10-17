@@ -92,9 +92,9 @@ namespace Vision.Game
         public virtual void BeamHit(MatchSim sim, SimPlayer h) => Slash(sim, h, 1);
         /// <summary>A 0.50 cal round passes through it.</summary>
         public virtual void Snipe(MatchSim sim, SimPlayer shooter) => ItemHit(sim, shooter, "shot");
-        /// <summary>A survivor attacked Chacko: go after them (Jaden, Plasma, Shane).</summary>
+        /// <summary>Someone attacked Chacko: go after them (Njaaron, Jaden, Plasma, Shane).</summary>
         public virtual void Avenge(MatchSim sim, SimPlayer target) { }
-        /// <summary>The survivor this NPC is still after for Chacko (0: none).</summary>
+        /// <summary>The player this NPC is still after for Chacko (0: none).</summary>
         public virtual int GrudgeTarget => 0;
         /// <summary>A door closed on it: move clear.</summary>
         public virtual void Unstick(MatchSim sim) { }

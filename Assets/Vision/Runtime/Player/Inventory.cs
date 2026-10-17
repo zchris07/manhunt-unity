@@ -77,13 +77,13 @@ namespace Vision.Player
         /// <summary>Items with a per-unit amount: each pair of goggles' meter, a weapon's rounds.</summary>
         public static bool UsesAmount(ItemType t) => t == ItemType.Goggles || IsWeapon(t);
 
-        /// <summary>A fresh unit's amount (full goggles, a loaded weapon).</summary>
+        /// <summary>A fresh unit's amount (full goggles, a loaded weapon: the lobby's starting rounds for each gun).</summary>
         public static float FreshAmount(ItemType t, bool golden = false) => t switch
         {
             ItemType.Goggles => Vision.Game.Balance.Items.Goggles.Meter,
-            ItemType.Shotgun => golden ? Vision.Game.Balance.Items.Golden.Shells : Vision.Game.Balance.Items.Shotgun.Shells,
-            ItemType.Pistol => Vision.Game.Balance.Items.Pistol.Shots,
-            ItemType.Sniper => Vision.Game.Balance.Items.Sniper.Shots,
+            ItemType.Shotgun => golden ? Vision.Game.MatchState.Current.Tuning.GoldenAmmo : Vision.Game.MatchState.Current.Tuning.ShotgunAmmo,
+            ItemType.Pistol => Vision.Game.MatchState.Current.Tuning.PistolAmmo,
+            ItemType.Sniper => Vision.Game.MatchState.Current.Tuning.SniperAmmo,
             ItemType.HempBeam => Vision.Game.Balance.Hunter.Beam.Charges,
             _ => 0f,
         };
@@ -111,6 +111,8 @@ namespace Vision.Player
             public bool golden;
             /// <summary>Per unit: goggle meter seconds or rounds left (weapons and goggles only).</summary>
             public readonly List<float> amounts = new List<float>();
+            /// <summary>A weapon's capacity, for the slot's rounds-left count (5/5; another 0.50 cal picked up makes it 10/10).</summary>
+            public float cap;
 
             public bool Empty => count <= 0;
 
@@ -118,6 +120,7 @@ namespace Vision.Player
             {
                 count = 0;
                 golden = false;
+                cap = 0f;
                 amounts.Clear();
             }
         }
@@ -146,6 +149,14 @@ namespace Vision.Player
         public ItemType? ItemAt(int slot) => slot >= 0 && slot < TestingSlots && slots[slot].count > 0 ? slots[slot].item : (ItemType?)null;
         public int CountAt(int slot) => slot >= 0 && slot < TestingSlots ? slots[slot].count : 0;
         public bool GoldenAt(int slot) => slot >= 0 && slot < TestingSlots && slots[slot].count > 0 && slots[slot].golden;
+
+        /// <summary>A weapon slot's rounds left out of its capacity ("5/5"), or null for anything else.</summary>
+        public string RoundsAt(int slot)
+        {
+            Slot s = SlotAt(slot);
+            if (s == null || s.count <= 0 || !Items.IsWeapon(s.item) || s.amounts.Count == 0) return null;
+            return $"{Mathf.Max(0, Mathf.RoundToInt(s.amounts[0]))}/{Mathf.Max(1, Mathf.RoundToInt(Mathf.Max(s.cap, s.amounts[0])))}";
+        }
 
         /// <summary>The amount (rounds, goggle seconds) of the unit that will be used next in a slot.</summary>
         public float AmountAt(int slot)
@@ -206,6 +217,16 @@ namespace Vision.Player
                     if (s.count > 0 && s.item == ItemType.Shotgun && s.golden == golden && s.amounts.Count > 0)
                     {
                         s.amounts[0] += amount;
+                        s.cap += amount;
+                        return;
+                    }
+            // Another 0.50 cal: its rounds go into the one carried, and the count's capacity grows by a full one (10/10).
+            if (item == ItemType.Sniper)
+                foreach (Slot s in slots)
+                    if (s.count > 0 && s.item == ItemType.Sniper && s.amounts.Count > 0)
+                    {
+                        s.amounts[0] += amount;
+                        s.cap += Items.FreshAmount(ItemType.Sniper);
                         return;
                     }
             bool weapon = Items.IsWeapon(item);
@@ -232,6 +253,7 @@ namespace Vision.Player
             t.golden = item == ItemType.Shotgun && golden;
             t.amounts.Clear();
             if (Items.UsesAmount(item)) t.amounts.Add(amount);
+            t.cap = Items.IsWeapon(item) ? Mathf.Max(amount, Items.FreshAmount(item, golden)) : 0f;
         }
 
         /// <summary>Uses up one unit of a slot (not in testing mode). False when the slot is empty.</summary>

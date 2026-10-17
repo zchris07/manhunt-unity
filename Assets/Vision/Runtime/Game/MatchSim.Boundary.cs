@@ -84,17 +84,18 @@ namespace Vision.Game
             }
         }
 
-        /// <summary>Night vision, JARVIS and the Hemp Battery work up to the second ring, not past it.</summary>
+        /// <summary>
+        /// Night vision and the Hemp Battery work up to the second ring, not past it. JARVIS goes dark past it too (its time
+        /// running on), and comes back on as they come back in (<see cref="JarvisActive"/>), without its boot.
+        /// </summary>
         void VisionItemsOff(SimPlayer p)
         {
             p.GogglesOn = false;
-            if (p.JarvisT > 0f)
-            {
-                p.JarvisT = 0f;
-                RevealT = 0f;
-            }
             if (p.Role == Role.Hunter) p.HempOn = false;
         }
+
+        /// <summary>JARVIS working for this survivor right now: running, and they're not out past the second ring.</summary>
+        public static bool JarvisActive(SimPlayer p) => p != null && p.Role == Role.Survivor && p.JarvisT > 0f && p.Zone < 2;
 
         /// <summary>Gone into the dark: eliminated at once, without being downed.</summary>
         void Woods(SimPlayer p)

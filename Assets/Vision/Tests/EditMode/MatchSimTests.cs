@@ -213,23 +213,24 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Swipes_TakeAThirdEach_ThreeDownThem_WithASpeedBurst()
+        public void Swipes_TakeTenUncharged_TenDownThem_WithASpeedBurst()
         {
             SimRig rig = Duel(60f, 2);
             SimPlayer h = rig.P(1), s = rig.P(2);
             rig.Tap(1, Btn.Primary);
             rig.Run(10);
             Assert.AreEqual(Health.Wounded, s.Health);
-            Assert.AreEqual(2f / 3f, s.Hp, 1e-3f);
+            Assert.AreEqual(0.9f, s.Hp, 1e-3f, "an uncharged swing takes 10 of their 100");
             Assert.Greater(s.Move.HasteT, 0f, "a burst of speed");
-            foreach (float left in new[] { 1f / 3f, 0f })
+            for (int i = 2; i <= 10; i++)
             {
                 rig.Run(Secs(Balance.Hunter.Attack.SwingTime) + 2);
                 rig.Place(s, Scale.ToUnits(h.Pos.x) + 60f, Scale.ToUnits(h.Pos.y));
                 rig.Tap(1, Btn.Primary);
                 rig.Run(10);
-                Assert.AreEqual(left, s.Hp, 1e-3f);
+                Assert.AreEqual(Mathf.Max(0f, 1f - 0.1f * i), s.Hp, 1e-3f);
             }
+            Assert.AreEqual(Health.Downed, s.Health, "the tenth downs them");
             Assert.AreEqual(Health.Downed, s.Health);
             Assert.AreEqual(MoveMode.Crawl, rig.Sim.MoveModeFor(s));
             Assert.AreEqual(1, h.Stats.Downs);
@@ -268,7 +269,7 @@ namespace Vision.Tests
             Assert.AreEqual(1.85f, Balance.Hunter.Attack.HeavyAt, 1e-5f, "a second longer than the original's 0.85 s");
             Assert.AreEqual(1.9f, Balance.Hunter.Attack.ChargeMax, 1e-5f);
             Assert.AreEqual(4f, Balance.Hunter.Attack.AutoRelease, 1e-5f, "a full charge can still be held 2.1 s");
-            Assert.AreEqual(1f / 3f + 1f / 6f, MatchSim.SwipeDamage(0.1f + 0.875f), 1e-4f, "the damage builds over the longer charge");
+            Assert.AreEqual(0.1f + (2f / 3f - 0.1f) * 0.5f, MatchSim.SwipeDamage(0.1f + 0.875f), 1e-4f, "the damage builds evenly over the longer charge");
             SimRig rig = Duel(150f);
             SimPlayer h = rig.P(1), s = rig.P(2);
             rig.Hold(1, Btn.Primary, Secs(Balance.Hunter.Attack.ChargeMax) + 1);
@@ -278,8 +279,8 @@ namespace Vision.Tests
             Assert.AreEqual(-1f, h.ChargeT);
             Assert.AreEqual(Health.Wounded, s.Health, "the heavy swipe reaches 150 u");
             Assert.AreEqual(1f / 3f, s.Hp, 1e-3f);
-            Assert.AreEqual(1f / 3f, MatchSim.SwipeDamage(0f), 1e-5f);
-            Assert.AreEqual(2f / 3f, MatchSim.SwipeDamage(Balance.Hunter.Attack.ChargeMax), 1e-5f);
+            Assert.AreEqual(0.1f, MatchSim.SwipeDamage(0f), 1e-5f, "an uncharged swing: 10");
+            Assert.AreEqual(2f / 3f, MatchSim.SwipeDamage(Balance.Hunter.Attack.ChargeMax), 1e-5f, "fully charged: two thirds");
         }
 
         [Test]
@@ -588,13 +589,13 @@ namespace Vision.Tests
             Assert.IsTrue(dummy.IsDummy);
             Assert.GreaterOrEqual(dummy.Id, MatchSim.FirstDummyId);
             Assert.IsNull(new SimRig(1, 1).Sim.AddDummy(Role.Survivor, Vector2.zero), "testing mode only");
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 10; i++)
             {
                 rig.Place(dummy, Scale.ToUnits(zach.Pos.x) + 60f, Scale.ToUnits(zach.Pos.y));
                 rig.Tap(1, Btn.Primary);
                 rig.Run(Secs(Balance.Hunter.Attack.SwingTime) + 4);
             }
-            Assert.AreEqual(Health.Downed, dummy.Health, "three swipes down a dummy");
+            Assert.AreEqual(Health.Downed, dummy.Health, "ten light swipes down a dummy");
             rig.Run(2);
             Assert.AreEqual(Prompt.PickUp, zach.Prompt);
             rig.Tap(1, Btn.Interact);

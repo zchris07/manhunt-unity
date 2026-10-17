@@ -21,6 +21,7 @@ namespace Vision.Tests
         /// <summary>Constants deliberately not read, and why. Anything else unread fails the test.</summary>
         static readonly Dictionary<string, string> NotRead = new Dictionary<string, string>
         {
+            ["ZachPump.Shots"] = "the lobby's golden pump shells (Tuning.GoldenAmmo, by default Golden.Shells, the same twelve) load Zach's golden pump too",
             ["World.WarehouseSize"] = "the original's warehouse map; the Unity world builds its own central building (BuildingPlan)",
             ["Net.InterpolationDelayMs"] = "the original's snapshot buffer; Unity puppets ease toward each 30 Hz tick instead",
             ["Survivor.Radius"] = "an alias of Balance.SurvivorRadius, which the game reads",

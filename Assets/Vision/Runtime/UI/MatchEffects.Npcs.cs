@@ -23,6 +23,9 @@ namespace Vision.UI
         {
             if (e.Kind != EventKind.Talk || e.A >= 0) return false;
             if (e.Text == "tablet") tablets.Add(new Tablet { From = e.Pos, To = e.B, Born = Now });
+            // Plasma.TTV's gamer rage, and anyone laying into Chacko: their clips, from where they are.
+            else if (e.Text == "gamer_rage") Audio.PlayCue("gamer_smash", Units(e.Pos));
+            else if (e.Text == "chacko_attacked") Audio.PlayCue("chacko_attacked", Units(e.Pos));
             return true;
         }
 

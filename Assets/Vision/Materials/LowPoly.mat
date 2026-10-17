@@ -29,6 +29,7 @@ Material:
     - _Entity: 0
     - _RampSteps: 0
     - _StencilRef: 0
+    - _Whiten: 0
     m_Colors:
     - _Tint: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

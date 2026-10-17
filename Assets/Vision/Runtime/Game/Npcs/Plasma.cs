@@ -9,8 +9,10 @@ namespace Vision.Game
     /// turns into a hulking beast, then chases whoever hit him and punches until they're down (Zach goes down, without the
     /// lasting slowdown), then turns back and walks off. Losing him for ten seconds calms him, and ten seconds after he
     /// changes he turns back on his own. Items and the machete stun him; only the beast can be killed. Talk to him (either
-    /// side) and he says "ggs" and hands you a golden pump, once each. After a survivor attacks Chacko he rages at them until
-    /// they're down (or he's slain), turning on them again whenever they come back out of hiding.
+    /// side) and he says "ggs" and hands you a golden pump: one to the survivors and one to Zach, no more; anyone after
+    /// that is told "sorry, i'm all out bro". After anyone attacks Chacko he rages at them, from wherever he is, until he's
+    /// dealt them a third of their health (or they're down, or he's slain), turning on them again whenever they come back
+    /// out of hiding.
     /// </summary>
     public sealed class Plasma : Walker
     {
@@ -24,9 +26,13 @@ namespace Vision.Game
         float escapeT, rageT, punchCd, punchAge = 9f;
         /// <summary>Raging for Chacko: no calming down for time or for losing them.</summary>
         bool avenging;
-        /// <summary>The survivor he's after for Chacko (0: none).</summary>
+        /// <summary>The player he's after for Chacko (0: none), and how much of their health he's taken off them so far.</summary>
         int grudge;
+        float grudgeDealt;
+        /// <summary>Who has talked to him, and whether each side has had its one golden pump.</summary>
         readonly HashSet<int> given = new HashSet<int>();
+        bool survivorPump, zachPump;
+        public const string LineAllOut = "sorry, i'm all out bro";
         readonly Chaser chaser;
 
         public override string Name => "Plasma.TTV";
@@ -67,7 +73,10 @@ namespace Vision.Game
 
         public override Prompt TalkPrompt(MatchSim sim, SimPlayer p) => CanTalk(p) ? Prompt.TalkPlasma : Prompt.None;
 
-        /// <summary>"ggs": a golden pump for whoever asks (once each).</summary>
+        /// <summary>Whether he still has the golden pump for a player of this side.</summary>
+        public bool HasPumpFor(Role role) => role == Role.Hunter ? !zachPump : !survivorPump;
+
+        /// <summary>"ggs": a golden pump for the first of each side to ask; anyone after that, he's all out.</summary>
         public override void Talk(MatchSim sim, SimPlayer p)
         {
             if (!CanTalk(p)) return;
@@ -76,10 +85,18 @@ namespace Vision.Game
             State = Mode.Idle;
             ModeT = 1.5f;
             TalkT = 1.5f;
+            if (!HasPumpFor(p.Role))
+            {
+                Speak(LineAllOut);
+                Sim.Tell(p, "Plasma.TTV is all out of golden pumps");
+                return;
+            }
+            if (p.Role == Role.Hunter) zachPump = true;
+            else survivorPump = true;
             Speak("ggs");
             if (p.Role == Role.Hunter)
             {
-                p.Pump = Balance.Items.ZachPump.Shots;
+                p.Pump = MatchState.Current.Tuning.GoldenAmmo;
                 p.ChargeT = -1f;
             }
             else Sim.AddItem(p, ItemType.Shotgun, null, true);
@@ -97,13 +114,17 @@ namespace Vision.Game
 
         public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by, 0f, 0);
 
-        /// <summary><paramref name="p"/> attacked Chacko: GAMER RAGE at them, wherever they are, until they're down.</summary>
+        /// <summary><paramref name="p"/> attacked Chacko: GAMER RAGE at them, wherever they are, until he's taken a third of their health.</summary>
         public override void Avenge(MatchSim sim, SimPlayer p)
         {
             if (!alive || p == null) return;
             grudge = p.Id;
+            grudgeDealt = 0f;
             if (Huntable(p)) Pursue(p);
         }
+
+        /// <summary>A grudge for Chacko is over once he's dealt the player a third of their health.</summary>
+        public const float GrudgeShare = 1f / 3f;
 
         void Pursue(SimPlayer p)
         {
@@ -122,7 +143,7 @@ namespace Vision.Game
         {
             if (grudge == 0) return;
             SimPlayer g = Sim.Get(grudge);
-            if (g == null || !OnFeet(g))
+            if (g == null || !Huntable(g, true) || grudgeDealt >= GrudgeShare - 1e-4f)
             {
                 grudge = 0;
                 avenging = false;
@@ -173,6 +194,7 @@ namespace Vision.Game
             Face(by.Pos);
             chaser.Reset();
             Speak("GAMER RAGE");
+            Sim.Emit(Sim.Near(Pos, Balance.Net.HearingRadius), new GameEvent { Kind = EventKind.Talk, A = -Id, Text = "gamer_rage", Pos = Pos });
             Sim.Feed($"{by.Name} made Plasma.TTV rage");
         }
 
@@ -184,9 +206,17 @@ namespace Vision.Game
             Target = 0;
             Moving = false;
             StunT = 0f;
-            var drop = new DropItem { Id = Sim.AllocEntityId(), Pos = Pos, Item = ItemType.Shotgun, Golden = true, Amount = Balance.Items.Golden.Shells };
+            var drop = new DropItem { Id = Sim.AllocEntityId(), Pos = Pos, Item = ItemType.Shotgun, Golden = true, Amount = Items.FreshAmount(ItemType.Shotgun, true) };
             Sim.PlaceDrop(drop, Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * Scale.D(26f));
             Sim.Feed($"{by.Name} slew Plasma.TTV. His golden pump is on the ground");
+        }
+
+        /// <summary>He's taken his third out of Chacko's attacker: done with them.</summary>
+        void EndGrudge(SimPlayer t)
+        {
+            grudge = 0;
+            Sim.Feed($"Plasma.TTV is done with {t.Name}");
+            CalmDown();
         }
 
         void CalmDown()
@@ -198,11 +228,12 @@ namespace Vision.Game
             Moving = false;
         }
 
-        static bool Huntable(SimPlayer p)
+        /// <summary>Someone he can go after: Zach up and about, or a survivor on their feet (out of hiding, unless <paramref name="hiddenToo"/>).</summary>
+        static bool Huntable(SimPlayer p, bool hiddenToo = false)
         {
             if (p == null) return false;
             if (p.Role == Role.Hunter) return p.Health != Health.Eliminated && p.KnockT <= 0f;
-            return OnFeet(p) && p.HideState == 0;
+            return p.Role == Role.Survivor && !p.Ghost && OnFeet(p) && (hiddenToo || p.HideState == 0);
         }
 
         public override void Update(MatchSim sim, float dt)
@@ -332,19 +363,24 @@ namespace Vision.Game
             punchCd = Balance.Plasma.PunchCooldown;
             punchAge = 0f;
             Sim.Noise(Pos, 500f, "punch");
+            float before = t.Hp;
             if (t.Role == Role.Survivor)
             {
                 Sim.HurtSurvivor(t, Balance.Plasma.PunchDamage, null, "punch");
+                if (t.Id == grudge) grudgeDealt += Mathf.Max(0f, before - t.Hp);
                 if (t.Health == Health.Downed)
                 {
                     Sim.Feed($"Plasma.TTV beat {t.Name} down");
                     CalmDown();
                 }
+                else if (t.Id == grudge && grudgeDealt >= GrudgeShare - 1e-4f) EndGrudge(t);
                 return;
             }
             // Zach: punched until he goes down.
             Sim.HurtHunter(t, Balance.Plasma.ZachPunchDamage, null, "punch");
+            if (t.Id == grudge) grudgeDealt += Mathf.Max(0f, before - t.Hp);
             if (t.KnockT > 0f) CalmDown();
+            else if (t.Id == grudge && grudgeDealt >= GrudgeShare - 1e-4f) EndGrudge(t);
         }
     }
 }

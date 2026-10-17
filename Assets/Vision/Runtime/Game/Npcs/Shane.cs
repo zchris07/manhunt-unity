@@ -7,8 +7,8 @@ namespace Vision.Game
     /// Shane Jeans (the original's shane.ts): a harmless, unkillable wanderer with a faint light. Survivors who crowd him
     /// or keep a flashlight on him alert him, and he tails that survivor as closely as he can, a beacon for Zach. He
     /// ignores Zach, can't open doors or break pallets, and gives up after a while; two bottles or a shotgun blast in one
-    /// chase shake him off, and galaxy gas makes him lose them. After a survivor attacks Chacko he goes after them and only
-    /// gives up once he's shaken off like that.
+    /// chase shake him off, and galaxy gas makes him lose them. After anyone attacks Chacko he runs after them from wherever
+    /// he is and only gives up once he's shaken off like that (Zach shakes him off with his machete or a Soundcloud Burst).
     /// </summary>
     public class Shane : Walker
     {
@@ -74,6 +74,21 @@ namespace Vision.Game
         public override NpcFlags Flags => base.Flags | (State == Mode.Chase ? NpcFlags.Chasing : 0) | (State == Mode.Flee ? NpcFlags.Fleeing : 0);
         public override int GrudgeTarget => alive ? Grudge : 0;
         public override bool TripsTraps => State == Mode.Chase;
+        /// <summary>Chasing Zach for Chacko, his machete can throw Shane off.</summary>
+        public override bool Slashable => alive && State == Mode.Chase && ChasingZach;
+        protected bool ChasingZach => Sim.Get(Target) is SimPlayer t && t.Role == Role.Hunter;
+
+        /// <summary>Zach's machete (only while Shane's on him for Chacko): thrown off.</summary>
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
+        {
+            if (alive && harm && State == Mode.Chase && ChasingZach) ShakeOff();
+        }
+
+        /// <summary>A Soundcloud Burst wave rolling over him while he's on Zach: stunned and driven off.</summary>
+        public override void BurstHit(MatchSim sim, SimPlayer by)
+        {
+            if (alive && State == Mode.Chase && ChasingZach && by != null && by.Id == Target) ShakeOff();
+        }
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind)
         {
@@ -182,8 +197,13 @@ namespace Vision.Game
             return d > HitRadius + t.RadiusD + Scale.D(6f) ? C.Chase : 0f;
         }
 
+        /// <summary>Someone he'll follow: a survivor about (not hidden), or Zach himself when Chacko's attacker was Zach.</summary>
         protected virtual bool Eligible(SimPlayer p) =>
-            p.Role == Role.Survivor && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed) && p.HideState == 0;
+            (p.Role == Role.Survivor && !p.Ghost && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed) && p.HideState == 0)
+            || (p.Role == Role.Hunter && p.Id == Grudge && p.Health != Health.Eliminated);
+
+        /// <summary>Whether a flashlight kept on him alerts him too (Shane), or only standing close does (Jaden).</summary>
+        protected virtual bool AlertedByBeam => true;
 
         /// <summary>
         /// Standing close to him (faster the closer) or keeping a flashlight on him builds a survivor's alert meter;
@@ -198,13 +218,13 @@ namespace Vision.Game
             }
             foreach (SimPlayer p in Sim.Order)
             {
-                if (!Eligible(p)) continue;
+                if (!Eligible(p) || p.Role != Role.Survivor) continue;
                 float d = Vector2.Distance(p.Pos, Pos);
                 float near = Scale.D(C.AlertRadius) + p.RadiusD;
                 float rate = 0f;
                 bool sight = Sim.Geo.LineOfSight(p.Pos, Pos);
                 if (d <= near && sight) rate += (0.5f + 0.5f * (1f - d / near)) / C.ProxAlertSec;
-                if (sight && Sim.InCone(p, Pos, HitRadius)) rate += 1f / C.FlashAlertSec;
+                if (AlertedByBeam && sight && Sim.InCone(p, Pos, HitRadius)) rate += 1f / C.FlashAlertSec;
                 Meter.TryGetValue(p.Id, out float before);
                 float m = Mathf.Max(0f, before + (rate > 0f ? rate * dt : -C.AlertDecay * dt));
                 if (m >= 1f)

@@ -5,9 +5,9 @@ using UnityEngine.UI;
 namespace Vision.UI
 {
     /// <summary>
-    /// The JARVIS screen, for the survivor running it. First the boot, two seconds after Tony Stark's JARVIS start-up: a
-    /// bright blue light streaks across the middle of the screen, an angular frame draws in round it, "INITIATING J.A.R.V.I.S.
-    /// 1...." types out with a blinking block cursor, diagnostics flicker under it (network, protocol, memory, CHECKSUM: OK),
+    /// The JARVIS screen, for every survivor while it runs. First the boot, two seconds after Tony Stark's JARVIS start-up: a
+    /// bright blue light streaks across the middle of the screen, an angular frame draws in round it, "INITIATING J.A.R.V.I.S."
+    /// types out and counts 1... 2... 3... with a blinking block cursor, diagnostics flicker under it (network, protocol, memory, CHECKSUM: OK),
     /// a segmented bar fills, and it all breaks up in a glitch. Then, for as long as JARVIS runs: a blue wash and vignette
     /// with scanlines, corner brackets, panels of ticking stats and metrics (uplink, power, core temperature, scan progress,
     /// the session counting down), a pair of rotating range rings, a scrolling hex dump and a bank of meters; and the mouse
@@ -208,14 +208,15 @@ namespace Vision.UI
         /// Shows the screen while JARVIS runs: <paramref name="left"/> the seconds it has left (0: off), <paramref name="length"/>
         /// its whole run, <paramref name="menu"/> whether a menu is up (the reticle gives way to the cursor).
         /// </summary>
-        public void Run(float left, float length, bool menu)
+        /// <param name="skipBoot">Coming back on part way through a run (back in from past the second ring): straight to the screen.</param>
+        public void Run(float left, float length, bool menu, bool skipBoot = false)
         {
             float now = Time.unscaledTime;
             if (left > 0f && (start < 0f || endAt >= 0f))
             {
                 Build();
                 canvas.gameObject.SetActive(true);
-                start = now;
+                start = skipBoot ? now - BootTime : now;
                 endAt = -1f;
                 total = Mathf.Max(left, 0.1f);
             }
@@ -271,11 +272,8 @@ namespace Vision.UI
                 float k = Ease((t - 0.15f - (i % 5) * 0.04f) / 0.2f);
                 frameParts[i].localScale = new Vector3(k, 1f, 1f);
             }
-            // The title typing out, the block cursor blinking after it.
-            const string text = "INITIATING J.A.R.V.I.S. 1....";
-            int n = Mathf.Clamp(Mathf.RoundToInt((t - 0.3f) / 0.5f * text.Length), 0, text.Length);
-            bool blink = Mathf.Repeat(t, 0.24f) < 0.12f;
-            title.text = text.Substring(0, n) + (blink ? " █" : "  ");
+            // The title typing out, then counting on (1... 2... 3...), the block cursor blinking after it.
+            title.text = BootTitle(t) + (Mathf.Repeat(t, 0.24f) < 0.12f ? " █" : "  ");
             // Diagnostics: a few lines at a time, flickering through, then the checksum.
             if (t < 0.45f) diag.text = "";
             else if (t < 1.3f)
@@ -287,6 +285,24 @@ namespace Vision.UI
             // The segmented bar filling.
             float fill = Mathf.Clamp01((t - 1.05f) / 0.65f) * segs.Length;
             for (int i = 0; i < segs.Length; i++) segs[i].color = A(Bright, Mathf.Clamp01(fill - i) * 0.95f);
+        }
+
+        /// <summary>The boot's title <paramref name="t"/> s in: "INITIATING J.A.R.V.I.S." typing out, then 1... 2... 3... a beat apart.</summary>
+        public static string BootTitle(float t)
+        {
+            const string head = "INITIATING J.A.R.V.I.S.";
+            int n = Mathf.Clamp(Mathf.RoundToInt((t - 0.3f) / 0.35f * head.Length), 0, head.Length);
+            if (n < head.Length) return head.Substring(0, n);
+            var sb = new System.Text.StringBuilder(head);
+            for (int i = 1; i <= 3; i++)
+            {
+                // Each count types its digit, then its dots one by one.
+                float at = 0.7f + (i - 1) * 0.33f;
+                if (t < at) break;
+                int dots = Mathf.Clamp(Mathf.FloorToInt((t - at) / 0.07f), 0, 3);
+                sb.Append(' ').Append(i).Append('.', dots);
+            }
+            return sb.ToString();
         }
 
         void UpdateHud(float t, float left, float now)

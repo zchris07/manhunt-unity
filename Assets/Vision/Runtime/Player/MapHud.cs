@@ -458,6 +458,15 @@ namespace Vision.Player
                 Color c = world.Gate.IsOpen ? new Color(0.3f, 1f, 0.42f) : ExitGate.Powered ? new Color(1f, 0.82f, 0.23f) : new Color(0.54f, 0.54f, 0.63f);
                 Show(world.Gate, at, c, new Vector2(16f, 6f), false);
             }
+            // The second gate, beside Miga Sushi (turned to its side).
+            if (world.Gate2 != null && world.Layout.HasSushiGate)
+            {
+                Color c = world.Gate2.IsOpen ? new Color(0.3f, 1f, 0.42f) : ExitGate.Powered ? new Color(1f, 0.82f, 0.23f) : new Color(0.54f, 0.54f, 0.63f);
+                Show(world.Gate2, world.Layout.SushiGateMid(), c, world.Layout.SushiGateSide % 2 == 0 ? new Vector2(16f, 6f) : new Vector2(6f, 16f), false);
+            }
+            // The hatch, once it's open (black ringed with blue), shut by Zach (dark grey).
+            if (world.Hatch != null && (world.Hatch.Open || world.Hatch.Closed))
+                Show(world.Hatch, world.Layout.Hatch, world.Hatch.Open ? new Color(0.45f, 0.75f, 1f) : new Color(0.3f, 0.3f, 0.32f), new Vector2(11f, 11f), false, true);
             // Zach knows where every stake in play stands.
             Vision.Game.MatchHost host = Vision.Game.MatchHost.For(world);
             if (host != null && host.Local != null && host.Local.Role == Vision.Game.Role.Hunter)

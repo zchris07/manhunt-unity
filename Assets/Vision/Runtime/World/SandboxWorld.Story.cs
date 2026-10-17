@@ -163,20 +163,21 @@ namespace Vision.World
                 }
         }
 
-        /// <summary>The Four Notes: creepy photos left beside the paths, far apart, away from the spawns, supplies and ambulance.</summary>
-        /// <summary>
-        /// The paper notes, each photo once (note-1 to note-6, in a random order): one beside every generator (so the
-        /// graveyard's generator always has one, a random one), and the rest along the paths, far apart, as before.
-        /// </summary>
         /// <summary>How much bigger than its model a note lies on the ground (a big sheet, easy to spot).</summary>
         public const float NoteScale = 2.2f;
 
+        /// <summary>
+        /// The paper notes, in a random order of their photos (<see cref="NotePictures"/>: note-1 to note-6, and any the user
+        /// added): one beside every generator, and every photo not yet down along the paths (or, failing that, on the
+        /// building's floor), so every photo always lies somewhere on the map.
+        /// </summary>
         void BuildNotes()
         {
             System.Random r = FeatureRng(10);
             float R(float a, float b) => a + (float)r.NextDouble() * (b - a);
             var order = new List<int>();
-            for (int i = 0; i < Game.Balance.Notes.Images; i++) order.Insert(r.Next(order.Count + 1), i);
+            int images = NotePictures.Count;
+            for (int i = 0; i < images; i++) order.Insert(r.Next(order.Count + 1), i);
             int next = 0;
             Transform parent = Group("Notes");
             var placed = new List<Vector2>();
@@ -224,8 +225,12 @@ namespace Vision.World
 
             // The rest along the paths.
             PathNetwork paths = Terrain.Paths;
-            if (paths == null || paths.Paths.Count == 0) return;
-            int pathNotes = Mathf.Max(0, Game.Balance.Notes.Images - Notes.Count);
+            int pathNotes = Mathf.Max(0, images - Notes.Count);
+            if (paths == null || paths.Paths.Count == 0)
+            {
+                PutIndoors(pathNotes);
+                return;
+            }
             Vector2 hunter = Layout.Spawn;
             float far = -1f;
             foreach (MapLayout.Clearing c in Layout.Clearings)
@@ -262,6 +267,29 @@ namespace Vision.World
                 }
                 if (nearLoot) continue;
                 Put(p, null);
+            }
+            // Any photo the paths had no room for lies inside the building.
+            PutIndoors(target - Notes.Count);
+
+            void PutIndoors(int n)
+            {
+                BuildingPlan plan = Layout.Plan;
+                if (plan == null || n <= 0) return;
+                var spots = new List<Vector2>(plan.LootSpots);
+                for (int k = spots.Count - 1; k > 0; k--)
+                {
+                    int j = r.Next(k + 1);
+                    (spots[k], spots[j]) = (spots[j], spots[k]);
+                }
+                foreach (Vector2 p in spots)
+                {
+                    if (n <= 0) break;
+                    bool near = false;
+                    foreach (Vector2 q in placed) if (Vector2.Distance(q, p) < 3f) near = true;
+                    if (near) continue;
+                    Put(p, BuildingFloor);
+                    n--;
+                }
             }
         }
     }

@@ -163,13 +163,13 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Jarvis_LightsEverySurvivorsScreen_ForTenSeconds()
+        public void Jarvis_LightsEverySurvivorsScreen_ForItsTwentySeconds()
         {
             var rig = new SimRig(1, 1, true);
             SimPlayer s = rig.P(2);
             rig.Tap(s.Id, Btn.Ability);
-            Assert.AreEqual(Balance.Sexton.JarvisRadarSec, rig.Sim.RevealT, 0.1f, "the reveal runs");
-            rig.Run(Secs(Balance.Sexton.JarvisRadarSec + 0.2f));
+            Assert.AreEqual(Balance.Sexton.JarvisUserSec, rig.Sim.RevealT, 0.1f, "the reveal runs");
+            rig.Run(Secs(Balance.Sexton.JarvisUserSec + 0.2f));
             Assert.AreEqual(0f, rig.Sim.RevealT);
             Assert.Greater(Vision.Rendering.VisionMaskRenderer.RevealLight, 0.5f, "above the line that shows people");
         }

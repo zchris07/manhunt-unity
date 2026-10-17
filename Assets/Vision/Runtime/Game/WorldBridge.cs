@@ -26,6 +26,19 @@ namespace Vision.Game
                 map.Lever = w.Gate.lever != null ? Local(w.Gate.lever.position) : Local(w.Gate.transform.position);
                 map.GatePos = Local(w.Gate.transform.position);
             }
+            if (w.Gate2 != null && w.Layout != null && w.Layout.HasSushiGate)
+            {
+                // The second exit, beside Miga Sushi.
+                map.HasGate2 = true;
+                map.Lever2 = Local(w.Gate2.lever != null ? w.Gate2.lever.position : w.Gate2.transform.position);
+                map.GatePos2 = w.Layout.SushiGateMid();
+                map.ExitZone2 = w.Layout.SushiExitZone();
+            }
+            if (w.Hatch != null)
+            {
+                map.HasHatch = true;
+                map.Hatch = Local(w.Hatch.transform.position);
+            }
             if (w.Layout != null)
             {
                 map.Building = w.Layout.Building;

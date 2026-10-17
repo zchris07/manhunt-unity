@@ -30,6 +30,8 @@ namespace Vision.UI
 
         float zoomK, aimK, jarvisK;
         JarvisHud jarvisHud;
+        /// <summary>The JARVIS run (by use count) whose boot this player has already seen.</summary>
+        int jarvisBootedRun = -1;
 
         /// <summary>JARVIS widens the view by this much for the survivor running it (eased over half a second).</summary>
         public const float JarvisZoom = 1.3f;
@@ -44,9 +46,13 @@ namespace Vision.UI
             if (me == null) return;
             UpdateCamera(me);
             DrawTrails(me);
-            // JARVIS: its boot and its screen, for the survivor running it.
+            // JARVIS: its boot and its screen, for every survivor while it runs. Out past the second ring it goes dark; back
+            // in, it comes back on without its boot (once per run).
             if (jarvisHud == null) jarvisHud = gameObject.AddComponent<JarvisHud>();
-            jarvisHud.Run(me.Role == Role.Survivor ? me.JarvisT : 0f, Balance.Sexton.JarvisUserSec, GameHud.MenuOpen);
+            bool jarvisOn = MatchSim.JarvisActive(me);
+            bool rebooting = jarvisBootedRun == host.Sim.JarvisUses;
+            jarvisHud.Run(jarvisOn ? me.JarvisT : 0f, Balance.Sexton.JarvisUserSec, GameHud.MenuOpen, rebooting);
+            if (jarvisOn) jarvisBootedRun = host.Sim.JarvisUses;
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;
             // Penjamin: the gas sound loops while a survivor is in the cloud.
@@ -75,11 +81,12 @@ namespace Vision.UI
             float ae = aimK * aimK * (3f - 2f * aimK);
             float fov = me.FovMul > 0f ? me.FovMul : 1f;
             // JARVIS zooms the view out over half a second, for as long as it runs.
-            jarvisK = Mathf.MoveTowards(jarvisK, me.Role == Role.Survivor && me.JarvisT > 0f ? 1f : 0f, dt / 0.5f);
+            jarvisK = Mathf.MoveTowards(jarvisK, MatchSim.JarvisActive(me) ? 1f : 0f, dt / 0.5f);
             float je = jarvisK * jarvisK * (3f - 2f * jarvisK);
             cameraRig.zoom = (1f + (Balance.Hunter.Hemp.ZoomOut - 1f) * e) * (1f + (Balance.Items.Sniper.AimZoom - 1f) * ae) * (1f + (JarvisZoom - 1f) * je) / fov;
 
-            bool out_ = me.Role == Role.Spectator || me.Health == Health.Escaped || me.Health == Health.Eliminated;
+            // (A ghost plays on as themselves.)
+            bool out_ = !me.Ghost && (me.Role == Role.Spectator || me.Health == Health.Escaped || me.Health == Health.Eliminated);
             Transform target = player.transform;
             Spectating = 0;
             if (out_)
@@ -287,6 +294,30 @@ namespace Vision.UI
             }
         }
 
+        /// <summary>
+        /// Every picture in the game a ghost's pulse can flash: the notes' photos (the user's own too), the Grapes of Wrath's
+        /// and Waz's, but never the Soundcloud Burst's.
+        /// </summary>
+        public static System.Collections.Generic.List<string> GhostPictures()
+        {
+            var list = new System.Collections.Generic.List<string>();
+            foreach (string n in Vision.World.NotePictures.Names) list.Add(n);
+            for (int i = 1; i <= Balance.Items.Book.Images; i++) list.Add($"book-{i}");
+            list.Add("waz-slain");
+            return list;
+        }
+
+        static string lastGhostPicture;
+
+        /// <summary>A random one of <see cref="GhostPictures"/>, never the one flashed last time.</summary>
+        public static string GhostPicture()
+        {
+            var list = GhostPictures();
+            if (list.Count > 1 && lastGhostPicture != null) list.Remove(lastGhostPicture);
+            lastGhostPicture = list[Random.Range(0, list.Count)];
+            return lastGhostPicture;
+        }
+
         public void OnEvent(GameEvent e)
         {
             Bind();
@@ -296,6 +327,14 @@ namespace Vision.UI
             {
                 case EventKind.Scare:
                 {
+                    if (e.B == 1)
+                    {
+                        // A ghost's pulse: a random picture (never the Soundcloud one, never the last one again) flashed
+                        // and shaken for 0.6 s, fading in and out. Its clip is heard from the ghost (MatchEffects).
+                        overlays?.FlashImage(ScreenOverlays.Picture(GhostPicture()), Balance.Ghost.FlashTime, Balance.Ghost.FlashTime * Balance.Ghost.FlashFade, true);
+                        Shake(12f);
+                        break;
+                    }
                     // 2.5 s: the picture and a snippet of the song both fade in and out.
                     overlays?.JumpScare(Balance.Hunter.Burst.ScareTime, Balance.Hunter.Burst.ScareFade);
                     Audio.PlayClip("burst", Balance.Hunter.Burst.ScareVolume, Balance.Hunter.Burst.ScareFade, Balance.Hunter.Burst.ScareFade, Balance.Hunter.Burst.ScareTime);
@@ -368,9 +407,10 @@ namespace Vision.UI
                     overlays?.Center("THE GATE IS OPEN", 4f);
                     break;
                 case EventKind.Jarvis:
-                    // Its user gets the boot on their own screen; everyone else the announcement. The voice for all.
-                    if (e.A != me) overlays?.Big("JARVIS ONLINE");
-                    if (!Audio.PlayCue("jarvis_voice")) Audio.Announce("voice.jarvis");
+                    // Every survivor gets the boot on their own screen; Zach and the watchers the announcement. The voice, for
+                    // all, only the first time it's used in the match.
+                    if (host.Local == null || host.Local.Role != Role.Survivor || host.Local.JarvisT <= 0f) overlays?.Big("JARVIS ONLINE");
+                    if (e.B <= 1 && !Audio.PlayCue("jarvis_voice")) Audio.Announce("voice.jarvis");
                     break;
                 case EventKind.Hemp:
                     // Only the very first time it's used (ever): the text and the voice, never again.

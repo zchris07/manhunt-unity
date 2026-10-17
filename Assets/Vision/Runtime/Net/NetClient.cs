@@ -219,6 +219,8 @@ namespace Vision.Net
         public void SetReady(bool ready) => Send(Msg.Ready, w => w.Write(ready));
         public void Chat(string text) => Send(Msg.Chat, w => Wire.WriteString(w, text));
         public void SetSettings(LobbySettings s) => Send(Msg.Settings, s.Write);
+        public void Tune(int knob, float value) => Send(Msg.Tune, w => { w.Write((byte)knob); w.Write(value); });
+        public void ResetTuning() => Send(Msg.ResetTune, null);
         public void Assign(int id, Assigned role) => Send(Msg.Assign, w => { w.Write(id); w.Write((byte)role); });
         public void Shuffle() => Send(Msg.Shuffle, null);
         public void Start() => Send(Msg.Start, null);

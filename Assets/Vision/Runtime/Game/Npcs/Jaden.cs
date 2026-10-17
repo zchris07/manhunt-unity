@@ -4,12 +4,14 @@ using Vision.Player;
 namespace Vision.Game
 {
     /// <summary>
-    /// Jaden Nguyen (the original's jaden.ts): wanders and is alerted exactly like Shane Jeans, but he has a pistol. Once
+    /// Jaden Nguyen (the original's jaden.ts): wanders like Shane Jeans, but only standing close to him alerts him (being
+    /// seen, or in a beam, never does), and he has a pistol. Once
     /// alerted he hangs back a few metres and shoots the survivor who set him off, until they get out of range or have lost
     /// half the health they had when he started. Any survivor item stuns him for a moment; three kill him and he drops his
     /// pistol. Zach's machete shoves and stuns him; six points of it kill him, and Zach gets a lunge charge and longer reach
-    /// for good. Anyone who attacks him (or gasses him with Penjamin) sets him on them. After a survivor attacks Chacko he
-    /// goes after them until they're down (or he's slain), and nobody else draws him off meanwhile.
+    /// for good. Anyone who attacks him (or gasses him with Penjamin) sets him on them. After anyone attacks Chacko he goes
+    /// after them from wherever he is until he's shot a third of their health off them, or they're down, or he's slain, and
+    /// nobody else draws him off meanwhile.
     /// </summary>
     public sealed class Jaden : Shane
     {
@@ -34,6 +36,8 @@ namespace Vision.Game
 
         public override float AlertLevel => alive ? base.AlertLevel : 0f;
         public override bool Slashable => alive;
+
+        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true) => SlashJaden(h, power, harm);
         /// <summary>Slain, he lies where he fell.</summary>
         public override bool Gone => false;
         public override bool Aggressive => alive && State == Mode.Chase;
@@ -55,7 +59,7 @@ namespace Vision.Game
         }
 
         /// <summary>Zach's machete (power 1 light, 2 heavy): a flinch, a shove, a short stun; six points kill him.</summary>
-        public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
+        void SlashJaden(SimPlayer h, int power, bool harm)
         {
             if (!alive) return;
             if (!harm) { ProvokeBy(h); return; }
@@ -71,8 +75,25 @@ namespace Vision.Game
 
         public override void Provoke(MatchSim sim, SimPlayer by) => ProvokeBy(by);
 
-        /// <summary>His grudge for Chacko lasts until that survivor is down (or out of the match).</summary>
-        protected override bool GrudgeOver(SimPlayer t) => t == null || (t.Health != Health.Healthy && t.Health != Health.Wounded);
+        /// <summary>Only proximity alerts him: being seen, or held in a beam, never does.</summary>
+        protected override bool AlertedByBeam => false;
+
+        /// <summary>How much of Chacko's attacker's health he's shot off them so far (a third ends it).</summary>
+        float grudgeDealt;
+        public const float GrudgeShare = 1f / 3f;
+
+        public override void Avenge(MatchSim sim, SimPlayer p)
+        {
+            if (p != null && p.Id != Grudge) grudgeDealt = 0f;
+            base.Avenge(sim, p);
+        }
+
+        /// <summary>(A Soundcloud Burst stuns him when he's aggressive, as before; it doesn't throw him off as it does Shane.)</summary>
+        public override void BurstHit(MatchSim sim, SimPlayer by) { }
+
+        /// <summary>His grudge for Chacko lasts until he's dealt them a third of their health, or they're down (or out of the match).</summary>
+        protected override bool GrudgeOver(SimPlayer t) => t == null || grudgeDealt >= GrudgeShare - 1e-4f
+            || (t.Role == Role.Hunter ? t.Health == Health.Eliminated || t.KnockT > 0f : t.Health != Health.Healthy && t.Health != Health.Wounded);
 
         /// <summary>A 0.50 cal round: one shot slays him.</summary>
         public override void Snipe(MatchSim sim, SimPlayer shooter)
@@ -110,7 +131,7 @@ namespace Vision.Game
             // Zach can't use a pistol: when he slays Jaden nothing drops.
             if (by.Role != Role.Hunter)
             {
-                var drop = new DropItem { Id = Sim.AllocEntityId(), Pos = Pos, Item = ItemType.Pistol, Amount = Balance.Items.Pistol.Shots };
+                var drop = new DropItem { Id = Sim.AllocEntityId(), Pos = Pos, Item = ItemType.Pistol, Amount = Items.FreshAmount(ItemType.Pistol) };
                 Sim.PlaceDrop(drop, Pos + new Vector2(Mathf.Cos(Facing), Mathf.Sin(Facing)) * Scale.D(22f));
             }
             Sim.Feed($"{by.Name} took Jaden Nguyen down{(by.Role == Role.Hunter ? "" : ". His pistol is on the ground")}");
@@ -138,11 +159,11 @@ namespace Vision.Game
             Speak("Back up!");
         }
 
-        /// <summary>Only someone on their feet sets him off (he won't shoot the downed); Zach only once he's the target.</summary>
+        /// <summary>Only someone on their feet sets him off (he won't shoot the downed); Zach only once he's the target (or Chacko's attacker).</summary>
         protected override bool Eligible(SimPlayer p)
         {
-            if (p.Role == Role.Hunter) return p.Id == Target && Targetable(p);
-            return Targetable(p);
+            if (p.Role == Role.Hunter) return (p.Id == Target || p.Id == Grudge) && Targetable(p);
+            return !p.Ghost && Targetable(p);
         }
 
         public override void Update(MatchSim sim, float dt)
@@ -198,8 +219,11 @@ namespace Vision.Game
             else Sim.HurtSurvivor(hit, Balance.Jaden.Gun.Damage, null, "bullet");
             if (hit != t) return;
             dealt += before - hit.Hp;
-            if ((!Avenging && dealt >= startHp * Balance.Jaden.Gun.StopAfter - 1e-6f) || t.Health == Health.Downed || t.KnockT > 0f)
+            if (t.Id == Grudge) grudgeDealt += Mathf.Max(0f, before - hit.Hp);
+            bool avengedEnough = t.Id == Grudge && grudgeDealt >= GrudgeShare - 1e-4f;
+            if ((!Avenging && dealt >= startHp * Balance.Jaden.Gun.StopAfter - 1e-6f) || avengedEnough || t.Health == Health.Downed || t.KnockT > 0f)
             {
+                if (avengedEnough || t.Health == Health.Downed || t.KnockT > 0f) Grudge = 0;
                 Sim.Feed($"Jaden Nguyen let {t.Name} go");
                 EndChase(Mode.Walk);
             }

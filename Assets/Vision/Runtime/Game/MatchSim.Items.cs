@@ -336,10 +336,10 @@ namespace Vision.Game
             if (hitN != null) hitN.ItemHit(this, p, "shot");
             else if (hitP != null && hitP.Role == Role.Hunter)
             {
-                HurtHunter(hitP, Balance.Items.Pistol.ZachDamage, p, "bullet");
+                HurtHunter(hitP, Balance.Items.Pistol.ZachDamage * MatchState.Current.Tuning.PistolDamage, p, "bullet");
                 Feed($"{p.Name} shot {hitP.Name}");
             }
-            else if (hitP != null) HurtSurvivor(hitP, Balance.Items.Pistol.Damage, p, "bullet");
+            else if (hitP != null) HurtSurvivor(hitP, Balance.Items.Pistol.Damage * MatchState.Current.Tuning.PistolDamage, p, "bullet");
             if (hitP != null)
             {
                 float away = Mathf.Atan2(hitP.Pos.y - p.Pos.y, hitP.Pos.x - p.Pos.x);
@@ -363,6 +363,9 @@ namespace Vision.Game
         void FireShotgun(SimPlayer p, float aim, float pelletDamage, bool golden = false)
         {
             bool zachGun = p.Role == Role.Hunter;
+            // The lobby's shotgun or golden pump damage slider (Zach's golden pump with the Legendary pump).
+            float gunMul = zachGun || golden ? MatchState.Current.Tuning.GoldenDamage : MatchState.Current.Tuning.ShotgunDamage;
+            pelletDamage *= gunMul;
             Vector2 o = p.Pos;
             var pellets = new List<float>();
             var onSurvivor = new Dictionary<SimPlayer, int>();
@@ -434,7 +437,7 @@ namespace Vision.Game
             // The blast always shoves Zach back; the stun respects his immunity.
             Knock(zach, Balance.Items.Shotgun.KbDuration, Balance.Items.Shotgun.KbPeak, Mathf.Atan2(zach.Pos.y - o.y, zach.Pos.x - o.x));
             if (StunHunter(zach, Balance.Items.Shotgun.Stun, "shotgun", p)) Feed($"{p.Name} blasted {zach.Name} with a {(golden ? "golden pump" : "shotgun")}");
-            HurtHunter(zach, onZach * Balance.Items.Shotgun.ZachBlastDamage / Balance.Items.Shotgun.Pellets, p, "pellet");
+            HurtHunter(zach, onZach * Balance.Items.Shotgun.ZachBlastDamage * gunMul / Balance.Items.Shotgun.Pellets, p, "pellet");
         }
 
         /// <summary>
@@ -541,7 +544,16 @@ namespace Vision.Game
             DropItem d = Drops[i];
             if (p.Role == Role.Hunter)
             {
-                // Zach takes only a Hemp Beam: its charges left go into his own (R), up to a full set.
+                // A golden pump: its shells are his shots (it replaces his machete until they run out).
+                if (d.Item == ItemType.Shotgun && d.Golden)
+                {
+                    Drops.RemoveAt(i);
+                    p.Pump += Mathf.Max(1, Mathf.RoundToInt(d.Amount));
+                    p.ChargeT = -1f;
+                    Tell(p, $"Got a golden pump: {p.Pump} shots");
+                    return;
+                }
+                // Otherwise Zach takes only a Hemp Beam: its charges left go into his own (R), up to a full set.
                 if (d.Item != ItemType.HempBeam) return;
                 Drops.RemoveAt(i);
                 p.BeamCharges = Mathf.Min(Balance.Hunter.Beam.Charges, p.BeamCharges + Mathf.RoundToInt(d.Amount));
@@ -705,7 +717,8 @@ namespace Vision.Game
                 }
                 // Night vision: an ability, held on right click while there's charge (with the 0.50 cal in hand it aims too),
                 // whatever else they're doing; on their feet or down, never past the second ring.
-                bool want = p.Role == Role.Survivor && p.LastCmd.Has(Btn.Lunge);
+                // (Not while JARVIS runs.)
+                bool want = p.Role == Role.Survivor && p.LastCmd.Has(Btn.Lunge) && p.JarvisT <= 0f;
                 bool able = (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed) && p.Zone < 2;
                 p.GogglesOn = want && able && (TestMode || p.Inv.NightVision > 0f);
                 if (p.GogglesOn && !TestMode && !p.Inv.Infinite)

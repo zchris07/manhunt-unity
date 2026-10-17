@@ -27,3 +27,5 @@ tools/.sound_cache/
 
 # Sounds from other games, for the user's own builds only (never pushed: the repo is public, its sounds CC0).
 Assets/Vision/Resources/Audio/Fx/local_*
+# Pictures of real people the user supplies (their own builds only, never pushed: the repo is public).
+Assets/Vision/Resources/Images/local_*

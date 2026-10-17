@@ -199,6 +199,9 @@ namespace Vision.EditorTools
         /// <summary>A release build in its own folder, for checking while the main build is open and running.</summary>
         public static void BuildWindowsCheck() => Build("Builds/Check/VisionSandbox.exe", BuildOptions.None);
 
+        /// <summary>A build beside the others (Builds/Next), for when Builds/Check is running and can't be written over.</summary>
+        public static void BuildWindowsNext() => Build("Builds/Next/VisionSandbox.exe", BuildOptions.None);
+
         /// <summary>A development build beside the release one, for profiling (-visionPerf reads its markers).</summary>
         public static void BuildWindowsDev() => Build("Builds/WindowsDev/VisionSandbox.exe", BuildOptions.Development);
 

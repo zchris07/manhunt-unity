@@ -108,8 +108,9 @@ namespace Vision.Player
         {
             var sb = new System.Text.StringBuilder();
             float slow = (1f - MatchRules.HunterHealthMul(me.Hp, me.Downs)) * 100f;
-            float hp = me.Hp * Balance.Hunter.Health.Max;
-            sb.Append($"<color=#b8b09a>HP {hp:0.0}/{Balance.Hunter.Health.Max:0}   SPEED -{slow:0.00}% FROM HEALTH");
+            float hp = me.Hp * Balance.Hunter.Health.Max, max = me.MaxHp * Balance.Hunter.Health.Max;
+            // (Out of what's left of his bar: 10 gone for good each time he went down, 5 more for each stake.)
+            sb.Append($"<color=#b8b09a>HP {hp:0.0}/{max:0}   SPEED {(slow >= 0f ? "-" : "+")}{Mathf.Abs(slow):0.00}% FROM HEALTH");
             if (me.Downs > 0) sb.Append($" ({Mathf.Min(Balance.Hunter.Health.DownPenaltyMax, me.Downs * Balance.Hunter.Health.DownPenalty) * 100f:0}% FOR GOOD)");
             sb.Append("</color>");
             if (me.Hemp > 0)
@@ -140,7 +141,14 @@ namespace Vision.Player
             if (!any) return;
             survivorStrip.anchoredPosition = new Vector2(stripWidth * 0.5f - extra * 0.5f, 22f);
             int j = me.Jarvis;
-            if (hasJarvis) SetAbility(jarvisSlot, j == 1 || j == 3, j == 3 ? "∞" : j == 2 ? "used" : "", 0f, null, me.JarvisT > 0f, j == 0);
+            if (hasJarvis)
+            {
+                // Ready, running (seconds left) or recharging (90 s after it ends).
+                bool running = me.JarvisT > 0f;
+                bool ready = (j == 1 || j == 3) && !running && (me.JarvisCd <= 0f || j == 3);
+                string label = j == 3 ? "∞" : running ? $"{Mathf.CeilToInt(me.JarvisT)}s" : me.JarvisCd > 0f ? $"{Mathf.CeilToInt(me.JarvisCd)}s" : "";
+                SetAbility(jarvisSlot, ready, label, j == 1 ? me.JarvisCd / Balance.Sexton.JarvisCooldown : 0f, null, running, j == 0);
+            }
             if (hasGoggles)
             {
                 float nv = me.Inv.NightVision;
@@ -164,7 +172,7 @@ namespace Vision.Player
             bool pump = me.Pump > 0;
             m0.Name.text = pump ? "GOLDEN PUMP" : "MACHETE SWIPE";
             m0.Icon.texture = ItemIcons.Get(pump ? "goldenPump" : "machete");
-            if (pump) SetAbility(m0, me.ReloadT <= 0f, test ? "∞" : me.Pump.ToString(), me.ReloadT / Balance.Items.ZachPump.Reload, (float)me.Pump / Balance.Items.ZachPump.Shots, false, false, new Color(1f, 0.76f, 0.23f));
+            if (pump) SetAbility(m0, me.ReloadT <= 0f, test ? "∞" : me.Pump.ToString(), me.ReloadT / Balance.Items.ZachPump.Reload, (float)me.Pump / Mathf.Max(1, Vision.Game.MatchState.Current.Tuning.GoldenAmmo), false, false, new Color(1f, 0.76f, 0.23f));
             else
             {
                 float? charge = me.ChargeT >= 0f ? me.ChargeT / Balance.Hunter.Attack.ChargeMax : (float?)null;

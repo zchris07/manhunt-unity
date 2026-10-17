@@ -6,8 +6,11 @@ namespace Vision.Game
     /// <summary>
     /// Chris Zelley, the paramedic (the original's chris.ts). Until a survivor talks to him he paces round his ambulance
     /// (and never strays from it). Enlisted, he wanders the map; the first time a survivor stays downed or staked too long
-    /// he sprints to them, revives or cuts them down, then sprouts wings and flies to the heavens. Zach kills him in two
-    /// hits at any point; a survivor's item only makes him flinch.
+    /// he sprints to them, revives or cuts them down, then sprouts wings and flies to the heavens. Nobody can kill him,
+    /// except Zach while he's at work on someone (reviving them or cutting them down): then his 50 health go like a
+    /// survivor's to Zach's machete. Zach's blows otherwise only scare him off (never while he's running to the rescue);
+    /// a survivor's item only makes him flinch. If Zach picks up the survivor he's running to, he turns to anyone else
+    /// downed or staked, or waits until they're put down or on a stake.
     /// </summary>
     public sealed class Chris : Walker
     {
@@ -18,10 +21,16 @@ namespace Vision.Game
         public bool Active;
         /// <summary>Who he's rescuing (0 nobody).</summary>
         public int Target;
+        /// <summary>Holding off while Zach carries the one he was running to.</summary>
+        public bool Waiting;
         public float AscendT, WorkT, WorkDur;
-        int hp = Balance.Chris.Hp, wp, dir = 1;
-        /// <summary>Only Zach can slay him.</summary>
-        public override float? HealthFor(Role viewer) => alive && viewer == Role.Hunter ? hp / (float)Balance.Chris.Hp : (float?)null;
+        float hp = Balance.Chris.Health;
+        int wp, dir = 1;
+        /// <summary>Only Zach can slay him, and only while he's at work on someone: the bar shows then.</summary>
+        public override float? HealthFor(Role viewer) => alive && viewer == Role.Hunter && Vulnerable ? hp / Balance.Chris.Health : (float?)null;
+        /// <summary>Reviving someone or cutting them down: the only time Zach can hurt him.</summary>
+        public bool Vulnerable => alive && State == Mode.Work;
+        public float HealthLeft => hp;
         float turnT, pathT;
         readonly Vector2[] beat = new Vector2[4];
         readonly Dictionary<int, float> downFor = new Dictionary<int, float>();
@@ -74,28 +83,44 @@ namespace Vision.Game
 
         public override void ItemHit(MatchSim sim, SimPlayer by, string kind)
         {
-            if (by.Role == Role.Hunter) { Slash(sim, by, 1); return; }
+            if (by.Role == Role.Hunter) { Hurt(by, Balance.Hunter.Attack.DamageBase * Balance.Hunter.Health.Max, true); return; }
             if (Hittable) HurtT = 0.35f;
         }
 
-        /// <summary>Zach hits him: he runs (slowly); the second hit kills him. Harm false: only scared (Penjamin).</summary>
+        /// <summary>Zach's Hemp Beam: 1 health a tick (as anyone's), only while he's at work.</summary>
+        public override void BeamHit(MatchSim sim, SimPlayer h) => Hurt(h, Balance.Hunter.Beam.ZachTickDamage * Balance.Hunter.Health.Max, false);
+
+        /// <summary>
+        /// Zach's machete or lunge: what it would take off a survivor (a swing's charged damage, a lunge's third) comes off
+        /// his 50 health while he's at work; any other time it only scares him off (not on his way to a rescue).
+        /// Harm false: only scared (Penjamin).
+        /// </summary>
         public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
         {
+            float dmg = h.Move.LungeT > 0f || (h.LungeHit && h.SwingT <= 0f) ? Balance.Hunter.Lunge.Damage : h.SwingDamage;
+            Hurt(h, dmg * Balance.Hunter.Health.Max, harm);
+        }
+
+        void Hurt(SimPlayer h, float damage, bool harm)
+        {
             if (!Hittable) return;
-            if (harm)
+            if (harm && Vulnerable)
             {
-                hp--;
+                hp -= damage * MatchState.Current.Tuning.ZachDamage;
                 HurtT = 0.35f;
                 h.Stats.Hits++;
-            }
-            if (hp <= 0)
-            {
-                alive = false;
-                Moving = false;
-                Target = 0;
-                Sim.Feed($"{h.Name} killed Chris Zelley");
+                if (hp <= 0.001f)
+                {
+                    alive = false;
+                    Moving = false;
+                    Target = 0;
+                    Sim.Feed($"{h.Name} killed Chris Zelley");
+                }
                 return;
             }
+            // On his way to someone in need he doesn't stop for anything.
+            if (State == Mode.Rescue || State == Mode.Work) return;
+            if (harm) HurtT = 0.35f;
             Target = 0;
             path = null;
             State = Mode.Flee;
@@ -130,7 +155,7 @@ namespace Vision.Game
 
         bool NeedsHelp(SimPlayer p)
         {
-            if (p.Role != Role.Survivor) return false;
+            if (p.Role != Role.Survivor || p.Ghost) return false;
             if (p.Health == Health.Downed) return downFor.TryGetValue(p.Id, out float t) && t >= Balance.Chris.DownedAfter;
             if (p.Health == Health.Staked) return Balance.Objectives.StakeStageTime - p.StakeT >= Balance.Chris.StakedAfter;
             return false;
@@ -138,13 +163,13 @@ namespace Vision.Game
 
         static bool StillDown(SimPlayer p) => p != null && (p.Health == Health.Downed || p.Health == Health.Staked);
 
-        SimPlayer PickPatient()
+        SimPlayer PickPatient(int except = 0)
         {
             SimPlayer best = null;
             float bd = float.MaxValue;
             foreach (SimPlayer p in Sim.Order)
             {
-                if (!NeedsHelp(p)) continue;
+                if (p.Id == except || !NeedsHelp(p)) continue;
                 float d = Vector2.Distance(p.Pos, Pos);
                 if (d < bd) { bd = d; best = p; }
             }
@@ -168,6 +193,7 @@ namespace Vision.Game
                 if (AscendT >= Balance.Chris.AscendTime) State = Mode.Gone;
                 return;
             }
+            if (State != Mode.Work && State != Mode.Rescue && UpdateAvenger(dt)) return;
             Track(dt);
             if (Active && State != Mode.Flee && State != Mode.Rescue && State != Mode.Work)
             {
@@ -309,6 +335,21 @@ namespace Vision.Game
         float UpdateRescue(float dt)
         {
             SimPlayer p = Sim.Get(Target);
+            // Zach picked them up: anyone else who needs him, or he waits for them to be put down or staked.
+            if (p != null && p.Health == Health.Carried)
+            {
+                SimPlayer other = PickPatient(p.Id);
+                if (other == null)
+                {
+                    Waiting = true;
+                    if (p.CarriedBy != 0 && Sim.Get(p.CarriedBy) is SimPlayer z) Face(z.Pos);
+                    return 0f;
+                }
+                Target = other.Id;
+                path = null;
+                p = other;
+            }
+            Waiting = false;
             if (!StillDown(p))
             {
                 p = PickPatient();

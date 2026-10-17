@@ -165,6 +165,18 @@ namespace Vision.Net
                 case Msg.Settings:
                     if (owner && Phase == NetPhase.Lobby) SetSettings(LobbySettings.Read(r));
                     break;
+                case Msg.Tune:
+                {
+                    // Anyone in the lobby moves the balance sliders.
+                    int knob = r.ReadByte();
+                    float value = r.ReadSingle();
+                    if (Phase == NetPhase.Lobby) Tune(knob, value);
+                    break;
+                }
+                case Msg.ResetTune:
+                    // Only the host puts them back.
+                    if (lp.Owner && Phase == NetPhase.Lobby) ResetTuning();
+                    break;
                 case Msg.Assign:
                     if (owner && Phase == NetPhase.Lobby) Assign(r.ReadInt32(), (Assigned)r.ReadByte());
                     break;
@@ -230,13 +242,6 @@ namespace Vision.Net
             }
             else
             {
-                if (Phase != NetPhase.Lobby)
-                {
-                    p.Conn.Send(Kick("A match is under way: try again when it's over"));
-                    p.Conn.Flush();
-                    p.Conn.Close("In a match");
-                    return;
-                }
                 if (Lobby.Players.Count >= Balance.Net.MaxPlayers)
                 {
                     p.Conn.Send(Kick("The lobby is full"));
@@ -245,7 +250,13 @@ namespace Vision.Net
                     return;
                 }
                 lp = Lobby.Add(name, token, now);
-                Notice?.Invoke($"{lp.Name} joined");
+                if (Phase != NetPhase.Lobby)
+                {
+                    // A match is under way: they join it as a spectator (and play from the next one).
+                    JoinAsSpectator(lp);
+                    Notice?.Invoke($"{lp.Name} joined (spectating)");
+                }
+                else Notice?.Invoke($"{lp.Name} joined");
             }
             p.PlayerId = lp.Id;
             BinaryWriter w = Wire.Begin(Msg.Welcome);
@@ -254,6 +265,17 @@ namespace Vision.Net
             Changed();
             // Mid-match: they load the level and pick up where they were.
             if (Phase != NetPhase.Lobby) SendStart(p);
+        }
+
+        /// <summary>
+        /// Someone new arriving mid-match: on the roster as a spectator, in the host's match watching whoever is still in
+        /// it; their game loads the level and follows along. Back in the lobby they're a player like anyone else.
+        /// </summary>
+        void JoinAsSpectator(LobbyPlayer lp)
+        {
+            Roster.RemoveAll(e => e.Id == lp.Id);
+            Roster.Add(new RosterEntry { Id = lp.Id, Name = lp.Name, Role = Role.Spectator });
+            if (game.Sim != null && game.Sim.Get(lp.Id) == null) game.Sim.AddPlayer(lp.Id, lp.Name, Role.Spectator);
         }
 
         static string GameHudName(string raw)
@@ -290,7 +312,26 @@ namespace Vision.Net
 
         public void SetSettings(LobbySettings s)
         {
+            // The balance sliders only change through Tune and ResetTuning (a settings change made before someone else's
+            // slider move arrived mustn't put it back).
+            Tuning keep = Lobby.Settings.Tuning;
             Lobby.Settings = s.Clamped();
+            Lobby.Settings.Tuning = keep ?? new Tuning();
+            Changed();
+        }
+
+        /// <summary>One balance slider moved (by anyone in the lobby): everyone sees it.</summary>
+        public void Tune(int knob, float value)
+        {
+            if (knob < 0 || knob >= Tuning.Knobs.Length) return;
+            Lobby.Settings.Tuning.SetKnob(knob, value);
+            Changed();
+        }
+
+        /// <summary>The host's Reset to defaults: every balance slider back to the game's own numbers.</summary>
+        public void ResetTuning()
+        {
+            Lobby.Settings.Tuning = new Tuning();
             Changed();
         }
 

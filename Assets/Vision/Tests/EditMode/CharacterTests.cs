@@ -451,7 +451,7 @@ namespace Vision.Tests
                 Assert.AreSame(ActionClips.AimRifle, layer.Current, "fired, the 0.50 cal is just held on: no kick, no hand let go");
                 p.Aiming = false;
                 // JARVIS: no animation at all (no tablet held up): the body just carries on.
-                p.Jarvis = 2;
+                p.Jarvis = 1;
                 p.JarvisT = 5f;
                 p.JarvisSlot = p.SelSlot;
                 view.Present(p);

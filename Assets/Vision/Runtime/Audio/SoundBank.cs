@@ -21,6 +21,14 @@ namespace Vision.Audio
             public float Volume = 1f, Pitch = 1f, PitchJitter = 0.06f, VolumeJitter = 0.1f;
             /// <summary>Original units: full volume within Near, silent past Radius.</summary>
             public float Near = 150f, Radius = 1400f;
+            /// <summary>Seconds into the file it starts (the sound itself starts there).</summary>
+            public float Start;
+            /// <summary>Over its first <see cref="DecayTime"/> s it falls off linearly to <see cref="DecayTo"/> of its volume, then holds there (0: no decay).</summary>
+            public float DecayTime, DecayTo = 1f;
+            /// <summary>Its last <see cref="TailFade"/> s fall away by an inverse square (0: none).</summary>
+            public float TailFade;
+            /// <summary>Whether its volume follows the listener as it plays (a long sound from a fixed spot), rather than set once.</summary>
+            public bool Tracked => DecayTime > 0f || TailFade > 0f;
         }
 
         static string[] Range(string prefix, int from, int to, string fmt = "D3")
@@ -37,7 +45,8 @@ namespace Vision.Audio
             // The full charged swing: the heavy swish pitched well down, with a deep, slow whoosh layered under it.
             ["swing_heavy"] = new Cue { Files = new[] { "swishes_swish-9", "swishes_swish-10", "swishes_swish-11", "swishes_swish-12", "swishes_swish-13" }, Volume = 1f, Pitch = 0.64f, PitchJitter = 0.04f, Radius = 1200f },
             ["swing_heavy_low"] = new Cue { Files = new[] { "swishes_swish-7", "swishes_swish-8" }, Volume = 0.85f, Pitch = 0.42f, PitchJitter = 0.03f, Radius = 1200f },
-            ["slash"] = new Cue { Prefer = new[] { "local_axe_flesh" }, Files = new[] { "rpg_knifeslice", "rpg_knifeslice2", "rpg_chop" }, Volume = 0.9f, Radius = 1000f },
+            // (Half as loud as at first, at the user's request.)
+            ["slash"] = new Cue { Prefer = new[] { "local_axe_flesh" }, Files = new[] { "rpg_knifeslice", "rpg_knifeslice2", "rpg_chop" }, Volume = 0.45f, Radius = 1000f },
             ["body_hit"] = new Cue { Files = Range("impact_impactpunch_heavy_", 0, 4), Volume = 0.8f, Radius = 900f },
             ["lunge"] = new Cue { Files = new[] { "swishes_swish-7", "swishes_swish-8" }, Volume = 0.8f, Pitch = 0.7f, Radius = 900f },
             ["kick"] = new Cue { Files = Range("impact_impactmetal_heavy_", 0, 4), Volume = 0.9f, Radius = 1200f },
@@ -50,7 +59,16 @@ namespace Vision.Audio
             ["shotgun_shot"] = new Cue { Prefer = new[] { "local_tactical_shotgun" }, Files = new string[0], Volume = 0.5f, PitchJitter = 0.04f, Near = 250f, Radius = 2600f },
             ["pistol_shot"] = new Cue { Prefer = new[] { "local_p250" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0.05f, Near = 200f, Radius = 2200f },
             // JARVIS coming on: "I am J.A.R.V.I.S. at your service..." (heard by everyone; the robot voice without the file).
-            ["jarvis_voice"] = new Cue { Prefer = new[] { "local_jarvis_voice" }, Files = new string[0], Volume = 0.85f, PitchJitter = 0f, VolumeJitter = 0f },
+            // Its last second falls away by an inverse square.
+            ["jarvis_voice"] = new Cue { Prefer = new[] { "local_jarvis_voice" }, Files = new string[0], Volume = 0.85f, PitchJitter = 0f, VolumeJitter = 0f, TailFade = 1f },
+            // A generator started, or a survivor reaching an exit: the victory jingle, heard by everyone (a local file).
+            ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f },
+            // Plasma.TTV going into his gamer rage, from where he stands (a local file).
+            ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
+            // Anyone attacking Chacko, from the couch (a local file).
+            ["chacko_attacked"] = new Cue { Prefer = new[] { "local_chacko_attacked" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
+            // A ghost's pulse going out, heard whole by the ghost and everyone near (a local file).
+            ["ghost_pulse"] = new Cue { Prefer = new[] { "local_ghost_pulse" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 300f, Radius = 1800f },
             // A survivor sacrificed (staked to the end, or gone into the woods), gone from the match for good: heard by all.
             ["sacrificed"] = new Cue { Prefer = new[] { "local_noita_game_over" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f },
             // The machete biting into wood (a tree, a pole, a door, a crate): one of five cracks, each fading out linearly
@@ -80,9 +98,15 @@ namespace Vision.Audio
             ["drink"] = new Cue { Files = new[] { "sfx100_plop_01", "sfx100_plop_02" }, Volume = 0.6f, Radius = 400f },
             ["eat"] = new Cue { Files = new[] { "rpg_cloth3", "rpg_cloth4" }, Volume = 0.6f, Radius = 400f },
             ["trap"] = new Cue { Files = new[] { "rpg_metallatch", "rpg_metalclick" }, Volume = 0.8f, Radius = 700f },
-            ["gas"] = new Cue { Files = new[] { "sfx100_noise_01", "sfx100_noise_02" }, Volume = 0.7f, Radius = 1200f },
+            // A galaxy gas trap going off: the gas explosion (a local file; the sound itself starts 1.8 s in, its own fall-off
+            // in it), the old hiss without it.
+            ["gas"] = new Cue { Prefer = new[] { "local_gas_explosion" }, Files = new[] { "sfx100_noise_01", "sfx100_noise_02" }, Volume = 0.8f, Radius = 1600f, Start = 1.8f },
             ["stun"] = new Cue { Files = Range("impact_impactplate_heavy_", 0, 4), Volume = 0.8f, Radius = 900f },
-            ["generator_done"] = new Cue { Files = new[] { "sfx100_machine_01", "sfx100_machine_02" }, Volume = 0.9f, Radius = 2400f },
+            // A generator started: a small diesel generator coming to life (a local file), played through once from where it
+            // stands, falling off linearly to a fifth of its volume over its first seven seconds; only those within ten feet
+            // of it hear it, faintly. (The old machine whirr is gone.)
+            ["generator_done"] = new Cue { Prefer = new[] { "local_generator_start" }, Files = new string[0], Volume = 0.55f, PitchJitter = 0f, VolumeJitter = 0f,
+                Near = 30f, Radius = Vision.Game.Balance.Objectives.GeneratorHearRadius, DecayTime = 7f, DecayTo = 0.2f },
             ["gate"] = new Cue { Files = new[] { "sfx100_metal_03", "sfx100_metal_07" }, Volume = 1f, Radius = 3000f },
             ["note"] = new Cue { Files = new[] { "sfx100_paper_01", "sfx100_paper_02", "sfx100_paper_03" }, Volume = 0.8f, Radius = 300f },
             ["hide"] = new Cue { Files = new[] { "rpg_creak1", "rpg_creak2", "rpg_creak3" }, Volume = 0.7f, Radius = 700f },

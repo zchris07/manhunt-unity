@@ -22,7 +22,8 @@ namespace Vision.UI
 
         MatchHost host;
 
-        struct Wave { public Vector2 At; public float Angle, Born; }
+        /// <summary>A wave on its way out: Zach's Soundcloud Burst (purple), or a ghost's pulse (red).</summary>
+        struct Wave { public Vector2 At; public float Angle, Born; public bool Ghost; }
 
         struct Breath { public Vector2 At; public bool Gasp; public float Born; }
         readonly List<Breath> breaths = new List<Breath>();
@@ -101,12 +102,22 @@ namespace Vision.UI
                     // Sacrificed (staked to the end, or gone into the woods): out of the match for good.
                     if (e.Text == "stake" || e.Text == "woods") Audio.PlayCue("sacrificed");
                     break;
+                case EventKind.Escaped:
+                    // Someone through an exit: the victory jingle, for everyone.
+                    Audio.PlayCue("victory_royale");
+                    break;
                 case EventKind.Hit:
                     if (e.Text == "slash" || e.Text == "lunge" || e.Text == "punch") Audio.PlayCue("body_hit", Units(e.Pos), 0.8f);
                     break;
                 case EventKind.Talk:
                     if (by == null) break;
                     if (e.Text == "burst") waves.Add(new Wave { At = e.Pos, Angle = e.F, Born = Now });
+                    else if (e.Text == "ghost_pulse")
+                    {
+                        // A ghost's pulse: the red wave, and the clip played out whole from the ghost.
+                        waves.Add(new Wave { At = e.Pos, Angle = e.F, Born = Now, Ghost = true });
+                        Audio.PlayCue("ghost_pulse", Units(e.Pos));
+                    }
                     else if (e.Text == "slam") Audio.PlayCue("slam", Units(e.Pos));
                     else if (e.Text == "search") Audio.PlayCue("hide", Units(e.Pos));
                     else if (e.Text == "drink") Audio.PlayCue("drink", Units(e.Pos));
@@ -159,6 +170,8 @@ namespace Vision.UI
                     break;
                 case EventKind.GenDone:
                     Audio.PlayCue("generator_done", Units(e.Pos));
+                    // And the victory jingle, for everyone.
+                    Audio.PlayCue("victory_royale");
                     break;
                 case EventKind.Jarvis:
                     // JARVIS coming on: psionic waves out from whoever's running it.
@@ -279,6 +292,7 @@ namespace Vision.UI
             }
             BladeTrails(sim);
             DrawBreaths();
+            DrawRipples(sim);
             DrawWaves(sim);
             DrawVapes(sim);
             DrawRounds();
@@ -424,8 +438,11 @@ namespace Vision.UI
                 float front = speed * age;
                 if (front - T > Balance.World.Size * 1.5f) { waves.RemoveAt(w); continue; }
                 float born = Mathf.Clamp01(age / 0.08f);
+                bool ghost = wv.Ghost;
                 void Front(float back, float widthUnits, Color c, float tremble, float freq, float phase)
                 {
+                    // A ghost's pulse: the same wave, red.
+                    if (ghost) c = new Color(Mathf.Max(c.b, c.r), c.g * 0.45f, c.g * 0.4f, c.a);
                     pts.Clear(); cols.Clear();
                     for (int i = 0; i <= N; i++)
                     {

@@ -9,8 +9,9 @@ namespace Vision.Player
 {
     /// <summary>
     /// The original's lobby screen: the room code (this machine's IP:port) to give the others, the players with their
-    /// roles and readiness, your role preference and Ready, and the host's match settings (hunters, survivors, seed,
-    /// testing mode) with a preview of the night, Shuffle roles and Start the night; a chat beside them.
+    /// roles and readiness, your role preference and Ready; in the middle the balance sliders everyone shares
+    /// (GameHud.Tuning); and the host's match settings (hunters, survivors, seed, testing mode) with a preview of the night,
+    /// Shuffle roles and Start the night, and a chat under them.
     /// </summary>
     public sealed partial class GameHud
     {
@@ -39,10 +40,10 @@ namespace Vision.Player
             var back = screen.gameObject.AddComponent<RawImage>();
             back.texture = UiKit.Backdrop();
             back.raycastTarget = true;
-            RectTransform grid = Node("Grid", screen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1400f, 720f));
+            RectTransform grid = Node("Grid", screen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(LobbyWidth, 720f));
 
             // Left: the room and the players.
-            const float lw = 780f, lh = 720f;
+            const float lw = 600f, lh = 720f;
             RectTransform left = kit.Card("Players", grid, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(lw, lh));
             kit.FieldLabel(left, "Room code", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -24f), 300f);
             lobbyCode = kit.Label(Node("Code", left, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -50f), new Vector2(460f, 46f)), "", 34, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.DisplayBold, 0.08f, false);
@@ -52,18 +53,18 @@ namespace Vision.Player
                 Notify("Room code copied");
             }, 17);
             kit.Label(Node("Hint", left, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -100f), new Vector2(lw - 56f, 20f)),
-                "Others join with this IP:port (over the internet the host forwards the port, or uses a VPN).", 13, TextAnchor.MiddleLeft, UiKit.Muted, UiKit.Face.Mono, 0f, false);
+                "Others join with this IP:port (online: a forwarded port, or a VPN).", 13, TextAnchor.MiddleLeft, UiKit.Muted, UiKit.Face.Mono, 0f, false);
             lobbyList = Node("List", left, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -132f), new Vector2(lw - 56f, 400f));
             kit.FieldLabel(left, "Role", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -548f), 200f);
             prefButtons = new Button[3];
-            string[] prefs = { "Survivor", "Zach (hunter)", "Either" };
+            string[] prefs = { "Survivor", "Zach", "Either" };
             RolePref[] values = { RolePref.Survivor, RolePref.Hunter, RolePref.Any };
             for (int i = 0; i < 3; i++)
             {
                 RolePref v = values[i];
-                prefButtons[i] = kit.Button(left, prefs[i], new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f + i * 170f, -574f), new Vector2(160f, 44f), UiKit.ButtonStyle.Normal, () => session?.SetPref(v), 17);
+                prefButtons[i] = kit.Button(left, prefs[i], new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f + i * 136f, -574f), new Vector2(128f, 44f), UiKit.ButtonStyle.Normal, () => session?.SetPref(v), 17);
             }
-            readyButton = kit.Button(left, "Ready", new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -574f), new Vector2(170f, 44f), UiKit.ButtonStyle.Primary, () =>
+            readyButton = kit.Button(left, "Ready", new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-28f, -574f), new Vector2(130f, 44f), UiKit.ButtonStyle.Primary, () =>
             {
                 LobbyPlayer me = session?.Lobby?.Get(session.YourId);
                 session?.SetReady(me == null || !me.Ready);
@@ -71,8 +72,11 @@ namespace Vision.Player
             lobbyError = kit.Label(Node("Error", left, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -630f), new Vector2(lw - 56f, 22f)), "", 15, TextAnchor.MiddleLeft, UiKit.Red, UiKit.Face.Mono, 0f, false);
             kit.Button(left, "Leave", new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(28f, 24f), new Vector2(160f, 44f), UiKit.ButtonStyle.Secondary, LeaveOnline, 18);
 
+            // Middle: the balance sliders.
+            BuildTuning(grid, lw + LobbyGap, lh);
+
             // Right: the night's settings and the chat.
-            const float rw = 590f;
+            const float rw = 520f;
             RectTransform right = kit.Card("Settings", grid, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), Vector2.zero, new Vector2(rw, lh));
             kit.FieldLabel(right, "Match settings", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -24f), 300f);
             float y = -60f;
@@ -125,8 +129,7 @@ namespace Vision.Player
         void ChangeSettings(System.Action<LobbySettings> change)
         {
             if (session == null || session.Lobby == null || !session.CanManage) return;
-            LobbySettings s = session.Lobby.Settings;
-            var copy = new LobbySettings { Hunters = s.Hunters, Survivors = s.Survivors, Seed = s.Seed, TestMode = s.TestMode, Pace = s.Pace };
+            LobbySettings copy = session.Lobby.Settings.Copy();
             change(copy);
             session.SetSettings(copy.Clamped());
         }
@@ -136,14 +139,16 @@ namespace Vision.Player
             while (lobbyRows.Count <= i)
             {
                 int k = lobbyRows.Count;
-                var row = new LobbyRow { Root = Node("Row", lobbyList, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -k * 40f), new Vector2(724f, 36f)) };
+                var row = new LobbyRow { Root = Node("Row", lobbyList, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -k * 40f), new Vector2(544f, 36f)) };
                 UiKit.Box(row.Root, new Color(1f, 1f, 1f, 0.03f));
-                row.Name = kit.Label(Node("Name", row.Root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(320f, 30f)), "", 17, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.Mono, 0f, false);
+                row.Name = kit.Label(Node("Name", row.Root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(220f, 30f)), "", 16, TextAnchor.MiddleLeft, UiKit.Bone, UiKit.Face.Mono, 0f, false);
                 row.Name.supportRichText = true;
-                row.RoleButton = kit.Button(row.Root, "auto role", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(340f, 0f), new Vector2(150f, 30f), UiKit.ButtonStyle.Ghost, null, 14);
+                row.Name.horizontalOverflow = HorizontalWrapMode.Wrap;
+                row.Name.verticalOverflow = VerticalWrapMode.Truncate;
+                row.RoleButton = kit.Button(row.Root, "auto role", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(238f, 0f), new Vector2(132f, 30f), UiKit.ButtonStyle.Ghost, null, 13);
                 row.Role = row.RoleButton.GetComponentInChildren<Text>();
-                row.Ready = kit.Label(Node("Ready", row.Root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(504f, 0f), new Vector2(120f, 30f)), "", 14, TextAnchor.MiddleCenter, UiKit.Muted, UiKit.Face.Type, 0.08f, false);
-                row.Ping = kit.Label(Node("Ping", row.Root, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-10f, 0f), new Vector2(90f, 30f)), "", 13, TextAnchor.MiddleRight, UiKit.Muted, UiKit.Face.Mono, 0f, false);
+                row.Ready = kit.Label(Node("Ready", row.Root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(378f, 0f), new Vector2(100f, 30f)), "", 13, TextAnchor.MiddleCenter, UiKit.Muted, UiKit.Face.Type, 0.08f, false);
+                row.Ping = kit.Label(Node("Ping", row.Root, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-8f, 0f), new Vector2(64f, 30f)), "", 13, TextAnchor.MiddleRight, UiKit.Muted, UiKit.Face.Mono, 0f, false);
                 lobbyRows.Add(row);
             }
             return lobbyRows[i];
@@ -203,7 +208,8 @@ namespace Vision.Player
             (int h, int sv, int spec) = lobby.Preview();
             ResolvedBalance rb = MatchRules.Resolve(Mathf.Max(1, sv), Mathf.Max(1, h));
             lobbyPreview.text = $"Next match: {h} Zach · {sv} survivors{(spec > 0 ? $" · {spec} spectating" : "")}\n" +
-                                $"Auto-balance: {rb.RequiredGenerators} generators, {Mathf.RoundToInt(rb.RepairTime)} s each. The night lasts until every survivor has escaped or is down.";
+                                $"{s.Tuning.Generators} generators, {Mathf.RoundToInt(rb.RepairTime)} s each; two exit gates; no time limit.";
+            RefreshTuning(s.Tuning);
             string why = session.IsHost ? session.Server.CannotStart() : null;
             startButton.gameObject.SetActive(manage);
             startButton.interactable = session.IsHost ? why == null : manage;

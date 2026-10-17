@@ -96,7 +96,7 @@ namespace Vision.Player
                 if (p.IsLocal || p.Role == Role.Spectator) continue;
                 if (!puppets.TryGetValue(p.Id, out Puppet pup)) pup = Create(p);
                 Drive(pup, p, dt);
-                bool glow = allies && p.Role == Role.Survivor && pup.Visible;
+                bool glow = allies && p.Role == Role.Survivor && !p.Ghost && pup.Visible;
                 if (pup.Glow != null && pup.Glow.enabled != glow) pup.Glow.enabled = glow;
                 if (glow && viewer != null) viewer.allyBodies.Add(VisionWorld.ToPlane(pup.Go.transform.position));
             }
@@ -161,7 +161,9 @@ namespace Vision.Player
 
         void Drive(Puppet pup, SimPlayer p, float dt)
         {
-            bool visible = p.HideState != 2 && p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated;
+            // A ghost shows wherever they go, glowing white.
+            bool visible = p.Ghost || (p.HideState != 2 && p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated);
+            GhostLook.Set(pup.Go, p.Ghost, world.lowPolyMaterial);
             if (visible != pup.Visible)
             {
                 pup.Visible = visible;

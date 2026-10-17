@@ -146,6 +146,8 @@ namespace Vision.World
 
             // What it holds: a Hemp Beam on the bar by the cat, a 0.50 cal on the first table.
             PlaceSupply(ItemType.HempBeam, P(barTo - 0.9f, barZ - 0.1f), y + 1.07f, Range(0f, 360f), parent);
+            // And a golden pump on the counter (the user's rule).
+            PlaceGoldenPump(P(barFrom + 0.9f, barZ - 0.1f), y + 1.07f, 75f, parent);
             PlaceSupply(ItemType.Sniper, tables[0], y + 0.77f, Range(0f, 360f), parent);
             blocked.Add(r.center);
             Places.Add(("MIGA SUSHI", r));

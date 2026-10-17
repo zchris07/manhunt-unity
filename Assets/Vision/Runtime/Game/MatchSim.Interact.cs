@@ -104,6 +104,7 @@ namespace Vision.Game
                 p.PromptTarget = -1;
                 p.Prompt2 = Prompt.None;
                 p.Prompt2Target = -1;
+                if (p.Ghost) continue;
                 if (p.Role == Role.Survivor) SurvivorPrompts(p);
                 else if (p.Role == Role.Hunter && p.CanAct) HunterPrompts(p);
             }
@@ -193,8 +194,9 @@ namespace Vision.Game
                 int gi = NearestOf(Map.Generators, at, R(Balance.Reach.Generator), i => !Gens[i].Repaired);
                 if (gi >= 0) Set(p, Prompt.Repair, gi);
             }
-            if (p.Prompt == Prompt.None && Map.HasGate && Vector2.Distance(Map.Lever, at) < R(Balance.Reach.Gate) && !Gate.Open)
-                Set(p, Gate.Powered ? Prompt.OpenGate : Prompt.GatePowerless, 0);
+            for (int gi = 0; gi < 2 && p.Prompt == Prompt.None; gi++)
+                if (HasGateAt(gi) && Vector2.Distance(LeverAt(gi), at) < R(Balance.Reach.Gate) && !GateAt(gi).Open)
+                    Set(p, GateAt(gi).Powered ? Prompt.OpenGate : Prompt.GatePowerless, gi);
             if (p.Prompt == Prompt.None)
             {
                 int hi = NearbyHidingSpot(at, Balance.Reach.Hide, true);
@@ -224,6 +226,12 @@ namespace Vision.Game
             if (waiting != Prompt.None)
             {
                 Set(p, waiting, waitingNpc);
+                return;
+            }
+            // The open hatch: Zach can slam it shut.
+            if (HatchOpen && Map.HasHatch && Vector2.Distance(Map.Hatch, at) < R(Balance.Reach.Hatch))
+            {
+                Set(p, Prompt.CloseHatch, 0);
                 return;
             }
             if (p.Carrying != 0)
@@ -262,6 +270,31 @@ namespace Vision.Game
                     {
                         int hi = NearestDrop(at, R(Balance.Reach.Pickup), ItemType.HempBeam);
                         if (hi >= 0) Set(p, Prompt.PickDrop, Drops[hi].Id);
+                    }
+                    // And any golden pump lying about (a map's, or one dropped): it replaces his machete.
+                    if (p.Prompt == Prompt.None)
+                    {
+                        int gd = -1;
+                        float gbest = R(Balance.Reach.Pickup);
+                        for (int i = 0; i < Drops.Count; i++)
+                        {
+                            if (Drops[i].Item != ItemType.Shotgun || !Drops[i].Golden) continue;
+                            float d = Vector2.Distance(Drops[i].Pos, at);
+                            if (d < gbest) { gbest = d; gd = i; }
+                        }
+                        if (gd >= 0) Set(p, Prompt.PickDrop, Drops[gd].Id);
+                        else
+                        {
+                            int gl = -1;
+                            float lbest = R(Balance.Reach.Loot) + 0.3f;
+                            for (int i = 0; i < Map.Loot.Count; i++)
+                            {
+                                if (LootTaken[i] || Map.Loot[i].Item != ItemType.Shotgun || !Map.Loot[i].Golden) continue;
+                                float d = Vector2.Distance(Map.Loot[i].Pos, at);
+                                if (d < lbest) { lbest = d; gl = i; }
+                            }
+                            if (gl >= 0) Set(p, Prompt.Loot, gl);
+                        }
                     }
                     if (p.Prompt == Prompt.None)
                     {
@@ -363,6 +396,13 @@ namespace Vision.Game
                 case Prompt.PickUp:
                     StartAction(p, ActionKind.PickUp, Balance.Hunter.PickupTime, p.PromptTarget);
                     break;
+                case Prompt.CloseHatch:
+                    CloseHatch(p);
+                    break;
+                case Prompt.Loot:
+                    // A golden pump lying on the map.
+                    ZachTakesPump(p, p.PromptTarget);
+                    break;
                 case Prompt.Stake:
                     StartAction(p, ActionKind.Stake, Balance.Hunter.StakeTime, p.PromptTarget);
                     break;
@@ -374,7 +414,7 @@ namespace Vision.Game
                     if (occupant != null && occupant.HideState >= 1)
                     {
                         ExitHiding(occupant, true);
-                        DamageSurvivor(occupant, p);
+                        DamageSurvivor(occupant, p, Balance.Hunter.Attack.FoundDamage);
                         Feed($"{p.Name} dragged {occupant.Name} out of hiding");
                     }
                     break;
@@ -404,7 +444,7 @@ namespace Vision.Game
                                          p == Prompt.SextonMore;
 
         /// <summary>Which photo note <paramref name="i"/> shows.</summary>
-        public int NoteImage(int i) => i >= 0 && i < Map.NoteImages.Count ? Map.NoteImages[i] : i % Balance.Notes.Images;
+        public int NoteImage(int i) => i >= 0 && i < Map.NoteImages.Count ? Map.NoteImages[i] : i % Mathf.Max(1, Map.NoteImages.Count > 0 ? Map.NoteImages.Count : Balance.Notes.Images);
 
         void ToggleDoor(int id)
         {
@@ -457,7 +497,7 @@ namespace Vision.Game
                     StartAction(p, ActionKind.Unstake, Balance.Survivor.UnstakeTime, p.PromptTarget);
                     break;
                 case Prompt.OpenGate:
-                    StartAction(p, ActionKind.OpenGate, Balance.Objectives.GateOpenTime, 0);
+                    StartAction(p, ActionKind.OpenGate, Balance.Objectives.GateOpenTime, p.PromptTarget);
                     break;
                 case Prompt.ReadNote:
                     Emit(p.Id, new GameEvent { Kind = EventKind.Note, A = NoteImage(p.PromptTarget) });
@@ -480,6 +520,16 @@ namespace Vision.Game
                     if (p.PromptTarget >= 0 && p.PromptTarget < Npcs.Count && IsTalk(p.Prompt)) Npcs[p.PromptTarget].Talk(this, p);
                     break;
             }
+        }
+
+        /// <summary>Zach picks up a golden pump lying on the map: twelve shots (the lobby's golden pump shells) that replace his machete.</summary>
+        void ZachTakesPump(SimPlayer h, int li)
+        {
+            if (li < 0 || li >= Map.Loot.Count || LootTaken[li] || Map.Loot[li].Item != ItemType.Shotgun || !Map.Loot[li].Golden) return;
+            LootTaken[li] = true;
+            h.Pump += MatchState.Current.Tuning.GoldenAmmo;
+            h.ChargeT = -1f;
+            Tell(h, $"Got a golden pump: {h.Pump} shots");
         }
 
         /// <summary>A survivor grabs a loot spawn (a full inventory drops the last slot to make room).</summary>
@@ -574,13 +624,17 @@ namespace Vision.Game
                         continue;
                     }
                     case ActionKind.OpenGate:
-                        if (!holding || !Gate.Powered || Gate.Open || !p.CanAct || Vector2.Distance(Map.Lever, p.Pos) > R(Balance.Reach.Gate + 10f))
+                    {
+                        int gi = Mathf.Clamp(p.ActionTarget, 0, 1);
+                        GateState g = GateAt(gi);
+                        if (!holding || !g.Powered || g.Open || !p.CanAct || Vector2.Distance(LeverAt(gi), p.Pos) > R(Balance.Reach.Gate + 10f))
                         {
                             CancelAction(p);
                             continue;
                         }
-                        p.ActionT = Gate.Progress * p.ActionDur;
+                        p.ActionT = g.Progress * p.ActionDur;
                         continue;
+                    }
                     case ActionKind.PickLock:
                         UpdatePick(p, dt);
                         continue;

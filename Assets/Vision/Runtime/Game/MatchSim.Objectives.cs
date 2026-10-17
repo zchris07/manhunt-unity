@@ -47,52 +47,22 @@ namespace Vision.Game
                 Feed($"Generator restored ({Mathf.Min(done, Bal.RequiredGenerators)}/{Bal.RequiredGenerators})");
             }
 
-            // Enough generators running: the gate has power (checked every tick, so a generator set running by a tool counts too).
+            // Enough generators running: the gates have power (checked every tick, so a generator set running by a tool counts too).
             if (!Gate.Powered)
             {
                 int repaired = 0;
                 foreach (GenState x in Gens) if (x.Repaired) repaired++;
-                if (repaired >= Bal.RequiredGenerators)
-                {
-                    Gate.Powered = true;
-                    Emit(null, new GameEvent { Kind = EventKind.GatePowered });
-                    Feed("The exit gate has power");
-                    foreach (SimPlayer p in Order) if (p.Action == ActionKind.Repair) CancelAction(p);
-                }
+                if (repaired >= Bal.RequiredGenerators) PowerGates();
             }
 
-            // Exit gate.
-            if (Gate.Powered && !Gate.Open)
-            {
-                var openers = new List<SimPlayer>();
-                foreach (SimPlayer p in Order) if (p.Action == ActionKind.OpenGate) openers.Add(p);
-                if (openers.Count > 0)
-                {
-                    Gate.Progress = Mathf.Min(1f, Gate.Progress + dt / Balance.Objectives.GateOpenTime);
-                    if (Gate.Progress >= 1f)
-                    {
-                        Gate.Open = true;
-                        foreach (SimPlayer p in openers) CancelAction(p);
-                        Emit(null, new GameEvent { Kind = EventKind.GateOpen });
-                        Feed("The gate is open");
-                    }
-                }
-            }
-
-            // Escape through the open gate.
-            if (Gate.Open)
-                foreach (SimPlayer p in Order)
-                {
-                    if (p.Role != Role.Survivor || (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState != 0) continue;
-                    if (!Geo.InExitZone(p.Pos)) continue;
-                    CancelAction(p);
-                    p.Health = Health.Escaped;
-                    p.Stats.Outcome = "escaped";
-                    p.EndedTime = Time;
-                    p.Spectating = DefaultSpectateTarget(p.Id);
-                    Emit(null, new GameEvent { Kind = EventKind.Escaped, A = p.Id });
-                    Feed($"{p.Name} escaped");
-                }
+            // The exit gates, the end game, the hatch, and getting out.
+            int survivorsNow = 0;
+            foreach (SimPlayer p in Order) if (p.Role == Role.Survivor) survivorsNow++;
+            SurvivorsAtStart = Mathf.Max(SurvivorsAtStart, survivorsNow);
+            UpdateGates(dt);
+            UpdateEscapes();
+            UpdateHatch();
+            UpdateEndGame(dt);
 
             // Disconnected players past the grace period forfeit.
             foreach (SimPlayer p in Order.ToArray())
@@ -133,6 +103,7 @@ namespace Vision.Game
         {
             if (Result != null) return;
             int survivors = 0, hunters = 0, escaped = 0, eliminated = 0, standing = 0, huntersGone = 0;
+            bool killed = false;
             foreach (SimPlayer p in Order)
             {
                 if (p.Role == Role.Survivor)
@@ -146,10 +117,12 @@ namespace Vision.Game
                 {
                     hunters++;
                     if (p.Health == Health.Eliminated) huntersGone++;
+                    if (p.Killed) killed = true;
                 }
             }
             Winner w = MatchRules.CheckWin(survivors, standing, escaped, eliminated, hunters, huntersGone, Bal.EscapeNeeded, out string reason);
             if (w == Winner.None) return;
+            if (w == Winner.Survivors && killed && huntersGone >= hunters) reason = hunters > 1 ? "Every Zach was killed" : "Zach was killed";
             foreach (SimPlayer p in Order)
                 if (p.Role == Role.Survivor && p.Health != Health.Escaped && p.Health != Health.Eliminated)
                     p.Stats.Outcome = w == Winner.Hunters ? "eliminated" : "survived";
@@ -255,9 +228,10 @@ namespace Vision.Game
         }
 
         /// <summary>
-        /// A survivor attacked Chacko: Jaden, Plasma and Shane go after them, each with no time limit. Jaden and Plasma keep at
-        /// it until that survivor is down (or they're slain themselves); Shane until he's stunned and driven off (two bottles,
-        /// a shotgun blast or galaxy gas). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
+        /// Someone attacked Chacko (a survivor, or Zach killing him): Njaaron, Jaden and Plasma race after them from wherever
+        /// they are, with no time limit, and keep at them until each has dealt them a third of their health himself, or he's
+        /// slain, or they're down (by anything); Shane runs after them until he's stunned and driven off (two bottles, a
+        /// shotgun blast or galaxy gas; Zach's machete or Soundcloud Burst). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
         /// </summary>
         public void Avenge(SimPlayer target)
         {

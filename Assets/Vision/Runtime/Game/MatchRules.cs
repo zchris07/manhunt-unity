@@ -57,10 +57,13 @@ namespace Vision.Game
         /// <summary>Zach's permanent speed bonus from the survivors he has staked.</summary>
         public static float HunterStakeMul(int stakes) => 1f + stakes * Balance.Hunter.StakeBuff;
 
-        /// <summary>Zach's speed from his health: 10% slower per 25% of the bar gone, 5% more per time he was put down (at most 20%).</summary>
+        /// <summary>
+        /// Zach's speed from his health: 10% slower per 25 of his original 100 gone (faster above it, his bar grown by
+        /// stakes), 5% more per time he was put down (at most 20%).
+        /// </summary>
         public static float HunterHealthMul(float hp, int downs)
         {
-            float lost = (1f - Mathf.Clamp01(hp)) / Balance.Hunter.Health.SpeedStep;
+            float lost = (1f - Mathf.Max(0f, hp)) / Balance.Hunter.Health.SpeedStep;
             return Mathf.Max(0.1f, 1f - lost * Balance.Hunter.Health.SpeedPerStep - Mathf.Min(Balance.Hunter.Health.DownPenaltyMax, downs * Balance.Hunter.Health.DownPenalty));
         }
 
@@ -110,6 +113,8 @@ namespace Vision.Game
         public bool SpeedMode;
         /// <summary>Movement speed scale: 1 is the original's pace; <see cref="Scale.HumanPace"/> is this game's earlier pace.</summary>
         public float Pace = 1f;
+        /// <summary>The lobby's balance sliders for the match being played (the defaults offline).</summary>
+        public Tuning Tuning = new Tuning();
 
         const string PaceKey = "manhunt.pace";
 

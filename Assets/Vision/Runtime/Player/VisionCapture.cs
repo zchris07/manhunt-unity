@@ -883,8 +883,8 @@ namespace Vision.Player
                         yield return new WaitForSeconds(0.8f);
                         gameHud.Refresh();
                         yield return Shot("101_lounge_chacko");
-                        // A survivor's bottle: he flinches back from it and snaps at them (a dummy throws it, so the NPCs it
-                        // sets on the thrower give up as soon as the dummy is gone).
+                        // A survivor's bottle: it kills him, and he blows apart (a dummy throws it, so the NPCs it sets on
+                        // the thrower give up as soon as the dummy is gone).
                         Chacko chacko = null;
                         foreach (Npc n in host.Sim.Npcs) if (n is Chacko c) chacko = c;
                         SimPlayer thrower = host.SpawnDummy(Role.Survivor);
@@ -894,7 +894,7 @@ namespace Vision.Player
                             chacko.ItemHit(host.Sim, thrower, "bottle");
                             yield return new WaitForSeconds(0.14f);
                             gameHud.Refresh();
-                            yield return Shot("141_chacko_flinch");
+                            yield return Shot("141_chacko_slain_by_a_survivor");
                         }
                         host.Sim.ClearDummies();
                     }
@@ -1229,6 +1229,88 @@ namespace Vision.Player
                     }
                     host.Sim.ClearDummies();
                     host.SwitchRole();
+                }
+                // The newer rules: Miga Sushi's gate (powered, then open), the hatch open by the dock, a ghost, its red
+                // pulse and the picture it flashes, Monique's arrow, wading through the lake, and the lobby's balance card.
+                {
+                    SimPlayer meG = host.Local;
+                    if (L.HasSushiGate)
+                    {
+                        host.Sim.Gate.Powered = host.Sim.Gate2.Powered = true;
+                        Vector2 o = L.SushiGateOut();
+                        yield return Stage(player, V(L.SushiGateLever + o * 1.2f), -o, wanderer, away);
+                        yield return new WaitForSeconds(0.6f);
+                        gameHud.Refresh();
+                        yield return Shot("160_sushi_gate_powered");
+                        host.Sim.Gate2.Progress = 1f;
+                        host.Sim.Gate2.Open = true;
+                        yield return new WaitForSeconds(3f);
+                        yield return Stage(player, V(L.SushiGateMid() + o * 2.5f), -o, wanderer, away);
+                        yield return Wait(10);
+                        yield return Shot("161_sushi_gate_open");
+                    }
+                    host.Sim.HatchOpen = true;
+                    Vector2 toMid = (-L.LakeCentre).normalized;
+                    Vector2 hatchSide = new Vector2(-toMid.y, toMid.x);
+                    yield return Stage(player, V(L.Hatch + hatchSide * 1.8f), -hatchSide, wanderer, away);
+                    yield return new WaitForSeconds(1.6f);
+                    gameHud.Refresh();
+                    yield return Shot("162_hatch_open");
+                    host.Sim.HatchOpen = false;
+                    host.Sim.HatchClosed = true;
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot("162b_hatch_slammed");
+                    host.Sim.HatchClosed = false;
+
+                    // A ghost (staged on our own survivor, who stays in the match for the shots that follow).
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 6f)), Vector2.up, wanderer, away);
+                    meG.Ghost = true;
+                    meG.GhostCd = 0f;
+                    yield return Wait(10);
+                    gameHud.Refresh();
+                    yield return Shot("163_ghost");
+                    host.Sim.TryGhostPulse(meG, Mathf.PI / 2f);
+                    yield return new WaitForSeconds(0.12f);
+                    gameHud.Refresh();
+                    yield return Shot("164_ghost_pulse_wave");
+                    gameHud.Overlays.FlashImage(Vision.UI.ScreenOverlays.Picture(Vision.UI.MatchPresenter.GhostPicture()), Balance.Ghost.FlashTime, Balance.Ghost.FlashTime * Balance.Ghost.FlashFade, true);
+                    yield return new WaitForSeconds(0.25f);
+                    yield return Shot("165_ghost_pulse_flash");
+                    meG.Ghost = false;
+                    yield return new WaitForSeconds(0.7f);
+
+                    // Monique's arrow, pointing at a Zach off to the north-east.
+                    SimPlayer far = host.Sim.AddDummy(Role.Hunter, meG.Pos + new Vector2(30f, 30f));
+                    meG.ArrowT = Balance.Monique.ArrowSec;
+                    yield return new WaitForSeconds(0.6f);
+                    gameHud.Refresh();
+                    yield return Shot("166_monique_arrow");
+                    meG.ArrowT = 0f;
+                    host.Sim.ClearDummies();
+                    _ = far;
+
+                    // Wading.
+                    Vector2 inLake = L.DockStart - toMid * 4f + new Vector2(-toMid.y, toMid.x) * 3f;
+                    yield return Stage(player, V(inLake), Vector2.up, wanderer, away);
+                    player.MoveOverride = new Vector2(-toMid.y, toMid.x);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot("167_wading_ripples");
+                    player.MoveOverride = null;
+
+                    // The lobby: its balance card, a joiner's slider moved (in amber).
+                    Vision.Net.Listener.LoopbackOnly = true;
+                    gameHud.CreateLobby("Capture", 0);
+                    if (Vision.Net.NetSession.Active != null)
+                    {
+                        Vision.Net.NetSession.Active.Tune(2, 1.3f);
+                        Vision.Net.NetSession.Active.Tune(0, 4f);
+                        yield return Wait(10);
+                        yield return Shot("168_lobby_balance");
+                        gameHud.LeaveOnline();
+                    }
+                    Vision.Net.Listener.LoopbackOnly = false;
+                    gameHud.StartTesting(false);
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
                 }
                 var fake = new MatchResult { Winner = Winner.Survivors, Reason = "3 escaped, 1 eliminated", DurationSec = 1043, GeneratorsRepaired = 5, GeneratorsRequired = 5 };
                 fake.Stats.Add((1, "Zach", Role.Hunter, new MatchStats { Outcome = "hunter", Hits = 9, Downs = 4, Stakes = 2, StunnedTimes = 5, GensDamaged = 3 }));

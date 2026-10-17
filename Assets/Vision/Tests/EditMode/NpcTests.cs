@@ -113,9 +113,18 @@ namespace Vision.Tests
             SimPlayer s = rig.P(2);
             rig.Place(s, 0, 0);
             s.Facing = 0f;
-            var jaden = Add(rig, new Jaden(rig.Sim), 150, 0);
-            rig.Run(SimRig.Secs(4f));
-            Assert.IsTrue(jaden.Chasing, "alerted like Shane");
+            // Held in the survivor's beam (well out of his alert radius), he's never set off.
+            var jaden = Add(rig, new Jaden(rig.Sim), 300, 0);
+            rig.Run(SimRig.Secs(8f));
+            Assert.IsFalse(jaden.Chasing, "a beam on him never alerts him");
+            Assert.AreEqual(0f, jaden.AlertLevel, 1e-4f);
+            // Standing close to him does (kept close: he'd wander off).
+            for (int t = 0; t < SimRig.Secs(6f) && !jaden.Chasing; t++)
+            {
+                jaden.Pos = SimRig.U(60f, 0f);
+                rig.Run(1);
+            }
+            Assert.IsTrue(jaden.Chasing, "alerted by standing close");
             Assert.IsTrue((jaden.Flags & NpcFlags.Armed) != 0, "pistol out");
             int shots = 0;
             for (int t = 0; t < SimRig.Secs(12f) && jaden.Chasing; t++)

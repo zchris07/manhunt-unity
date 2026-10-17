@@ -182,7 +182,8 @@ namespace Vision.Tests
                 CollectionAssert.AreEquivalent(new[] { "MIGA SUSHI", "DIDDY CHAMBER" }, world.Places.Select(p => p.name));
                 Vector2 Plane(Component c) { Vector3 l = world.transform.InverseTransformPoint(c.transform.position); return new Vector2(l.x, l.z); }
                 var inSushi = world.Pickups.Where(p => L.Sushi.Contains(Plane(p))).Select(p => p.item).ToList();
-                CollectionAssert.AreEquivalent(new[] { ItemType.HempBeam, ItemType.Sniper }, inSushi, "a Hemp Beam and a 0.50 cal");
+                CollectionAssert.AreEquivalent(new[] { ItemType.HempBeam, ItemType.Sniper, ItemType.Shotgun }, inSushi, "a Hemp Beam, a 0.50 cal and a golden pump");
+                Assert.IsTrue(world.Pickups.Any(p => L.Sushi.Contains(Plane(p)) && p.item == ItemType.Shotgun && p.golden), "the golden pump");
                 // A Japanese restaurant, in detail: 13 by 10, the bar and its stools, the sake shelf, menu plaques, a tatami room
                 // with low tables behind shoji, tables and chairs, paper lanterns, the cat and the bonsai, a scroll.
                 Assert.AreEqual(13f * 10f, L.Sushi.width * L.Sushi.height, 0.01f);
@@ -207,7 +208,8 @@ namespace Vision.Tests
                 // Every generator's work site: three light towers as tall as a big tree, lighting all round them as brightly as
                 // a player's own light, work lights, cables and clutter; all dark until it runs, then on for good. The
                 // graveyard's: two towers and their cables alone.
-                // The building's generators have no work site: either one running lights every room of the building.
+                // The building's generators have no work site: each one running lights its own half of the building, at
+                // night vision's shaded brightness.
                 BuildingPower power = root.GetComponentInChildren<BuildingPower>();
                 Assert.NotNull(power, "the building's lights");
                 Assert.AreEqual(2, power.generators.Count, "wired to both of the building's generators");
@@ -215,10 +217,18 @@ namespace Vision.Tests
                 foreach (BuildingPlan.Room r in L.Plan.Rooms)
                     Assert.IsTrue(power.lights.Any(l => r.Area.Contains(Plane(l))), $"a light in the {r.Name}");
                 Assert.IsTrue(power.lights.All(l => !l.enabled), "dark until one runs");
+                Assert.IsTrue(power.lights.All(l => Mathf.Approximately(l.intensity, Balance.Xray.Brightness)), "the shaded night vision brightness");
+                Assert.AreEqual(power.lights.Count, power.owners.Count, "every light has its generator");
+                int half0 = power.owners.Count(o => o == 0), half1 = power.owners.Count(o => o == 1);
+                Assert.Greater(half0, power.lights.Count / 5, "the first generator's half");
+                Assert.Greater(half1, power.lights.Count / 5, "and the second's");
                 power.generators[0].SetState(1f, true);
                 power.Refresh();
-                Assert.IsTrue(power.lights.All(l => l.enabled), "one running lights the whole building");
-                power.generators[0].SetState(0f, false);
+                for (int i = 0; i < power.lights.Count; i++) Assert.AreEqual(power.owners[i] == 0, power.lights[i].enabled, "one running lights its own half");
+                power.generators[1].SetState(1f, true);
+                power.Refresh();
+                Assert.IsTrue(power.lights.All(l => l.enabled), "both: the whole building");
+                foreach (GeneratorObjective g in power.generators) g.SetState(0f, false);
                 power.Refresh();
                 foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform) && !power.generators.Contains(g)))
                 {

@@ -18,6 +18,13 @@ namespace Vision.Game
         public bool HasGate;
         /// <summary>The fenced yard beyond the gate: walking into it escapes.</summary>
         public Rect ExitZone;
+        /// <summary>The second exit gate beside Miga Sushi: its lever, its gate and the yard behind it.</summary>
+        public Vector2 Lever2, GatePos2;
+        public bool HasGate2;
+        public Rect ExitZone2;
+        /// <summary>The hatch by the lake's dock.</summary>
+        public Vector2 Hatch;
+        public bool HasHatch;
         public readonly List<LootDef> Loot = new List<LootDef>();
         public readonly List<HideDef> HidingSpots = new List<HideDef>();
         public readonly List<DoorDef> Doors = new List<DoorDef>();
@@ -66,7 +73,7 @@ namespace Vision.Game
                 void L(List<Vector2> l) { h = h * 31 + l.Count; foreach (Vector2 v in l) V(v); }
                 h = h * 31 + Mathf.RoundToInt(HalfExtent * 100f);
                 L(Generators); L(Stakes); L(Notes); L(SurvivorSpawns); L(HunterSpawns);
-                V(Lever); V(GatePos); V(AmbulanceAt); V(LoungeSeat); V(LoungeTv);
+                V(Lever); V(GatePos); V(AmbulanceAt); V(LoungeSeat); V(LoungeTv); V(Lever2); V(GatePos2); V(Hatch);
                 h = h * 31 + Mathf.RoundToInt(AmbulanceAngle * 1000f);
                 h = h * 31 + Loot.Count;
                 foreach (LootDef l in Loot) { V(l.Pos); h = h * 31 + (int)l.Item; }

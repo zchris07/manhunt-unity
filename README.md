@@ -11,8 +11,9 @@ procedural 36 m central building (1200 units) in the middle, its north exit gate
 survivors' spawn in the south, clearings joined by footpaths, three cabins, a lake with a dock, fences,
 logs, tall grass to hide in, power lines, a graveyard, an abandoned playground and a hanging tree, and
 about 2,350 evergreens and dead trees. Every map is generated at runtime from a seed (about 3.8 s);
-**New map** in the game menu builds another. Survivors repair the generators, then open the gate and
-escape; Zach Branch hunts them. The rules are the original's, ported line for line (see *The match*). The level is authored in design units (a person is 1.8 m) and its root is scaled by `WorldScale.S`
+**New map** in the game menu builds another. Survivors repair the generators, then open one of the two exit gates
+and escape (or, the last one left, jump into the hatch by the dock); Zach Branch hunts them. There is never a time
+limit on the night. The rules are the original's, ported line for line (see *The match*). The level is authored in design units (a person is 1.8 m) and its root is scaled by `WorldScale.S`
 = 2, so the camera sits twice as close. Characters are 222-triangle mannequins animated by a procedural
 walk and sprint that adapts to any slope and, at the original's speeds, strides like a sprinter.
 
@@ -89,15 +90,23 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **The lobby** is the original's: the players (the host crowned, everyone's readiness and ping), your role preference
   (Survivor, Zach or Either) and Ready, and the host's settings: hunters and survivors (1-9 each), a map seed (blank for
   random), testing mode, a preview of the night with its auto-balance, **Shuffle roles** and **Start the night**; a chat
-  beside them. The host can fix anyone's role by clicking it (auto, Zach, survivor, spectator); otherwise roles are split
+  under them. Between them, **Balance & difficulty**: sliders anyone in the lobby (host or joiner) can move, everyone
+  seeing them move: how many generators (2-8, five by default), each side's move speed, sprint duration and sprint
+  recovery, the damage each side deals, the shotgun's, the golden pump's (the Legendary pump and Zach's alike), the
+  P250's and the 0.50 cal's damage, and the rounds each of those guns starts with. A number off its default shows in
+  amber; only the host can **Reset to defaults** (the game's own numbers). The host's own settings changes never undo
+  someone's slider, the match plays by them on every machine, and offline the game's own numbers hold (`Game/Tuning`,
+  `GameHud.Tuning`, the wire's `Tune` and `ResetTune`; the wire is version 2, so an older build is told it's a
+  different version). The host can fix anyone's role by clicking it (auto, Zach, survivor, spectator); otherwise roles are split
   as in the original (hunter slots by preference, survivors up to the cap, the rest spectate). A match needs a Zach and a
   survivor unless testing mode is on, and then anyone may manage the lobby.
 - **The night**: everyone builds the host's map from its seed (its fingerprint is checked, so different versions can't
   mix), and plays at the host's pace. The host runs the rules for everyone; each player moves their own avatar and sends
   their input and position 30 times a second; the host sends each player only what changed (20 snapshots a second,
   about 15 KB/s each), with the events meant for them. Zach is never told where a hidden survivor is. Spectators and the
-  eliminated watch the others (left click or the arrow keys). A player whose connection drops has 30 s to come back to
-  their place. When the night ends everyone sees the results; the host's **Back to lobby** brings them all back (the results put away for good, never coming back up over the lobby), and **Leave** takes you to the title screen.
+  eliminated watch the others (left click or the arrow keys). Someone joining while a match is under way isn't turned
+  away: they spectate it, and play from the next. A player whose connection drops has 30 s to come back to
+  their place (past that they're out of the match, and it goes on). When the night ends everyone sees the results; the host's **Back to lobby** brings them all back (the results put away for good, never coming back up over the lobby), and **Leave** takes you to the title screen.
 - `Vision.Net`: `Wire` (framing and the message types), `Transport` (a TCP connection with its own reader and writer
   threads, the listener), `FieldPlan` and `Snapshot` (the state codec: each section field by field, sent when changed),
   `Lobby`, `NetServer`, `NetClient`, and `NetSession`, which joins them to the game.
@@ -210,8 +219,17 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   off the original's 70, scaled to the player count; +25% for each extra survivor on it). **Skill checks**: while
   repairing, every 8 s a dial flashes up mid-screen with a gilded mark and a tick sweeping round it once, faster (350
   degrees a second, a little slower than at first so it's easier) and on a narrower mark (14 degrees) than any of the lock pick's; Space or a click on the mark takes
-  4 s off the repair, a miss or a tick that gets all the way round costs nothing (`MatchSim.Checks`). With enough running, hold E at the lever for 20 s and the gate
-  opens onto the yard; walking out escapes.
+  4 s off the repair, a miss or a tick that gets all the way round costs nothing (`MatchSim.Checks`). Every generator
+  on the map has to run (the lobby sets how many: the graveyard's always, one in the building, two from five on, the
+  rest in the woods). Then both exit gates have power: the building's, and a second one of its own beside **Miga
+  Sushi** (a chain-link yard with a roll-up gate facing the middle of the map, its lever on a post outside and a lamp
+  over it that lights up with the power). Hold E at either lever for 10 s (half the original's 20) and that gate rolls
+  up and stays open; walking into its yard escapes. The moment a gate opens **the end game** begins: a 2-minute timer
+  (the clock under the compass turns red and counts it down) after which anyone still on the map is taken by the
+  Entity. With only one survivor left on the map (of a night that started with two or more), **the hatch** on the bank
+  by the lake's dock opens, its lid up and a cold light out of it: walking onto it is an instant escape, unless Zach
+  gets there first and slams it shut (E), which powers the gates and starts the end game. Nothing else ends the night:
+  there's no time limit (`MatchSim.Exits`, `World/Hatch`, `SandboxWorld.Exits`).
 - **Stakes**: the original's scarecrow stakes, six candidate spots per clearing (not the spawn's), away from
   generators, cabins, campfires and the spawn, spread out by farthest-first picking; a match uses survivors + 4 of
   them (6 to 12). Zach carries the downed there; teammates see a pulsing red ring over a staked survivor anywhere.
@@ -453,7 +471,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **NPCs** (`Game/Npcs`, `NpcViews`, `GameHud.Npcs`): the original's townsfolk, each with their own look and rules.
   **Shane Jeans** wanders with a faint light; crowd him or keep your flashlight on him and his alert bar fills, then a
   red "!" and he tails you as a beacon for Zach (to the sound of his footsteps) until Zach comes close, two bottles
-  or a shotgun blast shake him off, or he tires. **Jaden Nguyen** is alerted the same way but draws a pistol, hangs
+  or a shotgun blast shake him off, or he tires. **Jaden Nguyen** is alerted only by standing close to him (never by being
+  seen or held in a beam), draws a pistol, hangs
   back and shoots until you have lost half your health; three survivor hits kill him and drop his pistol, and Zach
   who slays him gets a lunge charge and more reach. **Marc Cortez** starts in the building, opens doors and hands out
   duck confit. **Waz** takes a looksie (you see 10% more); slaying him flashes his picture. **Njaaron** asks "you
@@ -468,32 +487,45 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   it had; Zach can pick one up too, its charges going into his own beam (R), up to a full set. **Daphne Cheng** (a young
   woman with long dark-brown hair) hands a P250 to each survivor who talks to her (once each); nobody can slay her, and
   slashed by Zach, or hit by a survivor's item or round, she stands her ground and blasts them with her shotgun (a
-  survivor's shotgun with endless shells, its pump worked after every blast) for ten seconds, every new attack starting
-  them again, turning to keep them in her sights but never chasing them, firing whenever they're within 630 units and
-  in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach (for 40 s a red arrow circles the survivor on their screen, pointing at Zach wherever he is, the seconds left under it), then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal, reloading as a survivor's does, three shots at most an aggro cycle before she puts it away (an attack after that starts her again); Daphne keeps her gun up for ten seconds, holding fire while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
+  survivor's shotgun with endless shells, its pump worked after every blast) for ten seconds or five blasts at most,
+  then puts it away, every new attack starting her again, turning to keep them in her sights but never chasing them,
+  firing whenever they're within 630 units and in sight. In testing mode **Respawn NPCs** (in the TEST EFFECTS panel) brings every NPC back new and unhurt at their spawn points, calls off the hunt for Chacko's attacker and clears Sexton's dropped beam, as the original's does. **Monique Bourgeois** gives an arrow to Zach (for 40 s a red arrow circles the survivor on their screen, pointing at Zach wherever he is, the seconds left under it), then Mr Beast bars, and shoots whoever attacks her (Zach only when he slashes her) with a 0.50 cal, reloading as a survivor's does, three shots at most an aggro cycle before she puts it away (an attack after that starts her again); Daphne keeps her gun up for ten seconds, holding fire while her target's down. Zach's Penjamin gas, Soundcloud Burst or Hemp Beam never set either of them shooting: they put their guns away and run. Name tags,
   speech bubbles and alert bars show over the NPCs you can see; testing mode shows them all, and on the map.
   NPCs that chase find their way with `NavGrid` (A* over a 25-unit grid of the level, cached per radius).
   **Sexton Science** wanders with his reel playing around him; talk to him, press E again to keep listening, and he
   hands you JARVIS and walks off. Hit him as a survivor and he defends himself with Hemp Beams; three hits slay him,
   Zach's machete or a survivor's bottles, books, jars, rounds or shotgun blasts alike (his health bar shows to both),
   and he drops his Hemp Beam on the ground for whoever takes it (E). **Chris Zelley** paces round his ambulance (40% smaller than at first) until a survivor enlists him; then the first survivor
-  left downed or staked too long gets a sprinting paramedic, a revive, and a halo and wings as he ascends. **Plasma.TTV**
-  says "ggs" and hands out golden pumps; attack him and GAMER RAGE turns him into a purple beast who punches you down
+  left downed or staked too long gets a sprinting paramedic, a revive, and a halo and wings as he ascends. Nobody can
+  kill him, except Zach while he's at work on someone (reviving them or cutting them down): then he has 50 health,
+  taken like a survivor's (a light swing 10, a full one two thirds of 100), his bar showing to Zach; on his way to a
+  rescue nothing stops him, and if Zach picks up the survivor he's running to, he turns to anyone else downed or staked,
+  or waits until they're put down or on a stake. **Plasma.TTV**
+  says "ggs" and hands out a golden pump (twelve shells), one to the survivors and one to Zach, no more: anyone after
+  that hears "sorry, i'm all out bro". Attack him and GAMER RAGE (to the gamer smash clip) turns him into a purple beast who punches you down
   (only the beast can die, and drops his pump); the beast keeps his size but squeezes through doorways like a man. **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
-  survivors, 50 Nic for Zach. A survivor can't kill him: hit him with anything (a bottle, a book, a jar, pellets, a
-  bullet, a 0.50 cal round) and he flinches back on the couch, arms up round his face, and snaps "Lay off man!" or
-  "What the heck..." (in turn), and Jaden, Plasma and Shane come after you with no time limit: Jaden and Plasma until
-  you're down (or they're slain), not giving up for time, distance or anyone else attacking them; Shane until he's
-  stunned and driven off (two bottles, a shotgun blast or galaxy gas), tailing you even while you're down. Hide and
-  they lose you, but the moment you're back out they're after you again. One blow from Zach kills him, and he explodes. Every
+  survivors, 50 Nic for Zach. One blow kills him, from Zach or a survivor (a bottle, a book, a jar, pellets, a bullet, a
+  0.50 cal round), and he explodes in the same bloody blast, taking half his killer's health. His killer sets off a clip
+  from the couch for everyone near. If it was Zach, every NPC but Shane races after him from wherever they are and
+  punches him (Njaaron's punch) until it's taken a third of his health itself, or he's down, or it's slain. Either way
+  Njaaron, Jaden and Plasma race after them from
+  wherever they are on the map with no time limit, each until he's dealt them a third of their health himself, or
+  they're down (by anything), or he's slain, not giving up for time, distance or anyone else attacking them; Shane runs
+  after them until he's stunned and driven off (two bottles, a shotgun blast or galaxy gas; Zach shakes him off with his
+  machete or a Soundcloud Burst), tailing them even while they're down. Hide and they lose you, but the moment you're
+  back out they're after you again. Every
   NPC carries a faint light, as in the original. Their looks: Sexton a white man with blond hair; Thomas white with
   grey hair; Plasma a tall white man with light brown hair (the beast stays purple); Waz a tall Indian man with curly
   hair and a short goatee; Soham a tall Indian man with a bowl cut; Njaaron a slightly muscular Asian man; Jaden an
   Asian man with cartoon-yellow skin; Monique a short Asian woman (tall is 1.88 m, short 1.62 m).
-- **JARVIS**: for ten seconds every survivor's whole screen is lit and everyone on it shows (the original's
-  reveal); for the survivor running it, thirty seconds, and their map revealed. Coming on, it boots on their screen in
+- **JARVIS** is an ability, used again and again: whoever has Sexton's tablet sets it going (Q), and for 20 s every
+  survivor in the match gets all of it, its boot, its screen, the map revealed, their whole screen lit and everyone on
+  it shown; the tablet then recharges for 90 s, counted from when it ends (its slot shows the seconds). Night vision
+  can't be used while it runs. Out past the second ring it goes dark for that survivor (its time running on); back in, it
+  comes back on without its boot. Its voice plays only the first time it's used in a match, its last second falling
+  away by an inverse square. Coming on, it boots on every survivor's screen in
   two seconds, after Iron Man's JARVIS start-up (`JarvisHud`): a blue light streaks across the middle, an angular frame
-  draws in round it, "INITIATING J.A.R.V.I.S. 1...." types out with a blinking block cursor, diagnostics flicker under
+  draws in round it, "INITIATING J.A.R.V.I.S." types out and counts 1... 2... 3... with a blinking block cursor, diagnostics flicker under
   it (network, protocol, memory, CHECKSUM: OK), a segmented bar fills and it all breaks up in a glitch. Psionic waves
   ripple out from them, close about the body first and sinking to the ground, then ring after ring spreading out over
   the ground, pulsing; the light spreads out from them over the whole screen in 0.8 s, and the view zooms out 30% over
@@ -549,6 +581,50 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the level so every machine agrees (`SimMapBuilder.ScatteredSpawns`).
 - The old **wanderer** stands in for an entity in the captures only.
 - `GameHud` builds the HUD in code with uGUI, scaled from a 1080p reference.
+
+### Ghosts, Zach's bar and the newer rules
+
+- **Ghosts** (`MatchSim.Ghosts`, `GhostLook`, `GameHud.Ghost`): a survivor sacrificed (staked to the end, or gone into
+  the woods) comes back four seconds later (out of the woods, once the black screen lifts, at the survivors' spawn) as
+  a glowing white ghost of themselves, seen in any light, with a sprint that never runs out. They can't be hurt and
+  can't pick up or work anything, still count as sacrificed for the night's result, and nothing they do touches an NPC.
+  Their power is the **Ghost Pulse** (left click or F, every 15 s): a red wave like Zach's Soundcloud Burst rolling out
+  through every wall; everyone it passes over, survivors and Zach alike, gets a random picture from the game (the notes'
+  photos, the Grapes of Wrath's, Waz's; never the Soundcloud one, never the same one twice running) flashed, shaken and
+  faded in and out over 0.6 s, while the pulse's clip plays out whole for the ghost and anyone near. Their panel sits
+  where the inventory was. A disconnect or the end game's Entity never makes a ghost.
+- **Zach's bar**: each time he's put down 10 comes off the top of his bar for good (his speed still goes by his health
+  out of his original 100, so he's slower too), and he gets back up with half of what's left; each survivor he stakes
+  adds 5 to the bar (and to his health), which makes him faster (past 100, faster than at the start). Worn away to
+  nothing he's killed, and with every Zach dead the survivors win ("Zach was killed"). His head bar shows the part worn
+  away, dark; his HP line reads out of what's left.
+- **Zach's swing**: uncharged it takes 10 of a survivor's 100, growing evenly over the charge to two thirds fully
+  charged (pulling someone out of hiding still takes a third).
+- **The building's lights**: each of the building's generators lights its own half of the building (every room by the
+  generator nearest it; a long hallway split light by light), a lone one all of it, at night vision's shaded brightness:
+  they show the rooms and halls, never who's in them (players only ever see who's in their own light).
+- **Night vision** widens the beam as it comes on, never snapping to it: the angle opens out as the see-through light
+  lengthens, all the way by the time the light passes the side of the screen.
+- **Numbers**: the Hemp Battery recharges over 50 s (40 at first); Penjamin's strongest slow is 40% less; the Hemp Beam
+  has five charges; golden pumps hold twelve shells; the 0.50 cal has five rounds, its slot showing 5/5, 4/5... (another
+  0.50 cal picked up adds its rounds and five to the count: 10/10), and every gun shows its rounds that way; a gun out of
+  rounds is gone. Five P250s lie out on the map from the start, spread about the playable circle as far from each other
+  as they can be; a golden pump lies on Miga Sushi's counter and another somewhere on the map.
+- **Notes**: one beside every generator, the rest along the paths (or in the building when the paths are full), so
+  every photo lies somewhere, the user's own included (`World/NotePictures`: `Resources/Images/local_note-7` and on,
+  kept out of git).
+- **Wading**: anyone moving through the lake, player or NPC, leaves rings rippling out over the water round their legs,
+  a small wake behind them and now and then a splash (`MatchEffects.Water`).
+- **Sounds** (local files, kept out of git): a jingle for everyone when a generator starts or someone escapes; and, in
+  place of the old machine whirr, a small diesel generator coming to life where it stands, played through once, falling
+  off linearly to a fifth of its volume over its first seven seconds and heard (faintly) only within ten feet of it; the
+  gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
+  rage; a clip from Chacko's couch when anyone attacks him; the Ghost Pulse's. The machete's slash into someone is half
+  as loud as it was. Sounds can start part way into their file, decay over time and fall away at the end
+  (`SoundBank.Cue`'s Start, DecayTime and DecayTo, TailFade).
+- **Zach and golden pumps**: he can pick up any golden pump lying on the map (or one a survivor dropped): twelve shots
+  (the lobby's golden pump shells) that replace his machete until they run out.
+- **Notes**: reading one, E puts it down again (as Esc or a click does).
 
 ### Look panel (F4)
 

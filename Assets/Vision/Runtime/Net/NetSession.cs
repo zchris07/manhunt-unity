@@ -104,9 +104,14 @@ namespace Vision.Net
                 h.Paused = false;
                 h.LocalId = 1;
             }
+            if (world != null) world.generatorCount = Tuning.DefaultGenerators;
             MatchState.Current.SetPace(MatchState.SavedPace(), false);
             if (Active == this) Active = null;
-            if (this != null) Destroy(gameObject);
+            if (this != null)
+            {
+                if (Application.isPlaying) Destroy(gameObject);
+                else DestroyImmediate(gameObject);
+            }
         }
 
         void OnDestroy()
@@ -135,7 +140,10 @@ namespace Vision.Net
             yield return null;
             yield return null;
             MatchHost h = Host;
-            if (world.Layout == null || world.seed != seed) world.Regenerate(seed);
+            // The lobby's generator count shapes the level too.
+            int gens = h.Online?.Settings?.Tuning?.Generators ?? Tuning.DefaultGenerators;
+            world.generatorCount = gens;
+            if (world.Layout == null || world.seed != seed || world.Layout.GeneratorCount != gens) world.Regenerate(seed);
             else h.Begin();
             yield return null;
             WorldHash = h.Sim != null ? h.Sim.Map.Hash() : 0;
@@ -164,6 +172,10 @@ namespace Vision.Net
         public void SetReady(bool r) => Client?.SetReady(r);
         public void Chat(string text) { if (Server != null) Server.Chat(Name, text); else Client?.Chat(text); }
         public void SetSettings(LobbySettings s) { if (Server != null) Server.SetSettings(s); else Client?.SetSettings(s); }
+        /// <summary>Moves a balance slider (anyone can).</summary>
+        public void Tune(int knob, float value) { if (Server != null) Server.Tune(knob, value); else Client?.Tune(knob, value); }
+        /// <summary>Every balance slider back to the default (the host only).</summary>
+        public void ResetTuning() { if (Server != null) Server.ResetTuning(); else Client?.ResetTuning(); }
         public void Assign(int id, Assigned role) { if (Server != null) Server.Assign(id, role); else Client?.Assign(id, role); }
         public void Shuffle() { if (Server != null) Server.Shuffle(); else Client?.Shuffle(); }
         public void StartMatch() { if (Server != null) Server.Start(); else Client?.Start(); }

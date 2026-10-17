@@ -254,7 +254,7 @@ namespace Vision.Tests
             int pictures = hudGo.GetComponentsInChildren<UnityEngine.UI.RawImage>(true).Count(i => i.name == "Item" && i.texture != null && (i.transform.parent.name == "Content" || i.transform.parent.name == "Map"));
             int gens = GeneratorObjective.All.Count(g => g != null && g.transform.IsChildOf(world.transform));
             Assert.AreEqual(5, gens);
-            Assert.AreEqual(2 * (gens + 1), icons, "every generator and the gate, on the minimap and the full map");
+            Assert.AreEqual(2 * (gens + 2), icons, "every generator and both gates, on the minimap and the full map");
             Assert.AreEqual(2 * (world.Pickups.Count + world.Notes.Count), pictures, "every supply and note by its own picture, on both maps");
             // Testing mode's NPC dots turn and scroll with the minimap's content, like everything else on it.
             var npcDots = hudGo.GetComponentsInChildren<RectTransform>(true).Where(t => t.name == "NPC" && t.sizeDelta.x < 10f).ToList();

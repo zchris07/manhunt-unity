@@ -28,6 +28,8 @@ namespace Vision.Net
         public bool TestMode;
         /// <summary>The host's movement pace (everyone moves at it online).</summary>
         public float Pace = 1f;
+        /// <summary>The balance sliders (anyone in the lobby moves them; the host's own settings changes leave them be).</summary>
+        public Tuning Tuning = new Tuning();
 
         public LobbySettings Clamped() => new LobbySettings
         {
@@ -36,7 +38,10 @@ namespace Vision.Net
             Seed = (Seed ?? "").Length > 32 ? Seed.Substring(0, 32) : Seed ?? "",
             TestMode = TestMode,
             Pace = Math.Max(Scale.MinPace, Math.Min(Scale.MaxPace, Pace)),
+            Tuning = (Tuning ?? new Tuning()).Clamped(),
         };
+
+        public LobbySettings Copy() => new LobbySettings { Hunters = Hunters, Survivors = Survivors, Seed = Seed, TestMode = TestMode, Pace = Pace, Tuning = (Tuning ?? new Tuning()).Copy() };
 
         public void Write(BinaryWriter w)
         {
@@ -45,11 +50,13 @@ namespace Vision.Net
             Wire.WriteString(w, Seed);
             w.Write(TestMode);
             w.Write(Pace);
+            (Tuning ?? new Tuning()).Write(w);
         }
 
         public static LobbySettings Read(BinaryReader r) => new LobbySettings
         {
             Hunters = r.ReadInt32(), Survivors = r.ReadInt32(), Seed = Wire.ReadString(r) ?? "", TestMode = r.ReadBoolean(), Pace = r.ReadSingle(),
+            Tuning = Tuning.Read(r),
         };
 
         /// <summary>The map seed: the number typed, a word's stable hash, or a random one when blank.</summary>

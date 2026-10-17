@@ -22,6 +22,8 @@ namespace Vision.World
     public sealed partial class SandboxWorld : MonoBehaviour
     {
         public int seed = 1337;
+        /// <summary>How many generators the next level has (the lobby's slider; five by default).</summary>
+        public int generatorCount = Vision.Game.Tuning.DefaultGenerators;
         [Tooltip("Half the map's width in design units: the original's 6000 units at 3 cm each.")]
         /// <summary>The playable radius (design units): the map is a circle, its first boundary ring here.</summary>
         public float halfExtent = 90f;
@@ -358,7 +360,7 @@ namespace Vision.World
         {
             if (Terrain == null)
             {
-                Layout ??= new MapLayout(seed, halfExtent);
+                Layout ??= new MapLayout(seed, halfExtent, generatorCount);
                 Terrain = CreateTerrain(Layout);
             }
             TerrainField.SetActive(Terrain, transform);
@@ -406,6 +408,8 @@ namespace Vision.World
             f.AddPad(Expand(layout.Playground, 1f), 4f);
             f.AddPad(Expand(layout.Sushi, 1.5f), 4f);
             f.AddPad(Expand(layout.Chamber, 1.5f), 4f);
+            if (layout.HasSushiGate) f.AddPad(Expand(layout.SushiGate, 1.5f), 4f);
+            f.AddPad(layout.Hatch, 1.6f, 2.5f);
             f.AddPad(layout.HangingTree, 2.5f, 3f);
             f.SetLake(layout);
 
@@ -420,6 +424,7 @@ namespace Vision.World
                 if ((building.Contains(p) && !(layout.Plan != null && layout.Plan.InNotch(p, 1.4f))) || yard.Contains(p) || layout.LakeDepth(p) > -1.5f) return true;
                 foreach (Rect r in cabins) if (r.Contains(p)) return true;
                 if (InGraveyard(layout, p, 0f) || layout.Playground.Contains(p)) return true;
+                if (layout.HasSushiGate && Expand(layout.SushiGate, 0.6f).Contains(p)) return true;
                 foreach (Vector2 pole in layout.PowerPoles) if ((pole - p).sqrMagnitude < 1.6f * 1.6f) return true;
                 foreach (Vector2 g in layout.WoodsGenerators) if ((g - p).sqrMagnitude < 2.2f * 2.2f) return true;
                 foreach (MapLayout.Kit k in layout.Kits) if ((k.Centre - p).sqrMagnitude < 3.2f * 3.2f) return true;
@@ -476,6 +481,8 @@ namespace Vision.World
             Notes.Clear();
             NoteImages.Clear();
             Ambulance = null;
+            Gate2 = null;
+            Hatch = null;
             Crows.Clear();
             Pickups.Clear();
             Places.Clear();
@@ -494,7 +501,7 @@ namespace Vision.World
                 build();
                 times.Append($" {name} {timer.ElapsedMilliseconds - t0}");
             }
-            Step("layout", () => Layout = new MapLayout(seed, halfExtent));
+            Step("layout", () => Layout = new MapLayout(seed, halfExtent, generatorCount));
             Step("terrain", () => Terrain = CreateTerrain(Layout));
             TerrainField.SetActive(Terrain, transform);
             staticRoot = new GameObject("Static").transform;
@@ -508,7 +515,7 @@ namespace Vision.World
             Step("fences", () => { BuildFences(); BuildLogs(); });
             Step("lake", BuildLake);
             Step("power", BuildPowerLine);
-            Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); BuildSushi(); BuildChamber(); });
+            Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); BuildSushi(); BuildChamber(); BuildSushiGate(); BuildHatch(); });
             Step("lights", () => { BuildGenerators(); BuildFloodSets(); BuildLights(); });
             Step("stakes", () => { BuildStakes(); BuildAmbulance(); });
             Step("trees", BuildTrees);
@@ -720,9 +727,10 @@ namespace Vision.World
             }
             PathNetwork paths = Terrain.Paths;
             float OnPath(Vector2 p) => paths != null ? Terrain.PathClearance(p.x, p.y) : float.MaxValue;
-            // (Nothing grows or lies about inside Miga Sushi or the Diddy Chamber.)
-            Rect sushi = Expand(Layout.Sushi, 0.6f), chamber = Expand(Layout.Chamber, 0.6f);
-            bool Indoors(Vector2 p) => (Layout.Sushi.width > 0f && sushi.Contains(p)) || (Layout.Chamber.width > 0f && chamber.Contains(p));
+            // (Nothing grows or lies about inside Miga Sushi or the Diddy Chamber, in the second gate's gravel yard, or in the hatch.)
+            Rect sushi = Expand(Layout.Sushi, 0.6f), chamber = Expand(Layout.Chamber, 0.6f), gateYard = Expand(Layout.SushiGate, 0.4f);
+            bool Indoors(Vector2 p) => (Layout.Sushi.width > 0f && sushi.Contains(p)) || (Layout.Chamber.width > 0f && chamber.Contains(p))
+                || (Layout.HasSushiGate && gateYard.Contains(p)) || (p - Layout.Hatch).magnitude < Hatch.Size;
             bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p) || Indoors(p);
             float lim = WorldRadius - 0.8f;
 
@@ -2009,6 +2017,7 @@ namespace Vision.World
                 go.transform.localScale = Vector3.one * 1.6f;
                 Pickups.Add(pickup);
             }
+            BuildExtraWeapons(parent);
         }
 
         // ---------------------------------------------------------------- entities

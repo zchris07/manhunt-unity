@@ -167,6 +167,8 @@ namespace Vision.Audio
         {
             if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue c)) return false;
             AudioClip clip = c.Prefer != null && c.Prefer.Length > 0 ? SoundBank.Load(c.Prefer[UnityEngine.Random.Range(0, c.Prefer.Length)]) : null;
+            // (A start point into the file is the local file's; a stand-in plays from its top.)
+            bool preferred = clip != null;
             if (clip == null)
             {
                 if (c.Files.Length == 0) return false;
@@ -175,14 +177,44 @@ namespace Vision.Audio
             if (clip == null) return false;
             float pitch = c.Pitch * (1f + UnityEngine.Random.Range(-c.PitchJitter, c.PitchJitter));
             float vol = c.Volume * volume * (1f + UnityEngine.Random.Range(-c.VolumeJitter, c.VolumeJitter));
-            bool ok = PlayClipAt(clip, at, vol, pitch, c.Near, c.Radius);
+            bool ok = PlayClipAt(clip, at, vol, pitch, c.Near, c.Radius, c.Tracked || (preferred && c.Start > 0f) ? c : null, preferred ? c.Start : 0f);
             if (ok) LastPlayed = cue;
             return ok;
         }
 
-        /// <summary>Plays a clip once from a point (original units), falling off between near and radius; null: everywhere.</summary>
-        public bool PlayClipAt(AudioClip clip, Vector2? at, float volume, float pitch = 1f, float near = 150f, float radius = 1400f)
+        /// <summary>A playing sound whose volume follows the listener and its envelope (a decay, an inverse-square tail).</summary>
+        sealed class Tracked
         {
+            public AudioSource Source;
+            public Vector2? At;
+            public float Volume, Near, Radius, Started, Start, End;
+            public SoundBank.Cue Cue;
+        }
+
+        readonly List<Tracked> tracked = new List<Tracked>();
+
+        /// <summary>
+        /// A cue's envelope <paramref name="t"/> s into it, which ends <paramref name="length"/> s in: falling off linearly to
+        /// its DecayTo over its DecayTime, then held; its last TailFade s falling away by an inverse square (from full to a
+        /// hundredth, as from one to ten times as far).
+        /// </summary>
+        public static float Envelope(SoundBank.Cue c, float t, float length)
+        {
+            float g = 1f;
+            if (c.DecayTime > 0f) g *= Mathf.Lerp(1f, c.DecayTo, Mathf.Clamp01(t / c.DecayTime));
+            if (c.TailFade > 0f)
+            {
+                float into = Mathf.Clamp01((t - (length - c.TailFade)) / c.TailFade);
+                float d = 1f + 9f * into;
+                g *= into > 0f ? 1f / (d * d) : 1f;
+            }
+            return g;
+        }
+
+        /// <summary>Plays a clip once from a point (original units), falling off between near and radius; null: everywhere.</summary>
+        public bool PlayClipAt(AudioClip clip, Vector2? at, float volume, float pitch = 1f, float near = 150f, float radius = 1400f, SoundBank.Cue cue = null, float from = 0f)
+        {
+            if (cue != null) return PlayTracked(clip, at, volume, pitch, near, radius, cue, from);
             if (clip == null || volume <= 0f) return false;
             float gain = 1f, pan = 0f;
             if (at.HasValue)
@@ -208,6 +240,48 @@ namespace Vision.Audio
             Played++;
             return true;
         }
+
+        /// <summary>
+        /// A cue with a start point or an envelope: from its start in the file, its volume set each frame from where the
+        /// listener is now and how far into it it's got. Played through once, never looped.
+        /// </summary>
+        bool PlayTracked(AudioClip clip, Vector2? at, float volume, float pitch, float near, float radius, SoundBank.Cue cue, float from)
+        {
+            if (clip == null || volume <= 0f) return false;
+            float start = Mathf.Clamp(from, 0f, Mathf.Max(0f, clip.length - 0.05f));
+            if (at.HasValue && !cue.Tracked && Falloff((at.Value - Listener).magnitude, near, radius, 1.4f) <= 0.001f) return false;
+            AudioSource s = NewSource("Tracked");
+            s.clip = clip;
+            s.loop = false;
+            s.pitch = pitch;
+            s.time = start;
+            var tr = new Tracked { Source = s, At = at, Volume = volume, Near = near, Radius = radius, Started = Time.unscaledTime, Start = start, End = clip.length, Cue = cue };
+            tracked.Add(tr);
+            UpdateTracked(tr);
+            s.Play();
+            Played++;
+            return true;
+        }
+
+        /// <summary>How loud a tracked sound is now (0-1 of the effects bus): its spot against the listener, and its envelope.</summary>
+        float TrackedGain(Tracked tr)
+        {
+            float gain = 1f, pan = 0f;
+            if (tr.At.HasValue)
+            {
+                Vector2 rel = tr.At.Value - Listener;
+                gain = Falloff(rel.magnitude, tr.Near, tr.Radius, 1.4f);
+                pan = Mathf.Clamp(rel.x / Mathf.Max(1f, tr.Radius) * 2.5f, -0.8f, 0.8f);
+                tr.Source.panStereo = pan;
+            }
+            float t = tr.Source.isPlaying ? tr.Source.time - tr.Start : Time.unscaledTime - tr.Started;
+            return Mathf.Clamp01(tr.Volume * gain * Envelope(tr.Cue, t, tr.End - tr.Start));
+        }
+
+        void UpdateTracked(Tracked tr) => tr.Source.volume = TrackedGain(tr) * SfxGain;
+
+        /// <summary>Tracked sounds still playing (tests).</summary>
+        public int TrackedCount => tracked.Count;
 
         /// <summary>Plays a whole sound once, on its own (it doesn't cut off other sounds).</summary>
         public bool OneShot(string id, float volume = 1f)
@@ -376,6 +450,7 @@ namespace Vision.Audio
         public void StopAll()
         {
             GasLoop(false);
+            foreach (Tracked tr in tracked) if (tr.Source != null) tr.Source.Stop();
             foreach (LoopState l in loops.Values) l.Stopping = true;
             if (clipSource != null) clipSource.Stop();
         }
@@ -399,6 +474,17 @@ namespace Vision.Audio
                 v = Mathf.MoveTowards(v, gasTarget, dt / Mathf.Max(0.01f, gasFade) * 0.9f);
                 gasSource.volume = v * SfxGain;
                 if (!gasOn && v <= 0.001f) gasSource.Stop();
+            }
+            for (int i = tracked.Count - 1; i >= 0; i--)
+            {
+                Tracked tr = tracked[i];
+                if (tr.Source == null || (!tr.Source.isPlaying && now - tr.Started > 0.2f))
+                {
+                    if (tr.Source != null) Destroy(tr.Source.gameObject);
+                    tracked.RemoveAt(i);
+                    continue;
+                }
+                UpdateTracked(tr);
             }
             List<string> dead = null;
             foreach (var kv in loops)

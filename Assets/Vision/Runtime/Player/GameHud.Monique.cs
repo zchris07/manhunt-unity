@@ -13,7 +13,7 @@ namespace Vision.Player
     public sealed partial class GameHud
     {
         /// <summary>How far round the survivor (canvas units) the arrow circles.</summary>
-        public const float MoniqueArrowRadius = 120f;
+        public const float MoniqueArrowRadius = 175f;
 
         RectTransform moniqueArrow, moniqueArrowIcon;
         CanvasGroup moniqueGroup;
@@ -27,11 +27,11 @@ namespace Vision.Player
 
         void BuildMoniqueArrow(RectTransform parent)
         {
-            moniqueArrow = Node("Monique Arrow", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(90f, 110f));
+            moniqueArrow = Node("Monique Arrow", parent, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(110f, 130f));
             moniqueGroup = moniqueArrow.gameObject.AddComponent<CanvasGroup>();
             moniqueGroup.blocksRaycasts = false;
             moniqueGroup.interactable = false;
-            moniqueArrowIcon = Node("Arrow", moniqueArrow, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 10f), new Vector2(64f, 64f));
+            moniqueArrowIcon = Node("Arrow", moniqueArrow, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 12f), new Vector2(84f, 84f));
             var img = moniqueArrowIcon.gameObject.AddComponent<Image>();
             img.sprite = ArrowSprite();
             img.color = new Color(0.92f, 0.16f, 0.12f);
@@ -66,11 +66,11 @@ namespace Vision.Player
             if (show) moniqueLabel.text = "ZACH " + Mathf.CeilToInt(me.ArrowT) + "s";
             // In over a quarter second, out over the arrow's last two seconds.
             float target = show ? Mathf.Clamp01(me.ArrowT / 2f) : 0f;
-            moniqueK = Mathf.MoveTowards(moniqueK, target, Time.unscaledDeltaTime * 4f);
+            moniqueK = Mathf.MoveTowards(moniqueK, target, Time.unscaledDeltaTime * 8f);
             if (!show) moniqueK = Mathf.Min(moniqueK, target);
             moniqueArrow.gameObject.SetActive(moniqueK > 0f);
             if (moniqueK <= 0f) return;
-            moniqueGroup.alpha = moniqueK * (0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 5f));
+            moniqueGroup.alpha = moniqueK * (0.9f + 0.1f * Mathf.Sin(Time.unscaledTime * 5f));
 
             RectTransform parent = (RectTransform)moniqueArrow.parent;
             Vector3 a = world.transform.TransformPoint(new Vector3(me.Pos.x, world.GroundHeight(me.Pos) + 1f, me.Pos.y));

@@ -172,13 +172,13 @@ namespace Vision.Player
             if (name != null) CreateLobby(name);
         }
 
-        /// <summary>Opens a lobby on this machine as <paramref name="name"/> (also used by the network smoke test).</summary>
-        public void CreateLobby(string name)
+        /// <summary>Opens a lobby on this machine as <paramref name="name"/> (also used by the network smoke test; tests pass port 0 for any free one).</summary>
+        public void CreateLobby(string name, int port = Wire.DefaultPort)
         {
             EnsureBuilt();
             try
             {
-                NetSession s = NetSession.HostLobby(world, name);
+                NetSession s = NetSession.HostLobby(world, name, port);
                 played = true;
                 OpenLobby(s);
             }

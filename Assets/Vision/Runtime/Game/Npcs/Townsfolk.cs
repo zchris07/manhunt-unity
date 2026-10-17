@@ -10,15 +10,20 @@ namespace Vision.Game
     /// survivor Zach lands a swing or an ability on, and any survivor who lands an attack on Zach; nothing of Zach's ever
     /// hurts or touches him. Yes from a survivor and he comes with them and takes on Zach when Zach comes close or hurts
     /// them; no, and he fights whoever said it. Zach's hits make him fight back; four kill him, as do three stunning survivor items or
-    /// one shot. However he dies, he explodes.
+    /// one shot. However he dies, he explodes. Whoever attacks Chacko, he races after from wherever he is and punches until
+    /// he's taken a third of their health himself, or they're down, or he's slain (Zach's friend never turns on Zach).
     /// </summary>
     public sealed class Njaaron : Walker
     {
-        public enum Mode { Wander, Ask, Follow, Defend, Attack, Ally }
+        public enum Mode { Wander, Ask, Follow, Defend, Attack, Ally, Avenge }
 
         public Mode State = Mode.Wander;
-        int hp = Balance.Njaaron.Hp, stunHits, askWho, followId, targetId, allyId, huntId;
-        float huntT;
+        int hp = Balance.Njaaron.Hp, stunHits, askWho, followId, targetId, allyId, huntId, grudgeId;
+        float huntT, grudgeDealt;
+        /// <summary>A grudge for Chacko is over once he's taken this much of their health himself.</summary>
+        public const float GrudgeShare = 1f / 3f;
+        Mode beforeGrudge = Mode.Wander;
+        public override int GrudgeTarget => alive && State == Mode.Avenge ? grudgeId : 0;
         /// <summary>Zach takes four points; survivors three stunning hits (or one shot).</summary>
         public override float? HealthFor(Role viewer) => !alive ? (float?)null
             : viewer == Role.Hunter ? hp / (float)Balance.Njaaron.Hp : 1f - stunHits / (float)Balance.Njaaron.StunHits;
@@ -28,10 +33,10 @@ namespace Vision.Game
         public override int Kind => 8;
         public override float RadiusUnits => Balance.Njaaron.Radius;
         public override bool Slashable => alive;
-        public override bool Aggressive => alive && (State == Mode.Attack || State == Mode.Defend || Hunting);
+        public override bool Aggressive => alive && (State == Mode.Attack || State == Mode.Defend || State == Mode.Avenge || Hunting);
         bool Hunting => State == Mode.Ally && huntId != 0 && huntT > 0f;
         public override NpcFlags Flags => base.Flags | (punchAge < 0.3f ? NpcFlags.Punching : 0) | (State == Mode.Follow || (State == Mode.Ally && !Hunting) ? NpcFlags.Following : 0)
-            | (State == Mode.Attack || State == Mode.Defend || Hunting ? NpcFlags.Angry : 0);
+            | (State == Mode.Attack || State == Mode.Defend || State == Mode.Avenge || Hunting ? NpcFlags.Angry : 0);
         /// <summary>Zach, if Njaaron's his friend (0: nobody's).</summary>
         public int Ally => State == Mode.Ally ? allyId : 0;
         public override bool SparedBy(SimPlayer by) => by != null && State == Mode.Ally && by.Id == allyId;
@@ -47,7 +52,51 @@ namespace Vision.Game
             huntT = Balance.Njaaron.AllyHuntSec;
         }
 
-        public Njaaron(MatchSim sim) : base(sim, 201) => SpawnAnywhere(6f, 600f);
+        readonly Chaser chaser;
+
+        public Njaaron(MatchSim sim) : base(sim, 201)
+        {
+            SpawnAnywhere(6f, 600f);
+            chaser = new Chaser(sim, Balance.Njaaron.Radius);
+        }
+
+        /// <summary>Races to <paramref name="t"/> across the map (along walkable paths, through doors) and punches them when close.</summary>
+        void Hunt(SimPlayer t, float dt)
+        {
+            float reach = Scale.D(Balance.Njaaron.Radius + t.Radius + Balance.Njaaron.PunchRange * 0.4f);
+            float d = Vector2.Distance(t.Pos, Pos);
+            if (d <= reach)
+            {
+                Moving = false;
+                Face(t.Pos);
+                if (punchCd <= 0f) Punch(t);
+                return;
+            }
+            Heading = chaser.Heading(Pos, t.Pos, dt, StuckT > 0.3f);
+            Step(Balance.Njaaron.Run, dt);
+            Facing = Heading;
+            Gait = 2;
+            if (StuckT > 0f)
+            {
+                Vector2 ahead = Pos + new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * Scale.D(30f);
+                int di = Sim.NearbyDoor(ahead, 40f);
+                if (di >= 0 && !Sim.Doors[di] && Sim.DoorCd[di] <= 0f) Sim.SetDoor(di, true);
+            }
+        }
+
+        /// <summary>Someone attacked Chacko: after them, wherever they are (never Zach while he's Zach's friend).</summary>
+        public override void Avenge(MatchSim sim, SimPlayer p)
+        {
+            if (!alive || p == null || p.Ghost) return;
+            if (State == Mode.Ally && p.Id == allyId) return;
+            if (State != Mode.Avenge) beforeGrudge = State == Mode.Ally || State == Mode.Follow ? State : Mode.Wander;
+            State = Mode.Avenge;
+            grudgeId = p.Id;
+            grudgeDealt = 0f;
+            askWho = 0;
+        }
+
+        static bool GrudgeStands(SimPlayer t) => t != null && (t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t));
 
         bool CanTalk(SimPlayer p)
         {
@@ -142,8 +191,10 @@ namespace Vision.Game
         {
             punchCd = Balance.Njaaron.PunchCooldown;
             punchAge = 0f;
+            float before = t.Hp;
             if (t.Role == Role.Hunter) Sim.HurtHunter(t, Balance.Njaaron.PunchHp, null, "fist");
             else Sim.HurtSurvivor(t, Balance.Njaaron.SurvivorPunch, null, "fist");
+            if (State == Mode.Avenge && t.Id == grudgeId) grudgeDealt += Mathf.Max(0f, before - t.Hp);
             Sim.Shove(t, Pos, Balance.Njaaron.KbPeak, Balance.Njaaron.KbDuration);
         }
 
@@ -175,6 +226,22 @@ namespace Vision.Game
             if (StunT > 0f) return;
             switch (State)
             {
+                case Mode.Avenge:
+                {
+                    SimPlayer t = Sim.Get(grudgeId);
+                    if (!GrudgeStands(t) || grudgeDealt >= GrudgeShare - 1e-4f)
+                    {
+                        if (t != null && grudgeDealt >= GrudgeShare - 1e-4f) Sim.Feed($"Njaaron is done with {t.Name}");
+                        grudgeId = 0;
+                        State = beforeGrudge;
+                        if (State == Mode.Wander) { Idle = true; ModeT = 2f; }
+                        return;
+                    }
+                    // Hidden, he waits where he lost them; out again, he's straight back on them.
+                    if (t.Role == Role.Survivor && t.HideState == 2) return;
+                    Hunt(t, dt);
+                    return;
+                }
                 case Mode.Ally:
                 {
                     SimPlayer z = Sim.Get(allyId);
@@ -311,6 +378,7 @@ namespace Vision.Game
         {
             if (!alive) return;
             Tick(dt);
+            if (!lit && UpdateAvenger(dt)) return;
             if (lit)
             {
                 Moving = false;
@@ -380,6 +448,7 @@ namespace Vision.Game
             if (!alive) return;
             Tick(dt);
             Moving = false;
+            if (UpdateAvenger(dt)) return;
             if (FleeT > 0f) RunAway(Balance.Sexton.Flee * Balance.Thomas.FleeMul, dt);
             else Wander(Balance.Thomas.Walk, dt);
             Gait = !Moving ? 0 : FleeT > 0f ? 2 : 1;
@@ -468,6 +537,7 @@ namespace Vision.Game
             Tick(dt);
             Moving = false;
             Gait = 0;
+            if (UpdateAvenger(dt)) return;
             if (Armed && FleeT <= 0f)
             {
                 armedT = Mathf.Max(0f, armedT - dt);
@@ -504,7 +574,9 @@ namespace Vision.Game
     {
         readonly HashSet<int> given = new HashSet<int>();
         float armedT, fireCd;
-        int targetId;
+        int targetId, shots;
+        /// <summary>Blasts fired this aggro cycle (five at most).</summary>
+        public int ShotsThisCycle => shots;
 
         public override string Name => "Daphne Cheng";
         public override int Kind => 12;
@@ -534,7 +606,12 @@ namespace Vision.Game
         {
             if (!alive || by == null || (by.Role != Role.Hunter && by.Role != Role.Survivor)) return;
             HurtT = 0.3f;
-            if (!Armed) Speak("Back off!");
+            if (!Armed)
+            {
+                Speak("Back off!");
+                // A new aggro cycle: five blasts at most.
+                shots = 0;
+            }
             armedT = Balance.Monique.AttackSec;
             targetId = by.Id;
             fireCd = Mathf.Max(fireCd, 0.4f);
@@ -568,6 +645,7 @@ namespace Vision.Game
             Moving = false;
             Gait = 0;
             fireCd = Mathf.Max(0f, fireCd - dt);
+            if (UpdateAvenger(dt)) return;
             if (FleeT > 0f)
             {
                 RunAway(Balance.Sexton.Flee * Balance.Monique.FleeMul, dt);
@@ -587,6 +665,8 @@ namespace Vision.Game
                 {
                     fireCd = Balance.Items.Shotgun.Reload;
                     Sim.NpcShotgun(this, Facing);
+                    // Her fifth blast ends it: the gun away, passive again.
+                    if (++shots >= Balance.Monique.DaphneShots) armedT = 0f;
                 }
                 return;
             }

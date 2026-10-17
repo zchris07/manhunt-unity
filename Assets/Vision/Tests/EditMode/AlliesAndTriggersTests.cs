@@ -114,18 +114,55 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Jarvis_RunsThirtySecondsForItsUser_TenForEveryoneElsesScreen()
+        public void Jarvis_RunsTwentySecondsForEverySurvivor_ThenItsTabletRechargesForNinety()
+        {
+            var rig = new SimRig(2, 1);
+            SimPlayer s = rig.P(2), other = rig.P(3);
+            rig.Place(rig.P(1), 1500f, -1500f);
+            s.Jarvis = 1;
+            rig.Tap(2, Btn.Ability);
+            Assert.AreEqual(20f, Balance.Sexton.JarvisUserSec);
+            Assert.AreEqual(Balance.Sexton.JarvisUserSec, s.JarvisT, 0.1f);
+            Assert.AreEqual(Balance.Sexton.JarvisUserSec, other.JarvisT, 0.1f, "every survivor gets all of it, not just its user");
+            Assert.AreEqual(0f, rig.P(1).JarvisT, "not Zach");
+            Assert.AreEqual(1, rig.Sim.JarvisUses);
+            rig.Run(SimRig.Secs(19f));
+            Assert.AreEqual(0f, s.JarvisCd, "no cooldown while it runs");
+            rig.Run(SimRig.Secs(1.2f));
+            Assert.AreEqual(0f, s.JarvisT);
+            Assert.AreEqual(0f, other.JarvisT);
+            Assert.That(s.JarvisCd, Is.InRange(Balance.Sexton.JarvisCooldown - 1.2f, Balance.Sexton.JarvisCooldown), "90 s from when it ended");
+            rig.Tap(2, Btn.Ability);
+            Assert.AreEqual(0f, s.JarvisT, "not ready yet");
+            rig.Run(SimRig.Secs(Balance.Sexton.JarvisCooldown));
+            Assert.AreEqual(0f, s.JarvisCd);
+            Assert.AreEqual(1, s.Jarvis, "the tablet's kept: it's reusable");
+            rig.Tap(2, Btn.Ability);
+            Assert.Greater(s.JarvisT, 19f, "again");
+            Assert.AreEqual(2, rig.Sim.JarvisUses);
+        }
+
+        [Test]
+        public void Jarvis_GoesDarkPastTheSecondRing_AndComesBackOn_AndNoNightVisionWhileItRuns()
         {
             var rig = new SimRig(1, 1);
             SimPlayer s = rig.P(2);
+            rig.Place(rig.P(1), 1500f, -1500f);
             s.Jarvis = 1;
+            s.Inv.Add(ItemType.Goggles);
             rig.Tap(2, Btn.Ability);
-            Assert.AreEqual(Balance.Sexton.JarvisUserSec, s.JarvisT, 0.1f);
-            Assert.AreEqual(30f, Balance.Sexton.JarvisUserSec);
-            Assert.AreEqual(Balance.Sexton.JarvisRadarSec, rig.Sim.RevealT, 0.1f);
-            rig.Run(SimRig.Secs(12f));
-            Assert.AreEqual(0f, rig.Sim.RevealT, 1e-4f, "everyone else's screens: ten seconds");
-            Assert.Greater(s.JarvisT, 15f, "its user's: thirty");
+            Assert.IsTrue(MatchSim.JarvisActive(s));
+            rig.Run(5, p => p.Id == s.Id ? new InputCmd { Buttons = Btn.Lunge, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
+            Assert.IsFalse(s.GogglesOn, "no night vision during JARVIS");
+            // Out past the second ring: dark; its time runs on.
+            rig.Sim.Teleport(s.Id, new Vector2(rig.Sim.Ring2 + 1f, 0f));
+            rig.Run(2);
+            Assert.IsFalse(MatchSim.JarvisActive(s), "gone dark out there");
+            Assert.Greater(s.JarvisT, 0f, "but still running");
+            rig.Sim.Teleport(s.Id, Vector2.zero);
+            rig.Run(2);
+            Assert.IsTrue(MatchSim.JarvisActive(s), "back on as they come back in");
+            Assert.AreEqual(1, rig.Sim.JarvisUses, "the same run (no second boot)");
         }
     }
 }

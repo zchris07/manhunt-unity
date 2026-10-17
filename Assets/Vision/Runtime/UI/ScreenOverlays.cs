@@ -171,11 +171,11 @@ namespace Vision.UI
             Update();
         }
 
-        /// <summary>Reads note <paramref name="index"/> (0-5, note-1 to note-6): its photo on old paper fills the screen until put down.</summary>
+        /// <summary>Reads note <paramref name="index"/> (its photo, <see cref="Vision.World.NotePictures"/>): the photo on old paper fills the screen until put down.</summary>
         public void ShowNote(int index)
         {
             EnsureBuilt();
-            Texture2D t = Picture($"note-{index + 1}");
+            Texture2D t = Vision.World.NotePictures.Picture(index);
             if (t == null) return;
             photo.texture = t;
             noteShown = index;

@@ -13,6 +13,7 @@ Shader "Vision/LowPoly"
         _Tint ("Tint", Color) = (1, 1, 1, 1)
         _RampSteps ("Light Ramp Steps (0 = smooth)", Float) = 0
         _Emission ("Emission (vertex colour)", Range(0, 2)) = 0
+        _Whiten ("Whiten (0 the vertex colours, 1 all the tint: a ghost)", Range(0, 1)) = 0
         [Toggle(_VISION_ENTITY)] _Entity ("Entity (hidden outside the viewer's light)", Float) = 0
         [IntRange] _StencilRef ("Stencil (1 = the ground: the laser and rounds draw over it)", Range(0, 255)) = 0
     }
@@ -29,6 +30,7 @@ Shader "Vision/LowPoly"
             half4 _Tint;
             float _RampSteps;
             half _Emission;
+            half _Whiten;
         CBUFFER_END
 
         void VisionEntityClip(float3 positionWS)
@@ -85,7 +87,7 @@ Shader "Vision/LowPoly"
                 Light light = GetMainLight();
                 half ndl = saturate(dot(n, light.direction));
                 if (_RampSteps >= 1.0) ndl = floor(ndl * _RampSteps + 0.5) / _RampSteps;
-                half3 albedo = i.color.rgb * _Tint.rgb;
+                half3 albedo = lerp(i.color.rgb, 1.0, _Whiten) * _Tint.rgb;
                 // Sky light falls off on steeper faces, so slopes and hollows read through the facet shading.
                 half sky = 0.62 + 0.38 * saturate(n.y);
                 half3 c = albedo * (SampleSH(n) * sky + light.color * ndl) + albedo * _Emission;

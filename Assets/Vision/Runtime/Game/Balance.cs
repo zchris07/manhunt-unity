@@ -77,7 +77,11 @@ namespace Vision.Game
                 // The charge takes a second longer than the original's (heavy at 1.85 s, full at 1.9 s), and a full
                 // charge can still be held as long before it lets go on its own (4 s from the press).
                 public const float ChargeMax = 0.9f + 1f, HeavyAt = 0.85f + 1f, ChargeRangeMul = 1.3f, ChargeArcMul = 1.25f, ChargeSlowMul = 0.65f, AutoRelease = 3f + 1f;
-                public const float DamageBase = 1f / 3f, DamageFull = 2f / 3f, TapGrace = 0.1f;
+                /// <summary>
+                /// An uncharged swing takes 10 of a survivor's 100 (the user's rule; the original's a third), growing evenly over
+                /// the charge to two thirds fully charged. Pulling a survivor out of hiding still takes a third (<see cref="FoundDamage"/>).
+                /// </summary>
+                public const float DamageBase = 0.1f, DamageFull = 2f / 3f, TapGrace = 0.1f, FoundDamage = 1f / 3f;
                 /// <summary>
                 /// Swings, charged or not, go back and forth in an X (forehand, backhand...) while each is started within this
                 /// long of the last one; after a longer pause the next starts again with the forehand.
@@ -100,6 +104,12 @@ namespace Vision.Game
             public static class Health
             {
                 public const float Max = 100f, DownTime = 10f, RecoverFraction = 0.5f, RegenTime = 360f;
+                /// <summary>
+                /// Each time Zach is put down his bar loses this much of its top for good (his speed still goes by his health
+                /// out of the original 100, so he's slower too); each survivor he stakes adds <see cref="StakeMaxGain"/> to it
+                /// (and to his health). He gets up with <see cref="RecoverFraction"/> of what's left; with nothing left, he's dead.
+                /// </summary>
+                public const float DownMaxLoss = 10f, StakeMaxGain = 5f;
                 public const float SpeedStep = 0.25f, SpeedPerStep = 0.1f, DownPenalty = 0.05f, DownPenaltyMax = 0.2f;
             }
 
@@ -128,7 +138,8 @@ namespace Vision.Game
                 public const float NicAngleMul = 1.2f, Linger = 5f;
                 /// <summary>How wide the cloud is either side of the aim right at his mouth (design units), as it's drawn.</summary>
                 public const float MouthHalfWidth = 10f;
-                public const float Slow = 0.45f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
+                /// <summary>(The strongest slow 40% less than the original's 0.45, at the user's request.)</summary>
+                public const float Slow = 0.45f * 0.6f, SlowFar = 0.15f, SlowAfter = 3f, NpcHitEvery = 1.5f;
                 public const float Dps = 0.05f, DpsFar = 0.01f, AfterTime = 2f, ConeCut = 0.6f, DarkAfter = 6f, DarkEase = 0.6f;
                 /// <summary>The blur on a gassed survivor clears over this long once they're out (a second longer than the after-effect).</summary>
                 public const float BlurTime = AfterTime + 1f;
@@ -136,14 +147,16 @@ namespace Vision.Game
 
             public static class Hemp
             {
-                public const float RegenBoost = 0.1f, SprintDrainMul = 0.8f, SprintRefillMul = 1.2f, Duration = 10f, Recover = 40f, Lockout = 5f;
+                /// <summary>(Recharges fully over 50 s, ten more than the original's 40, at the user's request.)</summary>
+                public const float RegenBoost = 0.1f, SprintDrainMul = 0.8f, SprintRefillMul = 1.2f, Duration = 10f, Recover = 50f, Lockout = 5f;
                 // The zoom out (and back in) takes 0.5 s: the original's is 1/1.5 s, quickened at the user's request.
                 public const float ZoomOut = 1.2f, SpeedMul = 1.1f, ZoomRate = 2f, Grace = 0.3f;
             }
 
             public static class Beam
             {
-                public const int Charges = 3;
+                /// <summary>(Five charges, the original's three and two more, at the user's request.)</summary>
+                public const int Charges = 5;
                 // Every beam, whoever fires it, takes 1 HP of anyone it touches ten times a second (the user's rule; the
                 // original's Zach beam took 3% of a survivor's health a tick). A door the beam stays on for DoorTime s breaks.
                 public const float Cooldown = 2f, Windup = 1f, ZachTickDamage = 0.01f, NpcHitEvery = 0.5f, TickRate = 10f, TickDamage = 0.01f, DoorTime = 1.5f;
@@ -210,11 +223,13 @@ namespace Vision.Game
             public const float AnywhereShare = 0.3f;
             public const float UseSlow = 0.5f, UseSlowTime = 0.8f;
 
-            public static class Golden { public const int Shells = 5; public const float Reload = 1f; }
+            /// <summary>The Legendary pump: twelve shells in all (the user's rule).</summary>
+            public static class Golden { public const int Shells = 12; public const float Reload = 1f; }
 
             public static class Sniper
             {
-                public const int Shots = 3;
+                /// <summary>Five rounds (shown as 5/5, 4/5...); another 0.50 cal picked up adds its rounds and five more to the count (10/10).</summary>
+                public const int Shots = 5;
                 /// <summary>Hit, Zach is slowed by this much, falling off linearly to nothing over <see cref="SlowTime"/> seconds.</summary>
                 public const float Slow = 0.5f, SlowTime = 1f;
                 public const float Reload = 2f, PelletSpeed = 4000f, Speed = 8000f, ZachHp = 25f, KbPeak = 1100f * 0.75f, KbDuration = 0.5f, SprintLock = 3f, GenDamage = 0.3f, HitRadius = 5f, LaserMax = 6000f;
@@ -227,7 +242,8 @@ namespace Vision.Game
 
             public static class ZachPump
             {
-                public const int Shots = 10;
+                /// <summary>(Twelve, as the survivors' golden pump: the lobby's golden pump shells set both.)</summary>
+                public const int Shots = 12;
                 public const float Reload = 1f, PelletDamage = 0.09f, Stun = 0.1f, KbPeak = 380f, KbDuration = 0.2f;
             }
 
@@ -284,6 +300,14 @@ namespace Vision.Game
         /// </summary>
         public static class Xray { public const float Range = BeamRange, Brightness = 0.7f, FadeIn = 0.5f, FadeOut = 1f / 6f, StartReach = 0.35f; }
 
+        /// <summary>
+        /// Ghosts (the user's rule): a sacrificed survivor is back as one after <see cref="RespawnDelay"/> s (out of the woods,
+        /// after the black screen); their Ghost Pulse waits <see cref="Cooldown"/> s between pulses, flashes its picture for
+        /// <see cref="FlashTime"/> s (fading in and out over <see cref="FlashFade"/> of it), and its clip carries
+        /// <see cref="HearRadius"/> units.
+        /// </summary>
+        public static class Ghost { public const float RespawnDelay = 4f, Cooldown = 15f, FlashTime = 0.6f, FlashFade = 0.3f, HearRadius = 1800f; }
+
         public static class Sexton
         {
             public const float LightRadius = 110f, LightIntensity = 0.28f;
@@ -291,9 +315,12 @@ namespace Vision.Game
             public const int Hp = 3;
             public const float TalkTime = 1.6f, HandTime = 0.45f, Reach = 72f;
             public const float AudioNear = 60f, AudioFar = 950f, AudioCurve = 3f;
-            public const float JarvisRadarSec = 10f;
-            /// <summary>How long JARVIS runs for the survivor holding it (everyone else's screens are lit for <see cref="JarvisRadarSec"/>).</summary>
-            public const float JarvisUserSec = 30f;
+            /// <summary>
+            /// How long JARVIS runs (20 s, the user's rule): its boot, its screen, the map and every survivor's whole screen lit,
+            /// for every survivor in the match each time anyone with the tablet uses it. It's used again after
+            /// <see cref="JarvisCooldown"/> s, counted from when it ends.
+            /// </summary>
+            public const float JarvisUserSec = 20f, JarvisCooldown = 90f;
             public const string SecondLine = "This is powerful tech, NAME. Be careful with it type shi";
             public const float SecondTalkTime = 2.4f, LeaveTime = 7f, JarvisMinimapMul = 1.2f;
 
@@ -348,9 +375,6 @@ namespace Vision.Game
         public static class Chacko
         {
             public const float Radius = 14f, Reach = 70f, Explosion = 0.5f, NicRangeMul = 1.1f, LightRadius = 130f, LightIntensity = 0.3f;
-            /// <summary>How long he flinches when a survivor hits him, and what he snaps at them (in turn).</summary>
-            public const float FlinchTime = 0.6f;
-            public const string LineLayOff = "Lay off man!", LineHeck = "What the heck...";
             public const string LineSurvivor = "Take a Dr Pepper, bro. Madden is on.", LineZach = "Here. 50 Nic. Don't tell anyone.", LineHit = "Not during the game!";
         }
 
@@ -374,6 +398,8 @@ namespace Vision.Game
             public const int Shots = 3;
             /// <summary>Monique's 0.50 cal reloads as a survivor's does.</summary>
             public const float Reload = Items.Sniper.Reload;
+            /// <summary>The most shotgun blasts Daphne fires before she goes back to passive (an attack after that starts her again).</summary>
+            public const int DaphneShots = 5;
             public const string LineArrow = "spoiler alert", LineHi = "Hi there";
         }
 
@@ -388,7 +414,11 @@ namespace Vision.Game
         public static class Chris
         {
             public const float Radius = 15f, Walk = 60f, Wander = 70f, Run = SurvivorRun * 1.2f, Flee = 125f, FleeTime = 5f, Reach = 72f, Pace = 42f;
-            public const int Hp = 2;
+            /// <summary>
+            /// His health (out of Zach's damage to a survivor's 100): nobody can harm him, except Zach while he's reviving
+            /// someone or cutting them down off a stake.
+            /// </summary>
+            public const float Health = 50f;
             public const float DownedAfter = 4f, StakedAfter = 4f, AscendTime = 3f, LightRadius = 110f, LightIntensity = 0.28f;
             public const float AmbulanceLength = 300f, AmbulanceWidth = 150f, AmbulanceLightRadius = 230f, AmbulanceLightIntensity = 0.35f;
             /// <summary>The light bar's own light: it lights the roof and just round the van (metres, brightness), no further.</summary>
@@ -398,7 +428,15 @@ namespace Vision.Game
         public static class Objectives
         {
             public const float RepairTime = 70f * 0.75f, CoopStep = 0.25f, RepairNoise = 520f, RegressPerSec = 0.25f / 60f, DamageRegressInstant = 0.08f;
-            public const float GateOpenTime = 20f, StakeStageTime = 60f;
+            /// <summary>(Opening a gate takes 10 s, half the original's 20, at the user's request.)</summary>
+            public const float GateOpenTime = 10f, StakeStageTime = 60f;
+            /// <summary>
+            /// Once a gate opens (or Zach slams the hatch), anyone still on the map after this many seconds is taken by the
+            /// Entity (Dead by Daylight's end game collapse). A survivor this close to the open hatch (units) jumps in.
+            /// </summary>
+            public const float EndGameTime = 120f, HatchRadius = 34f;
+            /// <summary>How far (units) a started generator's sound carries: ten feet (3.05 m).</summary>
+            public const float GeneratorHearRadius = 3.048f / 0.03f;
         }
 
         /// <summary>
@@ -434,7 +472,7 @@ namespace Vision.Game
 
         public static class Reach
         {
-            public const float Note = 64f, Teammate = 70f, Generator = 78f, Gate = 58f, Loot = 48f, Hide = 58f, Barricade = 80f, Door = 62f, Stake = 78f, Pickup = 68f, NpcName = 110f;
+            public const float Hatch = 80f, Note = 64f, Teammate = 70f, Generator = 78f, Gate = 58f, Loot = 48f, Hide = 58f, Barricade = 80f, Door = 62f, Stake = 78f, Pickup = 68f, NpcName = 110f;
         }
 
         public static class Trails

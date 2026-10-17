@@ -10,7 +10,7 @@ namespace Vision.Net
     {
         // Client to host.
         Hello = 1, RolePref = 2, Ready = 3, Chat = 4, Settings = 5, Assign = 6, Shuffle = 7, Start = 8, Loaded = 9, Input = 10, Command = 11,
-        ToLobby = 12, Ping = 13,
+        ToLobby = 12, Ping = 13, Tune = 14, ResetTune = 15,
         // Host to client.
         Welcome = 40, Lobby = 41, ChatLine = 42, Error = 43, StartMatch = 44, Go = 45, Snapshot = 46, Results = 47, BackToLobby = 48,
         Pong = 49, Kicked = 50,
@@ -23,7 +23,7 @@ namespace Vision.Net
     public static class Wire
     {
         /// <summary>Bumped whenever the wire format or the rules change: a client must match its host.</summary>
-        public const int Version = 1;
+        public const int Version = 2;
         /// <summary>The port a lobby listens on unless told otherwise.</summary>
         public const int DefaultPort = 7777;
         /// <summary>No frame may be larger (guards against garbage on the socket).</summary>

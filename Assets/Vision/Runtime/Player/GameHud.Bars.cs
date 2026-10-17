@@ -18,7 +18,7 @@ namespace Vision.Player
     {
         sealed class HeadBar
         {
-            public RectTransform Root, Health, Fill, Trail, Shield, ShieldFill;
+            public RectTransform Root, Health, Fill, Trail, Shield, ShieldFill, Lost;
             public Image FillImage;
             public CanvasGroup Group;
             public float TrailK = 1f, LastHp = -1f, LastShield = -1f, ChangedAt = -99f;
@@ -49,6 +49,10 @@ namespace Vision.Player
             b.Group.blocksRaycasts = false;
             b.Group.interactable = false;
             b.Health = Track(b.Root, "Health", 0f, 3, out b.Fill, out b.Trail, out b.FillImage);
+            // Zach's bar worn down by his downs: the part of it gone for good, dark.
+            b.Lost = UiKit.Fill("Lost", b.Fill.parent as RectTransform);
+            UiKit.Box(b.Lost, new Color(0.05f, 0.02f, 0.02f, 0.95f));
+            b.Lost.gameObject.SetActive(false);
             b.Shield = Track(b.Root, "Shield", 1f, 4, out b.ShieldFill, out _, out Image shieldImage);
             shieldImage.color = BarShield;
             return b;
@@ -95,6 +99,19 @@ namespace Vision.Player
             b.Shield.anchoredPosition = new Vector2(0f, h + 2f + gap);
             b.Root.sizeDelta = new Vector2(w + 2f, h + 2f + (shield ? gap + hs + 2f : 0f));
             return true;
+        }
+
+        /// <summary>
+        /// Zach's bar: out of his original 100 (the top worn away by downs shown dark at the right), or, grown past it by
+        /// stakes, out of all of it.
+        /// </summary>
+        static void SetZachBar(HeadBar b, float hp, float maxHp, float dt)
+        {
+            float scale = Mathf.Max(1f, maxHp);
+            SetBar(b, hp / scale, 0f, dt);
+            bool worn = maxHp < 0.999f;
+            b.Lost.gameObject.SetActive(worn);
+            if (worn) b.Lost.anchorMin = new Vector2(Mathf.Clamp01(maxHp), 0f);
         }
 
         static void SetBar(HeadBar b, float hp, float shield, float dt)
@@ -145,7 +162,12 @@ namespace Vision.Player
                     }
                     float target = now - b.ChangedAt < BarHoldSec ? 1f : BarFaded;
                     b.Group.alpha = Mathf.MoveTowards(b.Group.alpha, target, dt * 3f);
-                    SetBar(b, p.Hp, p.Shield, dt);
+                    if (zach) SetZachBar(b, p.Hp, p.MaxHp, dt);
+                    else
+                    {
+                        b.Lost.gameObject.SetActive(false);
+                        SetBar(b, p.Hp, p.Shield, dt);
+                    }
                 }
             }
             for (int i = used; i < headBars.Count; i++) headBars[i].Root.gameObject.SetActive(false);

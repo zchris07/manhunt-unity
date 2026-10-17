@@ -68,7 +68,9 @@ namespace Vision.World
 
         /// <summary>
         /// The building's ceiling lights: every room (hallways too) lit by a grid of lights, each reaching past the corners
-        /// of its share of the room, all dark until one of the building's generators runs.
+        /// of its share of the room. Each belongs to the building generator nearest it (two generators: each its half of the
+        /// building; one: all of it), dark until that generator runs, and shines at night vision's shaded brightness
+        /// (<see cref="Game.Balance.Xray.Brightness"/>): it shows the place, never who's in it.
         /// </summary>
         void BuildBuildingLights(List<GeneratorObjective> generators)
         {
@@ -77,6 +79,12 @@ namespace Vision.World
             Transform root = Group("Building Lights");
             BuildingPower power = root.gameObject.AddComponent<BuildingPower>();
             power.generators.AddRange(generators);
+            var genAt = new List<Vector2>();
+            foreach (GeneratorObjective g in generators)
+            {
+                Vector3 l = transform.InverseTransformPoint(g.transform.position);
+                genAt.Add(new Vector2(l.x, l.z));
+            }
             foreach (BuildingPlan.Room r in plan.Rooms)
             {
                 int nx = Mathf.Max(1, Mathf.CeilToInt(r.Area.width / RoomLightSpacing)), nz = Mathf.Max(1, Mathf.CeilToInt(r.Area.height / RoomLightSpacing));
@@ -91,11 +99,22 @@ namespace Vision.World
                         var light = go.AddComponent<VisionLight>();
                         light.range = range;
                         light.height = 2.2f;
-                        light.intensity = 0.9f;
+                        light.intensity = Game.Balance.Xray.Brightness;
                         light.falloffStart = 0.75f;
                         light.flickerAmount = 0.01f;
                         light.enabled = false;
                         power.lights.Add(light);
+                        // Its generator: whichever of the building's is nearest the room's middle (a hallway's lights each by
+                        // where they hang, so a long hall is split between the halves).
+                        Vector2 at = r.IsHallway ? new Vector2(r.Area.xMin + cw * (i + 0.5f), r.Area.yMin + ch * (j + 0.5f)) : r.Area.center;
+                        int owner = 0;
+                        float best = float.MaxValue;
+                        for (int g = 0; g < genAt.Count; g++)
+                        {
+                            float d = (genAt[g] - at).sqrMagnitude;
+                            if (d < best) { best = d; owner = g; }
+                        }
+                        power.owners.Add(owner);
                     }
             }
         }

@@ -84,11 +84,14 @@ namespace Vision.Game
             Role role = Local != null && MatchState.Current.TestingMode ? Local.Role : Role.Survivor;
             Geometry = new WorldGeometry(world);
             int hunters = 1, survivors = 4;
+            // Offline, the game's own balance (the lobby's sliders only hold for its matches).
+            if (Online == null) MatchState.Current.Tuning = new Tuning();
             if (Online != null)
             {
                 // Everyone in an online match plays by the host's settings and moves at its pace.
                 MatchState.Current.TestingMode = Online.Settings.TestMode;
                 MatchState.Current.SetPace(Online.Settings.Pace, false);
+                MatchState.Current.Tuning = (Online.Settings.Tuning ?? new Tuning()).Clamped();
                 LocalId = Online.LocalId;
                 hunters = survivors = 0;
                 foreach (Vision.Net.RosterEntry e in Online.Roster)
@@ -333,6 +336,8 @@ namespace Vision.Game
             }
             ExitGate.MatchPowered = Sim.Gate.Powered;
             if (world.Gate != null) world.Gate.SetState(Sim.Gate.Progress, Sim.Gate.Open);
+            if (world.Gate2 != null) world.Gate2.SetState(Sim.Gate2.Progress, Sim.Gate2.Open);
+            if (world.Hatch != null) world.Hatch.SetState(Sim.HatchOpen, Sim.HatchClosed);
             for (int i = 0; i < Sim.Doors.Length && i < world.Doors.Count; i++)
             {
                 if (world.Doors[i] == null) continue;

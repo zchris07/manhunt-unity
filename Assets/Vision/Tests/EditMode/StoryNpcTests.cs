@@ -168,18 +168,34 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void ZachKillsChrisInTwoHits()
+        public void Chris_IsUnkillable_ExceptByZachWhileHesAtWork()
         {
             var rig = new SimRig();
             var chris = new Chris(rig.Sim);
             rig.Sim.Npcs.Add(chris);
-            chris.Slash(rig.Sim, rig.P(1), 2);
-            Assert.IsTrue(chris.Alive);
-            Assert.AreEqual(Chris.Mode.Flee, chris.State);
+            SimPlayer zach = rig.P(1);
+            zach.SwingDamage = Balance.Hunter.Attack.DamageFull;
+            for (int i = 0; i < 6; i++) chris.Slash(rig.Sim, zach, 2);
+            Assert.IsTrue(chris.Alive, "pacing round his ambulance, Zach can't kill him");
+            Assert.AreEqual(Chris.Mode.Flee, chris.State, "only scared off");
+            Assert.IsNull(chris.HealthFor(Role.Hunter), "no health bar while he can't be hurt");
             chris.ItemHit(rig.Sim, rig.P(2), "bottle");
+            for (int i = 0; i < 5; i++) chris.ItemHit(rig.Sim, rig.P(2), "shot");
             Assert.IsTrue(chris.Alive, "a survivor's item only makes him flinch");
-            chris.Slash(rig.Sim, rig.P(1), 1);
-            Assert.IsFalse(chris.Alive);
+            Assert.AreEqual(Balance.Chris.Health, chris.HealthLeft, 1e-4f);
+            Assert.AreEqual(50f, Balance.Chris.Health);
+            // At work on someone: a full swing takes two thirds of 100, more than his 50.
+            chris.State = Chris.Mode.Work;
+            Assert.IsTrue(chris.Vulnerable);
+            Assert.AreEqual(1f, chris.HealthFor(Role.Hunter) ?? -1f, 1e-4f, "his bar shows while he's at work");
+            chris.ItemHit(rig.Sim, rig.P(2), "shot");
+            Assert.AreEqual(Balance.Chris.Health, chris.HealthLeft, 1e-4f, "survivors can't hurt him even then");
+            zach.SwingDamage = 0.1f;
+            chris.Slash(rig.Sim, zach, 1);
+            Assert.AreEqual(Balance.Chris.Health - 10f, chris.HealthLeft, 1e-3f, "a light swing takes 10");
+            zach.SwingDamage = Balance.Hunter.Attack.DamageFull;
+            chris.Slash(rig.Sim, zach, 2);
+            Assert.IsFalse(chris.Alive, "and a full one finishes him");
         }
 
         [Test]
@@ -255,21 +271,19 @@ namespace Vision.Tests
             rig.Tap(h.Id, Btn.Interact);
             Assert.IsTrue(h.Nic, "50 Nic");
 
-            Assert.IsNull(chacko.HealthFor(Role.Survivor), "survivors can't slay him: no bar for them");
-            Assert.AreEqual(1f, chacko.HealthFor(Role.Hunter), "one blow from Zach can");
+            Assert.AreEqual(1f, chacko.HealthFor(Role.Survivor), "survivors can slay him now: one blow");
+            Assert.AreEqual(1f, chacko.HealthFor(Role.Hunter), "as Zach's can");
+            rig.Sim.Events.Clear();
             chacko.ItemHit(rig.Sim, s, "bottle");
-            Assert.IsTrue(chacko.Alive, "a survivor's hit doesn't kill him");
-            Assert.IsTrue((chacko.Flags & NpcFlags.Hurt) != 0, "he flinches");
-            Assert.AreEqual("Lay off man!", chacko.Say);
+            Assert.IsFalse(chacko.Alive, "a survivor's hit kills him");
+            Assert.IsTrue(chacko.Gone, "blown apart");
+            Assert.IsTrue(rig.Sim.Events.Exists(e => e.Kind == EventKind.Explosion), "the same explosion");
+            Assert.IsTrue(rig.Sim.Events.Exists(e => e.Kind == EventKind.Talk && e.Text == "chacko_attacked"), "and the clip");
+            Assert.AreEqual(1f - Balance.Chacko.Explosion, s.Hp, 1e-3f, "half his killer's health");
             Assert.AreEqual(s.Id, rig.Sim.Vengeance);
-            Assert.IsTrue(jaden.Chasing && jaden.Target == s.Id, "Jaden goes after his attacker");
+            Assert.IsTrue(jaden.Chasing && jaden.Target == s.Id, "Jaden goes after his killer");
             Assert.AreEqual(s.Id, plasma.Target, "and so does Plasma");
             Assert.IsTrue(plasma.Raging);
-            rig.Run(SimRig.Secs(Balance.Chacko.FlinchTime + 0.1f));
-            Assert.IsTrue((chacko.Flags & NpcFlags.Hurt) == 0, "the flinch passes");
-            chacko.ItemHit(rig.Sim, s, "shot");
-            Assert.AreEqual("What the heck...", chacko.Say, "and the next hit gets the other line");
-            Assert.IsTrue(chacko.Alive);
         }
 
         [Test]

@@ -1,0 +1,192 @@
+using System.Collections.Generic;
+using System.Linq;
+using NUnit.Framework;
+using UnityEngine;
+using Vision.Game;
+using Vision.Net;
+using Vision.Player;
+using Vision.UI;
+using Vision.Visibility;
+using Vision.World;
+
+namespace Vision.Tests
+{
+    /// <summary>
+    /// A level built from the lobby's generator slider (two: the building's lone generator lights all of it, and the
+    /// graveyard's), with both exits (the second gate's yard beside Miga Sushi), the hatch on the bank by the dock, every
+    /// note photo and one by each generator, the extra guns spread out, and wading ripples; the lobby's balance card on
+    /// screen (anyone's slider moves show, the host alone resets); a ghost's HUD.
+    /// </summary>
+    public class LevelExitsAndLobbyUiTests
+    {
+        GameObject root, hudGo;
+        Material mat;
+        MatchState saved;
+
+        [SetUp]
+        public void SetUp()
+        {
+            saved = MatchState.Current;
+            MatchState.Current = new MatchState();
+            root = new GameObject("World");
+            mat = new Material(Shader.Find("Vision/LowPoly"));
+            hudGo = new GameObject("HUD");
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            // Out of any lobby (its screen's state is shared), whatever happened.
+            if (hudGo != null && hudGo.GetComponent<GameHud>() is GameHud hud && NetSession.Active != null) hud.LeaveOnline();
+            NetSession.Active?.Leave();
+            Object.DestroyImmediate(hudGo);
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(mat);
+            var fx = Object.FindAnyObjectByType<Vision.Effects.Vfx>();
+            if (fx != null) Object.DestroyImmediate(fx.gameObject);
+            MatchState.Current = saved;
+        }
+
+        SandboxWorld NewWorld(int generators = Tuning.DefaultGenerators)
+        {
+            var world = root.AddComponent<SandboxWorld>();
+            world.lowPolyMaterial = world.entityMaterial = world.glowMaterial = mat;
+            world.generatorCount = generators;
+            world.Generate();
+            return world;
+        }
+
+        Vector2 Plane(SandboxWorld w, Component c)
+        {
+            Vector3 l = w.transform.InverseTransformPoint(c.transform.position);
+            return new Vector2(l.x, l.z);
+        }
+
+        [Test]
+        public void ALevelWithTwoGenerators_BothExits_TheHatch_EveryNote_TheExtraGuns_AndWadingRipples()
+        {
+            SandboxWorld world = NewWorld(2);
+            MapLayout L = world.Layout;
+            Assert.AreEqual(2, L.GeneratorCount);
+            Assert.AreEqual(2, world.Generators.Count, "two generators");
+            var gens = world.Generators.Select(g => Plane(world, g)).ToList();
+            Assert.AreEqual(1, gens.Count(g => L.Building.Contains(g)), "one in the building");
+            Assert.AreEqual(1, gens.Count(g => (g - L.Graveyard.center).magnitude < 0.5f), "and the graveyard's");
+
+            // The building's lone generator lights all of it.
+            BuildingPower power = root.GetComponentInChildren<BuildingPower>();
+            Assert.AreEqual(1, power.generators.Count);
+            power.generators[0].SetState(1f, true);
+            power.Refresh();
+            Assert.IsTrue(power.lights.All(l => l.enabled), "one generator in the building lights the whole building");
+            power.generators[0].SetState(0f, false);
+            power.Refresh();
+
+            // The second exit: its own yard beside Miga Sushi, a roll-up gate facing in, the lever outside.
+            Assert.IsTrue(L.HasSushiGate);
+            Assert.NotNull(world.Gate2, "the second gate");
+            Assert.Less(Vector2.Distance(L.SushiGate.center, L.Sushi.center), 22f, "beside Miga Sushi");
+            Assert.IsFalse(L.SushiGate.Overlaps(L.Sushi), "a structure of its own");
+            Assert.Less(L.SushiGate.center.magnitude, L.HalfExtent, "inside the playable circle");
+            Assert.IsFalse(L.SushiGate.Contains(L.SushiGateLever), "the lever outside the yard");
+            Assert.Greater(Vector2.Dot(L.SushiGateOut(), -L.SushiGate.center.normalized), 0f, "its gate faces the middle of the map");
+            Assert.IsTrue(world.Gate2.blocker.enabled, "shut to start");
+
+            // The hatch: on dry ground by the dock.
+            Assert.NotNull(world.Hatch);
+            Assert.Less(L.LakeDepth(L.Hatch), -1f, "on the bank, not in the water");
+            Assert.Less(Vector2.Distance(L.Hatch, L.DockStart), 9f, "near the dock");
+            Assert.IsFalse(world.Hatch.Open);
+
+            // Every photo lies somewhere, and one note by each generator.
+            int pictures = NotePictures.Count;
+            Assert.AreEqual(Mathf.Max(pictures, 2), world.Notes.Count);
+            CollectionAssert.IsSubsetOf(Enumerable.Range(0, pictures), world.NoteImages);
+            foreach (Vector2 g in gens)
+                Assert.IsTrue(world.Notes.Any(n => Vector2.Distance(Plane(world, n), g) < Balance.Notes.BesideGenerator + 0.5f), "a note by every generator");
+
+            // Two golden pumps (Miga Sushi's and one out on the map), five P250s spread about the playable circle.
+            Assert.AreEqual(2, world.Pickups.Count(p => p.item == ItemType.Shotgun && p.golden));
+            var pistols = world.Pickups.Where(p => p.item == ItemType.Pistol).Select(p => Plane(world, p)).ToList();
+            Assert.AreEqual(SandboxWorld.MapPistols, pistols.Count, "five P250s");
+            foreach (Vector2 p in pistols) Assert.Less(p.magnitude, L.HalfExtent, "inside the first ring");
+            float closest = float.MaxValue;
+            for (int i = 0; i < pistols.Count; i++)
+                for (int j = i + 1; j < pistols.Count; j++) closest = Mathf.Min(closest, Vector2.Distance(pistols[i], pistols[j]));
+            Assert.Greater(closest, 35f, "well spread out, about as far apart as they can be");
+
+            // The match: two generators to run, both gates and the hatch known to it.
+            MatchHost host = MatchHost.For(world);
+            host.Begin();
+            MatchSim sim = host.Sim;
+            Assert.AreEqual(2, sim.Bal.RequiredGenerators);
+            Assert.IsTrue(sim.Map.HasGate2 && sim.Map.HasHatch);
+            Assert.IsTrue(L.SushiGate.Contains(sim.Map.ExitZone2.center), "out through the yard");
+
+            // Wading: anyone moving through the lake leaves ripples.
+            var fx = root.AddComponent<MatchEffects>();
+            fx.world = world;
+            SimPlayer me = host.Local;
+            me.Pos = L.LakeCentre;
+            fx.Draw();
+            me.Pos = L.LakeCentre + new Vector2(0.5f, 0f);
+            fx.Draw();
+            Assert.Greater(fx.RippleCount, 0, "rings on the water round them");
+            int n0 = fx.RippleCount;
+            me.Pos = L.Spawn;
+            fx.Draw();
+            me.Pos = L.Spawn + new Vector2(0.5f, 0f);
+            fx.Draw();
+            Assert.AreEqual(n0, fx.RippleCount, "none on dry land");
+        }
+
+        [Test]
+        public void TheLobby_ShowsTheBalanceCard_EveryonesSliderMovesShow_AndOnlyTheHostResets()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.CreateLobby("Host", 0);
+            NetSession session = NetSession.Active;
+            Assert.NotNull(session, "hosting");
+            var labels = new HashSet<string>(Tuning.Knobs.Select(k => k.Label + " Slider"));
+            var sliders = hudGo.GetComponentsInChildren<UnityEngine.UI.Slider>(true).Where(s => labels.Contains(s.name)).ToList();
+            Assert.AreEqual(Tuning.Knobs.Length, sliders.Count, "a slider for each");
+            var texts = hudGo.GetComponentsInChildren<UnityEngine.UI.Text>(true).Select(t => t.text).ToList();
+            Assert.Contains("BALANCE & DIFFICULTY", texts);
+            foreach (Tuning.Knob k in Tuning.Knobs) Assert.Contains(k.Label, texts);
+            Assert.IsFalse(hud.TuningResetInteractable, "nothing to reset yet");
+
+            // A slider moved (as a joiner's move arrives at the host): it shows, and the host can reset.
+            session.Tune(2, 1.4f);
+            Assert.AreEqual(1.4f, hud.TuningShown(2), 1e-4f, "on everyone's screen");
+            Assert.IsTrue(hud.TuningResetInteractable, "the host can put them back");
+            session.ResetTuning();
+            Assert.AreEqual(1f, hud.TuningShown(2), 1e-4f);
+            Assert.IsFalse(hud.TuningResetInteractable);
+            hud.LeaveOnline();
+        }
+
+        [Test]
+        public void AGhost_SeesTheGhostPanel_InPlaceOfTheInventory()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.StartTesting(false);
+            MatchHost host = MatchHost.For(world);
+            hud.Refresh();
+            Assert.IsFalse(hud.GhostPanelShowing);
+            SimPlayer me = host.Local;
+            host.Sim.Eliminate(me, "stake");
+            host.Sim.MakeGhost(me);
+            hud.Refresh();
+            Assert.IsTrue(hud.GhostPanelShowing, "the ghost's panel");
+            StringAssert.Contains("READY", hud.GhostPanelText);
+            me.GhostCd = 9.2f;
+            hud.Refresh();
+            StringAssert.Contains("10s", hud.GhostPanelText, "counting down");
+            StringAssert.Contains("ghost", GameHud.ObjectiveText(host.Sim, me));
+        }
+    }
+}

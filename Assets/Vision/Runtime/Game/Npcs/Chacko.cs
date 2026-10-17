@@ -6,17 +6,16 @@ namespace Vision.Game
 {
     /// <summary>
     /// Chacko (the original's chacko.ts) sits on the lounge couch watching Madden. A survivor who talks to him gets a Doctor
-    /// Pepper (once each); Zach gets 50 Nic (once). A survivor's hit (a thrown bottle, book or jar, pellets, a bullet, a 0.50
-    /// cal round) doesn't kill him: he flinches and snaps at them ("Lay off man!", "What the heck...", in turn), and Jaden
-    /// Nguyen, Plasma.TTV and Shane Jeans go after that survivor (<see cref="MatchSim.Avenge"/>). One blow from Zach kills
-    /// him, and he explodes for half of Zach's health.
+    /// Pepper (once each); Zach gets 50 Nic (once). One blow kills him, from Zach or a survivor (a thrown bottle, book or jar,
+    /// pellets, a bullet, a 0.50 cal round), and he explodes for half of his killer's health, setting the clip off for
+    /// everyone near. Njaaron, Jaden Nguyen, Plasma.TTV and Shane Jeans go after his killer (<see cref="MatchSim.Avenge"/>);
+    /// if it was Zach, every other NPC does too.
     /// </summary>
     public sealed class Chacko : Npc
     {
         readonly MatchSim sim;
         bool alive = true;
         float talkT;
-        int snaps;
         /// <summary>Who he already served (a survivor's can and Zach's 50 Nic are separate).</summary>
         readonly HashSet<string> served = new HashSet<string>();
 
@@ -24,8 +23,8 @@ namespace Vision.Game
         public override int Kind => 7;
         public override float RadiusUnits => Balance.Chacko.Radius;
         public override bool Alive => alive;
-        /// <summary>One hit from Zach slays him; survivors can't.</summary>
-        public override float? HealthFor(Role viewer) => alive && viewer == Role.Hunter ? 1f : (float?)null;
+        /// <summary>One hit slays him, from either side.</summary>
+        public override float? HealthFor(Role viewer) => alive && (viewer == Role.Hunter || viewer == Role.Survivor) ? 1f : (float?)null;
         public override bool Solid => alive;
         /// <summary>Slain, he stays slumped on the couch (exploded, he's gone).</summary>
         public override bool Gone => exploded;
@@ -74,19 +73,20 @@ namespace Vision.Game
         }
 
         /// <summary>
-        /// A survivor's item (bottle, book, jar, pellets, a bullet, a 0.50 cal round): he flinches, snaps at them, and the NPCs
-        /// go after them. Zach's golden pump kills him like his machete.
+        /// A survivor's item (bottle, book, jar, pellets, a bullet, a 0.50 cal round), or Zach's golden pump: it kills him like
+        /// Zach's machete does.
         /// </summary>
         public override void ItemHit(MatchSim s, SimPlayer by, string kind)
         {
             if (!alive || by == null) return;
-            if (by.Role == Role.Hunter)
-            {
-                Slay(by);
-                return;
-            }
-            HurtT = Balance.Chacko.FlinchTime;
-            Speak(snaps++ % 2 == 0 ? Balance.Chacko.LineLayOff : Balance.Chacko.LineHeck);
+            // Anyone's hit slays him now (the user's rule): he explodes.
+            Slay(by);
+        }
+
+        /// <summary>Someone attacked him: the clip from the couch, and the others go after them.</summary>
+        void Attacked(SimPlayer by)
+        {
+            sim.Emit(sim.Near(Pos, Balance.Net.HearingRadius), new GameEvent { Kind = EventKind.Talk, A = -Id, Text = "chacko_attacked", Pos = Pos });
             sim.Avenge(by);
         }
 
@@ -104,7 +104,10 @@ namespace Vision.Game
             Slay(h);
         }
 
-        /// <summary>Zach killed him: a bloody explosion on the spot that takes half of Zach's health.</summary>
+        /// <summary>
+        /// Someone killed him (Zach, or a survivor): a bloody explosion on the spot that takes half of his killer's health,
+        /// the clip from the couch, and the NPCs after his killer.
+        /// </summary>
         void Slay(SimPlayer by)
         {
             if (!alive) return;
@@ -114,7 +117,9 @@ namespace Vision.Game
             sim.Emit(sim.Near(Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Explosion, Pos = Pos });
             sim.Noise(Pos, 1200f, "smash");
             sim.Feed($"{by.Name} killed Chacko and he exploded");
-            sim.HurtHunter(by, Balance.Hunter.Health.Max * Balance.Chacko.Explosion, null, "blast");
+            Attacked(by);
+            if (by.Role == Role.Hunter) sim.HurtHunter(by, Balance.Hunter.Health.Max * Balance.Chacko.Explosion, null, "blast");
+            else sim.HurtSurvivor(by, Balance.Chacko.Explosion, null, "blast");
         }
 
         public override void Update(MatchSim s, float dt)

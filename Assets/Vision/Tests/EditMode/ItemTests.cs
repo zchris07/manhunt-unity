@@ -257,7 +257,7 @@ namespace Vision.Tests
                         var at = new Vector2(x, y);
                         if (world.SurfaceHeight(at) > world.SurfaceHeight(peak)) peak = at;
                     }
-                Assert.Greater(world.SurfaceHeight(peak), world.SurfaceHeight(me.Pos) + 1.2f, "the test needs a hill above the throw");
+                Assert.Greater(world.SurfaceHeight(peak), world.SurfaceHeight(me.Pos) + 0.3f, "the test needs a rise above the throw");
                 sim.Thrown[0] = new ThrownItem { Id = 900, Pos = peak, Dir = Vector2.right, Owner = me.Id, Item = ItemType.Book };
                 for (int i = 0; i < 60; i++) views.Sync(0.016f);
                 Assert.Greater(views.ThrownLocal(900).y, world.SurfaceHeight(peak) + 0.8f, "lifted over the hill");

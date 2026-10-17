@@ -152,7 +152,9 @@ namespace Vision.World
         /// <summary>Which interface each cell edge lies on (-1: none, inside one space).</summary>
         int[,] hFace, vFace;
 
-        public BuildingPlan(int seed, Rect bounds)
+        /// <param name="generators">How many generators the building holds: two (far apart, in rooms of any reasonable
+        /// size) or one, in either of those two rooms at random (the other keeps its kind of room, without one).</param>
+        public BuildingPlan(int seed, Rect bounds, int generators = 2)
         {
             Seed = seed;
             Bounds = bounds;
@@ -163,6 +165,12 @@ namespace Vision.World
             MakeSpaces(rooms, bay);
             BuildInterfaces();
             AssignTypes();
+            if (generators < 2)
+            {
+                // A stream of its own, so nothing else in the building moves for it.
+                var held = Rooms.FindAll(r => r.HasGenerator);
+                if (held.Count > 1) held[new System.Random(seed * 977 + 3).Next(held.Count)].HasGenerator = false;
+            }
             PlaceExterior();
             PlaceInteriorOpenings();
             PlaceBarricades();

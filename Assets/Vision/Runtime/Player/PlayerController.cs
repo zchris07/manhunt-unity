@@ -106,6 +106,8 @@ namespace Vision.Player
         // The see-through light's growth (0-1), and whether the one fading is the Hemp Battery's (it fades out as slowly as in).
         float xrayK;
         bool xrayHemp;
+        /// <summary>Night vision's widening of the beam (0 normal, 1 its full 20% wider), grown in as the see-through light lengthens.</summary>
+        float goggleK;
         // Penjamin's darkness (0-1), eased in and out over the original's 0.6 s: the beam narrows and the dark goes black.
         float darkK;
         // The gas blur (0-1), how long since Zach left the galaxy gas, and how long a survivor's blur has left.
@@ -259,6 +261,10 @@ namespace Vision.Player
         /// <summary>Raised when testing mode switches the local player's role.</summary>
         public event System.Action<Role> RoleChanged;
 
+        Vision.UI.ScreenOverlays overlays;
+        /// <summary>E was pressed to put a note down and is still held.</summary>
+        bool noteDownHeld;
+
         InputCmd ReadInput(SimPlayer p, bool menu)
         {
             var cmd = new InputCmd { Seq = ++seq };
@@ -284,7 +290,16 @@ namespace Vision.Player
             Btn b = ExtraButtons;
             if (SprintOverride ?? Held(sprint)) b |= Btn.Run;
             if (Held(crouch)) b |= Btn.Crouch;
-            if (Held(interact)) b |= Btn.Interact;
+            // Reading a note, E puts it down (and that press does nothing else, held or not, until it's let go).
+            if (overlays == null) overlays = FindAnyObjectByType<Vision.UI.ScreenOverlays>();
+            bool reading = overlays != null && overlays.NoteShowing;
+            if (reading && interact.WasPressedThisFrame())
+            {
+                overlays.HideNote();
+                noteDownHeld = true;
+            }
+            if (noteDownHeld && !Held(interact)) noteDownHeld = false;
+            if (Held(interact) && !reading && !noteDownHeld) b |= Btn.Interact;
             // Not while arranging the inventory, or when the click is on the HUD (a slot, a button).
             bool overUi = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
             if (Held(fire) && !GameHud.EditorOpen && !overUi) b |= Btn.Primary;
@@ -442,6 +457,22 @@ namespace Vision.Player
             return Mathf.Clamp01((p.Pos.magnitude - world.halfExtent - Balance.Boundary.FirstRing) / Balance.Boundary.InnerGap);
         }
 
+        /// <summary>
+        /// How far night vision's widening has grown (0-1) at <paramref name="k"/> of the way through the see-through light's
+        /// fade-in: the light lengthens on 1-(1-k)^2 from 35% of its reach to all of it, and passes the side of the screen at
+        /// about 60% of the way (<see cref="GoggleScreenShare"/>); the beam's angle has opened all the way by then, eased.
+        /// </summary>
+        public static float GoggleWiden(float k)
+        {
+            k = Mathf.Clamp01(k);
+            float reach = 1f - (1f - k) * (1f - k);
+            float w = Mathf.Clamp01(reach / GoggleScreenShare);
+            return w * w * (3f - 2f * w);
+        }
+
+        /// <summary>Share of the see-through light's growth at which it reaches the side of a landscape screen.</summary>
+        public const float GoggleScreenShare = 0.6f;
+
         float BoundaryLight(SimPlayer p, float dt)
         {
             if (p.LostInWoods)
@@ -490,7 +521,11 @@ namespace Vision.Player
             {
                 viewer.Facing = new Vector2(Mathf.Cos(p.Facing), Mathf.Sin(p.Facing));
                 float cone = (zach ? Balance.Hunter.ConeHalfAngleDeg : Balance.Survivor.ConeHalfAngleDeg) * Mathf.Sqrt(p.FovMul);
-                if (p.GogglesOn) cone *= Balance.Items.Goggles.ConeMul;
+                // Night vision widens the beam as it comes on (never snapping to it): the angle grows out over the same
+                // 0.5 s the see-through light takes to lengthen out past the edge of the screen, on the same curve, and
+                // narrows back as quickly as the light goes.
+                goggleK = p.GogglesOn ? Mathf.Min(1f, goggleK + Time.deltaTime / Balance.Xray.FadeIn) : Mathf.Max(0f, goggleK - Time.deltaTime / Balance.Xray.FadeOut);
+                cone *= Mathf.Lerp(1f, Balance.Items.Goggles.ConeMul, GoggleWiden(goggleK));
                 // Galaxy gas narrows Zach's cone by 30%.
                 if (zach && p.Gassed) cone *= 1f - Balance.Items.Trap.ZachConeCut;
                 float dt0 = Time.deltaTime;
@@ -515,7 +550,7 @@ namespace Vision.Player
                     // Piss in the eyes: blurred and yellowed, falling off linearly over two seconds.
                     composite.piss = Mathf.Clamp01(p.PissBlurT / Balance.Items.Piss.BlurTime);
                     // JARVIS (its user): everything outlined in blue, scanned, as long as it runs.
-                    bool jarvisOn = !zach && p.JarvisT > 0f;
+                    bool jarvisOn = !zach && MatchSim.JarvisActive(p);
                     jarvisK = jarvisOn ? Mathf.Min(1f, jarvisK + dt0 / RevealSpread) : Mathf.Max(0f, jarvisK - dt0 / 0.5f);
                     jarvisAge = jarvisOn ? jarvisAge + dt0 : 0f;
                     composite.jarvis = jarvisK;
@@ -550,7 +585,7 @@ namespace Vision.Player
                 // JARVIS: while it runs, every survivor sees everything on their screen (Zach doesn't): ten seconds for
                 // everyone, its whole run for the survivor running it; the light spreads out from the player over the
                 // screen in 0.8 s as it comes on.
-                bool reveal = Host != null && (Host.Sim.RevealT > 0f || p.JarvisT > 0f) && !zach;
+                bool reveal = Host != null && !zach && (MatchSim.JarvisActive(p) || (Host.Sim.RevealT > 0f && p.Zone < 2 && p.Role == Role.Survivor));
                 revealK = reveal ? Mathf.Min(1f, revealK + dt0 / RevealSpread) : 0f;
                 viewer.revealAll = reveal;
                 viewer.revealGrow = revealK * revealK * (3f - 2f * revealK);
@@ -561,12 +596,14 @@ namespace Vision.Player
                 animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
                 animator.Lift = p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, Host != null ? Host.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y) : 0f;
             }
-            bool hidden = p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator;
+            bool hidden = !p.Ghost && (p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator);
             if (hidden != hiddenShown)
             {
                 hiddenShown = hidden;
                 foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = !hidden;
             }
+            // Back as a ghost: glowing white.
+            GhostLook.Set(gameObject, p.Ghost, world != null ? world.lowPolyMaterial : null);
         }
 
         void UpdateHud(SimPlayer p, MatchHost h)

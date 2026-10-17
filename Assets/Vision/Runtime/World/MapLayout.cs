@@ -86,6 +86,18 @@ namespace Vision.World
         /// </summary>
         public Rect Sushi, Chamber;
         public int SushiDoor, ChamberDoor;
+        /// <summary>
+        /// The second exit (the user's rule): a fenced yard of its own beside Miga Sushi, its roll-up gate in the side facing
+        /// the middle of the map (<see cref="SushiGateSide"/>: 0 north, 1 east, 2 south, 3 west), its lever just outside.
+        /// </summary>
+        public Rect SushiGate;
+        public int SushiGateSide;
+        public bool HasSushiGate;
+        public Vector2 SushiGateLever;
+        /// <summary>The hatch: on the bank beside where the lake's dock starts.</summary>
+        public Vector2 Hatch;
+        /// <summary>The second gate's yard: 8 m along its gate side, 6.5 m deep.</summary>
+        public static readonly Vector2 SushiGateSize = new Vector2(8f, 6.5f);
         public Vector2 HangingTree;
         public readonly List<Vector2> PowerPoles = new List<Vector2>();
 
@@ -97,17 +109,26 @@ namespace Vision.World
         float U(float originalUnits) => originalUnits * Unit;
         float Range(float a, float b) => a + (float)rng.NextDouble() * (b - a);
 
-        public MapLayout(int seed, float halfExtent = 90f)
+        /// <summary>
+        /// How many generators the map has (the lobby's, two to eight): the graveyard's always, one in the building (two from
+        /// five on), and the rest out in the woods' clearings.
+        /// </summary>
+        public readonly int GeneratorCount;
+        /// <summary>How many of them stand in the central building.</summary>
+        public int BuildingGenerators => GeneratorCount >= 5 ? 2 : 1;
+
+        public MapLayout(int seed, float halfExtent = 90f, int generators = Vision.Game.Tuning.DefaultGenerators)
         {
             Seed = seed;
             HalfExtent = halfExtent;
+            GeneratorCount = Mathf.Clamp(generators, Vision.Game.Tuning.MinGenerators, Vision.Game.Tuning.MaxGenerators);
             rng = new System.Random(seed * 31 + 7);
             float wh = U(OriginalBuildingSize);
             Building = new Rect(-wh * 0.5f, -wh * 0.5f, wh, wh);
             // The gate sits in one of the building's north wall cells 3-6 (10 cells across), its yard outside.
             float cell = wh / 10f;
             rng.Next(3, 7);   // (kept so the woods stay as they were when the gate came from this generator)
-            Plan = new BuildingPlan(seed, Building);
+            Plan = new BuildingPlan(seed, Building, BuildingGenerators);
             GateX = Plan.GateX;
             Yard = new Rect(GateX - U(150f), Building.yMax, U(300f), U(250f));
             KeepRects.Add(Expand(Building, U(150f)));
@@ -115,6 +136,7 @@ namespace Vision.World
             DefaultEntrances();
 
             PlaceLake();
+            PlaceHatch();
             PlaceSpawnAndClearings();
             PlaceCabins();
             PlaceGenerators();
@@ -153,6 +175,16 @@ namespace Vision.World
             DockEnd = DockStart - toCentre * U(280f);
             DockHalfWidth = U(38f);
             KeepCircles.Add((LakeCentre, LakeRadius * 1.15f));
+        }
+
+        /// <summary>The hatch: on dry ground a few metres in from the dock's foot, off to one side of it.</summary>
+        void PlaceHatch()
+        {
+            Vector2 toCentre = (-LakeCentre).normalized, side = new Vector2(-toCentre.y, toCentre.x);
+            Hatch = DockStart + toCentre * 3.2f + side * 2.6f;
+            for (int i = 0; i < 12 && LakeDepth(Hatch) > -1.8f; i++) Hatch += toCentre * 0.8f;
+            // Nothing grows or stands on it.
+            KeepCircles.Add((Hatch, 3f));
         }
 
         /// <summary>Distance from the lake centre to the shore in a direction (radians).</summary>
@@ -243,9 +275,10 @@ namespace Vision.World
             var candidates = new List<int>();
             for (int i = 1; i < Clearings.Count; i++) if (i != HunterClearing) candidates.Add(i);
             var chosen = new List<int>();
-            // Farthest-point selection spreads them; cabins are a last resort (the building holds two more, and the third
+            // Farthest-point selection spreads them; cabins are a last resort (the building holds one or two more, and one
             // stands in the middle of the graveyard, added with it).
-            while (chosen.Count < 2 && chosen.Count < candidates.Count)
+            int woods = GeneratorCount - BuildingGenerators - 1;
+            while (chosen.Count < woods && chosen.Count < candidates.Count)
             {
                 int best = -1;
                 float bestScore = float.MinValue;
@@ -380,6 +413,91 @@ namespace Vision.World
             Chamber = new Rect(c.x - 2.25f, c.y - 2.25f, 4.5f, 4.5f);
             ChamberDoor = DoorToward(c);
             KeepRects.Add(Expand(Chamber, 2f));
+            PlaceSushiGate(s);
+        }
+
+        /// <summary>
+        /// The second gate's yard beside Miga Sushi: the first clear spot round it (beside it first, then in front and
+        /// behind), inside the playable circle and clear of the lake, the building and everything kept clear; its gate faces
+        /// the middle of the map.
+        /// </summary>
+        void PlaceSushiGate(Vector2 s)
+        {
+            Vector2 size = SushiGateSize;
+            float gapX = Sushi.width * 0.5f + 2.5f + size.x * 0.5f, gapY = Sushi.height * 0.5f + 2.5f + size.y * 0.5f;
+            var offsets = new List<Vector2>
+            {
+                new Vector2(gapX, 0f), new Vector2(-gapX, 0f), new Vector2(0f, gapY), new Vector2(0f, -gapY),
+                new Vector2(gapX, gapY), new Vector2(-gapX, gapY), new Vector2(gapX, -gapY), new Vector2(-gapX, -gapY),
+            };
+            // Beside the restaurant (along the circle) before in front of or behind it.
+            Vector2 tangent = new Vector2(-s.y, s.x).normalized;
+            offsets.Sort((a, b) => Mathf.Abs(Vector2.Dot(b.normalized, tangent)).CompareTo(Mathf.Abs(Vector2.Dot(a.normalized, tangent))));
+            Rect sushiKeep = Expand(Sushi, 2f);
+            foreach (Vector2 o in offsets)
+            {
+                Vector2 c = s + o;
+                var rect = new Rect(c.x - size.x * 0.5f, c.y - size.y * 0.5f, size.x, size.y);
+                if (c.magnitude > HalfExtent - 7f || !LakeClear(c, 6f) || NearBuilding(c, 12f) || InRect(Yard, c, 10f)) continue;
+                if ((c - Spawn).magnitude < 12f || (c - Hatch).magnitude < 8f) continue;
+                Rect padded = Expand(rect, 1.5f);
+                bool bad = false;
+                foreach (Rect k in KeepRects) if (k != sushiKeep && k.Overlaps(padded)) { bad = true; break; }
+                // Clear of the generators' work sites, their cover and the clearings' middles too.
+                foreach (var (kc, kr) in KeepCircles)
+                {
+                    Vector2 nearest = new Vector2(Mathf.Clamp(kc.x, padded.xMin, padded.xMax), Mathf.Clamp(kc.y, padded.yMin, padded.yMax));
+                    if ((nearest - kc).magnitude < kr && (kc - LakeCentre).sqrMagnitude > 1f) { bad = true; break; }
+                }
+                foreach (Vector2 g in WoodsGenerators) if ((g - c).magnitude < 14f) bad = true;
+                if (bad) continue;
+                SushiGate = rect;
+                HasSushiGate = true;
+                break;
+            }
+            if (!HasSushiGate)
+            {
+                // Nowhere clear beside it: in front of it, toward the middle, whatever stands there.
+                Vector2 c = s - s.normalized * (Mathf.Max(Sushi.width, Sushi.height) * 0.5f + 3f + size.y);
+                SushiGate = new Rect(c.x - size.x * 0.5f, c.y - size.y * 0.5f, size.x, size.y);
+                HasSushiGate = true;
+            }
+            Vector2 mid = SushiGate.center;
+            SushiGateSide = Mathf.Abs(mid.y) >= Mathf.Abs(mid.x) ? (mid.y > 0f ? 2 : 0) : (mid.x > 0f ? 3 : 1);
+            SushiGateLever = SushiGateMid() + SushiGateOut() * 0.6f + SushiGateAlong() * (Vision.World.BuildingPlan.GateWidth * 0.5f + 1.1f);
+            KeepRects.Add(Expand(SushiGate, 2f));
+        }
+
+        /// <summary>The middle of the second gate's opening, on its yard's edge.</summary>
+        public Vector2 SushiGateMid()
+        {
+            Rect r = SushiGate;
+            return SushiGateSide switch
+            {
+                0 => new Vector2(r.center.x, r.yMax),
+                1 => new Vector2(r.xMax, r.center.y),
+                2 => new Vector2(r.center.x, r.yMin),
+                _ => new Vector2(r.xMin, r.center.y),
+            };
+        }
+
+        /// <summary>Out of the second gate's yard through its gate (toward the middle of the map).</summary>
+        public Vector2 SushiGateOut() => SushiGateSide switch { 0 => Vector2.up, 1 => Vector2.right, 2 => Vector2.down, _ => Vector2.left };
+        /// <summary>Along the second gate's side.</summary>
+        public Vector2 SushiGateAlong() { Vector2 o = SushiGateOut(); return new Vector2(o.y, -o.x); }
+
+        /// <summary>The second gate's yard past its gate line: walking in there through the open gate escapes.</summary>
+        public Rect SushiExitZone()
+        {
+            Rect r = SushiGate;
+            const float m = 0.9f;
+            return SushiGateSide switch
+            {
+                0 => new Rect(r.xMin, r.yMin, r.width, r.height - m),
+                1 => new Rect(r.xMin, r.yMin, r.width - m, r.height),
+                2 => new Rect(r.xMin, r.yMin + m, r.width, r.height - m),
+                _ => new Rect(r.xMin + m, r.yMin, r.width - m, r.height),
+            };
         }
 
         // ------------------------------------------------------------------ tall grass, fences, logs, fires

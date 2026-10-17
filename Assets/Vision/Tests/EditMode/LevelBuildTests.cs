@@ -75,10 +75,12 @@ namespace Vision.Tests
             Assert.NotNull(world.Ambulance, "Chris Zelley's ambulance");
             Assert.NotNull(world.Ambulance.GetComponent<BoxCollider>());
             Assert.IsFalse(world.Layout.Building.Contains(world.AmbulanceCentre));
-            // The notes: each of the six photos once; one beside every generator (the graveyard's in its middle), the
-            // rest along the paths.
-            Assert.AreEqual(Balance.Notes.Images, world.Notes.Count, "six notes");
-            CollectionAssert.AreEquivalent(System.Linq.Enumerable.Range(0, Balance.Notes.Images), world.NoteImages, "each photo once");
+            // The notes: every photo (the original's six and any the user added) at least once; one beside every
+            // generator (the graveyard's in its middle), the rest along the paths.
+            int pictures = NotePictures.Count;
+            Assert.GreaterOrEqual(pictures, Balance.Notes.Images);
+            Assert.AreEqual(Mathf.Max(pictures, world.Generators.Count), world.Notes.Count, "a note for every photo, and one by every generator");
+            CollectionAssert.IsSubsetOf(System.Linq.Enumerable.Range(0, pictures), world.NoteImages, "every photo lies somewhere");
             foreach (Transform n in world.Notes)
             {
                 Assert.AreEqual(SandboxWorld.NoteScale, n.localScale.x, 1e-4f, "a big sheet, easy to spot");

@@ -10,6 +10,8 @@ namespace Vision.Game
         public Vector2 Origin, Dir;
         public float T0;
         public int By;
+        /// <summary>A ghost's pulse (red, flashing a picture at the players it passes, never touching an NPC).</summary>
+        public bool Ghost;
         public readonly HashSet<object> Hit = new HashSet<object>();
     }
 
@@ -59,6 +61,9 @@ namespace Vision.Game
         int trailSeq = 1;
         /// <summary>Seconds left of a JARVIS reveal: every survivor sees everything on screen.</summary>
         public float RevealT;
+        /// <summary>JARVIS running (seconds left of it), who set it going, and how many times it's been used this match.</summary>
+        public float JarvisRunT;
+        public int JarvisBy, JarvisUses;
 
         public static bool AbilitiesOn(SimPlayer h) => h.Role == Role.Hunter && h.AbilityLockT <= 0f && h.Health != Health.Eliminated && h.KnockT <= 0f;
 
@@ -103,23 +108,52 @@ namespace Vision.Game
             h.Move.HempT = h.HempOn ? Balance.Hunter.Hemp.Grace : 0f;
         }
 
-        /// <summary>JARVIS (Q, survivors with Sexton's tablet): for 10 s everyone's whole screen is visible; its user's for 30 s, and they see the map and Zach.</summary>
-        void TryJarvis(SimPlayer p)
+        /// <summary>
+        /// JARVIS (Q, survivors with Sexton's tablet): for 20 s every survivor in the match gets all of it (its boot, its
+        /// screen, the map, everything on their screen lit and Zach shown); the tablet's ready again 90 s after it ends.
+        /// </summary>
+        public bool TryJarvis(SimPlayer p)
         {
-            if (p.Jarvis != 1 && p.Jarvis != 3) return;
-            if (p.Health == Health.Eliminated || p.Health == Health.Escaped) return;
-            // No vision aids past the second ring.
-            if (p.Zone >= 2) return;
-            if (p.Jarvis == 1) p.Jarvis = 2;
-            p.JarvisT = Balance.Sexton.JarvisUserSec;
+            if (p.Jarvis != 1 && p.Jarvis != 3) return false;
+            if (p.Ghost || p.Health == Health.Eliminated || p.Health == Health.Escaped) return false;
+            // No vision aids past the second ring; one at a time; the tablet cools down after each.
+            if (p.Zone >= 2 || JarvisRunT > 0f || (p.JarvisCd > 0f && p.Jarvis != 3)) return false;
+            JarvisRunT = Balance.Sexton.JarvisUserSec;
+            JarvisBy = p.Id;
+            JarvisUses++;
             p.JarvisSlot = p.SelSlot;
-            RevealT = Balance.Sexton.JarvisRadarSec;
-            Emit(null, new GameEvent { Kind = EventKind.Jarvis, A = p.Id });
+            RevealT = Balance.Sexton.JarvisUserSec;
+            foreach (SimPlayer q in Order)
+                if (q.Role == Role.Survivor && !q.Ghost && q.Health != Health.Eliminated && q.Health != Health.Escaped)
+                {
+                    q.JarvisT = Balance.Sexton.JarvisUserSec;
+                    // No night vision while JARVIS runs.
+                    q.GogglesOn = false;
+                }
+            Emit(null, new GameEvent { Kind = EventKind.Jarvis, A = p.Id, B = JarvisUses });
+            return true;
+        }
+
+        /// <summary>JARVIS winding down, and the tablets' cooldowns (the user's starts as it ends).</summary>
+        void UpdateJarvis(float dt)
+        {
+            if (JarvisRunT > 0f)
+            {
+                JarvisRunT = Mathf.Max(0f, JarvisRunT - dt);
+                if (JarvisRunT <= 0f && Get(JarvisBy) is SimPlayer by && by.Jarvis == 1)
+                {
+                    by.JarvisCd = TestMode ? 0f : Balance.Sexton.JarvisCooldown;
+                    Tell(by, $"JARVIS is recharging: {Mathf.RoundToInt(Balance.Sexton.JarvisCooldown)} s");
+                }
+            }
+            foreach (SimPlayer p in Order)
+                if (p.JarvisCd > 0f && JarvisRunT <= 0f) p.JarvisCd = Mathf.Max(0f, p.JarvisCd - dt);
         }
 
         void UpdateAbilities(float dt)
         {
             RevealT = Mathf.Max(0f, RevealT - dt);
+            UpdateJarvis(dt);
             foreach (SimPlayer h in Order)
             {
                 if (h.Role != Role.Hunter) continue;
@@ -151,9 +185,21 @@ namespace Vision.Game
                     float sag = R(MatchRules.BurstSag(Scale.ToUnits(Mathf.Min(Mathf.Abs(side), width / 2f))));
                     return along >= prev - thick - sag - r && along <= front + sag + r;
                 }
+                if (b.Ghost)
+                {
+                    // A ghost's pulse: survivors and Zach alike, never the ghost who sent it, never an NPC.
+                    foreach (SimPlayer p in Order)
+                    {
+                        if (p.Id == b.By || b.Hit.Contains(p) || !GhostPulseTarget(p) || !Crosses(p.Pos, p.RadiusD)) continue;
+                        b.Hit.Add(p);
+                        GhostPulseHit(b, p);
+                    }
+                    if (prev >= maxD) Bursts.RemoveAt(k);
+                    continue;
+                }
                 foreach (SimPlayer p in Order)
                 {
-                    if (p.Role != Role.Survivor || b.Hit.Contains(p) || p.Health == Health.Escaped || p.Health == Health.Eliminated) continue;
+                    if (p.Role != Role.Survivor || p.Ghost || b.Hit.Contains(p) || p.Health == Health.Escaped || p.Health == Health.Eliminated) continue;
                     if (!Crosses(p.Pos, p.RadiusD)) continue;
                     b.Hit.Add(p);
                     p.ScareT = Balance.Hunter.Burst.ScareTime;
@@ -619,7 +665,7 @@ namespace Vision.Game
                     {
                         b.Hit.Add(q);
                         BulletStruck(q.Pos);
-                        HurtHunter(q, Balance.Items.Sniper.ZachHp, shooter, "bullet");
+                        HurtHunter(q, Balance.Items.Sniper.ZachHp * (shooter != null && shooter.Role == Role.Survivor ? MatchState.Current.Tuning.SniperDamage : 1f), shooter, "bullet");
                         Knock(q, Balance.Items.Sniper.KbDuration, Balance.Items.Sniper.KbPeak, Mathf.Atan2(b.Dir.y, b.Dir.x));
                         q.SniperSlowT = Balance.Items.Sniper.SlowTime;
                         q.Move.StaminaLock = Mathf.Max(q.Move.StaminaLock, Balance.Items.Sniper.SprintLock);

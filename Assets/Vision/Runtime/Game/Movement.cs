@@ -28,6 +28,8 @@ namespace Vision.Game
         public bool SpeedMode;
         /// <summary>No sprinting (Zach more than halfway into a full charge; the lunge and abilities still work).</summary>
         public bool NoSprint;
+        /// <summary>A ghost (a sacrificed survivor back as one): the sprint meter never drains.</summary>
+        public bool Ghost;
     }
 
     /// <summary>
@@ -85,8 +87,10 @@ namespace Vision.Game
 
             // Sprint meter.
             Role role = ctx.Role;
-            float cfgMax = role == Role.Hunter ? Balance.Hunter.StaminaMax : Balance.Survivor.StaminaMax;
-            float cfgRefill = role == Role.Hunter ? Balance.Hunter.StaminaRefill : Balance.Survivor.StaminaRefill;
+            // (The lobby's sprint duration and recovery sliders; the original's 8 s and 10 s, Zach's 6 s and 10 s, by default.)
+            Tuning tune = MatchState.Current.Tuning;
+            float cfgMax = tune.SprintMax(role);
+            float cfgRefill = tune.SprintRefill(role);
             float boostK = Mathf.Clamp01(s.BoostT / Balance.Items.Energy.Duration);
             float cap = MoveState.MaxStamina(role, s.BoostT);
             bool hemp = role == Role.Hunter && s.HempT > 0f;
@@ -110,8 +114,8 @@ namespace Vision.Game
             bool crouching = role == Role.Survivor && cmd.Has(Btn.Crouch);
             bool wantsSprint = runHeld && moving && !crouching && s.Mode == MoveMode.Normal && !ctx.NoSprint;
             bool sprint = wantsSprint && !s.SprintBlocked && s.StaminaLock <= 0f && s.Stamina > 0f;
-            if (ctx.SpeedMode) sprint = wantsSprint;
-            if (sprint && !ctx.SpeedMode)
+            if (ctx.SpeedMode || ctx.Ghost) sprint = wantsSprint;
+            if (sprint && !ctx.SpeedMode && !ctx.Ghost)
             {
                 s.Stamina -= dt * (hemp ? Balance.Hunter.Hemp.SprintDrainMul : 1f);
                 if (s.Stamina <= 0f)
@@ -122,7 +126,7 @@ namespace Vision.Game
                 }
             }
             else s.Stamina = Mathf.Min(cap, s.Stamina + refill * dt);   // the meter refills even while sprint is locked out
-            if (ctx.SpeedMode) s.Stamina = cap;
+            if (ctx.SpeedMode || ctx.Ghost) s.Stamina = cap;
             s.Stamina = Mathf.Min(s.Stamina, cap);
             s.Sprinting = sprint;
 
@@ -187,6 +191,8 @@ namespace Vision.Game
                 speed *= s.FadeMul;
                 if (inWindow) speed *= Balance.Survivor.WindowClimbMul / vaultSlow;
             }
+            // The lobby's move speed slider for each side.
+            speed *= tune.SpeedMul(role);
             if (env != null && env.InWater(at)) speed *= Balance.WadeMul;
             if (ctx.SpeedMode) speed *= Vision.Player.GameSession.SpeedMultiplier;
             if (moving) delta += dir * (Scale.Speed(speed) * dt);

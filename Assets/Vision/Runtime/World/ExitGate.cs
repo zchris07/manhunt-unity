@@ -17,6 +17,8 @@ namespace Vision.World
         public float rollSpeed = 0.8f;
         /// <summary>The lever box (where the survivor stands to pull it).</summary>
         public Transform lever;
+        /// <summary>A light over the gate that comes on once the gates have power (Miga Sushi's gate).</summary>
+        public Vision.Visibility.VisionLight lamp;
 
         /// <summary>Seconds of pulling the lever to open the gate, as the original.</summary>
         public const float OpenTime = 20f;
@@ -68,6 +70,7 @@ namespace Vision.World
 
         void Update()
         {
+            if (lamp != null && lamp.enabled != Powered) lamp.enabled = Powered;
             if (!IsOpen || raised >= 1f) return;
             raised = Mathf.MoveTowards(raised, 1f, rollSpeed * Time.deltaTime / Mathf.Max(0.1f, height) * 2f);
             if (door != null)

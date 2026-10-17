@@ -38,7 +38,8 @@ namespace Vision.Game
 
         public MoveState(Role role) => Stamina = MaxStaminaBase(role);
 
-        public static float MaxStaminaBase(Role role) => role == Role.Hunter ? Balance.Hunter.StaminaMax : Balance.Survivor.StaminaMax;
+        /// <summary>A full sprint meter (seconds): the lobby's sprint duration for the side (the original's by default).</summary>
+        public static float MaxStaminaBase(Role role) => MatchState.Current.Tuning.SprintMax(role);
 
         /// <summary>Current sprint meter capacity (the energy drink adds a fading bonus).</summary>
         public static float MaxStamina(Role role, float boostT) =>
@@ -79,6 +80,13 @@ namespace Vision.Game
         public float Shield;
 
         // Zach.
+        /// <summary>
+        /// The top of Zach's health bar, as a fraction of his original 100 (his <see cref="Hp"/> is out of the same 100, so his
+        /// speed goes by it): each down takes 10 off it for good, each stake adds 5; at nothing he's dead.
+        /// </summary>
+        public float MaxHp = 1f;
+        /// <summary>Zach was killed (his bar worn away to nothing).</summary>
+        public bool Killed;
         public float KnockT;
         public int Downs;
         public int StakeBuff;
@@ -150,9 +158,10 @@ namespace Vision.Game
         public int Zone, BoundaryHits;
         public float ShutdownT, BoundaryTickT, CrossCd;
         public float ReloadT;
-        /// <summary>JARVIS: 0 none, 1 tablet in hand, 2 used, 3 infinite (testing mode).</summary>
+        /// <summary>JARVIS: 0 none, 1 the tablet (used again after its cooldown), 3 infinite (testing mode).</summary>
         public int Jarvis;
-        public float JarvisT;
+        /// <summary>Seconds left of JARVIS running for this survivor (paused past the second ring), and the tablet's cooldown.</summary>
+        public float JarvisT, JarvisCd;
         public float ScareT;
         public bool Gassed;
         /// <summary>Penjamin: seconds the slow and burn last, their strength, seconds of darkness.</summary>
@@ -210,6 +219,13 @@ namespace Vision.Game
         public Vector2 BloodAt;
         /// <summary>Eliminated by wandering into the woods (their light stays out where they fell).</summary>
         public bool LostInWoods;
+        /// <summary>
+        /// Sacrificed and back as a ghost (MatchSim.Ghosts): when they come back (0: not waiting) and where, and the Ghost
+        /// Pulse's cooldown.
+        /// </summary>
+        public bool Ghost;
+        public float GhostAt, GhostCd;
+        public Vector2 GhostSpawn;
         public int BloodPool;
         public float Terror;
 

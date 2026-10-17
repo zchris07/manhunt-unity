@@ -244,6 +244,8 @@ namespace Vision.Game
         {
             if (h.Role != Role.Hunter || h.Health == Health.Eliminated || h.KnockT > 0f || amount <= 0f) return;
             if (by != null && by.Role == Role.Survivor) PlayerAttacked(h, by);
+            // The lobby's survivor damage slider.
+            if (by != null && by.Role == Role.Survivor) amount *= MatchState.Current.Tuning.SurvivorDamage;
             if (h.PissT > 0f && kind != "gas") amount *= Balance.Items.Piss.Mul;
             h.Hp = Mathf.Max(0f, h.Hp - amount / Balance.Hunter.Health.Max);
             if (kind != "gas")
@@ -260,6 +262,13 @@ namespace Vision.Game
         public void DownHunter(SimPlayer h, bool counts)
         {
             h.Hp = 0f;
+            // Every down wears 10 off the top of his bar for good; worn away to nothing, he's dead and the survivors win.
+            h.MaxHp = Mathf.Max(0f, h.MaxHp - Balance.Hunter.Health.DownMaxLoss / Balance.Hunter.Health.Max);
+            if (h.MaxHp <= 1e-4f && !TestMode)
+            {
+                KillHunter(h);
+                return;
+            }
             h.KnockT = Balance.Hunter.Health.DownTime;
             h.ChargeT = -1f;
             h.AttackWindup = 0f;
@@ -271,6 +280,27 @@ namespace Vision.Game
             Emit(null, new GameEvent { Kind = EventKind.Stun, A = h.Id, Text = "down", F = Balance.Hunter.Health.DownTime });
         }
 
+        /// <summary>Zach's bar is worn away: he's dead (out of the match; with every Zach gone, the survivors win).</summary>
+        public void KillHunter(SimPlayer h)
+        {
+            h.MaxHp = 0f;
+            h.Hp = 0f;
+            h.KnockT = 0f;
+            h.ChargeT = -1f;
+            h.AttackWindup = 0f;
+            h.SwingT = 0f;
+            h.Move.LungeT = 0f;
+            h.HempOn = false;
+            if (h.Action != ActionKind.None) CancelAction(h);
+            if (h.Carrying != 0) DropCarried(h);
+            h.Killed = true;
+            h.Health = Health.Eliminated;
+            h.Stats.Outcome = "killed";
+            h.EndedTime = Time;
+            Emit(null, new GameEvent { Kind = EventKind.Eliminated, A = h.Id, Text = "killed" });
+            Feed($"{h.Name} was killed");
+        }
+
         /// <summary>
         /// Takes <paramref name="amount"/> (a fraction of full health) off a survivor: the shield first; they flinch, and at zero
         /// they are down. Zach's hits also give them a burst of speed.
@@ -280,6 +310,8 @@ namespace Vision.Game
             if (q.Role != Role.Survivor || (q.Health != Health.Healthy && q.Health != Health.Wounded) || q.HideState == 2) return;
             bool zach = by != null && by.Role == Role.Hunter;
             if (zach) PlayerAttacked(q, by);
+            // The lobby's damage slider for whichever side dealt it (Zach's, or a survivor's own stray shot).
+            if (by != null) amount *= MatchState.Current.Tuning.DamageBy(by.Role);
             bool quiet = kind == "gas" || kind == "vape";
             if (!quiet) CancelAction(q);
             if (zach && !quiet) by.Stats.Hits++;
@@ -353,6 +385,10 @@ namespace Vision.Game
             // Every survivor staked buffs Zach for good: faster, and he sees further.
             h.StakeBuff++;
             h.FovMul *= 1f + Balance.Hunter.StakeBuff;
+            // And 5 more on the top of his bar (and in it), which makes him faster as well.
+            float gain = Balance.Hunter.Health.StakeMaxGain / Balance.Hunter.Health.Max;
+            h.MaxHp += gain;
+            h.Hp = Mathf.Min(h.MaxHp, h.Hp + gain);
             Tell(h, $"Staked {q.Name}: +{Mathf.RoundToInt(Balance.Hunter.StakeBuff * 100f)}% speed and view");
             Vector2 stake = Map.Stakes[stakeId];
             if (q.StakeCount >= 2)
@@ -391,12 +427,13 @@ namespace Vision.Game
                         p.KnockT = Mathf.Max(0f, p.KnockT - dt);
                         if (p.KnockT == 0f)
                         {
-                            p.Hp = Balance.Hunter.Health.RecoverFraction;
+                            // Up again with half of what's left of his bar.
+                            p.Hp = Balance.Hunter.Health.RecoverFraction * p.MaxHp;
                             Feed($"{p.Name} got back up");
                         }
                     }
                     else if (p.Health != Health.Eliminated)
-                        p.Hp = Mathf.Min(1f, p.Hp + dt / Balance.Hunter.Health.RegenTime * (1f + Balance.Hunter.StakeRegen * p.StakeBuff) *
+                        p.Hp = Mathf.Min(p.MaxHp, p.Hp + dt / Balance.Hunter.Health.RegenTime * (1f + Balance.Hunter.StakeRegen * p.StakeBuff) *
                                               (p.NjaaronRegen ? Balance.Njaaron.RegenMul : 1f) * HempRegen(p));
                     if (p.ChargeT >= 0f)
                     {

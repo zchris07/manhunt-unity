@@ -89,6 +89,7 @@ namespace Vision.Net
             f.Object(Key(Kind.Match, 0), MatchPlan, sim);
             for (int i = 0; i < sim.Gens.Length; i++) f.Object(Key(Kind.Gen, i), FieldPlan.For(typeof(GenState)), sim.Gens[i]);
             f.Object(Key(Kind.Gate, 0), FieldPlan.For(typeof(GateState)), sim.Gate);
+            f.Object(Key(Kind.Gate, 1), FieldPlan.For(typeof(GateState)), sim.Gate2);
             for (int i = 0; i < Lists.Length; i++)
             {
                 int li = i;
@@ -143,6 +144,7 @@ namespace Vision.Net
                 w.Write(s.golden);
                 w.Write(s.amounts.Count);
                 foreach (float a in s.amounts) w.Write(a);
+                w.Write(s.cap);
             }
             w.Write(inv.NightVision);
         }
@@ -159,6 +161,7 @@ namespace Vision.Net
                 int n = r.ReadInt32();
                 s.amounts.Clear();
                 for (int k = 0; k < n; k++) s.amounts.Add(r.ReadSingle());
+                s.cap = r.ReadSingle();
             }
             inv.NightVision = r.ReadSingle();
         }
@@ -358,7 +361,7 @@ namespace Vision.Net
                         Fields(r, FieldPlan.For(typeof(GenState)), sim.Gens[index]);
                         break;
                     case SnapshotFrame.Kind.Gate:
-                        Fields(r, FieldPlan.For(typeof(GateState)), sim.Gate);
+                        Fields(r, FieldPlan.For(typeof(GateState)), index == 1 ? sim.Gate2 : sim.Gate);
                         break;
                     case SnapshotFrame.Kind.List:
                         r.ReadInt32();

@@ -154,7 +154,8 @@ namespace Vision.Game
             LootTaken = new bool[map.Loot.Count];
             Stakes = new int[map.Stakes.Count];
             Hiding = new int[map.HidingSpots.Count];
-            if (Bal.RequiredGenerators <= 0 || Bal.RequiredGenerators > Gens.Length) Bal = WithGenerators(Bal, Gens.Length);
+            // Every generator on the map has to run (the lobby sets how many there are).
+            if (Bal.RequiredGenerators != Gens.Length && Gens.Length > 0) Bal = WithGenerators(Bal, Gens.Length);
         }
 
         static ResolvedBalance WithGenerators(ResolvedBalance b, int n) =>
@@ -293,6 +294,7 @@ namespace Vision.Game
         /// <summary>The player whose view someone sees (themselves, or whom they spectate).</summary>
         public SimPlayer ViewerFor(SimPlayer p)
         {
+            if (p.Ghost) return p;
             if (p.Role == Role.Spectator || p.Health == Health.Escaped || p.Health == Health.Eliminated) return Get(p.Spectating);
             return p;
         }
@@ -316,6 +318,8 @@ namespace Vision.Game
             // The outer ring stops Zach while he can't cross it.
             if (p.Role == Role.Hunter && CrossingBlocked(p) && pos.magnitude > Ring3 - Balance.Boundary.WallSkin)
                 pos = pos.normalized * (Ring3 - Balance.Boundary.WallSkin);
+            // A ghost keeps to the playable circle.
+            if (p.Ghost && pos.magnitude > Ring1) pos = pos.normalized * Ring1;
             p.Pos = pos;
             if (MoveModeFor(p) != MoveMode.Locked) p.Facing = facing;
             p.Gait = gait;
@@ -324,6 +328,7 @@ namespace Vision.Game
         public MoveMode MoveModeFor(SimPlayer p)
         {
             if (p.Role == Role.Spectator) return MoveMode.Locked;
+            if (p.Ghost) return MoveMode.Normal;
             if (p.Role == Role.Hunter)
             {
                 if (p.StunT > 0f || p.KnockT > 0f || p.Health == Health.Eliminated) return MoveMode.Locked;
@@ -348,6 +353,7 @@ namespace Vision.Game
             // More than halfway into a full charge, Zach can't sprint.
             // No sprint while Zach holds a charge past halfway, nor while the 0.50 cal is aimed.
             NoSprint = (p.Role == Role.Hunter && p.ChargeT > Balance.Hunter.Attack.ChargeMax * 0.5f) || p.Aiming,
+            Ghost = p.Ghost,
         };
 
         // ---------------------------------------------------------------- the tick
@@ -374,6 +380,7 @@ namespace Vision.Game
             UpdateCombat(dt);
             UpdateItems(dt);
             UpdateAbilities(dt);
+            UpdateGhosts(dt);
             UpdateBoundary(dt);
             foreach (Npc n in Npcs) n.Update(this, dt);
             UpdateVengeance(dt);
@@ -398,6 +405,17 @@ namespace Vision.Game
         {
             p.LastCmd = cmd;
             p.PrevButtons = cmd.Buttons;
+            if (p.Ghost)
+            {
+                if (cmd.AimDist > 0f || cmd.Aim != 0f) p.Facing = cmd.Aim;
+                p.AimDist = cmd.AimDist;
+                p.SelSlot = -1;
+                p.Crouching = false;
+                // Left click or F: the Ghost Pulse.
+                if ((pressed & (Btn.Primary | Btn.Secondary)) != 0) TryGhostPulse(p, cmd.Aim);
+                p.Move.Mode = MoveMode.Normal;
+                return;
+            }
             if (p.Role == Role.Spectator || p.Health == Health.Escaped || p.Health == Health.Eliminated) return;
             bool locked = MoveModeFor(p) == MoveMode.Locked;
             if (!locked || p.HideState == 2)
@@ -556,6 +574,8 @@ namespace Vision.Game
             if (credit != null) credit.Stats.Eliminations++;
             Emit(null, new GameEvent { Kind = EventKind.Eliminated, A = p.Id, Text = why });
             Feed(why == "disconnected" ? $"{p.Name} disconnected" : why == "woods" ? $"{p.Name} wandered into the woods" : $"{p.Name} was sacrificed");
+            // Sacrificed: back soon as a ghost.
+            ScheduleGhost(p, why);
         }
 
         /// <summary>Grace period expired: survivors are eliminated, hunters leave the match.</summary>

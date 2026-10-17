@@ -110,7 +110,7 @@ namespace Vision.Tests
                 rig.Sim.Teleport(zach.Id, SimRig.U(150f, 0f));
             }
             Assert.Less(Balance.Items.Shotgun.Reload * (blasts - 1), Balance.Monique.AttackSec, "a blast every reload");
-            Assert.Greater(blasts, 5, "shotgun blasts, endless shells");
+            Assert.AreEqual(Balance.Monique.DaphneShots, blasts, "shotgun blasts (endless shells), five at most a cycle");
             Assert.AreEqual(1.2f, Balance.Items.Shotgun.Reload, 1e-5f, "the shotgun reloads in the 0.50 cal's old 1.2 s");
             Assert.AreEqual(2f, Balance.Items.Sniper.Reload, 1e-5f, "the 0.50 cal in the shotgun's old 2 s");
             Assert.AreEqual(175f * 1.2f, Balance.Njaaron.Run, 1e-3f, "Njaaron runs 20% faster");
