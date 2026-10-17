@@ -56,7 +56,7 @@ namespace Vision.Net
         public int Port => listener.Port;
         public List<RosterEntry> Roster { get; private set; } = new List<RosterEntry>();
         public int Seed { get; private set; }
-        float now, sendT, loadStarted;
+        float now, sendT, loadStarted, pingSentAt;
         /// <summary>Clients that finished loading before the host did (checked once it has).</summary>
         readonly List<Peer> pendingLoaded = new List<Peer>();
         /// <summary>Raised when the lobby changed (to redraw it), and for chat lines and notices.</summary>
@@ -124,6 +124,12 @@ namespace Vision.Net
                 pendingLoaded.Clear();
             }
             if (Phase == NetPhase.Loading && game.Loaded && (peers.TrueForAll(p => p.PlayerId == 0 || p.Loaded) || now - loadStarted > LoadTimeout)) Go();
+            // In the lobby, everyone's ping kept fresh on everyone's screen (it's measured every second).
+            if (Phase == NetPhase.Lobby && now - pingSentAt > 2f && peers.Count > 0)
+            {
+                pingSentAt = now;
+                Changed();
+            }
             if (Phase == NetPhase.Match) MatchUpdate(dt);
         }
 

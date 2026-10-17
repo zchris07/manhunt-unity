@@ -67,8 +67,8 @@ namespace Vision.Audio
             ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // Anyone attacking Chacko, from the couch (a local file).
             ["chacko_attacked"] = new Cue { Prefer = new[] { "local_chacko_attacked" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
-            // A ghost's pulse going out, heard whole by the ghost and everyone near (a local file).
-            ["ghost_pulse"] = new Cue { Prefer = new[] { "local_ghost_pulse" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 300f, Radius = 1800f },
+            // A ghost's pulse going out, heard whole by the ghost and everyone near (a local file; half as loud as at first).
+            ["ghost_pulse"] = new Cue { Prefer = new[] { "local_ghost_pulse" }, Files = new string[0], Volume = 0.45f, PitchJitter = 0f, VolumeJitter = 0f, Near = 300f, Radius = 1800f },
             // A survivor sacrificed (staked to the end, or gone into the woods), gone from the match for good: heard by all.
             ["sacrificed"] = new Cue { Prefer = new[] { "local_noita_game_over" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f },
             // The machete biting into wood (a tree, a pole, a door, a crate): one of five cracks, each fading out linearly

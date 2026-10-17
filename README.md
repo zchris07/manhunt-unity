@@ -619,7 +619,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   place of the old machine whirr, a small diesel generator coming to life where it stands, played through once, falling
   off linearly to a fifth of its volume over its first seven seconds and heard (faintly) only within ten feet of it; the
   gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
-  rage; a clip from Chacko's couch when anyone attacks him; the Ghost Pulse's. The machete's slash into someone is half
+  rage; a clip from Chacko's couch when anyone attacks him; the Ghost Pulse's (half as loud as at first). The machete's slash into someone is half
   as loud as it was. Sounds can start part way into their file, decay over time and fall away at the end
   (`SoundBank.Cue`'s Start, DecayTime and DecayTo, TailFade).
 - **Zach and golden pumps**: he can pick up any golden pump lying on the map (or one a survivor dropped): twelve shots
@@ -929,6 +929,21 @@ A frame-time check under play: from the title screen into testing mode, it walks
 from spawn through the building for 30 s, then writes frame-time percentiles, the costliest profiler
 markers (development build) and the slowest frames, screenshots the minimap and full map, and quits.
 It also runs on the release build without the markers.
+
+```bash
+unity run . --editor-version 6000.6.3f1 -- -executeMethod Vision.EditorTools.VisionSetup.BuildWindowsNext
+./Builds/Next/VisionSandbox.exe -visionNetHost 1 -visionNetPort 7791 -visionNetOut Captures/net -screen-width 1280 -screen-height 720 -screen-fullscreen 0
+./Builds/Next/VisionSandbox.exe -visionNetJoin 127.0.0.1:7791 -visionNetOut Captures/net -screen-width 1280 -screen-height 720 -screen-fullscreen 0
+```
+Two copies of the game playing each other on this machine (`NetSmoke`; `Builds/Next` is a build beside
+`Builds/Check` for when that one is open): the host moves two balance sliders and the guest sees them,
+both build the same three-generator level, the host (Zach) starts the night and both walk about (frame
+times and the guest's ping logged), then the guest sets JARVIS going with its own key, the host powers
+both gates, opens Miga Sushi's with the end game and opens the hatch, puts Zach down (his bar worn on the
+guest's screen), and sacrifices the guest, who comes back a ghost, walks with endless sprint and sends a
+Ghost Pulse at Zach that flashes on the host's screen; then everyone back to the lobby. Each side writes
+what it saw (`net_host.txt`, `net_client.txt`) and screenshots. The EditMode tests play the same over
+TCP within one process (`NewMechanicsOnlineTests`, `MultiplayerScenarioTests`).
 
 ## Known gaps
 
