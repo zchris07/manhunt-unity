@@ -104,8 +104,8 @@ namespace Vision.Game
                 p.PromptTarget = -1;
                 p.Prompt2 = Prompt.None;
                 p.Prompt2Target = -1;
-                if (p.Ghost) continue;
-                if (p.Role == Role.Survivor) SurvivorPrompts(p);
+                if (p.Ghost) GhostPrompts(p);
+                else if (p.Role == Role.Survivor) SurvivorPrompts(p);
                 else if (p.Role == Role.Hunter && p.CanAct) HunterPrompts(p);
             }
         }
@@ -359,7 +359,11 @@ namespace Vision.Game
                 // A skill check up while repairing: Space or a click stops the tick (E stays held to keep repairing).
                 if (p.Action == ActionKind.Repair && p.CheckOn)
                 {
-                    if ((pressed & (Btn.Space | Btn.Primary)) != 0) CheckStrike(p);
+                    if ((pressed & (Btn.Space | Btn.Primary)) != 0)
+                    {
+                        CheckStrike(p);
+                        p.HeldOff |= Btn.Space | Btn.Primary;
+                    }
                     return;
                 }
                 // Holding E starts hold-to-act interactions as soon as they become available.
@@ -577,14 +581,17 @@ namespace Vision.Game
                     case ActionKind.Repair:
                     {
                         GenState g = Gens[p.ActionTarget];
-                        if (!holding || g.Repaired || Gate.Powered || Vector2.Distance(Map.Generators[p.ActionTarget], p.Pos) > R(Balance.Reach.Generator + 10f) || !p.CanAct)
+                        // A ghost in a body only helps while a living survivor works it.
+                        if (!holding || g.Repaired || Gate.Powered || Vector2.Distance(Map.Generators[p.ActionTarget], p.Pos) > R(Balance.Reach.Generator + 10f) || !Able(p)
+                            || (p.Ghost && !LivingAt(ActionKind.Repair, p.ActionTarget)))
                         {
                             CancelAction(p);
                             continue;
                         }
                         p.Stats.RepairSec += dt;
                         p.ActionT += dt;
-                        UpdateCheck(p, dt);
+                        // (Never a skill check for a ghost.)
+                        if (!p.Ghost) UpdateCheck(p, dt);
                         continue;
                     }
                     case ActionKind.Heal:
@@ -627,7 +634,8 @@ namespace Vision.Game
                     {
                         int gi = Mathf.Clamp(p.ActionTarget, 0, 1);
                         GateState g = GateAt(gi);
-                        if (!holding || !g.Powered || g.Open || !p.CanAct || Vector2.Distance(LeverAt(gi), p.Pos) > R(Balance.Reach.Gate + 10f))
+                        if (!holding || !g.Powered || g.Open || !Able(p) || Vector2.Distance(LeverAt(gi), p.Pos) > R(Balance.Reach.Gate + 10f)
+                            || (p.Ghost && !LivingAt(ActionKind.OpenGate, gi)))
                         {
                             CancelAction(p);
                             continue;

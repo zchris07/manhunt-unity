@@ -255,7 +255,9 @@ namespace Vision.Audio
             s.loop = false;
             s.pitch = pitch;
             s.time = start;
-            var tr = new Tracked { Source = s, At = at, Volume = volume, Near = near, Radius = radius, Started = Time.unscaledTime, Start = start, End = clip.length, Cue = cue };
+            // (A cue cut short stops that long before the file's end.)
+            float end = Mathf.Max(start + 0.05f, clip.length - Mathf.Max(0f, cue.CutEnd));
+            var tr = new Tracked { Source = s, At = at, Volume = volume, Near = near, Radius = radius, Started = Time.unscaledTime, Start = start, End = end, Cue = cue };
             tracked.Add(tr);
             UpdateTracked(tr);
             s.Play();
@@ -275,7 +277,9 @@ namespace Vision.Audio
                 tr.Source.panStereo = pan;
             }
             float t = tr.Source.isPlaying ? tr.Source.time - tr.Start : Time.unscaledTime - tr.Started;
-            return Mathf.Clamp01(tr.Volume * gain * Envelope(tr.Cue, t, tr.End - tr.Start));
+            // A cut end comes down over its last 60 ms rather than clicking off.
+            float cut = tr.Cue.CutEnd > 0f ? Mathf.Clamp01((tr.End - tr.Start - t) / 0.06f) : 1f;
+            return Mathf.Clamp01(tr.Volume * gain * Envelope(tr.Cue, t, tr.End - tr.Start) * cut);
         }
 
         void UpdateTracked(Tracked tr) => tr.Source.volume = TrackedGain(tr) * SfxGain;
@@ -478,6 +482,8 @@ namespace Vision.Audio
             for (int i = tracked.Count - 1; i >= 0; i--)
             {
                 Tracked tr = tracked[i];
+                // Cut short: stopped at its end, before the file's.
+                if (tr.Source != null && tr.Source.isPlaying && tr.Cue != null && tr.Cue.CutEnd > 0f && tr.Source.time >= tr.End) tr.Source.Stop();
                 if (tr.Source == null || (!tr.Source.isPlaying && now - tr.Started > 0.2f))
                 {
                     if (tr.Source != null) Destroy(tr.Source.gameObject);

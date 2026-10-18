@@ -179,6 +179,8 @@ namespace Vision.Game
         {
             if (!Players.TryGetValue(id, out SimPlayer p)) return;
             Forfeit(id);
+            // A ghost leaving drops the body they were in.
+            if (p.Ghost) DropBody(p, BodyOf(p));
             Players.Remove(id);
             Order.Remove(p);
         }
@@ -243,7 +245,13 @@ namespace Vision.Game
         }
 
         /// <summary>Testing mode: flips a player between Zach and survivor where they stand.</summary>
-        public bool SwitchRole(int id)
+        public bool SwitchRole(int id) => SwitchRole(id, false);
+
+        /// <summary>
+        /// Testing mode: flips a player between Zach and survivor where they stand; <paramref name="cycle"/> (T) puts a
+        /// survivor's ghost in between (Zach, a survivor, their ghost with their body at their feet, Zach again).
+        /// </summary>
+        public bool SwitchRole(int id, bool cycle)
         {
             SimPlayer p = Get(id);
             if (!TestMode || p == null || p.Role == Role.Spectator) return false;
@@ -264,6 +272,14 @@ namespace Vision.Game
             if (p.StakeId >= 0) Stakes[p.StakeId] = 0;
             if (p.HideState != 0) ExitHiding(p, false);
             CancelAction(p);
+            if (p.Ghost) DropBody(p, BodyOf(p));
+            if (cycle && p.Role == Role.Survivor && !p.Ghost)
+            {
+                p.Carrying = p.CarriedBy = 0;
+                p.StakeId = -1;
+                MakeTestGhost(p);
+                return true;
+            }
             Role role = p.Role == Role.Hunter ? Role.Survivor : Role.Hunter;
             var fresh = new SimPlayer(p.Id, p.Name, role, p.Pos) { Facing = p.Facing, JoinedTime = p.JoinedTime, IsLocal = p.IsLocal, Connected = p.Connected };
             int i = Order.IndexOf(p);
@@ -318,7 +334,7 @@ namespace Vision.Game
             // The outer ring stops Zach while he can't cross it.
             if (p.Role == Role.Hunter && CrossingBlocked(p) && pos.magnitude > Ring3 - Balance.Boundary.WallSkin)
                 pos = pos.normalized * (Ring3 - Balance.Boundary.WallSkin);
-            // A ghost keeps to the playable circle.
+            // A ghost (in a body or not) keeps to the playable circle.
             if (p.Ghost && pos.magnitude > Ring1) pos = pos.normalized * Ring1;
             p.Pos = pos;
             if (MoveModeFor(p) != MoveMode.Locked) p.Facing = facing;
@@ -328,7 +344,8 @@ namespace Vision.Game
         public MoveMode MoveModeFor(SimPlayer p)
         {
             if (p.Role == Role.Spectator) return MoveMode.Locked;
-            if (p.Ghost) return MoveMode.Normal;
+            // A ghost stands still while it merges with a body.
+            if (p.Ghost) return p.PossessT > 0f ? MoveMode.Locked : MoveMode.Normal;
             if (p.Role == Role.Hunter)
             {
                 if (p.StunT > 0f || p.KnockT > 0f || p.Health == Health.Eliminated) return MoveMode.Locked;
@@ -353,7 +370,8 @@ namespace Vision.Game
             // More than halfway into a full charge, Zach can't sprint.
             // No sprint while Zach holds a charge past halfway, nor while the 0.50 cal is aimed.
             NoSprint = (p.Role == Role.Hunter && p.ChargeT > Balance.Hunter.Attack.ChargeMax * 0.5f) || p.Aiming,
-            Ghost = p.Ghost,
+            // Out of a body: a sprint that never runs out, through anything (in one, a survivor's).
+            Ghost = p.FreeGhost,
         };
 
         // ---------------------------------------------------------------- the tick
@@ -403,17 +421,19 @@ namespace Vision.Game
 
         void ApplyInput(SimPlayer p, InputCmd cmd, Btn pressed)
         {
+            // Buttons held through the click that finished a lock (or a skill check) do nothing until they're let go: the
+            // gun in hand never fires off the last click of the lock.
+            if (p.HeldOff != Btn.None)
+            {
+                p.HeldOff &= cmd.Buttons;
+                cmd.Buttons &= ~p.HeldOff;
+                pressed &= ~p.HeldOff;
+            }
             p.LastCmd = cmd;
             p.PrevButtons = cmd.Buttons;
             if (p.Ghost)
             {
-                if (cmd.AimDist > 0f || cmd.Aim != 0f) p.Facing = cmd.Aim;
-                p.AimDist = cmd.AimDist;
-                p.SelSlot = -1;
-                p.Crouching = false;
-                // Left click or F: the Ghost Pulse.
-                if ((pressed & (Btn.Primary | Btn.Secondary)) != 0) TryGhostPulse(p, cmd.Aim);
-                p.Move.Mode = MoveMode.Normal;
+                GhostInput(p, cmd, pressed);
                 return;
             }
             if (p.Role == Role.Spectator || p.Health == Health.Escaped || p.Health == Health.Eliminated) return;

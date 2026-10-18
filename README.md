@@ -99,7 +99,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   `GameHud.Tuning`, the wire's `Tune` and `ResetTune`; the wire is version 2, so an older build is told it's a
   different version). The host can fix anyone's role by clicking it (auto, Zach, survivor, spectator); otherwise roles are split
   as in the original (hunter slots by preference, survivors up to the cap, the rest spectate). A match needs a Zach and a
-  survivor unless testing mode is on, and then anyone may manage the lobby.
+  survivor unless testing mode is on, and then anyone may manage the lobby. The host can **lock the balance sliders**
+  (the button beside Reset to defaults): while locked only the host moves them, everyone else seeing them greyed out,
+  until the host unlocks them.
 - **The night**: everyone builds the host's map from its seed (its fingerprint is checked, so different versions can't
   mix), and plays at the host's pace. The host runs the rules for everyone; each player moves their own avatar and sends
   their input and position 30 times a second; the host sends each player only what changed (20 snapshots a second,
@@ -132,11 +134,14 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Testing mode**: the match restarts under testing rules. Survivors get the original's whole testing kit
   in twelve slots (shotgun, golden pump, P250, 0.50 cal, bottles, piss jars and books nine each, goggles,
   mini shield, Mr Beast bar, gas trap, Doctor Pepper), never used up; Zach gets two Hemp Batteries and his
-  beam charges. **T** switches between Zach and a survivor where you stand. Nobody wins. The whole map is
-  revealed. **Speed mode** (menu or V) keeps the sprint meter full and moves six times as fast (+500%).
+  beam charges. **T** goes from Zach to a survivor, to that survivor's ghost (their body left at their feet, to take
+  straight back with E), and back to Zach, where you stand. A generator starts the moment anyone works it. Nobody
+  wins. The whole map is revealed. **Speed mode** (menu or V) keeps the sprint meter full and moves six times as fast (+500%).
 - **Settings** (Esc) leave the world running, as the original does: Resume, Speed mode, **Pace**, New
   map, Look settings, Full screen, How to play, Quit to main menu, the three volume sliders, and the controls for
-  your role. Testing mode adds the original's **TEST EFFECTS** panel (left): every stun and flash played on yourself,
+  your role (a list that scrolls inside the panel, with the wheel or its bar). Testing mode adds the original's **TEST
+  EFFECTS** panel (left): every stun and flash played on yourself
+  (being shot by a 0.50 cal among them: thrown back, slowed, the sprint locked out),
   Respawn NPCs, and **dummies**: inert survivors and Zachs spawned in front of you to down, carry, stake, cut down,
   revive, heal, shoot or stun.
 - **Other players** (`PlayerPuppets`): dummies (and, online, the other players) are drawn where the match has them,
@@ -270,13 +275,15 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   with earth, a few sunk with a footstone; some have a vase of flowers (some wilted) or a grave lantern, and moss
   creeps up the bases. A survivor at the gates picks the lock (E): a heavy iron dial
   fills the middle of the screen with a gilded mark on its ring and a bright tick sweeping round, and E, Space or a
-  click stops it; five times on the mark (each spin faster, the mark narrower, turning the other way) and the lock
-  gives, the chain falls away and the gates swing in; two misses and the pins drop, back to the first. Five pins and
+  click stops it; five times on the mark (each spin faster, the mark narrower, turning the other way; every mark 10%
+  narrower than at first, so it's 10% harder) and the lock gives, the chain falls away and the gates swing in; the
+  click (or E, or Space) that opens it does nothing else while it's held, so a gun in hand never fires off it (nor
+  off the last click of a generator's skill check); two misses and the pins drop, back to the first. Five pins and
   two miss lamps under the dial keep count, with a pulse of gold on each hit, a red jolt on a miss and START OVER when
   the pins drop; the match judges each press. Unlocked, survivors open and close the gates freely. Zach never opens
   them: shut again once unlocked, he can only smash them in, with four full charged swings (eight hits: two for each
-  charged swing, one for a light one); locked, they don't give at all, and nothing else (the Hemp Beam, the 0.50 cal)
-  breaks them. A fallen tree's torn-up root plate at its base is different: a solid wall that players, NPCs, thrown
+  charged swing, one for a light one), or burn them away at once with a Hemp Beam; locked, they don't give at all,
+  and nothing (the Hemp Beam, the 0.50 cal) breaks them. A fallen tree's torn-up root plate at its base is different: a solid wall that players, NPCs, thrown
   items and shots all run into and nobody vaults. It takes up only where the disc meets the ground, a thin upright
   ellipse across the trunk's end (as thick as the plate and the dirt banked at its foot, as wide as the plate), and it
   always stands straight up, never tilted with a tree lying on a slope (a lean would turn its side into a ramp the
@@ -367,9 +374,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the scene, so a wall or a tree between it and the camera hides it, as it does the bullets), to the
   original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Every
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
-  side included; everyone has 100 HP) and gives NPCs a light hit every half second; glass in its path shatters at once,
-  and a door (shut, or standing open with its panel swung across it) or a pallet (standing or dropped) it stays on for
-  a second and a half is destroyed; never the graveyard's gates. A player's bullets and pellets only strike an NPC
+  side included; everyone has 100 HP) and gives NPCs a light hit every half second. Everything it can destroy goes the
+  moment it touches it: glass in its path shatters, a door (shut, or standing open with its panel swung across it),
+  a pallet (standing or dropped) and the graveyard's gates once unlocked and shut again are destroyed; never locked
+  gates or a shutter. A player's bullets and pellets only strike an NPC
   that isn't already roused (alert, armed, angry, chasing) within 1.1 times of what their own screen shows (each
   client tells the host the rectangle of ground its screen covers), so a stray round never sets off an NPC they can't
   see; once roused, an NPC can be struck anywhere. Guns flash
@@ -506,9 +514,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   (only the beast can die, and drops his pump); the beast keeps his size but squeezes through doorways like a man. **Chacko** sits on the lounge couch with his controller: a Dr Pepper for
   survivors, 50 Nic for Zach. One blow kills him, from Zach or a survivor (a bottle, a book, a jar, pellets, a bullet, a
   0.50 cal round), and he explodes in the same bloody blast, taking half his killer's health. His killer sets off a clip
-  from the couch for everyone near. If it was Zach, every NPC but Shane races after him from wherever they are and
-  punches him (Njaaron's punch) until it's taken a third of his health itself, or he's down, or it's slain. Either way
-  Njaaron, Jaden and Plasma race after them from
+  from the couch for everyone near. Only Jaden Nguyen, Plasma.TTV, Njaaron and Shane Jeans are set off by his death,
+  whoever killed him; no other NPC is touched by it in any way. Njaaron, Jaden and Plasma race after them from
   wherever they are on the map with no time limit, each until he's dealt them a third of their health himself, or
   they're down (by anything), or he's slain, not giving up for time, distance or anyone else attacking them; Shane runs
   after them until he's stunned and driven off (two bottles, a shotgun blast or galaxy gas; Zach shakes him off with his
@@ -584,22 +591,35 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 
 ### Ghosts, Zach's bar and the newer rules
 
-- **Ghosts** (`MatchSim.Ghosts`, `GhostLook`, `GameHud.Ghost`): a survivor sacrificed (staked to the end, or gone into
-  the woods) comes back four seconds later (out of the woods, once the black screen lifts, at the survivors' spawn) as
-  a glowing white ghost of themselves, seen in any light, with a sprint that never runs out. They can't be hurt and
-  can't pick up or work anything, still count as sacrificed for the night's result, and nothing they do touches an NPC.
-  Their power is the **Ghost Pulse** (left click or F, every 15 s): a red wave like Zach's Soundcloud Burst rolling out
-  through every wall; everyone it passes over, survivors and Zach alike, gets a random picture from the game (the notes'
-  photos, the Grapes of Wrath's, Waz's; never the Soundcloud one, never the same one twice running) flashed, shaken and
-  faded in and out over 0.6 s, while the pulse's clip plays out whole for the ghost and anyone near. Their panel sits
-  where the inventory was. A disconnect or the end game's Entity never makes a ghost.
+- **Ghosts** (`MatchSim.Ghosts`, `GhostLook`, `GameHud.Ghost`, `CorpseViews`): a survivor sacrificed (staked to the
+  end, or gone into the woods) leaves their body where they died (at the stake's foot; out of the woods, at the edge of
+  the trees) and comes back four seconds later (out of the woods, once the black screen lifts) as a glowing white ghost
+  of themselves in **Miga Sushi or the Diddy Chamber**, with a sprint that never runs out, passing through walls and
+  anything solid. **Survivors never see a ghost** (Zach, the other ghosts and anyone watching do). They can't be hurt,
+  still count as sacrificed for the night's result, and nothing they do touches an NPC. Their panel, where the
+  inventory was, says **find a body, help your team**, and their map shows where the bodies lie.
+- **Possession**: a ghost by a body (a sacrificed survivor's, or a slain NPC's; those who blew apart leave none) takes
+  it with **E**: it levitates, rising off the ground and swinging upright with a pale glow, while the ghost glides into
+  it and they merge; then everyone sees "**X has been reanimated**" across their screen (X whoever the body was). They
+  walk about in it exactly as its owner looked (in Daphne's body, as Daphne, with none of her abilities), moving and
+  sprinting as a survivor does, with a survivor's sight, no inventory and no health bar, seen by everyone. They're told
+  **you cannot use items or fight, but you can help your team repair generators**: they can't pick anything up, talk
+  to an NPC, use an item or a weapon or hurt anyone; the Soundcloud Burst and Penjamin's or 50 Nic's gas still reach
+  them, hurting nothing. All they can do is hold E at a generator or a gate's lever a living survivor is already
+  working, adding two thirds of the speed-up a second living survivor would (never a skill check; they let go when
+  the survivor does). Any blow of Zach's (a machete hit at any charge, a lunge, one tick of the Hemp Beam, a single
+  golden pump pellet) drops the body where it stands and throws the ghost out of it, as a 0.50 cal round throws a body
+  back. They're a ghost again, sprinting forever, and never take another body; instead they **see everything**: the
+  whole screen lit, through walls, the map revealed, the wheel zooming the view as in testing mode. The **Ghost Pulse
+  is gone**. A disconnect or the end game's Entity never makes a ghost.
 - **Zach's bar**: each time he's put down 10 comes off the top of his bar for good (his speed still goes by his health
   out of his original 100, so he's slower too), and he gets back up with half of what's left; each survivor he stakes
   adds 5 to the bar (and to his health), which makes him faster (past 100, faster than at the start). Worn away to
   nothing he's killed, and with every Zach dead the survivors win ("Zach was killed"). His head bar shows the part worn
   away, dark; his HP line reads out of what's left.
 - **Zach's swing**: uncharged it takes 10 of a survivor's 100, growing evenly over the charge to two thirds fully
-  charged (pulling someone out of hiding still takes a third).
+  charged (pulling someone out of hiding still takes a third). A rock or a boulder rings under the machete with the
+  Half-Life metal clink.
 - **The building's lights**: each of the building's generators lights its own half of the building (every room by the
   generator nearest it; a long hallway split light by light), a lone one all of it, at night vision's shaded brightness:
   they show the rooms and halls, never who's in them (players only ever see who's in their own light).
@@ -615,13 +635,18 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   kept out of git).
 - **Wading**: anyone moving through the lake, player or NPC, leaves rings rippling out over the water round their legs,
   a small wake behind them and now and then a splash (`MatchEffects.Water`).
+- **The lake dock** is solid underfoot (`SandboxWorld.OnDock`): walk along its boards (they sound like wood); step off
+  its side or end and you're straight down in the water at its depth, no fall; walk back to it from the water and
+  you're snapped straight up onto its deck and walking on it again. Everyone else (players, NPCs, bodies) stands on it
+  too.
 - **Sounds** (local files, kept out of git): a jingle for everyone when a generator starts or someone escapes; and, in
   place of the old machine whirr, a small diesel generator coming to life where it stands, played through once, falling
   off linearly to a fifth of its volume over its first seven seconds and heard (faintly) only within ten feet of it; the
   gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
-  rage; a clip from Chacko's couch when anyone attacks him; the Ghost Pulse's (half as loud as at first). The machete's slash into someone is half
-  as loud as it was. Sounds can start part way into their file, decay over time and fall away at the end
-  (`SoundBank.Cue`'s Start, DecayTime and DecayTo, TailFade).
+  rage; a clip from Chacko's couch when anyone attacks him. The jingle stops a second before its file ends (something
+  else is in its last second). The machete's slash into someone is a quarter as loud as it was at first (halved twice).
+  Sounds can start part way into their file, decay over time, fall away at the end or be cut short
+  (`SoundBank.Cue`'s Start, DecayTime and DecayTo, TailFade, CutEnd).
 - **Zach and golden pumps**: he can pick up any golden pump lying on the map (or one a survivor dropped): twelve shots
   (the lobby's golden pump shells) that replace his machete until they run out.
 - **Notes**: reading one, E puts it down again (as Esc or a click does).
@@ -940,8 +965,9 @@ Two copies of the game playing each other on this machine (`NetSmoke`; `Builds/N
 both build the same three-generator level, the host (Zach) starts the night and both walk about (frame
 times and the guest's ping logged), then the guest sets JARVIS going with its own key, the host powers
 both gates, opens Miga Sushi's with the end game and opens the hatch, puts Zach down (his bar worn on the
-guest's screen), and sacrifices the guest, who comes back a ghost, walks with endless sprint and sends a
-Ghost Pulse at Zach that flashes on the host's screen; then everyone back to the lobby. Each side writes
+guest's screen), and sacrifices the guest, who comes back a ghost in Miga Sushi or the Diddy Chamber, walks with
+endless sprint, takes its own body with its own E (the rise, then the "has been reanimated" banner on both screens)
+and is knocked out of it by the host's own machete swing, to see everything; then everyone back to the lobby. Each side writes
 what it saw (`net_host.txt`, `net_client.txt`) and screenshots. The EditMode tests play the same over
 TCP within one process (`NewMechanicsOnlineTests`, `MultiplayerScenarioTests`).
 

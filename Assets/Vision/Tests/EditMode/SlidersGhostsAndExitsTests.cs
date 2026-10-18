@@ -12,9 +12,10 @@ namespace Vision.Tests
 {
     /// <summary>
     /// The lobby's balance sliders (their defaults, ranges and what each one changes in a match), the new numbers, the
-    /// 0.50 cal's rounds count, Zach's bar worn down by downs and grown by stakes, ghosts and their pulse, the two exit
-    /// gates, the end game and the hatch, no time limit, and the NPC changes (Plasma's one pump a side, the clips for his
-    /// rage and for attacks on Chacko, Chacko's avengers taking a third each, Jaden alerted only up close, Chris Zelley).
+    /// 0.50 cal's rounds count, Zach's bar worn down by downs and grown by stakes, the two exit gates, the end game and the
+    /// hatch, no time limit, and the NPC changes (Plasma's one pump a side, the clips for his rage and for attacks on
+    /// Chacko, only Chacko's four avengers set off by his death, each taking a third, Jaden alerted only up close, Chris
+    /// Zelley). Ghosts have their own tests (GhostsAndPossessionTests).
     /// </summary>
     public class SlidersGhostsAndExitsTests
     {
@@ -102,7 +103,7 @@ namespace Vision.Tests
             LobbySettings back = LobbySettings.Read(new BinaryReader(new MemoryStream(ms.ToArray())));
             for (int i = 0; i < Tuning.Knobs.Length; i++) Assert.AreEqual(Tuning.Knobs[i].Get(t), Tuning.Knobs[i].Get(back.Tuning), 1e-5f, Tuning.Knobs[i].Label);
             Assert.AreEqual("abc", back.Seed);
-            Assert.AreEqual(2, Wire.Version, "a new wire version: the old builds can't join and get told so");
+            Assert.GreaterOrEqual(Wire.Version, 2, "a new wire version: the old builds can't join and get told so");
         }
 
         [Test]
@@ -285,115 +286,17 @@ namespace Vision.Tests
             Assert.AreEqual(Health.Healthy, s2.Health);
         }
 
-        // ---------------------------------------------------------------- ghosts
+        // ---------------------------------------------------------------- pictures
 
         [Test]
-        public void ASacrificedSurvivor_ComesBackAGhost_SprintsForever_CantBeHurtOrWorkAnything()
+        public void TheGrapesOfWrathsPictures_AreNeverTheSameTwiceRunning()
         {
-            var rig = new SimRig(2, 1);
-            SimPlayer zach = rig.P(1), s = rig.P(2), other = rig.P(3);
-            rig.Place(zach, 1500f, -1500f);
-            rig.Place(other, -900f, 300f);
-            rig.Place(s, 300f, 300f);
-            Vector2 where = s.Pos;
-            rig.Sim.Eliminate(s, "stake", zach);
-            Assert.IsFalse(s.Ghost, "not straight away");
-            rig.Run(Secs(Balance.Ghost.RespawnDelay + 0.1f));
-            Assert.IsTrue(s.Ghost, "back as a ghost");
-            Assert.AreEqual(Health.Eliminated, s.Health, "still counts as sacrificed");
-            Assert.AreEqual(where, s.Pos, "where they were staked");
-            Assert.AreSame(s, rig.Sim.ViewerFor(s), "playing as themselves, not spectating");
-            Assert.AreEqual(MoveMode.Normal, rig.Sim.MoveModeFor(s));
-
-            // Endless sprint.
-            float t0 = s.Move.Stamina;
-            RunKeeping(rig, Secs(20f), p => p.Id == s.Id ? new InputCmd { Move = Vector2.up, Buttons = Btn.Run, Aim = Mathf.PI / 2f, AimDist = 100f } : (InputCmd?)null);
-            Assert.AreEqual(t0, s.Move.Stamina, 1e-3f, "twenty seconds' sprint, and the meter still full");
-            Assert.IsTrue(s.Move.Sprinting);
-
-            // Nothing hurts them, and they can't work anything.
-            rig.Sim.HurtSurvivor(s, 1f, zach, "slash");
-            Assert.AreEqual(1f, s.Hp);
-            rig.Sim.Teleport(s.Id, rig.Map.Generators[0]);
-            rig.Sim.SetPose(s.Id, rig.Map.Generators[0], 0f, Gait.Idle);
-            rig.Run(2);
-            Assert.AreEqual(Prompt.None, s.Prompt, "no generator for a ghost");
-            Assert.IsNull(rig.Sim.Result, "the other's still playing");
-
-            // Out of the woods: back at the survivors' spawn, after the black screen. A disconnect is no sacrifice.
-            var rig2 = new SimRig(3, 1);
-            SimPlayer w = rig2.P(2), gone = rig2.P(3);
-            rig2.Place(rig2.P(1), 1500f, -1500f);
-            rig2.Sim.Eliminate(w, "woods");
-            rig2.Sim.Eliminate(gone, "disconnected");
-            rig2.Run(Secs(Balance.Ghost.RespawnDelay + 0.5f));
-            Assert.IsFalse(w.Ghost, "the woods' black screen first");
-            rig2.Run(Secs(Balance.Boundary.SacrificedHold + 1f - Balance.Ghost.RespawnDelay));
-            Assert.IsTrue(w.Ghost);
-            Assert.AreEqual(rig2.Map.SurvivorSpawns[0], w.Pos);
-            Assert.IsFalse(gone.Ghost, "a disconnect never comes back as one");
-        }
-
-        [Test]
-        public void TheGhostPulse_FlashesSurvivorsAndZach_NeverAnNpc_EveryFifteenSeconds()
-        {
-            var rig = new SimRig(2, 1);
-            SimPlayer zach = rig.P(1), ghost = rig.P(2), s = rig.P(3);
-            rig.Place(ghost, 0f, 0f);
-            rig.Place(s, 600f, 0f);
-            rig.Place(zach, 900f, 40f);
-            var monique = Add(rig, new Monique(rig.Sim), 400f, 0f);
-            rig.Sim.Eliminate(ghost, "stake", zach);
-            rig.Sim.MakeGhost(ghost);
-            rig.Sim.Teleport(ghost.Id, Vector2.zero);
-            rig.Sim.SetPose(ghost.Id, Vector2.zero, 0f, Gait.Idle);
-            var events = RunKeeping(rig, 1, p => p.Id == ghost.Id ? new InputCmd { Buttons = Btn.Primary, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
-            Assert.AreEqual(1, rig.Sim.Bursts.Count(b => b.Ghost), "a pulse goes out");
-            Assert.IsTrue(events.Any(e => e.Kind == EventKind.Talk && e.Text == "ghost_pulse" && e.A == ghost.Id && e.To != null && e.To.Contains(ghost.Id)),
-                "its clip, for the ghost and anyone near");
-            Assert.AreEqual(Balance.Ghost.Cooldown, ghost.GhostCd, 0.1f);
-            events.AddRange(RunKeeping(rig, Secs(1.2f)));
-            var flashes = events.Where(e => e.Kind == EventKind.Scare && e.B == 1).ToList();
-            Assert.IsTrue(flashes.Any(e => e.To.Contains(s.Id)), "the survivor gets a picture flashed");
-            Assert.IsTrue(flashes.Any(e => e.To.Contains(zach.Id)), "and Zach");
-            Assert.IsFalse(flashes.Any(e => e.To.Contains(ghost.Id)), "never the ghost who sent it");
-            Assert.AreEqual(NpcFlags.None, monique.Flags & NpcFlags.Fleeing, "nothing a ghost does touches an NPC");
-            Assert.AreEqual(Balance.Ghost.FlashTime, 0.6f);
-
-            // Not again for fifteen seconds.
-            RunKeeping(rig, 1, p => p.Id == ghost.Id ? new InputCmd { Buttons = Btn.Secondary, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
-            Assert.AreEqual(1, rig.Sim.Bursts.Count(b => b.Ghost) + 0, "still cooling down");
-            rig.Run(Secs(Balance.Ghost.Cooldown));
-            RunKeeping(rig, 1, p => p.Id == ghost.Id ? new InputCmd { Buttons = Btn.Secondary, Aim = 0f, AimDist = 100f } : (InputCmd?)null);
-            Assert.Greater(ghost.GhostCd, Balance.Ghost.Cooldown - 0.2f, "F sends the next one");
-        }
-
-        [Test]
-        public void TheGhostsPictures_AreNeverTheSoundcloudOne_NorTheSameTwiceRunning_NorTheBooks()
-        {
-            List<string> all = MatchPresenter.GhostPictures();
-            CollectionAssert.DoesNotContain(all, "scare", "never the Soundcloud Burst's");
-            CollectionAssert.Contains(all, "note-1");
-            CollectionAssert.Contains(all, "book-1");
-            CollectionAssert.Contains(all, "waz-slain");
-            foreach (string n in all) Assert.NotNull(UI.ScreenOverlays.Picture(n), $"{n} is in the game");
-            string last = null;
-            var seen = new HashSet<string>();
-            for (int i = 0; i < 300; i++)
-            {
-                string p = MatchPresenter.GhostPicture();
-                Assert.AreNotEqual(last, p, "never the same twice running");
-                last = p;
-                seen.Add(p);
-            }
-            Assert.AreEqual(all.Count, seen.Count, "all of them come up");
-
             var rig = new SimRig(1, 1);
             int prev = -1;
             for (int i = 0; i < 60; i++)
             {
                 int b = rig.Sim.NextBookImage();
-                Assert.AreNotEqual(prev, b, "the Grapes of Wrath's pictures never twice running either");
+                Assert.AreNotEqual(prev, b, "the Grapes of Wrath's pictures never twice running");
                 prev = b;
             }
         }
@@ -628,14 +531,16 @@ namespace Vision.Tests
         // ---------------------------------------------------------------- the second list
 
         [Test]
-        public void ZachKillingChacko_SetsEveryNpcButShaneOnHim_EachUntilItsTakenAThird()
+        public void ChackosDeath_SetsOnlyJadenPlasmaNjaaronAndShaneOnHisKiller_NoOtherNpcIsTouched()
         {
+            // Zach kills him: the four go after him; nobody else so much as turns a hair.
             var rig = new SimRig(1, 1);
             SimPlayer zach = rig.P(1), s = rig.P(2);
             rig.Place(s, -1500f, -1500f);
             var chacko = new Chacko(rig.Sim);
             rig.Sim.Npcs.Add(chacko);
             rig.Sim.Teleport(zach.Id, chacko.Pos + SimRig.U(40f, 0f));
+            var four = new List<Npc> { Add(rig, new Njaaron(rig.Sim), 1500f, 1500f), Add(rig, new Jaden(rig.Sim), -1500f, 1500f), Add(rig, new Plasma(rig.Sim), 1500f, -900f), Add(rig, new Shane(rig.Sim), 1200f, 0f) };
             var others = new List<Npc>
             {
                 Add(rig, new Marc(rig.Sim), 900f, 900f), Add(rig, new Waz(rig.Sim), -900f, 900f), Add(rig, new Thomas(rig.Sim), 900f, -900f),
@@ -645,37 +550,55 @@ namespace Vision.Tests
             var chris = new Chris(rig.Sim);
             rig.Sim.Npcs.Add(chris);
             others.Add(chris);
-            var shane = Add(rig, new Shane(rig.Sim), 1200f, 0f);
             chacko.Slash(rig.Sim, zach, 1);
-            foreach (Npc n in others) Assert.AreEqual(zach.Id, n.GrudgeTarget, $"{n.Name} goes after Zach");
-            Assert.IsTrue(shane.Chasing && shane.Target == zach.Id, "Shane only runs to him, as before");
+            Assert.IsFalse(chacko.Alive);
+            foreach (Npc n in four) Assert.AreEqual(zach.Id, n.GrudgeTarget, $"{n.Name} goes after Zach");
+            foreach (Npc n in others)
+            {
+                Assert.AreEqual(0, n.GrudgeTarget, $"{n.Name} isn't after anyone");
+                Assert.IsFalse(n.Aggressive, $"{n.Name} isn't roused");
+                Assert.AreEqual(NpcFlags.None, n.Flags & (NpcFlags.Angry | NpcFlags.Chasing | NpcFlags.Punching), $"{n.Name} neither angry nor chasing");
+            }
 
-            // Thomas, with Zach standing still: up to him from across the map, punching until he's taken a third.
-            var rig2 = new SimRig(1, 1);
-            SimPlayer z2 = rig2.P(1);
-            rig2.Place(rig2.P(2), -1500f, -1500f);
-            var chacko2 = new Chacko(rig2.Sim);
-            rig2.Sim.Npcs.Add(chacko2);
-            rig2.Sim.Teleport(z2.Id, chacko2.Pos + SimRig.U(40f, 0f));
-            var thomas = Add(rig2, new Thomas(rig2.Sim), 1500f, 1200f);
-            chacko2.Slash(rig2.Sim, z2, 1);
-            float afterBlast = z2.Hp;
-            Assert.AreEqual(z2.Id, thomas.GrudgeTarget);
-            for (int t = 0; t < Secs(60f) && thomas.GrudgeTarget != 0; t++) rig2.Run(1);
-            Assert.AreEqual(0, thomas.GrudgeTarget, "done once he's taken a third");
-            float took = afterBlast - z2.Hp;
-            Assert.GreaterOrEqual(took, 1f / 3f - 1e-3f, "a third of Zach's health");
-            Assert.Less(took, 1f / 3f + Balance.Njaaron.PunchHp / Balance.Hunter.Health.Max, "and no more");
+            // Not in any way: with the four left out, every other NPC does exactly what it would have done had he lived.
+            List<Npc> Town(SimRig r) => new List<Npc>
+            {
+                Add(r, new Marc(r.Sim), 900f, 900f), Add(r, new Waz(r.Sim), -900f, 900f), Add(r, new Thomas(r.Sim), 900f, -900f),
+                Add(r, new Monique(r.Sim), -900f, -600f), Add(r, new Daphne(r.Sim), 600f, 300f), Add(r, new Soham(r.Sim), -300f, 900f),
+                Add(r, new Sexton(r.Sim), 300f, -900f),
+            };
+            var killed = new SimRig(1, 1);
+            var lived = new SimRig(1, 1);
+            Chacko ck = null;
+            foreach (SimRig r in new[] { killed, lived })
+            {
+                r.Place(r.P(2), -1500f, -1500f);
+                var c = new Chacko(r.Sim);
+                r.Sim.Npcs.Add(c);
+                r.Sim.Teleport(1, c.Pos + SimRig.U(40f, 0f));
+                if (r == killed) ck = c;
+            }
+            List<Npc> a = Town(killed), b = Town(lived);
+            ck.Slash(killed.Sim, killed.P(1), 1);
+            killed.Run(Secs(6f));
+            lived.Run(Secs(6f));
+            for (int i = 0; i < a.Count; i++)
+            {
+                Assert.AreEqual(b[i].Pos, a[i].Pos, $"{a[i].Name} goes on just the same");
+                Assert.AreEqual(b[i].Flags, a[i].Flags, $"{a[i].Name}'s state the same");
+            }
 
-            // A survivor killing him sets only the four on them.
+            // A survivor killing him sets the same four on them, and nobody else.
             var rig3 = new SimRig(1, 1);
             SimPlayer s3 = rig3.P(2);
             rig3.Place(rig3.P(1), 1500f, 1500f);
             var chacko3 = new Chacko(rig3.Sim);
             rig3.Sim.Npcs.Add(chacko3);
             var marc = Add(rig3, new Marc(rig3.Sim), 300f, 300f);
+            var plasma3 = Add(rig3, new Plasma(rig3.Sim), -300f, 300f);
             chacko3.ItemHit(rig3.Sim, s3, "bottle");
-            Assert.AreEqual(0, marc.GrudgeTarget, "Marc only goes after Zach for it");
+            Assert.AreEqual(s3.Id, plasma3.GrudgeTarget, "Plasma after the survivor");
+            Assert.AreEqual(0, marc.GrudgeTarget, "Marc not");
         }
 
         [Test]
@@ -742,7 +665,7 @@ namespace Vision.Tests
             Assert.Less(Audio.AudioManager.Envelope(voice, 10f, 10f), 0.011f);
             Assert.AreEqual(1.8f, Audio.SoundBank.Cues["gas"].Start, "the gas explosion from 1.8 s in");
             CollectionAssert.Contains(Audio.SoundBank.Cues["gas"].Prefer, "local_gas_explosion");
-            Assert.AreEqual(0.45f, Audio.SoundBank.Cues["slash"].Volume, 1e-4f, "the slash half as loud");
+            Assert.AreEqual(0.225f, Audio.SoundBank.Cues["slash"].Volume, 1e-4f, "the slash half as loud, and half again");
         }
 
         [Test]

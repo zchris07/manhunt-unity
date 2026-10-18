@@ -286,6 +286,52 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheHost_LocksTheSliders_ThenOnlyTheHostMovesThem_UntilUnlocked()
+        {
+            var t = new Table();
+            try
+            {
+                var (a, ga) = t.Join("Ana");
+                t.Pump(() => a.Lobby != null && a.Lobby.Players.Count == 2, "Ana in the lobby");
+                a.Tune(2, 1.3f);
+                t.Pump(() => Mathf.Abs(t.Server.Lobby.Settings.Tuning.ZachSpeed - 1.3f) < 1e-4f, "Ana's slider, unlocked");
+                t.Server.LockTuning(true);
+                t.Pump(() => a.Lobby.Settings.TuningLocked, "the lock on Ana's screen");
+                a.Tune(2, 0.7f);
+                a.Tune(0, 8f);
+                t.Spin(40);
+                Assert.AreEqual(1.3f, t.Server.Lobby.Settings.Tuning.ZachSpeed, 1e-4f, "locked: Ana's moves ignored");
+                Assert.AreEqual(Tuning.DefaultGenerators, t.Server.Lobby.Settings.Tuning.Generators);
+                t.Server.Tune(2, 1.5f);
+                t.Pump(() => Mathf.Abs(a.Lobby.Settings.Tuning.ZachSpeed - 1.5f) < 1e-4f, "the host still moves them, everyone sees it");
+                // Nobody else's settings change unlocks them (in a testing-mode lobby anyone may change the settings).
+                LobbySettings test = t.Server.Lobby.Settings.Copy();
+                test.TestMode = true;
+                t.Server.SetSettings(test);
+                t.Pump(() => a.Lobby.Settings.TestMode, "a testing-mode lobby");
+                Assert.IsTrue(t.Server.Lobby.Settings.TuningLocked, "the host's settings change keeps the lock");
+                LobbySettings sneaky = a.Lobby.Settings.Copy();
+                sneaky.TuningLocked = false;
+                a.SetSettings(sneaky);
+                t.Spin(40);
+                Assert.IsTrue(t.Server.Lobby.Settings.TuningLocked, "a joiner can't unlock them");
+                a.Tune(2, 0.7f);
+                t.Spin(40);
+                Assert.AreEqual(1.5f, t.Server.Lobby.Settings.Tuning.ZachSpeed, 1e-4f);
+                // Unlocked: Ana moves them again.
+                t.Server.LockTuning(false);
+                t.Pump(() => !a.Lobby.Settings.TuningLocked, "unlocked on Ana's screen");
+                a.Tune(2, 0.7f);
+                t.Pump(() => Mathf.Abs(t.Server.Lobby.Settings.Tuning.ZachSpeed - 0.7f) < 1e-4f, "Ana's slider again");
+                _ = ga;
+            }
+            finally
+            {
+                t.Stop();
+            }
+        }
+
+        [Test]
         public void AnOldBuild_IsTurnedAwayWithAReason()
         {
             var t = new Table();

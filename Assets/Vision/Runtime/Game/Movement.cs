@@ -28,7 +28,7 @@ namespace Vision.Game
         public bool SpeedMode;
         /// <summary>No sprinting (Zach more than halfway into a full charge; the lunge and abilities still work).</summary>
         public bool NoSprint;
-        /// <summary>A ghost (a sacrificed survivor back as one): the sprint meter never drains.</summary>
+        /// <summary>A ghost out of a body (a sacrificed survivor back as one): the sprint meter never drains, and nothing slows them (no vault, no climb).</summary>
         public bool Ghost;
     }
 
@@ -132,8 +132,8 @@ namespace Vision.Game
 
             float speed;
             // Through a broken window or over a fallen log or tree: vaulting, at the climbing pace.
-            float vault = env != null ? env.Vault(at, radius * 0.5f, role == Role.Hunter) : 0f;
-            bool inWindow = env != null && (env.InBrokenWindow(at, radius + Scale.D(4f)) || vault > 0f);
+            float vault = env != null && !ctx.Ghost ? env.Vault(at, radius * 0.5f, role == Role.Hunter) : 0f;
+            bool inWindow = env != null && !ctx.Ghost && (env.InBrokenWindow(at, radius + Scale.D(4f)) || vault > 0f);
             s.Climbing = inWindow;
             float vaultSlow = Mathf.Max(1f, vault);
             if (role == Role.Hunter)

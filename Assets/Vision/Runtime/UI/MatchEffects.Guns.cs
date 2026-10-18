@@ -314,7 +314,7 @@ namespace Vision.UI
                         // A burst on the straight line it's drawn along, where it meets the thing.
                         float at = a + pierceHits[i].distance * k;
                         pierces.Add(new Pierce { At = r.Born + at / speed, Up = r.Up, Pos = RoundPoint(r, dir, len, at), Out = -sd, Normal = pierceHits[i].normal,
-                            Cue = i == first ? CueFor(SurfaceAt(pierceHits[i].collider)) : null });
+                            Cue = i == first ? CueFor(SurfaceAt(pierceHits[i].collider), false) : null });
                     }
                     if (first >= 0) sounded = true;
                     n = Physics.RaycastNonAlloc(next, -sd, pierceHits, sl, mask, QueryTriggerInteraction.Ignore);
@@ -414,16 +414,20 @@ namespace Vision.UI
             return false;
         }
 
-        /// <summary>What a struck thing is made of, as its debris shows it and as it sounds.</summary>
-        public enum Surface { Wood, Stone, Metal, HeavyMetal, Glass, Plaster, Wall }
+        /// <summary>What a struck thing is made of, as its debris shows it and as it sounds (a rock or a boulder is stone that rings).</summary>
+        public enum Surface { Wood, Stone, Metal, HeavyMetal, Glass, Plaster, Wall, Rock }
 
-        /// <summary>The sound of the machete (or a 0.50 cal round) striking a thing made of this; none for stone, glass or plaster.</summary>
-        public static string CueFor(Surface what) => what switch
+        /// <summary>
+        /// The sound of the machete (or, <paramref name="blade"/> false, a 0.50 cal round) striking a thing made of this; none
+        /// for stone, glass or plaster. A rock or a boulder rings under the machete with the lighter metal's clink.
+        /// </summary>
+        public static string CueFor(Surface what, bool blade = true) => what switch
         {
             Surface.Wood => "machete_wood",
             Surface.HeavyMetal => "metal_heavy",
             Surface.Metal => "metal_light",
             Surface.Wall => "wall_slam",
+            Surface.Rock => blade ? "metal_light" : null,
             _ => null,
         };
 
@@ -432,7 +436,7 @@ namespace Vision.UI
         {
             ("Window Sill", Surface.Plaster), ("Window", Surface.Glass), ("Glass", Surface.Glass), ("Pane", Surface.Glass),
             // Walls of a building, a cabin, a shack (a rock's wall is stone).
-            ("Rock Wall", Surface.Stone), ("Plank Wall", Surface.Wall), ("Outer Wall", Surface.Wall), ("Wall", Surface.Wall),
+            ("Rock Wall", Surface.Rock), ("Plank Wall", Surface.Wall), ("Outer Wall", Surface.Wall), ("Wall", Surface.Wall),
             ("Graveyard Gates", Surface.Metal),
             // Sturdy metal.
             // (A generator clanks like the lighter metal.)
@@ -443,7 +447,7 @@ namespace Vision.UI
             // Wood that sounds like metal by name.
             ("Power Pole", Surface.Wood), ("Spool", Surface.Wood),
             // Stone.
-            ("Rock", Surface.Stone), ("Boulder", Surface.Stone), ("Grave", Surface.Stone), ("Headstone", Surface.Stone), ("Pillar", Surface.Stone),
+            ("Rock", Surface.Rock), ("Boulder", Surface.Rock), ("Grave", Surface.Stone), ("Headstone", Surface.Stone), ("Pillar", Surface.Stone),
             ("Stone", Surface.Stone), ("Toilet", Surface.Stone),
             // Other metal.
             ("Iron", Surface.Metal), ("Yard Fence", Surface.Metal), ("Gate", Surface.Metal), ("Lantern", Surface.Metal), ("Lamp", Surface.Metal),
@@ -475,6 +479,7 @@ namespace Vision.UI
         /// <summary>The debris a struck thing throws: a wall's by what it's built of (planks, or plaster and brick).</summary>
         static Surface Look(Collider c, Surface what)
         {
+            if (what == Surface.Rock) return Surface.Stone;
             if (what != Surface.Wall) return what;
             for (Transform t = c != null ? c.transform : null; t != null; t = t.parent)
                 if (t.name.IndexOf("Plank", System.StringComparison.OrdinalIgnoreCase) >= 0) return Surface.Wood;
@@ -520,6 +525,7 @@ namespace Vision.UI
                     for (int i = 0; i < N(6); i++) Dust(new Color(0.72f, 0.6f, 0.42f, 0.45f), 0.16f, 1.1f, 2.4f);
                     break;
                 case Surface.Stone:
+                case Surface.Rock:
                     for (int i = 0; i < N(10); i++) Chip(new Color(0.38f, 0.37f, 0.35f, 1f), new Color(0.58f, 0.56f, 0.53f, 1f), 2f, 5.5f, 0.05f, 0.8f);
                     for (int i = 0; i < N(8); i++) Chip(new Color(0.5f, 0.48f, 0.45f, 1f), new Color(0.66f, 0.64f, 0.6f, 1f), 1f, 3f, 0.025f, 0.6f);
                     for (int i = 0; i < N(7); i++) Dust(new Color(0.55f, 0.53f, 0.5f, 0.42f), 0.2f, 1.4f, 2.8f);

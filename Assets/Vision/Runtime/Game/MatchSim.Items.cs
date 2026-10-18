@@ -285,6 +285,8 @@ namespace Vision.Game
         {
             if (q == shooter) return false;
             if (q.Role == Role.Hunter) return hunters && q.Health != Health.Eliminated;
+            // A body a ghost is in: only Zach's golden pump reaches it (a single pellet knocks the ghost out).
+            if (InBody(q)) return shooter != null && shooter.Role == Role.Hunter;
             return q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
         }
 
@@ -425,6 +427,11 @@ namespace Vision.Game
             foreach (var kv in onSurvivor)
             {
                 SimPlayer q = kv.Key;
+                if (InBody(q))
+                {
+                    KnockOut(q, p, "pellet");
+                    continue;
+                }
                 if (zachGun)
                 {
                     q.StunT = Mathf.Max(q.StunT, Balance.Items.ZachPump.Stun);

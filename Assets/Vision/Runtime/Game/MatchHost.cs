@@ -135,6 +135,7 @@ namespace Vision.Game
             if (world.Wanderer != null && !Vision.Player.VisionCapture.Requested) world.Wanderer.gameObject.SetActive(false);
             accumulator = 0f;
             if (GetComponent<Vision.Player.PlayerPuppets>() == null) gameObject.AddComponent<Vision.Player.PlayerPuppets>().world = world;
+            if (GetComponent<Vision.UI.CorpseViews>() == null) gameObject.AddComponent<Vision.UI.CorpseViews>().world = world;
             Apply(true);
             Began?.Invoke();
         }
@@ -145,16 +146,21 @@ namespace Vision.Game
             return new Vector2(l.x, l.z);
         }
 
-        /// <summary>Testing mode (T): the local player becomes Zach or a survivor where they stand.</summary>
-        public bool SwitchRole()
+        /// <summary>Testing mode: the local player becomes Zach or a survivor where they stand.</summary>
+        public bool SwitchRole() => SwitchRole(false);
+
+        /// <summary>Testing mode (T): Zach, then a survivor, then that survivor's ghost, then Zach again, where they stand.</summary>
+        public bool CycleRole() => SwitchRole(true);
+
+        bool SwitchRole(bool cycle)
         {
             if (Sim == null || !Sim.TestMode) return false;
             if (Remote)
             {
-                SendCommand?.Invoke(Vision.Net.Command.SwitchRole, 0, 0, default);
+                SendCommand?.Invoke(Vision.Net.Command.SwitchRole, cycle ? 1 : 0, 0, default);
                 return false;
             }
-            bool ok = Sim.SwitchRole(LocalId);
+            bool ok = Sim.SwitchRole(LocalId, cycle);
             if (ok) Local.IsLocal = true;
             return ok;
         }

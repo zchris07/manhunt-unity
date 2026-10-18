@@ -193,7 +193,6 @@ namespace Vision.Game
                 if (AscendT >= Balance.Chris.AscendTime) State = Mode.Gone;
                 return;
             }
-            if (State != Mode.Work && State != Mode.Rescue && UpdateAvenger(dt)) return;
             Track(dt);
             if (Active && State != Mode.Flee && State != Mode.Rescue && State != Mode.Work)
             {

@@ -22,8 +22,8 @@ namespace Vision.UI
 
         MatchHost host;
 
-        /// <summary>A wave on its way out: Zach's Soundcloud Burst (purple), or a ghost's pulse (red).</summary>
-        struct Wave { public Vector2 At; public float Angle, Born; public bool Ghost; }
+        /// <summary>A wave on its way out: Zach's Soundcloud Burst.</summary>
+        struct Wave { public Vector2 At; public float Angle, Born; }
 
         struct Breath { public Vector2 At; public bool Gasp; public float Born; }
         readonly List<Breath> breaths = new List<Breath>();
@@ -112,11 +112,25 @@ namespace Vision.UI
                 case EventKind.Talk:
                     if (by == null) break;
                     if (e.Text == "burst") waves.Add(new Wave { At = e.Pos, Angle = e.F, Born = Now });
-                    else if (e.Text == "ghost_pulse")
+                    else if (e.Text == "possess")
                     {
-                        // A ghost's pulse: the red wave, and the clip played out whole from the ghost.
-                        waves.Add(new Wave { At = e.Pos, Angle = e.F, Born = Now, Ghost = true });
-                        Audio.PlayCue("ghost_pulse", Units(e.Pos));
+                        // A ghost takes a body: a deep whoosh and a pale ring spreading from it as it starts to rise.
+                        Audio.PlayCue("possess", Units(e.Pos));
+                        Fx.RingAt(Ground(e.Pos, 0.05f), 0.2f * S, 1.6f * S, 1.4f, new Color(0.82f, 0.9f, 1f, 0.8f), 0.05f * S, false, true);
+                    }
+                    else if (e.Text == "reanimated")
+                    {
+                        // One with it: a flash of pale light where it stands, and the rush of it.
+                        Audio.PlayCue("reanimate", Units(e.Pos));
+                        Fx.RingAt(Ground(e.Pos, 0.05f), 0.3f * S, 2.4f * S, 0.9f, new Color(0.9f, 0.95f, 1f, 0.9f), 0.08f * S, false, true);
+                        Fx.Burst(Ground(e.Pos, 1f), 26, 2.2f * S, 0.7f, new Color(0.88f, 0.94f, 1f, 1f), 0.07f * S, true, Vfx.Blend.Additive, 0f, 2f, 0.4f, new Color(0.6f, 0.75f, 1f, 1f));
+                    }
+                    else if (e.Text == "ghost_out")
+                    {
+                        // Knocked out of a body: the ghost flung back out of it in a burst of pale light.
+                        Audio.PlayCue("ghost_out", Units(e.Pos));
+                        Fx.Burst(Ground(e.Pos, 1f), 22, 2.8f * S, 0.6f, new Color(0.9f, 0.95f, 1f, 1f), 0.07f * S, true, Vfx.Blend.Additive, 0f, 2f, 0.4f, new Color(0.6f, 0.75f, 1f, 1f));
+                        Fx.RingAt(Ground(e.Pos, 0.05f), 0.2f * S, 1.8f * S, 0.6f, new Color(0.9f, 0.95f, 1f, 0.8f), 0.06f * S, false, true);
                     }
                     else if (e.Text == "slam") Audio.PlayCue("slam", Units(e.Pos));
                     else if (e.Text == "search") Audio.PlayCue("hide", Units(e.Pos));
@@ -438,11 +452,8 @@ namespace Vision.UI
                 float front = speed * age;
                 if (front - T > Balance.World.Size * 1.5f) { waves.RemoveAt(w); continue; }
                 float born = Mathf.Clamp01(age / 0.08f);
-                bool ghost = wv.Ghost;
                 void Front(float back, float widthUnits, Color c, float tremble, float freq, float phase)
                 {
-                    // A ghost's pulse: the same wave, red.
-                    if (ghost) c = new Color(Mathf.Max(c.b, c.r), c.g * 0.45f, c.g * 0.4f, c.a);
                     pts.Clear(); cols.Clear();
                     for (int i = 0; i <= N; i++)
                     {

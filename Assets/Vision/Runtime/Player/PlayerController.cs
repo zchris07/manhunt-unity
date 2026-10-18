@@ -190,9 +190,32 @@ namespace Vision.Player
         {
             if (view == null) view = GetComponent<CharacterView>();
             if (view == null) return;
-            view.SetSpec(p.Role == Role.Hunter ? CharacterSpec.Zach() : CharacterSpec.Survivor());
+            view.SetSpec(SpecFor(p));
             view.Present(p);
         }
+
+        static readonly System.Collections.Generic.Dictionary<string, CharacterSpec> specs = new System.Collections.Generic.Dictionary<string, CharacterSpec>();
+
+        /// <summary>
+        /// The model a player shows: Zach's, a survivor's, or for a ghost in a body (once it's merged with it) the look of
+        /// whoever it was: a survivor's, or the NPC's own.
+        /// </summary>
+        public static CharacterSpec SpecFor(SimPlayer p)
+        {
+            string look = p.Role == Role.Hunter ? "Zach" : p.Reanimated && p.PossessT <= 0f && !string.IsNullOrEmpty(p.BodyLook) ? p.BodyLook : "Survivor";
+            if (!specs.TryGetValue(look, out CharacterSpec s))
+            {
+                s = look == "Zach" ? CharacterSpec.Zach() : look == "Survivor" ? CharacterSpec.Survivor() : CharacterSpec.Npc(look);
+                specs[look] = s;
+            }
+            return s;
+        }
+
+        /// <summary>Drawn as a ghost (glowing white, through anything): out of a body, or still merging with one.</summary>
+        public static bool GhostForm(SimPlayer p) => p.FreeGhost || (p.Ghost && p.PossessT > 0f);
+
+        /// <summary>A ghost knocked out of a body: they see everything (the whole screen lit, through walls, the map revealed, the wheel zooms).</summary>
+        public static bool Seer(SimPlayer p) => p != null && p.FreeGhost && p.Spent;
 
         static bool Pressed(InputAction a) => a != null && a.WasPressedThisFrame();
         static bool Held(InputAction a) => a != null && a.IsPressed();
@@ -208,23 +231,26 @@ namespace Vision.Player
             bool menu = GameHud.MenuOpen;
 
             UpdateTurn(h, menu);
-            // Testing mode: the mouse wheel zooms the view in and out (not over the HUD or a menu).
-            if (GameSession.TestingMode && !menu && slotScroll != null && !MapHud.AnyFullOpen)
+            // Testing mode (and a ghost knocked out of a body): the mouse wheel zooms the view in and out (not over the HUD
+            // or a menu).
+            bool zoom = GameSession.TestingMode || Seer(p);
+            if (zoom && !menu && slotScroll != null && !MapHud.AnyFullOpen)
             {
                 float w = slotScroll.ReadValue<float>();
                 bool overHud = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
                 if (Mathf.Abs(w) > 0.1f && !overHud)
                     TopDownCamera.TestZoom = Mathf.Clamp(TopDownCamera.TestZoom * (w > 0f ? 0.88f : 1f / 0.88f), TopDownCamera.TestZoomMin, TopDownCamera.TestZoomMax);
             }
-            else if (!GameSession.TestingMode) TopDownCamera.TestZoom = 1f;
+            else if (!zoom) TopDownCamera.TestZoom = 1f;
             // Every body runs into the graveyard's fence, Zach's too.
             if (cc != null && cc.excludeLayers.value != 0) cc.excludeLayers = 0;
 
-            // Testing mode: T switches between Zach and a survivor where you stand.
-            if (!menu && Pressed(switchRole) && h.Sim.TestMode && h.SwitchRole())
+            // Testing mode: T goes from Zach to a survivor, to that survivor's ghost (their body at their feet), and back to
+            // Zach, where you stand.
+            if (!menu && Pressed(switchRole) && h.Sim.TestMode && h.CycleRole())
             {
                 p = Me;
-                Notice?.Invoke(p.Role == Role.Hunter ? "You are Zach" : "You are a survivor");
+                Notice?.Invoke(p.Role == Role.Hunter ? "You are Zach" : p.Ghost ? "You are a ghost: your body is at your feet (E takes it)" : "You are a survivor");
                 RoleChanged?.Invoke(p.Role);
             }
             // Testing: downed survivors can stand back up with R.
@@ -313,8 +339,8 @@ namespace Vision.Player
             if (Held(special)) b |= p.Role == Role.Hunter ? Btn.Vape : Btn.Space;
             cmd.Buttons = b;
 
-            // Survivors pick a slot with 1-8 (1-12 in testing mode) or the wheel; empty slots are skipped.
-            if (p.Role == Role.Survivor)
+            // Survivors pick a slot with 1-8 (1-12 in testing mode) or the wheel; empty slots are skipped. (A ghost has none.)
+            if (p.Role == Role.Survivor && !p.Ghost)
             {
                 int lim = p.Inv.Limit;
                 for (int i = 0; i < lim; i++) if (Pressed(slotKeys[i])) SelectedSlot = SelectedSlot == i && p.Inv.CountAt(i) == 0 ? -1 : i;
@@ -347,9 +373,31 @@ namespace Vision.Player
             MoveContext ctx = h.Sim.MoveContextFor(p, GameSession.SpeedMode);
             Vector2 delta = Movement.Step(p.Move, p.Pos, cmd, ctx, h.Geometry, dt, out Game.Gait gait);
             p.Gait = gait;
+            // A ghost out of a body passes through walls and anything solid; taking one, it glides into it.
+            if (GhostForm(p))
+            {
+                Vector3 l0 = world.transform.InverseTransformPoint(transform.position);
+                Vector2 at = new Vector2(l0.x, l0.z) + delta;
+                Body b = p.PossessT > 0f ? h.Sim.BodyOf(p) : null;
+                if (b != null)
+                {
+                    // Into the body by the time it's upright (two thirds of the way through).
+                    float left = Mathf.Max(dt, p.PossessT - Balance.Ghost.PossessTime / 3f);
+                    at = Vector2.MoveTowards(at, b.Pos, Vector2.Distance(at, b.Pos) * Mathf.Clamp01(dt / left));
+                }
+                // (Kept to the playable circle, as the match keeps it.)
+                if (at.magnitude > h.Sim.Ring1) at = at.normalized * h.Sim.Ring1;
+                GhostTo(at);
+                return;
+            }
             float scale = world.transform.lossyScale.x;
             Vector3 step = world.transform.TransformVector(new Vector3(delta.x, 0f, delta.y));
-            if (dt > 0f)
+            // On the lake dock's boards: flat, solid ground (the dock has no collider of its own: the avatar is held at its
+            // deck, below).
+            Vector3 l1 = world.transform.InverseTransformPoint(transform.position);
+            bool dock = world.OnDock(new Vector2(l1.x, l1.z), out _);
+            if (dock) verticalSpeed = 0f;
+            else if (dt > 0f)
             {
                 Vector2 vel = new Vector2(step.x, step.z) / dt;
                 float grade = Grade(vel);
@@ -360,6 +408,7 @@ namespace Vision.Player
             }
             step.y = verticalSpeed * dt;
             cc.Move(step);
+            OntoOrOffDock();
             // The outer ring of the woods stops Zach like a wall while he can't cross it.
             if (p.Role == Role.Hunter && MatchSim.CrossingBlocked(p))
             {
@@ -373,6 +422,48 @@ namespace Vision.Player
                 }
             }
             KeepOnGround();
+        }
+
+        /// <summary>The avatar was on the dock's boards last frame (stepping off them drops it into the water at once).</summary>
+        bool onDock;
+
+        /// <summary>
+        /// The lake dock underfoot: on its boards the avatar stands at its deck (snapped straight up onto it out of the
+        /// water, or from the shore); stepping off, it's straight down into the water (or onto the ground) with no fall.
+        /// </summary>
+        void OntoOrOffDock()
+        {
+            Vector3 l = world.transform.InverseTransformPoint(transform.position);
+            var at = new Vector2(l.x, l.z);
+            if (world.OnDock(at, out float deck))
+            {
+                onDock = true;
+                verticalSpeed = 0f;
+                if (Mathf.Abs(l.y - deck) > 0.005f) SetHeight(l, deck);
+                return;
+            }
+            if (!onDock) return;
+            onDock = false;
+            verticalSpeed = 0f;
+            SetHeight(l, world.GroundHeight(at));
+        }
+
+        void SetHeight(Vector3 local, float y)
+        {
+            if (cc == null) cc = GetComponent<CharacterController>();
+            cc.enabled = false;
+            transform.position = world.transform.TransformPoint(new Vector3(local.x, y, local.z));
+            cc.enabled = true;
+        }
+
+        /// <summary>A ghost's avatar put straight there, on the ground, whatever is in the way.</summary>
+        void GhostTo(Vector2 local)
+        {
+            Vector3 w = world.transform.TransformPoint(new Vector3(local.x, world.GroundHeight(local), local.y));
+            cc.enabled = false;
+            transform.position = w;
+            cc.enabled = true;
+            verticalSpeed = 0f;
         }
 
         void PlaceAvatar(Vector2 local)
@@ -576,7 +667,9 @@ namespace Vision.Player
                 Vision.Effects.SensesCamera.Blackout = zach ? 0f : edgeDark;
                 Halo(zach && !p.LostInWoods ? edgeDark : 0f);
                 // Goggles and the Hemp Battery: the see-through light grows in over 0.5 s, out in 1/6 s (the battery's as slowly as in).
-                bool xrayOn = p.GogglesOn || (zach && p.HempOn);
+                // A ghost knocked out of a body sees through everything.
+                bool seer = Seer(p);
+                bool xrayOn = p.GogglesOn || (zach && p.HempOn) || seer;
                 if (xrayOn) xrayHemp = zach && p.HempOn;
                 xrayK = xrayOn ? Mathf.Min(1f, xrayK + dt0 / Balance.Xray.FadeIn) : Mathf.Max(0f, xrayK - dt0 / (xrayHemp ? Balance.Xray.FadeIn : Balance.Xray.FadeOut));
                 viewer.seeThroughEnabled = xrayK > 0f;
@@ -585,7 +678,8 @@ namespace Vision.Player
                 // JARVIS: while it runs, every survivor sees everything on their screen (Zach doesn't): ten seconds for
                 // everyone, its whole run for the survivor running it; the light spreads out from the player over the
                 // screen in 0.8 s as it comes on.
-                bool reveal = Host != null && !zach && (MatchSim.JarvisActive(p) || (Host.Sim.RevealT > 0f && p.Zone < 2 && p.Role == Role.Survivor));
+                // And a ghost knocked out of a body: their whole screen lit, for good.
+                bool reveal = seer || (Host != null && !zach && !p.Ghost && (MatchSim.JarvisActive(p) || (Host.Sim.RevealT > 0f && p.Zone < 2 && p.Role == Role.Survivor)));
                 revealK = reveal ? Mathf.Min(1f, revealK + dt0 / RevealSpread) : 0f;
                 viewer.revealAll = reveal;
                 viewer.revealGrow = revealK * revealK * (3f - 2f * revealK);
@@ -602,9 +696,14 @@ namespace Vision.Player
                 hiddenShown = hidden;
                 foreach (Renderer r in GetComponentsInChildren<Renderer>()) r.enabled = !hidden;
             }
-            // Back as a ghost: glowing white.
-            GhostLook.Set(gameObject, p.Ghost, world != null ? world.lowPolyMaterial : null);
+            // Back as a ghost: glowing white (in a body, its owner's look), and silent.
+            bool ghostForm = GhostForm(p);
+            GhostLook.Set(gameObject, ghostForm, world != null ? world.lowPolyMaterial : null);
+            if (steps == null) steps = GetComponent<Vision.Audio.Footsteps>();
+            if (steps != null && steps.enabled == ghostForm) steps.enabled = !ghostForm;
         }
+
+        Vision.Audio.Footsteps steps;
 
         void UpdateHud(SimPlayer p, MatchHost h)
         {
@@ -618,13 +717,15 @@ namespace Vision.Player
                     if (p.ActionTarget >= 0 && p.ActionTarget < h.Sim.Gens.Length) HoldProgress = h.Sim.Gens[p.ActionTarget].Progress;
                     break;
                 case ActionKind.OpenGate:
-                    HoldProgress = h.Sim.Gate.Progress;
+                    HoldProgress = h.Sim.GateAt(Mathf.Clamp(p.ActionTarget, 0, 1)).Progress;
                     break;
                 case ActionKind.None:
                 case ActionKind.Attack:
                 case ActionKind.Talk:
                     if (p.Prompt == Prompt.Repair && p.PromptTarget >= 0) HoldProgress = h.Sim.Gens[p.PromptTarget].Progress;
-                    else if (p.Prompt == Prompt.OpenGate) HoldProgress = h.Sim.Gate.Progress;
+                    else if (p.Prompt == Prompt.OpenGate) HoldProgress = h.Sim.GateAt(Mathf.Clamp(p.PromptTarget, 0, 1)).Progress;
+                    // Taking a body: how far it's risen and merged.
+                    else if (p.Ghost && p.Body != 0 && p.PossessT > 0f) HoldProgress = 1f - p.PossessT / Balance.Ghost.PossessTime;
                     break;
                 default:
                     if (p.ActionDur > 0f) HoldProgress = Mathf.Clamp01(p.ActionT / p.ActionDur);
@@ -639,6 +740,15 @@ namespace Vision.Player
             {
                 case Prompt.None:
                     return null;
+                case Prompt.Possess:
+                {
+                    Body b = sim.BodyById(p.PromptTarget);
+                    return b != null ? $"Press E to possess {b.Name}'s body" : Texts.PromptLabel(p.Prompt);
+                }
+                case Prompt.Repair when p.Ghost:
+                    return "Hold E to help repair the generator";
+                case Prompt.OpenGate when p.Ghost:
+                    return "Hold E to help open the gate";
                 case Prompt.Loot:
                     return p.PromptTarget >= 0 && p.PromptTarget < sim.Map.Loot.Count ? $"Press E to pick up {Items.Name(sim.Map.Loot[p.PromptTarget].Item, sim.Map.Loot[p.PromptTarget].Golden)}" : Texts.PromptLabel(p.Prompt);
                 case Prompt.PickDrop:

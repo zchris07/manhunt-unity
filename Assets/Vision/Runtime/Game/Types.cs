@@ -56,7 +56,7 @@ namespace Vision.Game
         OpenDoor = 21, CloseDoor = 22, TalkSexton = 23, TakeHemp = 24, TalkChris = 27, TalkMarc = 28, TalkPlasma = 29,
         SextonMore = 30, PickDrop = 31, NameNpc = 32, NameLoot = 33, NameDrop = 34, TalkWaz = 35, ReadNote = 36,
         TalkChacko = 37, TalkNjaaron = 38, NjaaronAsk = 39, TalkMonique = 40, TalkThomas = 41, TalkSoham = 42,
-        PickLock = 43, OpenGates = 44, CloseGates = 45, TalkDaphne = 46, CloseHatch = 47,
+        PickLock = 43, OpenGates = 44, CloseGates = 45, TalkDaphne = 46, CloseHatch = 47, Possess = 48,
     }
 
     /// <summary>Buttons of one input frame (the original's Btn, with this game's key mapping).</summary>
@@ -175,6 +175,7 @@ namespace Vision.Game
             Prompt.PickLock => "Press E to pick the lock",
             Prompt.OpenGates => "Press E to open the gates",
             Prompt.CloseGates => "Press E to close the gates",
+            Prompt.Possess => "Press E to possess the body",
             _ => null,
         };
     }

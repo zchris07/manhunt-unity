@@ -14,9 +14,10 @@ namespace Vision.Tests
     /// Every mechanic added lately, played over a real TCP connection between a host (Zach) and two guests (survivors) on
     /// this machine, with the full rules and the NPCs: the guests' copies follow the host's for Zach's worn bar, the
     /// 0.50 cal's rounds count, Monique's arrow, JARVIS set going from a guest's own key (every survivor's, its run counted,
-    /// the voice's event), both gates' power and opening, the end game and the hatch, a guest sacrificed and back as a
-    /// ghost (moved by the host, then walking on their own, sending a pulse from their own click that flashes the other
-    /// guest and never them), the NPCs after Zach for Chacko, and Zach picking up a golden pump.
+    /// the voice's event), both gates' power and opening, the end game and the hatch, a guest sacrificed (their body left
+    /// at the stake) and back as a ghost in Miga Sushi or the Diddy Chamber, walking on their own to their body and taking
+    /// it with their own E, lending the other guest a hand with a generator from their own key, and knocked out of it by
+    /// Zach's machete; Chacko's four avengers after Zach (nobody else), and Zach picking up a golden pump.
     /// </summary>
     public class NewMechanicsOnlineTests
     {
@@ -47,6 +48,8 @@ namespace Vision.Tests
             m.HasHatch = true;
             m.Hatch = SimRig.U(-800f, -800f);
             m.Loot.Add(new SimMap.LootDef { Pos = SimRig.U(1300f, -1300f), Item = ItemType.Shotgun, Golden = true });
+            m.GhostSpawns.Add(SimRig.U(-1300f, 1300f));
+            m.GhostSpawns.Add(SimRig.U(1300f, 1300f));
         }
 
         sealed class Game : INetGame
@@ -177,31 +180,56 @@ namespace Vision.Tests
                 hs.HatchOpen = false;
                 hs.EndGameT = -1f;
 
-                // Ana sacrificed: back as a ghost where she was, on her own game too.
+                // Ana sacrificed: her body left at the stake, back as a ghost in Miga Sushi or the Diddy Chamber, on both guests.
                 Vector2 where = ana.Pos;
                 hs.Eliminate(ana, "stake", zach);
+                Body Hers(MatchSim sim) => sim.Bodies.FirstOrDefault(x => !x.OfNpc && x.Of == anaId);
+                Pump(() => Hers(ga.Sim) != null && Hers(gb.Sim) != null, "her body on both guests");
+                Assert.AreEqual(where, Hers(ga.Sim).Pos, "where she was staked");
                 Pump(() => ga.Sim.Get(anaId).Ghost && gb.Sim.Get(anaId).Ghost, "Ana a ghost on both guests", 12f);
-                Pump(() => (ga.Sim.Get(anaId).Pos - where).sqrMagnitude < 1e-4f, "her own game puts her where the host did");
+                Assert.IsTrue(hs.Map.GhostSpawns.Contains(hs.Get(anaId).Pos), "back in one of the two places");
+                Pump(() => (ga.Sim.Get(anaId).Pos - hs.Get(anaId).Pos).sqrMagnitude < 1e-4f, "her own game puts her where the host did");
                 Assert.AreEqual(MoveMode.Normal, ga.Sim.MoveModeFor(ga.Sim.Get(anaId)), "she can move on her own game");
                 Assert.IsTrue(ga.Sim.MoveContextFor(ga.Sim.Get(anaId), false).Ghost, "with endless sprint");
-                // She walks (her own game moves her and tells the host).
-                Vector2 to = where + new Vector2(2f, 0f);
+                Assert.IsFalse(MatchSim.SeesGhosts(gb.Sim.Get(benId)), "Ben can't see her");
+                Assert.IsTrue(MatchSim.SeesGhosts(gb.Sim.Get(zachId)), "Zach can");
+                // She walks to her body (her own game moves her and tells the host), and her own E takes it.
+                Vector2 to = where + SimRig.U(40f, 0f);
                 ga.Sim.SetPose(anaId, to, 0f, Gait.Walk);
                 Pump(() => (hs.Get(anaId).Pos - to).sqrMagnitude < 1e-4f, "the host to see her ghost walk");
-                // Ben and Zach in front of her; her click sends the pulse.
-                hs.Teleport(benId, to + SimRig.U(300f, 0f));
-                hs.Teleport(zachId, to + SimRig.U(450f, 20f));
-                zach.KnockT = 0f;
-                Frames(10);
-                int benSaw = gb.Received.Count;
-                aAim = 0f;
-                aButtons = Btn.Primary;
-                Pump(() => hs.Get(anaId).GhostCd > 0f, "Ana's click to reach the host");
+                Pump(() => ga.Sim.Get(anaId).Prompt == Prompt.Possess, "the body's prompt on her own game");
+                aButtons = Btn.Interact;
+                Pump(() => hs.Get(anaId).Body != 0, "her E to reach the host");
                 aButtons = Btn.None;
-                Pump(() => gb.Received.Skip(benSaw).Any(e => e.Kind == EventKind.Scare && e.B == 1), "the picture flashed at Ben");
-                Assert.IsTrue(ga.Received.Any(e => e.Kind == EventKind.Talk && e.Text == "ghost_pulse" && e.A == anaId), "Ana hears her own pulse go");
-                Assert.IsFalse(ga.Received.Any(e => e.Kind == EventKind.Scare && e.B == 1), "and never gets a flash herself");
-                Pump(() => ga.Sim.Get(anaId).GhostCd > 10f, "her cooldown on her own HUD");
+                Pump(() => Hers(ga.Sim).Ghost == anaId && gb.Sim.Get(anaId).PossessT > 0f, "the body rising on both guests");
+                Pump(() => MatchSim.InBody(ga.Sim.Get(anaId)) && MatchSim.InBody(gb.Sim.Get(anaId)), "Ana reanimated on both guests");
+                Pump(() => gb.Received.Any(e => e.Kind == EventKind.Feed && e.Text == "Ana has been reanimated"), "Ben told");
+                Assert.IsTrue(ga.Received.Any(e => e.Kind == EventKind.Talk && e.Text == "reanimated"), "the banner's event on Ana's game");
+                Assert.IsFalse(ga.Sim.MoveContextFor(ga.Sim.Get(anaId), false).Ghost, "a survivor's sprint in it");
+                // Ben pulls the building's gate lever (every generator runs by now); Ana lends a hand from her own key.
+                Vector2 lever = hs.Map.Lever;
+                hs.Teleport(benId, lever + SimRig.U(-30f, 0f));
+                hs.Teleport(anaId, lever + SimRig.U(30f, 0f));
+                Frames(5);
+                bButtons = Btn.Interact;
+                Pump(() => hs.Get(benId).Action == ActionKind.OpenGate, "Ben at the lever");
+                aButtons = Btn.Interact;
+                Pump(() => hs.Get(anaId).Action == ActionKind.OpenGate && ga.Sim.Get(anaId).Action == ActionKind.OpenGate, "Ana helping, on her own game too");
+                aButtons = bButtons = Btn.None;
+                Frames(3);
+                // Zach's machete knocks her out of it, on both guests (Ben well out of the way).
+                hs.Teleport(benId, SimRig.U(600f, -600f));
+                zach.KnockT = 0f;
+                zach.AttackCd = 0f;
+                hs.Teleport(zachId, hs.Get(anaId).Pos + SimRig.U(-40f, 0f));
+                Frames(2);
+                hs.SubmitInput(zachId, new InputCmd { Buttons = Btn.Primary, Aim = 0f, AimDist = 100f });
+                Frames(2);
+                hs.SubmitInput(zachId, new InputCmd { Aim = 0f, AimDist = 100f });
+                Pump(() => ga.Sim.Get(anaId).Spent && gb.Sim.Get(anaId).Spent && Hers(gb.Sim).Ghost == 0, "knocked out, on both guests");
+                Assert.IsTrue(ga.Received.Any(e => e.Kind == EventKind.Talk && e.Text == "ghost_out"), "flung out, on her own game");
+                Assert.IsTrue(PlayerController.Seer(ga.Sim.Get(anaId)), "she sees everything now");
+                Assert.IsTrue(ga.Sim.MoveContextFor(ga.Sim.Get(anaId), false).Ghost, "endless sprint again");
 
                 // Zach kills Chacko: the NPCs go after him, on the guests' copies too.
                 Chacko chacko = hs.Npcs.OfType<Chacko>().First();
@@ -210,8 +238,9 @@ namespace Vision.Tests
                 zach.MaxHp = zach.Hp = 1f;
                 hs.Teleport(zachId, chacko.Pos + SimRig.U(40f, 0f));
                 chacko.Slash(hs, zach, 1);
-                int thomas = hs.Npcs.FindIndex(n => n is Thomas);
-                Pump(() => !ga.Sim.Npcs[ci].Alive && ga.Sim.Npcs[thomas].GrudgeTarget == zachId, "the avengers on Ana's copy");
+                int njaaron = hs.Npcs.FindIndex(n => n is Njaaron), thomas = hs.Npcs.FindIndex(n => n is Thomas);
+                Pump(() => !ga.Sim.Npcs[ci].Alive && ga.Sim.Npcs[njaaron].GrudgeTarget == zachId, "the avengers on Ana's copy");
+                Assert.AreEqual(0, ga.Sim.Npcs[thomas].GrudgeTarget, "and nobody else");
 
                 // Zach picks up the golden pump lying out.
                 hs.Teleport(zachId, hs.Map.Loot[0].Pos + SimRig.U(10f, 0f));

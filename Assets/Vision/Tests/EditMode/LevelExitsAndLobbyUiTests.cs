@@ -164,17 +164,95 @@ namespace Vision.Tests
             session.ResetTuning();
             Assert.AreEqual(1f, hud.TuningShown(2), 1e-4f);
             Assert.IsFalse(hud.TuningResetInteractable);
+            // The host's lock: on, only the host moves them (the host's own sliders stay live), and back off.
+            Assert.IsTrue(hud.TuningLockInteractable, "the host can lock them");
+            Assert.AreEqual("Lock sliders", hud.TuningLockText);
+            hud.PressTuningLock();
+            Assert.IsTrue(session.Lobby.Settings.TuningLocked, "locked");
+            hud.Refresh();
+            Assert.AreEqual("Unlock sliders", hud.TuningLockText);
+            Assert.IsTrue(hud.TuningSlidersInteractable, "the host still moves them");
+            Assert.IsTrue(session.CanTune);
+            hud.PressTuningLock();
+            Assert.IsFalse(session.Lobby.Settings.TuningLocked, "unlocked again");
             hud.LeaveOnline();
         }
 
         [Test]
-        public void AGhost_SeesTheGhostPanel_InPlaceOfTheInventory()
+        public void TheSettingsControls_ScrollInsideThePanel_NeverRunningOutOfIt()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.StartTesting(false);
+            hud.SetMenu(true);
+            foreach (bool hunter in new[] { false, true })
+            {
+                UnityEngine.UI.ScrollRect list = hud.ControlsList(hunter);
+                Assert.NotNull(list, "a scrolling list");
+                var box = (RectTransform)list.transform;
+                var panel = (RectTransform)box.parent;
+                Assert.LessOrEqual(-box.anchoredPosition.y + box.rect.height, panel.rect.height - 31f, "the list ends inside the panel");
+                Assert.LessOrEqual(box.anchoredPosition.x + box.rect.width, panel.rect.width, "and inside it across");
+                Assert.Greater(list.content.rect.height, list.viewport.rect.height, "more keys than fit: it scrolls");
+                Assert.IsTrue(list.vertical && !list.horizontal);
+                Assert.NotNull(list.viewport.GetComponent<UnityEngine.UI.RectMask2D>(), "what's scrolled out of the box is hidden");
+                foreach (UnityEngine.UI.Text t in list.content.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+                {
+                    var r = (RectTransform)t.transform;
+                    if (r.parent != list.content) continue;
+                    Assert.LessOrEqual(r.anchoredPosition.x + r.rect.width, list.content.rect.width + 0.5f, t.text + " within the list's width");
+                }
+            }
+        }
+
+        [Test]
+        public void TheLakeDock_IsSolidUnderfoot_SteppingOffDropsIntoTheWaterAtOnce_AndOutOfItSnapsBackUp()
+        {
+            SandboxWorld world = NewWorld();
+            MapLayout L = world.Layout;
+            Vector2 a = L.DockStart, b = L.DockEnd, side = new Vector2(-(b - a).normalized.y, (b - a).normalized.x);
+            Vector2 mid = Vector2.Lerp(a, b, 0.6f);
+            Assert.IsTrue(world.OnDock(mid, out float deck), "on the boards");
+            float bed = world.Terrain.Height(mid.x, mid.y);
+            Assert.Greater(deck, bed + 0.5f, "the deck stands well above the lake bed");
+            Assert.AreEqual(deck, world.GroundHeight(mid), 1e-4f, "the ground a body stands on there is the deck");
+            Assert.IsFalse(world.Terrain.InWater(mid.x, mid.y), "and it's dry");
+            Vector2 offSide = mid + side * (L.DockHalfWidth + 0.4f);
+            Assert.IsFalse(world.OnDock(offSide, out _));
+            Assert.AreEqual(world.Terrain.Height(offSide.x, offSide.y), world.GroundHeight(offSide), 1e-4f, "a step off: the water's depth");
+            Assert.IsTrue(world.Terrain.InWater(offSide.x, offSide.y), "wading");
+            Assert.IsFalse(world.OnDock(b + (b - a).normalized * 0.4f, out _), "past its end, the water");
+
+            // The player: in the water beside it, then onto it (snapped straight up), then off it (straight down).
+            PlayerController pc = world.Player;
+            var onto = typeof(PlayerController).GetMethod("OntoOrOffDock", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            float Y() => world.transform.InverseTransformPoint(pc.transform.position).y;
+            void Put(Vector2 at, float y) => pc.transform.position = world.transform.TransformPoint(new Vector3(at.x, y, at.y));
+            Put(offSide, world.GroundHeight(offSide));
+            onto.Invoke(pc, null);
+            Assert.AreEqual(world.GroundHeight(offSide), Y(), 1e-3f, "in the water, on the bed");
+            Put(mid, world.GroundHeight(offSide));
+            onto.Invoke(pc, null);
+            Assert.AreEqual(deck, Y(), 1e-3f, "climbing out onto the dock: straight up onto its deck");
+            Put(offSide, deck);
+            onto.Invoke(pc, null);
+            Assert.AreEqual(world.Terrain.Height(offSide.x, offSide.y), Y(), 1e-3f, "stepping off: straight down into the water, no fall");
+            Assert.AreEqual("step_wood", Vision.Audio.Footsteps.Surface(world, mid), "boards underfoot");
+        }
+
+        [Test]
+        public void AGhost_SeesItsPanel_InPlaceOfTheInventory_ThroughFindingABodyToBeingKnockedOutOfIt()
         {
             SandboxWorld world = NewWorld();
             var hud = hudGo.AddComponent<GameHud>();
             hud.world = world;
             hud.StartTesting(false);
             MatchHost host = MatchHost.For(world);
+            // A ghost comes back in Miga Sushi or the Diddy Chamber.
+            Assert.AreEqual(2, host.Sim.Map.GhostSpawns.Count, "two places for a ghost to come back");
+            foreach (Vector2 at in host.Sim.Map.GhostSpawns)
+                Assert.IsTrue(world.Places.Any(pl => pl.area.Contains(at)), "inside Miga Sushi or the Diddy Chamber");
             hud.Refresh();
             Assert.IsFalse(hud.GhostPanelShowing);
             SimPlayer me = host.Local;
@@ -182,11 +260,27 @@ namespace Vision.Tests
             host.Sim.MakeGhost(me);
             hud.Refresh();
             Assert.IsTrue(hud.GhostPanelShowing, "the ghost's panel");
-            StringAssert.Contains("READY", hud.GhostPanelText);
-            me.GhostCd = 9.2f;
+            StringAssert.Contains("find a body, help your team", hud.GhostPanelText);
+            StringAssert.Contains("Find a body", GameHud.ObjectiveText(host.Sim, me));
+
+            // Taking their own body: it rises, then they're in it.
+            Body body = host.Sim.Bodies.First(b => b.Of == me.Id);
+            host.Sim.Teleport(me.Id, body.Pos + new Vector2(1f, 0f));
+            Assert.IsTrue(host.Sim.Possess(me, body));
             hud.Refresh();
-            StringAssert.Contains("10s", hud.GhostPanelText, "counting down");
-            StringAssert.Contains("ghost", GameHud.ObjectiveText(host.Sim, me));
+            StringAssert.Contains("rises", hud.GhostPanelText);
+            for (int i = 0; i < SimRig.Secs(Balance.Ghost.PossessTime + 0.1f); i++) host.Sim.Step();
+            hud.Refresh();
+            Assert.IsTrue(MatchSim.InBody(me));
+            StringAssert.Contains("you cannot use items or fight, but you can help your team repair generators", hud.GhostPanelText);
+            hud.Banner($"{body.Name} has been reanimated");
+            Assert.AreEqual($"{body.Name} has been reanimated", hud.BannerText, "the banner across the screen");
+
+            // Knocked out of it: they see everything now.
+            host.Sim.KnockOut(me, null, "slash");
+            hud.Refresh();
+            StringAssert.Contains("can't take another", hud.GhostPanelText);
+            Assert.IsTrue(PlayerController.Seer(me));
         }
     }
 }

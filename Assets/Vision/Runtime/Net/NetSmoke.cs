@@ -14,8 +14,9 @@ namespace Vision.Net
     /// moves two balance sliders, the guest joins as a survivor and readies up, the host (Zach) starts the night, both
     /// walk about; then the newer mechanics, the host working the rules and the guest playing its part with its own keys:
     /// JARVIS from the guest's key, both gates powered and one opened with the end game, the hatch, Zach's worn bar, the
-    /// guest sacrificed and back as a ghost walking on its own and sending a pulse at Zach. Each side takes screenshots and
-    /// writes what it saw; then the host takes everyone back to the lobby and both quit.
+    /// guest sacrificed and back as a ghost (in Miga Sushi or the Diddy Chamber) walking on its own, taking its own body
+    /// with its own E, walking about in it, and knocked out of it by the host's own machete swing. Each side takes
+    /// screenshots and writes what it saw; then the host takes everyone back to the lobby and both quit.
     /// </summary>
     public sealed class NetSmoke : MonoBehaviour
     {
@@ -64,7 +65,8 @@ namespace Vision.Net
         {
             host = Arg("-visionNetHost") != null;
             Listener.LoopbackOnly = true;
-            folder = Arg("-visionNetOut") ?? "Captures";
+            // (A full path: the player saves screenshots against one, not the working folder.)
+            folder = Path.GetFullPath(Arg("-visionNetOut") ?? "Captures");
             Directory.CreateDirectory(folder);
             log = new StreamWriter(Path.Combine(folder, host ? "net_host.txt" : "net_client.txt"));
             GameHud hud = null;
@@ -235,36 +237,48 @@ namespace Vision.Net
                 Log($"Zach's bar on the guest: top {zach.MaxHp * 100f:0}, down {zach.KnockT:0.0} s");
             }
 
-            // The guest sacrificed: back as a ghost, walking on its own, a pulse at Zach.
+            // The guest sacrificed: their body left at the stake, back as a ghost in Miga Sushi or the Diddy Chamber, walking
+            // on its own; then put beside its body, it takes it with its own E, and the host's own machete swing knocks it out.
+            GameHud hud = FindAnyObjectByType<GameHud>();
             if (host)
             {
                 yield return new WaitForSeconds(1f);
                 Vector2 at = guest.Pos;
                 sim.Eliminate(guest, "stake", zach);
+                Body body = sim.Bodies.Find(b => !b.OfNpc && b.Of == guest.Id);
+                Log($"the guest's body lies at {(body != null ? $"{body.Pos.x:0.0},{body.Pos.y:0.0}" : "nowhere")} (eliminated at {at.x:0.0},{at.y:0.0})");
                 yield return Until(() => guest.Ghost, 15f);
-                Log($"the guest's a ghost on the host at {guest.Pos.x:0.0},{guest.Pos.y:0.0} (eliminated at {at.x:0.0},{at.y:0.0})");
+                Log($"the guest's a ghost on the host at {guest.Pos.x:0.0},{guest.Pos.y:0.0}: in {PlaceAt(guest.Pos) ?? "neither place"}");
                 Vector2 before = guest.Pos;
                 yield return Until(() => (guest.Pos - before).magnitude > 2f, 15f);
                 Log($"the ghost walked on the host: {(guest.Pos - before).magnitude:0.0} m");
-                // Zach up again, a few metres in front of the ghost, standing still.
+                yield return new WaitForSeconds(2.5f);
+                if (body != null) sim.Place(guest, body.Pos + new Vector2(1.2f, 0f));
+                yield return Until(() => guest.Reanimated && guest.PossessT <= 0f, 20f);
+                yield return new WaitForSeconds(0.4f);
+                Log($"the guest reanimated on the host: in body {guest.Body} ({guest.BodyName}, looking like {guest.BodyLook}), banner \"{hud?.BannerText}\"");
+                yield return Shot("net_reanimated_host");
+                // Zach up again beside it: the host's own click swings the machete.
                 yield return Until(() => zach.KnockT <= 0f, 15f);
                 zach.Hp = zach.MaxHp;
-                sim.Place(zach, guest.Pos + new Vector2(0f, 6f));
-                bool flashed = false;
-                void OnEvent(GameEvent e) { if (e.Kind == EventKind.Scare && e.B == 1) flashed = true; }
-                mh.EventRaised += OnEvent;
-                yield return Until(() => flashed, 20f);
-                mh.EventRaised -= OnEvent;
+                sim.Place(zach, guest.Pos + new Vector2(-1.2f, 0f));
+                yield return new WaitForSeconds(0.6f);
+                pc.AimOverride = (guest.Pos - zach.Pos).normalized;
                 yield return new WaitForSeconds(0.2f);
-                Log($"Zach got the ghost's flash: {flashed}");
-                yield return Shot("net_ghost_flash_host");
+                pc.ExtraButtons = Btn.Primary;
+                yield return new WaitForSeconds(0.1f);
+                pc.ExtraButtons = Btn.None;
+                yield return Until(() => guest.Spent, 5f);
+                Log($"Zach's machete knocked the ghost out: spent {guest.Spent}, out of the body {guest.FreeGhost}, the body back down {(body != null && body.Ghost == 0)}");
+                pc.AimOverride = null;
                 yield return new WaitForSeconds(1.5f);
+                yield return Shot("net_knocked_out_host");
             }
             else
             {
                 yield return Until(() => me.Ghost, 20f);
                 yield return new WaitForSeconds(1f);
-                Log($"I'm a ghost: at {me.Pos.x:0.0},{me.Pos.y:0.0}, move mode {sim.MoveModeFor(me)}, endless sprint {sim.MoveContextFor(me, false).Ghost}");
+                Log($"I'm a ghost: at {me.Pos.x:0.0},{me.Pos.y:0.0} in {PlaceAt(me.Pos) ?? "neither place"}, move mode {sim.MoveModeFor(me)}, endless sprint {sim.MoveContextFor(me, false).Ghost}, panel \"{hud?.GhostPanelText?.Replace("\n", " / ")}\"");
                 yield return Shot("net_ghost_client");
                 pc.MoveOverride = Vector2.right;
                 pc.SprintOverride = true;
@@ -272,21 +286,33 @@ namespace Vision.Net
                 pc.MoveOverride = Vector2.zero;
                 pc.SprintOverride = null;
                 Log($"walked as a ghost to {me.Pos.x:0.0},{me.Pos.y:0.0}, stamina {me.Move.Stamina:0.0}");
-                // Zach put in front of us: aim at him and click.
-                yield return Until(() => (zach.Pos - me.Pos).magnitude < 7f && zach.KnockT <= 0f, 20f);
-                yield return new WaitForSeconds(0.5f);
-                Vector2 d = (zach.Pos - me.Pos).normalized;
-                pc.AimOverride = d;
+                // Put beside our own body: E takes it.
+                yield return Until(() => me.Prompt == Prompt.Possess, 25f);
+                Log($"beside a body: \"{PlayerController.PromptText(me, sim)}\"");
+                pc.ExtraButtons = Btn.Interact;
                 yield return new WaitForSeconds(0.2f);
-                pc.ExtraButtons = Btn.Primary;
-                yield return new WaitForSeconds(0.15f);
                 pc.ExtraButtons = Btn.None;
-                yield return new WaitForSeconds(0.1f);
-                yield return Shot("net_ghost_pulse_client");
-                yield return Until(() => me.GhostCd > 0f, 5f);
-                Log($"pulse sent: cooldown {me.GhostCd:0.0} s");
-                pc.AimOverride = null;
+                yield return Until(() => me.Body != 0, 5f);
+                yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.45f);
+                yield return Shot("net_body_rising_client");
+                yield return Until(() => me.Reanimated && me.PossessT <= 0f, 10f);
+                yield return new WaitForSeconds(0.5f);
+                Log($"reanimated: as {me.BodyName} ({me.BodyLook}), move mode {sim.MoveModeFor(me)}, endless sprint {sim.MoveContextFor(me, false).Ghost}, panel \"{hud?.GhostPanelText?.Replace("\n", " / ")}\", banner \"{hud?.BannerText}\"");
+                yield return Shot("net_reanimated_client");
+                yield return Until(() => me.Spent, 25f);
+                yield return new WaitForSeconds(1.2f);
+                Log($"knocked out: spent {me.Spent}, out of the body {me.FreeGhost}, sees everything {PlayerController.Seer(me)}, panel \"{hud?.GhostPanelText?.Replace("\n", " / ")}\"");
+                yield return Shot("net_knocked_out_client");
             }
+        }
+
+        /// <summary>The named place a point is in (Miga Sushi, the Diddy Chamber), or null.</summary>
+        string PlaceAt(Vector2 at)
+        {
+            SandboxWorld w = FindAnyObjectByType<SandboxWorld>();
+            if (w == null) return null;
+            foreach (var (name, area) in w.Places) if (area.Contains(at)) return name;
+            return null;
         }
 
         void Quit(string why)

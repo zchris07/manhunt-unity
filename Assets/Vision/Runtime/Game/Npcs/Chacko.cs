@@ -8,8 +8,8 @@ namespace Vision.Game
     /// Chacko (the original's chacko.ts) sits on the lounge couch watching Madden. A survivor who talks to him gets a Doctor
     /// Pepper (once each); Zach gets 50 Nic (once). One blow kills him, from Zach or a survivor (a thrown bottle, book or jar,
     /// pellets, a bullet, a 0.50 cal round), and he explodes for half of his killer's health, setting the clip off for
-    /// everyone near. Njaaron, Jaden Nguyen, Plasma.TTV and Shane Jeans go after his killer (<see cref="MatchSim.Avenge"/>);
-    /// if it was Zach, every other NPC does too.
+    /// everyone near. Njaaron, Jaden Nguyen, Plasma.TTV and Shane Jeans go after his killer (<see cref="MatchSim.Avenge"/>),
+    /// Zach or a survivor; no other NPC is touched by his death in any way.
     /// </summary>
     public sealed class Chacko : Npc
     {

@@ -176,6 +176,10 @@ namespace Vision.Net
         public void Tune(int knob, float value) { if (Server != null) Server.Tune(knob, value); else Client?.Tune(knob, value); }
         /// <summary>Every balance slider back to the default (the host only).</summary>
         public void ResetTuning() { if (Server != null) Server.ResetTuning(); else Client?.ResetTuning(); }
+        /// <summary>Locks the balance sliders so only the host moves them, or unlocks them (the host only).</summary>
+        public void LockTuning(bool locked) => Server?.LockTuning(locked);
+        /// <summary>This player may move the balance sliders: the host always; anyone else unless the host locked them.</summary>
+        public bool CanTune => Server != null || (Lobby != null && !Lobby.Settings.TuningLocked);
         public void Assign(int id, Assigned role) { if (Server != null) Server.Assign(id, role); else Client?.Assign(id, role); }
         public void Shuffle() { if (Server != null) Server.Shuffle(); else Client?.Shuffle(); }
         public void StartMatch() { if (Server != null) Server.Start(); else Client?.Start(); }

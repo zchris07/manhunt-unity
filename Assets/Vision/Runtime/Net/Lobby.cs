@@ -30,6 +30,8 @@ namespace Vision.Net
         public float Pace = 1f;
         /// <summary>The balance sliders (anyone in the lobby moves them; the host's own settings changes leave them be).</summary>
         public Tuning Tuning = new Tuning();
+        /// <summary>The host locked the sliders: only they can move them now.</summary>
+        public bool TuningLocked;
 
         public LobbySettings Clamped() => new LobbySettings
         {
@@ -39,9 +41,10 @@ namespace Vision.Net
             TestMode = TestMode,
             Pace = Math.Max(Scale.MinPace, Math.Min(Scale.MaxPace, Pace)),
             Tuning = (Tuning ?? new Tuning()).Clamped(),
+            TuningLocked = TuningLocked,
         };
 
-        public LobbySettings Copy() => new LobbySettings { Hunters = Hunters, Survivors = Survivors, Seed = Seed, TestMode = TestMode, Pace = Pace, Tuning = (Tuning ?? new Tuning()).Copy() };
+        public LobbySettings Copy() => new LobbySettings { Hunters = Hunters, Survivors = Survivors, Seed = Seed, TestMode = TestMode, Pace = Pace, Tuning = (Tuning ?? new Tuning()).Copy(), TuningLocked = TuningLocked };
 
         public void Write(BinaryWriter w)
         {
@@ -51,12 +54,13 @@ namespace Vision.Net
             w.Write(TestMode);
             w.Write(Pace);
             (Tuning ?? new Tuning()).Write(w);
+            w.Write(TuningLocked);
         }
 
         public static LobbySettings Read(BinaryReader r) => new LobbySettings
         {
             Hunters = r.ReadInt32(), Survivors = r.ReadInt32(), Seed = Wire.ReadString(r) ?? "", TestMode = r.ReadBoolean(), Pace = r.ReadSingle(),
-            Tuning = Tuning.Read(r),
+            Tuning = Tuning.Read(r), TuningLocked = r.ReadBoolean(),
         };
 
         /// <summary>The map seed: the number typed, a word's stable hash, or a random one when blank.</summary>

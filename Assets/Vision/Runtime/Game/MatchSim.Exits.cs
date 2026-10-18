@@ -48,9 +48,18 @@ namespace Vision.Game
                 GateState g = GateAt(gi);
                 if (!HasGateAt(gi) || !g.Powered || g.Open) continue;
                 var openers = new List<SimPlayer>();
-                foreach (SimPlayer p in Order) if (p.Action == ActionKind.OpenGate && p.ActionTarget == gi) openers.Add(p);
-                if (openers.Count == 0) continue;
-                g.Progress = Mathf.Min(1f, g.Progress + dt / Balance.Objectives.GateOpenTime);
+                int living = 0, helping = 0;
+                foreach (SimPlayer p in Order)
+                    if (p.Action == ActionKind.OpenGate && p.ActionTarget == gi)
+                    {
+                        openers.Add(p);
+                        if (p.Ghost) helping++;
+                        else living++;
+                    }
+                if (living == 0) continue;
+                // A ghost in a body lending a hand speeds it by two thirds of a generator's step for a second survivor.
+                float mul = 1f + Balance.Objectives.CoopStep * Balance.Ghost.HelpShare * helping;
+                g.Progress = Mathf.Min(1f, g.Progress + mul * dt / Balance.Objectives.GateOpenTime);
                 if (g.Progress < 1f) continue;
                 g.Open = true;
                 foreach (SimPlayer p in openers) CancelAction(p);

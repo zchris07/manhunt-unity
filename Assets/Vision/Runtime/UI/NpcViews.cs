@@ -165,7 +165,8 @@ namespace Vision.UI
         void Drive(View v, MatchSim sim, float dt)
         {
             Npc n = v.Npc;
-            bool visible = !n.Gone;
+            // A slain NPC's body is drawn with the others (CorpseViews), where a ghost can take it.
+            bool visible = !n.Gone && n.Alive;
             if (visible != v.Visible)
             {
                 v.Visible = visible;

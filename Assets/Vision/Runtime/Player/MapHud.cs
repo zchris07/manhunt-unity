@@ -321,8 +321,9 @@ namespace Vision.Player
             if (now >= nextReveal)
             {
                 nextReveal = now + 0.12f;
-                // Testing mode shows the whole map; otherwise the fog opens where the player has looked.
-                if (GameSession.TestingMode) { if (!Fog.AllRevealed) Fog.RevealAll(); }
+                // Testing mode shows the whole map, and so does a ghost knocked out of a body; otherwise the fog opens where the
+                // player has looked.
+                if (GameSession.TestingMode || PlayerController.Seer(world.Player != null ? world.Player.Me : null)) { if (!Fog.AllRevealed) Fog.RevealAll(); }
                 else RevealFromVision();
                 Fog.Apply();
             }
@@ -475,6 +476,15 @@ namespace Vision.Player
                     if (t == null || !t.gameObject.activeSelf) continue;
                     Vector3 lp = world.transform.InverseTransformPoint(t.position);
                     Show(t, new Vector2(lp.x, lp.z), new Color(1f, 0.23f, 0.35f), new Vector2(8f, 8f), false, true);
+                }
+            // A ghost that can still take a body sees where the bodies lie (pale discs).
+            var corpses = world.GetComponent<Vision.UI.CorpseViews>();
+            if (host != null && host.Sim != null && host.Local != null && host.Local.FreeGhost && !host.Local.Spent && corpses != null)
+                foreach (Vision.Game.Body b in host.Sim.Bodies)
+                {
+                    var v = corpses.For(b.Id);
+                    if (b.Ghost != 0 || v == null || v.Pivot == null) continue;
+                    Show(v.Pivot, b.Pos, new Color(0.86f, 0.93f, 1f), new Vector2(9f, 9f), true, true);
                 }
             // Taken supplies disappear.
             var gone = new List<Object>();

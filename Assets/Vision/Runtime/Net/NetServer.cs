@@ -173,10 +173,10 @@ namespace Vision.Net
                     break;
                 case Msg.Tune:
                 {
-                    // Anyone in the lobby moves the balance sliders.
+                    // Anyone in the lobby moves the balance sliders, unless the host has locked them.
                     int knob = r.ReadByte();
                     float value = r.ReadSingle();
-                    if (Phase == NetPhase.Lobby) Tune(knob, value);
+                    if (Phase == NetPhase.Lobby && (lp.Owner || !Lobby.Settings.TuningLocked)) Tune(knob, value);
                     break;
                 }
                 case Msg.ResetTune:
@@ -321,8 +321,18 @@ namespace Vision.Net
             // The balance sliders only change through Tune and ResetTuning (a settings change made before someone else's
             // slider move arrived mustn't put it back).
             Tuning keep = Lobby.Settings.Tuning;
+            // (Nor does it lock or unlock them: only the host's own lock does.)
+            bool locked = Lobby.Settings.TuningLocked;
             Lobby.Settings = s.Clamped();
             Lobby.Settings.Tuning = keep ?? new Tuning();
+            Lobby.Settings.TuningLocked = locked;
+            Changed();
+        }
+
+        /// <summary>The host locks the balance sliders (only they can move them then) or opens them to everyone again.</summary>
+        public void LockTuning(bool locked)
+        {
+            Lobby.Settings.TuningLocked = locked;
             Changed();
         }
 
@@ -494,7 +504,7 @@ namespace Vision.Net
                 case Net.Command.Spectate: sim.CycleSpectate(sp, a); break;
                 case Net.Command.ViewReach: sp.ViewReach = v.x; break;
                 case Net.Command.ViewRect: Game.MatchHost.UnpackView(sp, v, a, b); break;
-                case Net.Command.SwitchRole: if (sim.TestMode) sim.SwitchRole(id); break;
+                case Net.Command.SwitchRole: if (sim.TestMode) sim.SwitchRole(id, a == 1); break;
                 case Net.Command.TestFx: if (sim.TestMode) sim.PlayTestFx(id, (TestFx)a); break;
                 case Net.Command.Teleport: if (sim.TestMode) sim.Teleport(id, v); break;
                 case Net.Command.RespawnNpcs: if (sim.TestMode) sim.RespawnNpcs(); break;

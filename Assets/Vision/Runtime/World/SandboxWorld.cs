@@ -1348,7 +1348,7 @@ namespace Vision.World
             Vector2 d = (Layout.DockEnd - Layout.DockStart).normalized;
             float len = Vector2.Distance(Layout.DockStart, Layout.DockEnd);
             float yaw = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
-            float deck = Mathf.Max(H(Layout.DockStart), Terrain.LakeLevel) + 0.35f - Terrain.LakeLevel;
+            float deck = Mathf.Max(H(Layout.DockStart), Terrain.LakeLevel) + DockDeckAbove - Terrain.LakeLevel;
             Piece("Dock", LowPolyModels.Dock(rng, len, Layout.DockHalfWidth, deck), parent, new Vector3(Layout.DockStart.x, Terrain.LakeLevel, Layout.DockStart.y), yaw);
             // A lantern at the end of the dock.
             Vector2 at = Layout.DockEnd - d * 0.6f + new Vector2(d.y, -d.x) * (Layout.DockHalfWidth - 0.25f);

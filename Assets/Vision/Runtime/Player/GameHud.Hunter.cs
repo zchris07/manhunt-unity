@@ -126,7 +126,8 @@ namespace Vision.Player
         /// <summary>A survivor's JARVIS and Hemp Beam slots, to the right of the inventory (hidden until they have them).</summary>
         void RefreshSurvivorAbilities(SimPlayer me, float stripWidth)
         {
-            bool survivor = me.Role == Role.Survivor && !MainMenuOpen;
+            // (A ghost has none of them.)
+            bool survivor = me.Role == Role.Survivor && !me.Ghost && !MainMenuOpen;
             bool hasJarvis = survivor && me.Jarvis != 0, hasGoggles = survivor && (me.Inv.NightVision > 0f || me.GogglesOn);
             bool any = hasJarvis || hasGoggles;
             survivorStrip.gameObject.SetActive(any);

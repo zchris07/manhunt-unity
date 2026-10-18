@@ -308,7 +308,7 @@ namespace Vision.Player
         /// <summary>Testing mode: a button for every stun and flash effect, played on yourself, and one to respawn the NPCs.</summary>
         void BuildFxPanel(Transform parent)
         {
-            RectTransform panel = Node("Test Effects", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -140f), new Vector2(240f, 400f));
+            RectTransform panel = Node("Test Effects", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -140f), new Vector2(240f, 440f));
             kit.Label(Node("Title", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(240f, 18f)), "TEST EFFECTS", 12, TextAnchor.MiddleLeft, UiKit.Hex(0xb8b0a0), UiKit.Face.Mono, 0.2f);
             float y = -22f;
             foreach (var (fx, label) in MatchSim.TestFxButtons)
@@ -377,6 +377,14 @@ namespace Vision.Player
                 case EventKind.Jarvis:
                     // JARVIS shows every survivor the whole map.
                     if (host != null && host.Local != null && host.Local.Role == Role.Survivor && host.Local.JarvisT > 0f) map.RevealAll();
+                    break;
+                case EventKind.Talk:
+                    // A ghost is one with a body: whose it was, across everyone's screen.
+                    if (e.Text == "reanimated" && host != null && host.Sim != null)
+                    {
+                        string name = host.Sim.BodyById(e.B)?.Name ?? host.Sim.Get(e.A)?.BodyName;
+                        if (!string.IsNullOrEmpty(name)) Banner($"{name} has been reanimated");
+                    }
                     break;
             }
         }
@@ -561,7 +569,10 @@ namespace Vision.Player
             int need = sim.Bal.RequiredGenerators;
             string gens = $"<color=#9c9b91>Generators {Mathf.Min(running, need)}/{need}</color>";
             if (sim.Result != null) return $"{sim.Result.Reason}\n<color=#9c9b91>{(sim.Result.Winner == Winner.Hunters ? "Zach wins" : "Survivors win")}</color>";
-            if (me.Ghost) return "You're a ghost: left click or F sends out a Ghost Pulse\n<color=#9c9b91>Nothing you do touches the NPCs</color>";
+            if (me.Ghost && me.Body != 0 && me.PossessT > 0f) return $"Taking the body: it rises\n<color=#9c9b91>{me.BodyName}</color>";
+            if (me.Ghost && me.Body != 0) return $"Help your team: hold E at a generator or a gate a survivor is working\n<color=#9c9b91>Reanimated{(string.IsNullOrEmpty(me.BodyName) ? "" : " as " + me.BodyName)}: no items, no fighting</color>";
+            if (me.Ghost && me.Spent) return "You see everything now\n<color=#9c9b91>Knocked out of your body: you can't take another</color>";
+            if (me.Ghost) return "Find a body, help your team: E by a body possesses it\n<color=#9c9b91>You pass through walls; survivors can't see you</color>";
             if (me.Role == Role.Hunter)
                 return sim.HatchOpen ? $"The hatch is open by the dock: slam it shut (E)\n{gens}" : $"Hunt them down: carry the downed to a stake\n{gens}";
             if (me.Role == Role.Spectator) return "Spectating";

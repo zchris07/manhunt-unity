@@ -32,6 +32,7 @@ namespace Vision.Player
             public bool Visible = true;
             /// <summary>A teammate's faint glow (a survivor sees the other survivors' this way).</summary>
             public VisionLight Glow;
+            public Vision.Audio.Footsteps Steps;
         }
 
         readonly Dictionary<int, Puppet> puppets = new Dictionary<int, Puppet>();
@@ -83,7 +84,10 @@ namespace Vision.Player
             // small bright disc that shows them through the fog (the original's ally light).
             SimPlayer me = null;
             foreach (SimPlayer q in sim.Order) if (q.IsLocal) { me = q; break; }
-            bool allies = me != null && me.Role == Role.Survivor && me.Health != Game.Health.Escaped && me.Health != Game.Health.Eliminated;
+            // (A ghost back in a body sees their teammates glow too.)
+            bool allies = me != null && me.Role == Role.Survivor && ((me.Health != Game.Health.Escaped && me.Health != Game.Health.Eliminated) || MatchSim.InBody(me));
+            // Survivors never see a ghost (out of a body); Zach, the other ghosts and anyone watching do.
+            seesGhosts = MatchSim.SeesGhosts(me);
             VisionViewer viewer = world.Player != null ? world.Player.viewer : null;
             if (viewer != null)
             {
@@ -96,7 +100,7 @@ namespace Vision.Player
                 if (p.IsLocal || p.Role == Role.Spectator) continue;
                 if (!puppets.TryGetValue(p.Id, out Puppet pup)) pup = Create(p);
                 Drive(pup, p, dt);
-                bool glow = allies && p.Role == Role.Survivor && !p.Ghost && pup.Visible;
+                bool glow = allies && p.Role == Role.Survivor && (!p.Ghost || MatchSim.InBody(p)) && pup.Visible;
                 if (pup.Glow != null && pup.Glow.enabled != glow) pup.Glow.enabled = glow;
                 if (glow && viewer != null) viewer.allyBodies.Add(VisionWorld.ToPlane(pup.Go.transform.position));
             }
@@ -159,11 +163,18 @@ namespace Vision.Player
             return new Vector3(at.x, h, at.y);
         }
 
+        bool seesGhosts = true;
+
         void Drive(Puppet pup, SimPlayer p, float dt)
         {
-            // A ghost shows wherever they go, glowing white.
-            bool visible = p.Ghost || (p.HideState != 2 && p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated);
-            GhostLook.Set(pup.Go, p.Ghost, world.lowPolyMaterial);
+            // A ghost shows wherever they go, glowing white, to those who can see one (never a survivor); in a body, they're
+            // whoever it was, to everyone, in the light like anyone. Ghosts make no sound.
+            bool ghostForm = PlayerController.GhostForm(p);
+            bool visible = ghostForm ? seesGhosts : p.Reanimated || (p.HideState != 2 && p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated);
+            if (p.Role != Role.Hunter) pup.View.SetSpec(PlayerController.SpecFor(p));
+            GhostLook.Set(pup.Go, ghostForm, world.lowPolyMaterial);
+            if (pup.Steps == null) pup.Steps = pup.Go.GetComponent<Vision.Audio.Footsteps>();
+            if (pup.Steps != null && pup.Steps.enabled == ghostForm) pup.Steps.enabled = !ghostForm;
             if (visible != pup.Visible)
             {
                 pup.Visible = visible;

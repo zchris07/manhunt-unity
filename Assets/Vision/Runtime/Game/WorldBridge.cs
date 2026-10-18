@@ -34,6 +34,10 @@ namespace Vision.Game
                 map.GatePos2 = w.Layout.SushiGateMid();
                 map.ExitZone2 = w.Layout.SushiExitZone();
             }
+            // A sacrificed survivor's ghost comes back in Miga Sushi or the Diddy Chamber.
+            if (w.Layout != null)
+                foreach (Rect r in new[] { w.Layout.Sushi, w.Layout.Chamber })
+                    if (r.width > 0f && r.height > 0f) map.GhostSpawns.Add(r.center);
             if (w.Hatch != null)
             {
                 map.HasHatch = true;

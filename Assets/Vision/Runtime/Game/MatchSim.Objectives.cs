@@ -12,19 +12,27 @@ namespace Vision.Game
 
         void UpdateObjectives(float dt)
         {
-            // Generators.
+            // Generators: each living survivor past the first adds a step of speed; a ghost in a body lending a hand, two
+            // thirds of one (and only while a living survivor works it).
             var workers = new int[Gens.Length];
+            var helpers = new int[Gens.Length];
             foreach (SimPlayer p in Order)
-                if (p.Role == Role.Survivor && p.Action == ActionKind.Repair && p.ActionTarget >= 0 && p.ActionTarget < Gens.Length) workers[p.ActionTarget]++;
+                if (p.Role == Role.Survivor && p.Action == ActionKind.Repair && p.ActionTarget >= 0 && p.ActionTarget < Gens.Length)
+                {
+                    if (p.Ghost) helpers[p.ActionTarget]++;
+                    else workers[p.ActionTarget]++;
+                }
             for (int gi = 0; gi < Gens.Length; gi++)
             {
                 GenState g = Gens[gi];
-                g.Workers = workers[gi];
+                g.Workers = workers[gi] + helpers[gi];
                 if (g.Repaired) continue;
-                if (g.Workers > 0 && !Gate.Powered)
+                if (workers[gi] > 0 && !Gate.Powered)
                 {
-                    float mul = 1f + Balance.Objectives.CoopStep * (g.Workers - 1);
+                    float mul = 1f + Balance.Objectives.CoopStep * (workers[gi] - 1 + Balance.Ghost.HelpShare * helpers[gi]);
                     g.Progress += mul / Bal.RepairTime * dt;
+                    // Testing mode: a generator starts the moment anyone works it.
+                    if (TestMode) g.Progress = 1f;
                     g.Regressing = false;
                 }
                 else if (g.Regressing)
@@ -232,6 +240,7 @@ namespace Vision.Game
         /// they are, with no time limit, and keep at them until each has dealt them a third of their health himself, or he's
         /// slain, or they're down (by anything); Shane runs after them until he's stunned and driven off (two bottles, a
         /// shotgun blast or galaxy gas; Zach's machete or Soundcloud Burst). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
+        /// Those four only (the user's rule): no other NPC is touched by it.
         /// </summary>
         public void Avenge(SimPlayer target)
         {

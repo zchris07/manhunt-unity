@@ -33,6 +33,8 @@ namespace Vision.Game
         public readonly List<Vector2> Stakes = new List<Vector2>();
         public readonly List<Vector2> Notes = new List<Vector2>();
         public readonly List<Vector2> SurvivorSpawns = new List<Vector2>();
+        /// <summary>Where a sacrificed survivor's ghost comes back: inside Miga Sushi and the Diddy Chamber.</summary>
+        public readonly List<Vector2> GhostSpawns = new List<Vector2>();
         /// <summary>Chris Zelley's ambulance: its centre, the direction its length runs (radians), and its length and width.</summary>
         public Vector2 AmbulanceAt = new Vector2(0f, -27f);
         public float AmbulanceAngle;

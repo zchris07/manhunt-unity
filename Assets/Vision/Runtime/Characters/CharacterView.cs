@@ -110,14 +110,16 @@ namespace Vision.Characters
 
         static ActionClip SurvivorState(SimPlayer p)
         {
-            switch (p.Health)
-            {
-                case Game.Health.Downed: return ActionClips.Crawl;
-                case Game.Health.Carried: return ActionClips.Carried;
-                case Game.Health.Staked: return ActionClips.Staked;
-                case Game.Health.Escaped:
-                case Game.Health.Eliminated: return null;
-            }
+            // (A ghost is out of the match, but in a body it still works a generator, cowers in gas...)
+            if (!p.Ghost)
+                switch (p.Health)
+                {
+                    case Game.Health.Downed: return ActionClips.Crawl;
+                    case Game.Health.Carried: return ActionClips.Carried;
+                    case Game.Health.Staked: return ActionClips.Staked;
+                    case Game.Health.Escaped:
+                    case Game.Health.Eliminated: return null;
+                }
             if (p.StunT > 0f) return ActionClips.Stunned;
             // A survivor Thomas armed fires the Hemp Beam from the palm too.
             if (p.BeamT > 0f) return ActionClips.Beam;

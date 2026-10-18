@@ -4,7 +4,7 @@ using Vision.Player;
 namespace Vision.Game
 {
     /// <summary>The testing-mode effects panel: each button plays a stun or flash on yourself (the original's testFx.ts).</summary>
-    public enum TestFx : byte { Scare, Book, Waz, Stun, Blast, Gas, Down, Vape }
+    public enum TestFx : byte { Scare, Book, Waz, Stun, Blast, Gas, Down, Vape, Sniper }
 
     public sealed partial class MatchSim
     {
@@ -18,6 +18,7 @@ namespace Vision.Game
             (TestFx.Gas, "Galaxy gas"),
             (TestFx.Down, "Knocked down"),
             (TestFx.Vape, "Penjamin gas"),
+            (TestFx.Sniper, "Shot by a 0.50 cal"),
         };
 
         /// <summary>Puts the NPCs back where they started (testing). The NPC framework sets it.</summary>
@@ -85,6 +86,22 @@ namespace Vision.Game
                     if (zach) DownHunter(p, false);
                     else Emit(null, new GameEvent { Kind = EventKind.Hit, A = p.Id, B = 0, Pos = p.Pos, F = 0f, Text = "punch" });
                     break;
+                case TestFx.Sniper:
+                {
+                    // A round from straight ahead, as one strikes Zach: thrown back, slowed (falling off over a second), the
+                    // sprint locked out for a while; the crack, the round's line and the strike on the body (no damage).
+                    float from = p.Facing;
+                    Vector2 origin = p.Pos + p.FacingDir * R(260f);
+                    Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Shot, A = 0, B = (int)ItemType.Sniper, Pos = origin, F = from + Mathf.PI });
+                    Noise(origin, 2400f, "shot");
+                    BulletStruck(p.Pos);
+                    Knock(p, Balance.Items.Sniper.KbDuration, Balance.Items.Sniper.KbPeak, from + Mathf.PI);
+                    p.SniperSlowT = Balance.Items.Sniper.SlowTime;
+                    p.Move.StaminaLock = Mathf.Max(p.Move.StaminaLock, Balance.Items.Sniper.SprintLock);
+                    p.Move.SprintBlocked = true;
+                    Emit(null, new GameEvent { Kind = EventKind.Hit, A = p.Id, B = 0, Pos = p.Pos, F = 0.25f, Text = "bullet" });
+                    break;
+                }
             }
         }
 
@@ -245,6 +262,9 @@ namespace Vision.Game
             if (!TestMode) return;
             Npcs.Clear();
             NpcSpawner?.Invoke(this);
+            // The dead NPCs' bodies go with them (any a ghost is in stays theirs).
+            Bodies.RemoveAll(b => b.OfNpc && b.Ghost == 0);
+            npcBodies.Clear();
             // As the original's: Chacko's vengeance called off, Sexton's dropped beam gone.
             Vengeance = 0;
             Drops.RemoveAll(d => d.Item == ItemType.HempBeam);

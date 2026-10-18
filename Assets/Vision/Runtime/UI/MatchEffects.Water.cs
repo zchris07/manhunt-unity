@@ -26,6 +26,8 @@ namespace Vision.UI
             {
                 if (p.Role == Role.Spectator || p.HideState == 2 || p.Health == Health.Carried || p.Health == Health.Escaped) continue;
                 if (p.Health == Health.Eliminated && !p.Ghost) continue;
+                // (A ghost's wake only for those who can see a ghost.)
+                if (Vision.Player.PlayerController.GhostForm(p) && !MatchSim.SeesGhosts(host.Local)) continue;
                 Wade(p.Id, p.Pos, p.RadiusD, now, dt);
             }
             foreach (Npc n in sim.Npcs)

@@ -158,8 +158,8 @@ namespace Vision.Game
                 /// <summary>(Five charges, the original's three and two more, at the user's request.)</summary>
                 public const int Charges = 5;
                 // Every beam, whoever fires it, takes 1 HP of anyone it touches ten times a second (the user's rule; the
-                // original's Zach beam took 3% of a survivor's health a tick). A door the beam stays on for DoorTime s breaks.
-                public const float Cooldown = 2f, Windup = 1f, ZachTickDamage = 0.01f, NpcHitEvery = 0.5f, TickRate = 10f, TickDamage = 0.01f, DoorTime = 1.5f;
+                // original's Zach beam took 3% of a survivor's health a tick). Anything it can destroy goes the moment it touches it.
+                public const float Cooldown = 2f, Windup = 1f, ZachTickDamage = 0.01f, NpcHitEvery = 0.5f, TickRate = 10f, TickDamage = 0.01f;
                 public const float AudioRadius = 1400f, AudioNear = 200f, AudioCurve = 1.5f, AudioVolume = 1f;
             }
 
@@ -301,12 +301,13 @@ namespace Vision.Game
         public static class Xray { public const float Range = BeamRange, Brightness = 0.7f, FadeIn = 0.5f, FadeOut = 1f / 6f, StartReach = 0.35f; }
 
         /// <summary>
-        /// Ghosts (the user's rule): a sacrificed survivor is back as one after <see cref="RespawnDelay"/> s (out of the woods,
-        /// after the black screen); their Ghost Pulse waits <see cref="Cooldown"/> s between pulses, flashes its picture for
-        /// <see cref="FlashTime"/> s (fading in and out over <see cref="FlashFade"/> of it), and its clip carries
-        /// <see cref="HearRadius"/> units.
+        /// Ghosts (the user's rules): a sacrificed survivor is back as one after <see cref="RespawnDelay"/> s (out of the woods,
+        /// after the black screen). Taking a body plays for <see cref="PossessTime"/> s (it levitates upright and the ghost
+        /// merges with it), from no further than <see cref="Reach"/> units; a body dropped falls over <see cref="FallTime"/> s.
+        /// In a body they help a living survivor's repair or gate at <see cref="HelpShare"/> of the speed-up another living
+        /// survivor would add.
         /// </summary>
-        public static class Ghost { public const float RespawnDelay = 4f, Cooldown = 15f, FlashTime = 0.6f, FlashFade = 0.3f, HearRadius = 1800f; }
+        public static class Ghost { public const float RespawnDelay = 4f, PossessTime = 2.2f, FallTime = 0.6f, Reach = 70f, HelpShare = 2f / 3f; }
 
         public static class Sexton
         {
@@ -456,7 +457,8 @@ namespace Vision.Game
         {
             public const int PickChecks = 5, PickMisses = 2, GateHits = 4 * 2;
             public static readonly float[] PickSpeeds = { 200f, 230f, 260f, 290f, 320f };
-            public static readonly float[] PickWidths = { 36f, 32f, 29f, 27f, 25f };
+            /// <summary>(10% narrower than they were, at the user's request: the lock 10% harder.)</summary>
+            public static readonly float[] PickWidths = { 36f * 0.9f, 32f * 0.9f, 29f * 0.9f, 27f * 0.9f, 25f * 0.9f };
             public const float PickPause = 0.45f;
         }
 

@@ -93,6 +93,8 @@ namespace Vision.Game
         {
             p.Action = ActionKind.None;
             p.ActionTarget = -1;
+            // The last click (or E, or Space) does nothing else while it's held: no shot, no ability, no gate swung back.
+            p.HeldOff |= Btn.Interact | Btn.Space | Btn.Primary;
             if (g < 0 || g >= DoorLocked.Length) return;
             DoorLocked[g] = false;
             SetDoor(g, true);

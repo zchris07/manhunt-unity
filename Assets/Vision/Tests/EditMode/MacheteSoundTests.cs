@@ -36,7 +36,12 @@ namespace Vision.Tests
             // Walls of a structure (a rock's "wall" is stone, as are the gate's pillars).
             foreach (string wall in new[] { "Outer Wall", "Wall", "Plank Wall" })
                 Assert.AreEqual(MatchEffects.Surface.Wall, Of(wall), wall);
-            Assert.AreEqual(MatchEffects.Surface.Stone, Of("Rock Wall"));
+            // A rock or a boulder: stone that rings with the lighter metal's clink under the machete (not a 0.50 cal round).
+            Assert.AreEqual(MatchEffects.Surface.Rock, Of("Rock Wall"));
+            Assert.AreEqual(MatchEffects.Surface.Rock, Of("Rock"));
+            Assert.AreEqual(MatchEffects.Surface.Rock, Of("Boulder"));
+            Assert.AreEqual("metal_light", MatchEffects.CueFor(MatchEffects.Surface.Rock));
+            Assert.IsNull(MatchEffects.CueFor(MatchEffects.Surface.Rock, false));
             Assert.AreEqual(MatchEffects.Surface.Stone, Of("Gate Pillar"));
             Assert.AreEqual(MatchEffects.Surface.Glass, Of("Window"));
             Assert.AreEqual(MatchEffects.Surface.Metal, Of("Barrel", "Building"), "its own name first");

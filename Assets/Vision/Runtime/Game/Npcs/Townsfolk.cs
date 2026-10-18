@@ -378,7 +378,6 @@ namespace Vision.Game
         {
             if (!alive) return;
             Tick(dt);
-            if (!lit && UpdateAvenger(dt)) return;
             if (lit)
             {
                 Moving = false;
@@ -448,7 +447,6 @@ namespace Vision.Game
             if (!alive) return;
             Tick(dt);
             Moving = false;
-            if (UpdateAvenger(dt)) return;
             if (FleeT > 0f) RunAway(Balance.Sexton.Flee * Balance.Thomas.FleeMul, dt);
             else Wander(Balance.Thomas.Walk, dt);
             Gait = !Moving ? 0 : FleeT > 0f ? 2 : 1;
@@ -537,7 +535,6 @@ namespace Vision.Game
             Tick(dt);
             Moving = false;
             Gait = 0;
-            if (UpdateAvenger(dt)) return;
             if (Armed && FleeT <= 0f)
             {
                 armedT = Mathf.Max(0f, armedT - dt);
@@ -645,7 +642,6 @@ namespace Vision.Game
             Moving = false;
             Gait = 0;
             fireCd = Mathf.Max(0f, fireCd - dt);
-            if (UpdateAvenger(dt)) return;
             if (FleeT > 0f)
             {
                 RunAway(Balance.Sexton.Flee * Balance.Monique.FleeMul, dt);

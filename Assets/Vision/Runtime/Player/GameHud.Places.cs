@@ -17,6 +17,8 @@ namespace Vision.Player
         Text placeText;
         string placeIn;
         float placeT = -1f;
+        /// <summary>The banner is showing a line of news (<see cref="Banner"/>), not a place's name.</summary>
+        bool bannerUp;
 
         const float PlaceIn = 0.5f, PlaceHold = 2.2f, PlaceOut = 0.9f;
 
@@ -44,9 +46,10 @@ namespace Vision.Player
             if (me != null && world != null && !MainMenuOpen)
                 foreach (var (name, area) in world.Places)
                     if (area.Contains(me.Pos)) { inside = name; break; }
-            if (inside != null && inside != placeIn)
+            if (inside != null && inside != placeIn && !bannerUp)
             {
                 placeText.text = inside;
+                placeText.fontSize = 46;
                 placeT = 0f;
             }
             placeIn = inside;
@@ -56,6 +59,7 @@ namespace Vision.Player
             if (a <= 0f && placeT > PlaceIn)
             {
                 placeT = -1f;
+                bannerUp = false;
                 place.gameObject.SetActive(false);
                 return;
             }

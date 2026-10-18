@@ -78,7 +78,6 @@ namespace Vision.Game
         public override void Update(MatchSim sim, float dt)
         {
             Tick(dt);
-            if (UpdateAvenger(dt)) return;
             if (holdT > 0f)
             {
                 holdT -= dt;
@@ -207,7 +206,6 @@ namespace Vision.Game
         {
             if (!alive) return;
             Tick(dt);
-            if (UpdateAvenger(dt)) return;
             ModeT -= dt;
             float speed = 0f;
             if (fleeing)

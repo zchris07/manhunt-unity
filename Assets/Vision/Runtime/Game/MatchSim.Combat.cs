@@ -83,7 +83,8 @@ namespace Vision.Game
             float bestD = float.MaxValue;
             foreach (SimPlayer q in Order)
             {
-                if (!Hittable(q)) continue;
+                // (A body a ghost is in too: any hit, at any charge, knocks the ghost out of it.)
+                if (!Hittable(q) && !InBody(q)) continue;
                 float d = Vector2.Distance(q.Pos, h.Pos);
                 if (d >= bestD || !InSwipe(h, q.Pos, q.RadiusD) || !Geo.LineOfSight(h.Pos, q.Pos)) continue;
                 best = q;
@@ -93,7 +94,8 @@ namespace Vision.Game
             int power = h.Heavy ? 2 : 1;
             if (best != null)
             {
-                DamageSurvivor(best, h, h.SwingDamage);
+                if (InBody(best)) KnockOut(best, h, "slash");
+                else DamageSurvivor(best, h, h.SwingDamage);
                 hit = body = true;
             }
             else
@@ -206,10 +208,11 @@ namespace Vision.Game
             float reach = h.RadiusD * Balance.Hunter.Lunge.HitboxMul;
             foreach (SimPlayer q in Order)
             {
-                if (!Hittable(q)) continue;
+                if (!Hittable(q) && !InBody(q)) continue;
                 float r = reach + q.RadiusD + R(HitTolerance * 0.5f);
                 if (SimMap.SegmentDistance(q.Pos, from, h.Pos) > r || !Geo.LineOfSight(h.Pos, q.Pos)) continue;
-                DamageSurvivor(q, h, Balance.Hunter.Lunge.Damage);
+                if (InBody(q)) KnockOut(q, h, "slash");
+                else DamageSurvivor(q, h, Balance.Hunter.Lunge.Damage);
                 LungeLanded(h);
                 Emit(Near(h.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Swing, A = h.Id, B = 1, F = 1f, G = 1f });
                 return;

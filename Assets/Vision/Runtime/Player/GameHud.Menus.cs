@@ -338,23 +338,34 @@ namespace Vision.Player
             VolumeRow("Soundcloud Burst", vol.Sfx, v => SetVolume(1, v), out sfxSlider, ref ry);
             VolumeRow("Sexton's reel", vol.Ambience, v => SetVolume(2, v), out ambienceSlider, ref ry);
             ry -= 6f;
-            survivorTable = ControlsBlock(panel, "Survivor", SurvivorControls, new Vector2(x, ry), rw);
-            hunterTable = ControlsBlock(panel, "Zach Branch (hunter)", HunterControls, new Vector2(x, ry), rw);
+            // The controls in a list that scrolls in what's left of the panel.
+            float listH = h - 32f + ry;
+            survivorTable = ControlsBlock(panel, "Survivor", SurvivorControls, new Vector2(x, ry), rw, listH);
+            hunterTable = ControlsBlock(panel, "Zach Branch (hunter)", HunterControls, new Vector2(x, ry), rw, listH);
             hunterTable.SetActive(false);
             menu = shade.gameObject;
             menu.SetActive(false);
         }
 
-        /// <summary>A heading, a table of keys for a role, then the keys that always work.</summary>
-        GameObject ControlsBlock(RectTransform parent, string heading, (string, string)[] rows, Vector2 at, float width)
+        /// <summary>
+        /// A heading, a table of keys for a role, then the keys that always work: a list that scrolls (the wheel, or its bar)
+        /// in a box <paramref name="height"/> tall, so none of it ever runs out of the panel.
+        /// </summary>
+        GameObject ControlsBlock(RectTransform parent, string heading, (string, string)[] rows, Vector2 at, float width, float height)
         {
-            RectTransform block = Node(heading, parent, new Vector2(0f, 1f), new Vector2(0f, 1f), at, new Vector2(width, 480f));
-            kit.Heading(block, heading, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(width, 26f), 18);
-            float h = kit.ControlsTable(block, rows, new Vector2(0f, -32f), 150f, 25f, 15);
-            kit.Heading(block, "Always", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -38f - h), new Vector2(width, 26f), 18);
-            kit.ControlsTable(block, GeneralControls, new Vector2(0f, -68f - h), 150f, 25f, 15);
-            return block.gameObject;
+            RectTransform block = UiKit.ScrollList(heading, parent, new Vector2(0f, 1f), new Vector2(0f, 1f), at, new Vector2(width, height), out ScrollRect scroll);
+            float cw = block.sizeDelta.x, keys = 150f;
+            kit.Heading(block, heading, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(cw, 26f), 18);
+            float h = kit.ControlsTable(block, rows, new Vector2(0f, -32f), keys, 25f, 15, cw - keys);
+            kit.Heading(block, "Always", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, -38f - h), new Vector2(cw, 26f), 18);
+            float g = kit.ControlsTable(block, GeneralControls, new Vector2(0f, -68f - h), keys, 25f, 15, cw - keys);
+            block.sizeDelta = new Vector2(cw, 68f + h + g + 6f);
+            scroll.verticalNormalizedPosition = 1f;
+            return scroll.gameObject;
         }
+
+        /// <summary>The settings' controls list for a role (tests and captures): its scroll box.</summary>
+        public ScrollRect ControlsList(bool hunter) => (hunter ? hunterTable : survivorTable)?.GetComponent<ScrollRect>();
 
         void SetVolume(int which, float v)
         {

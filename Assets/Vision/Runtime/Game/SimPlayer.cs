@@ -194,9 +194,6 @@ namespace Vision.Game
         public float HempLock;
         public int BeamCharges;
         public float BeamCd, BeamT, BeamAng, BeamLen, BeamTick, BeamFlinch;
-        /// <summary>The closed door the beam is burning into (-1: none) and for how long it has been on it.</summary>
-        public int BeamDoor = -1;
-        public float BeamDoorT;
         public int BeamId;
         public readonly Dictionary<string, float> BeamHit = new Dictionary<string, float>();
         public int VapeCharges = Balance.Hunter.Vape.Charges;
@@ -220,12 +217,23 @@ namespace Vision.Game
         /// <summary>Eliminated by wandering into the woods (their light stays out where they fell).</summary>
         public bool LostInWoods;
         /// <summary>
-        /// Sacrificed and back as a ghost (MatchSim.Ghosts): when they come back (0: not waiting) and where, and the Ghost
-        /// Pulse's cooldown.
+        /// Sacrificed and back as a ghost (MatchSim.Ghosts): when they come back (0: not waiting) and where; the body they
+        /// took (<see cref="MatchSim.Bodies"/>' id, 0: none), how long taking it has left to play, the look they wear in it
+        /// ("Survivor", or the NPC's name) and whose it was; and whether they've been knocked out of one (never another).
         /// </summary>
         public bool Ghost;
-        public float GhostAt, GhostCd;
+        public float GhostAt;
         public Vector2 GhostSpawn;
+        public int Body;
+        public float PossessT;
+        public string BodyLook = "", BodyName = "";
+        public bool Spent;
+        /// <summary>A ghost in a body, walking about as its owner did.</summary>
+        public bool Reanimated => Ghost && Body != 0;
+        /// <summary>A ghost out of any body (sees through it all once knocked out of one).</summary>
+        public bool FreeGhost => Ghost && Body == 0;
+        /// <summary>Buttons that do nothing until they're let go (held through the click that picked a lock or hit a skill check).</summary>
+        public Btn HeldOff;
         public int BloodPool;
         public float Terror;
 

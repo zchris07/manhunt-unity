@@ -19,11 +19,35 @@ namespace Vision.World
 
         const float U = MapLayout.Unit;
 
-        /// <summary>The height of the ground a body stands on: the building's floor inside it, the terrain everywhere else.</summary>
+        /// <summary>
+        /// The height of the ground a body stands on: the building's floor inside it, the lake dock's boards on it, the
+        /// terrain everywhere else.
+        /// </summary>
         public float GroundHeight(Vector2 at)
         {
             if (Layout != null && Layout.Plan != null && Layout.Building.Contains(at)) return BuildingFloor + 0.015f;
+            if (OnDock(at, out float deck)) return deck;
             return Terrain != null ? Terrain.Height(at.x, at.y) : 0f;
+        }
+
+        /// <summary>How far the dock's deck stands above the lake's water (or the shore at its foot, if that's higher).</summary>
+        public const float DockDeckAbove = 0.35f;
+
+        /// <summary>
+        /// Whether a point on the level's plane is on the lake dock's boards (from the shore at its foot to its end, its
+        /// width across), and the height of its deck: solid ground to walk on, the water a step down either side.
+        /// </summary>
+        public bool OnDock(Vector2 at, out float deck)
+        {
+            deck = 0f;
+            if (Layout == null || Terrain == null || Terrain.LakeLayout == null) return false;
+            Vector2 a = Layout.DockStart, ab = Layout.DockEnd - a;
+            float len2 = ab.sqrMagnitude;
+            if (len2 < 1e-6f) return false;
+            float t = Vector2.Dot(at - a, ab) / len2;
+            if (t < 0f || t > 1f || (at - (a + ab * t)).magnitude > Layout.DockHalfWidth) return false;
+            deck = Mathf.Max(Terrain.Height(a.x, a.y), Terrain.LakeLevel) + DockDeckAbove;
+            return true;
         }
 
         /// <summary>
@@ -33,6 +57,7 @@ namespace Vision.World
         public float SurfaceHeight(Vector2 at)
         {
             if (Layout != null && Layout.Plan != null && Layout.Building.Contains(at)) return BuildingFloor + 0.015f;
+            if (OnDock(at, out float deck)) return deck + 0.01f;
             if (hasSurface && surface.SurfaceHeight(at.x, at.y, out float h)) return h;
             return GroundHeight(at);
         }

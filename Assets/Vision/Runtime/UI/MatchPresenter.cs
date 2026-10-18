@@ -294,30 +294,6 @@ namespace Vision.UI
             }
         }
 
-        /// <summary>
-        /// Every picture in the game a ghost's pulse can flash: the notes' photos (the user's own too), the Grapes of Wrath's
-        /// and Waz's, but never the Soundcloud Burst's.
-        /// </summary>
-        public static System.Collections.Generic.List<string> GhostPictures()
-        {
-            var list = new System.Collections.Generic.List<string>();
-            foreach (string n in Vision.World.NotePictures.Names) list.Add(n);
-            for (int i = 1; i <= Balance.Items.Book.Images; i++) list.Add($"book-{i}");
-            list.Add("waz-slain");
-            return list;
-        }
-
-        static string lastGhostPicture;
-
-        /// <summary>A random one of <see cref="GhostPictures"/>, never the one flashed last time.</summary>
-        public static string GhostPicture()
-        {
-            var list = GhostPictures();
-            if (list.Count > 1 && lastGhostPicture != null) list.Remove(lastGhostPicture);
-            lastGhostPicture = list[Random.Range(0, list.Count)];
-            return lastGhostPicture;
-        }
-
         public void OnEvent(GameEvent e)
         {
             Bind();
@@ -327,14 +303,6 @@ namespace Vision.UI
             {
                 case EventKind.Scare:
                 {
-                    if (e.B == 1)
-                    {
-                        // A ghost's pulse: a random picture (never the Soundcloud one, never the last one again) flashed
-                        // and shaken for 0.6 s, fading in and out. Its clip is heard from the ghost (MatchEffects).
-                        overlays?.FlashImage(ScreenOverlays.Picture(GhostPicture()), Balance.Ghost.FlashTime, Balance.Ghost.FlashTime * Balance.Ghost.FlashFade, true);
-                        Shake(12f);
-                        break;
-                    }
                     // 2.5 s: the picture and a snippet of the song both fade in and out.
                     overlays?.JumpScare(Balance.Hunter.Burst.ScareTime, Balance.Hunter.Burst.ScareFade);
                     Audio.PlayClip("burst", Balance.Hunter.Burst.ScareVolume, Balance.Hunter.Burst.ScareFade, Balance.Hunter.Burst.ScareFade, Balance.Hunter.Burst.ScareTime);

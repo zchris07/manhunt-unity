@@ -53,6 +53,43 @@ namespace Vision.UI
             return rt;
         }
 
+        /// <summary>
+        /// A box whose contents scroll up and down when they're taller than it (the mouse wheel over it, or dragging the
+        /// thin bar down its right side, shown only when there's more to see): returns the content to fill from its top,
+        /// its width the box's less the bar; set the content's height once it's filled.
+        /// </summary>
+        public static RectTransform ScrollList(string name, RectTransform parent, Vector2 anchor, Vector2 pivot, Vector2 pos, Vector2 size, out ScrollRect scroll)
+        {
+            const float bar = 6f, gap = 8f;
+            RectTransform box = Node(name, parent, anchor, pivot, pos, size);
+            scroll = box.gameObject.AddComponent<ScrollRect>();
+            RectTransform viewport = Fill("Viewport", box);
+            viewport.offsetMax = new Vector2(-(bar + gap), 0f);
+            // (Clear, but there for the wheel to land on.)
+            Box(viewport, new Color(0f, 0f, 0f, 0f), true);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            RectTransform content = Node("Content", viewport, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(size.x - bar - gap, size.y));
+            RectTransform track = Node("Scrollbar", box, new Vector2(1f, 0f), new Vector2(1f, 0f), Vector2.zero, new Vector2(bar, 0f));
+            track.anchorMax = new Vector2(1f, 1f);
+            Box(track, A(Bone, 0.08f), true);
+            RectTransform handle = Fill("Handle", Fill("Sliding Area", track));
+            Image grip = Box(handle, A(Bone, 0.45f), true);
+            var sb = track.gameObject.AddComponent<Scrollbar>();
+            sb.handleRect = handle;
+            sb.targetGraphic = grip;
+            sb.direction = Scrollbar.Direction.BottomToTop;
+            scroll.content = content;
+            scroll.viewport = viewport;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.inertia = false;
+            scroll.scrollSensitivity = 30f;
+            scroll.verticalScrollbar = sb;
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            return content;
+        }
+
         /// <summary>A child filling its parent, inset by <paramref name="inset"/> pixels.</summary>
         public static RectTransform Fill(string name, Transform parent, float inset = 0f)
         {
@@ -320,13 +357,17 @@ namespace Vision.UI
         }
 
         /// <summary>A two-column table of key caps and what they do; returns its height.</summary>
-        public float ControlsTable(RectTransform parent, (string key, string action)[] rows, Vector2 topLeft, float keyColumn, float rowHeight = 30f, int fontSize = 16)
+        public float ControlsTable(RectTransform parent, (string key, string action)[] rows, Vector2 topLeft, float keyColumn, float rowHeight = 30f, int fontSize = 16, float actionWidth = 400f)
         {
             float y = topLeft.y;
             foreach (var (key, action) in rows)
             {
                 Kbd(parent, key, new Vector2(topLeft.x, y));
-                Label(Node(action, parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(topLeft.x + keyColumn, y), new Vector2(400f, 24f)), action, fontSize, TextAnchor.MiddleLeft, Bone, Face.Mono, 0f, false);
+                Text t = Label(Node(action, parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(topLeft.x + keyColumn, y), new Vector2(actionWidth, 24f)), action, fontSize, TextAnchor.MiddleLeft, Bone, Face.Mono, 0f, false);
+                // A long action shrinks to fit its column rather than running out of it.
+                t.resizeTextForBestFit = true;
+                t.resizeTextMinSize = Mathf.Max(9, fontSize - 4);
+                t.resizeTextMaxSize = fontSize;
                 y -= rowHeight;
             }
             return topLeft.y - y;

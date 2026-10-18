@@ -10,8 +10,6 @@ namespace Vision.Game
         public Vector2 Origin, Dir;
         public float T0;
         public int By;
-        /// <summary>A ghost's pulse (red, flashing a picture at the players it passes, never touching an NPC).</summary>
-        public bool Ghost;
         public readonly HashSet<object> Hit = new HashSet<object>();
     }
 
@@ -185,25 +183,16 @@ namespace Vision.Game
                     float sag = R(MatchRules.BurstSag(Scale.ToUnits(Mathf.Min(Mathf.Abs(side), width / 2f))));
                     return along >= prev - thick - sag - r && along <= front + sag + r;
                 }
-                if (b.Ghost)
-                {
-                    // A ghost's pulse: survivors and Zach alike, never the ghost who sent it, never an NPC.
-                    foreach (SimPlayer p in Order)
-                    {
-                        if (p.Id == b.By || b.Hit.Contains(p) || !GhostPulseTarget(p) || !Crosses(p.Pos, p.RadiusD)) continue;
-                        b.Hit.Add(p);
-                        GhostPulseHit(b, p);
-                    }
-                    if (prev >= maxD) Bursts.RemoveAt(k);
-                    continue;
-                }
                 foreach (SimPlayer p in Order)
                 {
-                    if (p.Role != Role.Survivor || p.Ghost || b.Hit.Contains(p) || p.Health == Health.Escaped || p.Health == Health.Eliminated) continue;
+                    // Survivors still in it, and a body a ghost is in (scared all the same, hurt by nothing; no NPC hears of it).
+                    bool body = InBody(p);
+                    if (p.Role != Role.Survivor || b.Hit.Contains(p)) continue;
+                    if (!body && (p.Ghost || p.Health == Health.Escaped || p.Health == Health.Eliminated)) continue;
                     if (!Crosses(p.Pos, p.RadiusD)) continue;
                     b.Hit.Add(p);
                     p.ScareT = Balance.Hunter.Burst.ScareTime;
-                    PlayerAttacked(p, Get(b.By));
+                    if (!body) PlayerAttacked(p, Get(b.By));
                     Emit(p.Id, new GameEvent { Kind = EventKind.Scare, A = b.By });
                 }
                 // The wave also stuns NPCs that are being aggressive; any it passes over is set off by it (Monique and
@@ -335,7 +324,8 @@ namespace Vision.Game
                 foreach (SimPlayer p in Order)
                 {
                     if (p.Role != Role.Survivor || p.HideState == 2) continue;
-                    if (p.Health != Health.Healthy && p.Health != Health.Wounded && p.Health != Health.Downed) continue;
+                    // (A body a ghost is in is slowed and blinded too; the gas's burn passes it by.)
+                    if (p.Health != Health.Healthy && p.Health != Health.Wounded && p.Health != Health.Downed && !InBody(p)) continue;
                     if (VapeCoverage(v, ext, p.Pos, p.RadiusD) < Balance.Hunter.Vape.Coverage) continue;
                     VapeSurvivor(p, 1f - Vector2.Distance(p.Pos, v.Origin) / v.Range);
                 }
@@ -420,8 +410,6 @@ namespace Vision.Game
             h.BeamAng = aim;
             h.BeamLen = 0f;
             h.BeamHit.Clear();
-            h.BeamDoor = -1;
-            h.BeamDoorT = 0f;
             h.ChargeT = -1f;
             Feed($"{h.Name} fired a Hemp Beam");
         }
@@ -463,9 +451,10 @@ namespace Vision.Game
 
         /// <summary>
         /// The beam runs until it meets something solid or a person, and hurts whoever it touches: Zach or a survivor, the
-        /// beamer's own side too (1 HP ten times a second). Glass in its way shatters at once and it carries on through the
-        /// empty frame; a door (shut or standing open) or a pallet it stays on for <see cref="Balance.Hunter.Beam.DoorTime"/> s
-        /// is destroyed (never the graveyard's gates).
+        /// beamer's own side too (1 HP ten times a second). Everything it can destroy goes the moment it touches it (the
+        /// user's rule): glass shatters and it carries on through the empty frame; a door (shut or standing open), a pallet
+        /// (standing or dropped) and the graveyard's gates once they're unlocked and shut again are destroyed (locked, the
+        /// gates hold; shutters never give).
         /// </summary>
         void FireBeam(SimPlayer h, int ticks, float dt)
         {
@@ -481,57 +470,42 @@ namespace Vision.Game
                 Noise(s + d * t, 800f, "glass");
             }
             float len = wall;
-            // What it burns through, the nearest along it: a shut door at its end, a door standing open (its panel swung out
-            // from the hinge) or a pallet (standing or dropped) it crosses; never the graveyard's gates. Held on one for
-            // the door time, it's destroyed. (Doors are numbered as they are; pallets after them.)
-            int target = -1;
-            float targetT = float.PositiveInfinity;
+            // Everything it can destroy goes the moment it touches it: a shut door at its end, a door standing open (its
+            // panel swung out from the hinge), a pallet (standing or dropped) it crosses, the graveyard's gates once
+            // unlocked and shut again; never a locked gate or a shutter.
             for (int i = 0; i < Map.Doors.Count; i++)
             {
-                if (DoorBroken[i] || Map.Doors[i].Gate || Map.Doors[i].Shutter) continue;
+                if (DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i] || (Map.Doors[i].Gate && Doors[i])) continue;
                 Vector2 da = Map.Doors[i].A, db = Map.Doors[i].B;
+                float hitT = float.PositiveInfinity;
                 if (!Doors[i])
                 {
                     float t = RaySegment(s, d, da, db);
-                    if (!float.IsPositiveInfinity(t) && Mathf.Abs(t - len) < R(6f) && t < targetT) { target = i; targetT = t; }
-                    continue;
+                    if (t <= len + R(6f)) hitT = t;
                 }
-                Vector2 along = db - da;
-                foreach (float sg in new[] { 1f, -1f })
+                else
                 {
-                    float ang = sg * DoorOpenDeg * Mathf.Deg2Rad, cs = Mathf.Cos(ang), sn = Mathf.Sin(ang);
-                    Vector2 leaf = da + new Vector2(along.x * cs - along.y * sn, along.x * sn + along.y * cs);
-                    float t = RaySegment(s, d, da, leaf);
-                    if (t <= len + R(6f) && t < targetT) { target = i; targetT = t; }
+                    Vector2 along = db - da;
+                    foreach (float sg in new[] { 1f, -1f })
+                    {
+                        float ang = sg * DoorOpenDeg * Mathf.Deg2Rad, cs = Mathf.Cos(ang), sn = Mathf.Sin(ang);
+                        Vector2 leaf = da + new Vector2(along.x * cs - along.y * sn, along.x * sn + along.y * cs);
+                        float t = RaySegment(s, d, da, leaf);
+                        if (t <= len + R(6f)) hitT = Mathf.Min(hitT, t);
+                    }
                 }
+                if (float.IsPositiveInfinity(hitT)) continue;
+                SetDoor(i, true);
+                DoorBroken[i] = true;
+                Noise(s + d * Mathf.Min(hitT, len), 900f, Map.Doors[i].Gate ? "gate_smash" : "door_smash");
             }
             for (int i = 0; i < Map.Barricades.Count; i++)
             {
                 if (Barricades[i] == BarricadeState.Broken) continue;
                 float t = RaySegment(s, d, Map.Barricades[i].A, Map.Barricades[i].B);
-                if (t <= len + R(6f) && t < targetT) { target = Map.Doors.Count + i; targetT = t; }
-            }
-            if (target != h.BeamDoor) { h.BeamDoor = target; h.BeamDoorT = 0f; }
-            if (target >= 0)
-            {
-                h.BeamDoorT += dt;
-                if (h.BeamDoorT >= Balance.Hunter.Beam.DoorTime)
-                {
-                    Vector2 at = s + d * Mathf.Min(targetT, len);
-                    if (target < Map.Doors.Count)
-                    {
-                        SetDoor(target, true);
-                        DoorBroken[target] = true;
-                        Noise(at, 900f, "door_smash");
-                    }
-                    else
-                    {
-                        SetBarricade(target - Map.Doors.Count, BarricadeState.Broken);
-                        Noise(at, 700f, "smash");
-                    }
-                    h.BeamDoor = -1;
-                    h.BeamDoorT = 0f;
-                }
+                if (t > len + R(6f)) continue;
+                SetBarricade(i, BarricadeState.Broken);
+                Noise(s + d * Mathf.Min(t, len), 700f, "smash");
             }
             SimPlayer victim = null;
             float vt = len, halfW = R(Balance.Sexton.Defense.BeamWidth) / 2f;
@@ -539,7 +513,10 @@ namespace Vision.Game
             foreach (SimPlayer p in Order)
             {
                 if (p == h || p.Role == Role.Spectator) continue;
-                if (p.Role == Role.Hunter ? p.Health == Health.Eliminated : (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState == 2) continue;
+                // A body a ghost is in stops Zach's beam (one tick knocks the ghost out); a survivor's passes through it.
+                bool body = InBody(p);
+                if (body && h.Role != Role.Hunter) continue;
+                if (!body && (p.Role == Role.Hunter ? p.Health == Health.Eliminated : (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState == 2)) continue;
                 float along = Vector2.Dot(p.Pos - s, d);
                 if (along < 0f || along > vt) continue;
                 if (SimMap.SegmentDistance(p.Pos, s, s + d * len) > p.RadiusD + halfW) continue;
@@ -547,7 +524,11 @@ namespace Vision.Game
                 victim = p;
             }
             h.BeamLen = vt + h.RadiusD + R(2f);
-            if (victim != null)
+            if (victim != null && InBody(victim))
+            {
+                if (ticks > 0) KnockOut(victim, h, "beam");
+            }
+            else if (victim != null)
                 for (int i = 0; i < ticks; i++)
                 {
                     h.BeamFlinch++;

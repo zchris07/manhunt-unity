@@ -1230,8 +1230,9 @@ namespace Vision.Player
                     host.Sim.ClearDummies();
                     host.SwitchRole();
                 }
-                // The newer rules: Miga Sushi's gate (powered, then open), the hatch open by the dock, a ghost, its red
-                // pulse and the picture it flashes, Monique's arrow, wading through the lake, and the lobby's balance card.
+                // The newer rules: Miga Sushi's gate (powered, then open), the hatch open by the dock, a ghost (through a
+                // wall, taking a slain Jaden's body, walking as him, knocked out of it and seeing everything), Monique's
+                // arrow, wading through the lake, and the lobby's balance card.
                 {
                     SimPlayer meG = host.Local;
                     if (L.HasSushiGate)
@@ -1262,21 +1263,61 @@ namespace Vision.Player
                     yield return Shot("162b_hatch_slammed");
                     host.Sim.HatchClosed = false;
 
-                    // A ghost (staged on our own survivor, who stays in the match for the shots that follow).
-                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 6f)), Vector2.up, wanderer, away);
-                    meG.Ghost = true;
-                    meG.GhostCd = 0f;
-                    yield return Wait(10);
+                    // A ghost: Jaden slain beside us, then T (our own body left at our feet), through the building's wall,
+                    // Jaden's body taken (rising, then walking as him), knocked out of it by a Zach, and seeing everything.
+                    Vector2 spot = L.Spawn + new Vector2(0f, 6f);
+                    yield return Stage(player, V(spot), Vector2.up, wanderer, away);
+                    Jaden jd = null;
+                    foreach (Npc n in host.Sim.Npcs) if (n is Jaden j) jd = j;
+                    if (jd != null)
+                    {
+                        jd.Pos = spot + new Vector2(2.4f, 1.6f);
+                        jd.Snipe(host.Sim, meG);
+                    }
+                    yield return new WaitForSeconds(1f);
+                    host.CycleRole();
+                    meG = host.Local;
+                    yield return Wait(12);
                     gameHud.Refresh();
                     yield return Shot("163_ghost");
-                    host.Sim.TryGhostPulse(meG, Mathf.PI / 2f);
-                    yield return new WaitForSeconds(0.12f);
-                    gameHud.Refresh();
-                    yield return Shot("164_ghost_pulse_wave");
-                    gameHud.Overlays.FlashImage(Vision.UI.ScreenOverlays.Picture(Vision.UI.MatchPresenter.GhostPicture()), Balance.Ghost.FlashTime, Balance.Ghost.FlashTime * Balance.Ghost.FlashFade, true);
-                    yield return new WaitForSeconds(0.25f);
-                    yield return Shot("165_ghost_pulse_flash");
-                    meG.Ghost = false;
+                    Rect bld = L.Building;
+                    yield return Stage(player, V(new Vector2(bld.center.x, bld.yMin - 1.4f)), Vector2.up, wanderer, away);
+                    player.MoveOverride = Vector2.up;
+                    yield return new WaitForSeconds(1.6f);
+                    player.MoveOverride = null;
+                    Debug.Log($"[Vision] a ghost through the building's wall: inside {bld.Contains(meG.Pos)} at {meG.Pos.y - bld.yMin:0.0} m past it");
+                    yield return Wait(6);
+                    yield return Shot("163b_ghost_through_wall");
+                    Body jb = jd != null ? host.Sim.Bodies.Find(b => b.OfNpc && b.Of == jd.Id) : null;
+                    if (jb != null)
+                    {
+                        yield return Stage(player, V(jb.Pos + new Vector2(-1.2f, -0.6f)), (jb.Pos - meG.Pos).normalized, wanderer, away);
+                        yield return Wait(4);
+                        player.ExtraButtons = Btn.Interact;
+                        yield return Wait(3);
+                        player.ExtraButtons = Btn.None;
+                        yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.45f);
+                        yield return Shot("164_body_rising");
+                        yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.55f + 0.5f);
+                        gameHud.Refresh();
+                        Debug.Log($"[Vision] reanimated: {meG.Reanimated} as {meG.BodyName}, banner \"{gameHud.BannerText}\"");
+                        yield return Shot("165_reanimated_as_jaden");
+                        SimPlayer z = host.Sim.AddDummy(Role.Hunter, meG.Pos + new Vector2(1.4f, 0f));
+                        if (z != null) z.Facing = Mathf.PI;
+                        host.Sim.KnockOut(meG, z, "slash");
+                        yield return new WaitForSeconds(0.2f);
+                        yield return Shot("165b_knocked_out");
+                        yield return new WaitForSeconds(1.4f);
+                        gameHud.Refresh();
+                        yield return Shot("165c_ghost_sees_everything");
+                        host.Sim.ClearDummies();
+                    }
+                    // Back to Zach, then a survivor again, for the shots that follow.
+                    host.CycleRole();
+                    host.SwitchRole();
+                    meG = host.Local;
+                    TopDownCamera.TestZoom = 1f;
+                    yield return Stage(player, V(L.Spawn + new Vector2(0f, 6f)), Vector2.up, wanderer, away);
                     yield return new WaitForSeconds(0.7f);
 
                     // Monique's arrow, pointing at a Zach off to the north-east.
@@ -1297,6 +1338,33 @@ namespace Vision.Player
                     yield return Shot("167_wading_ripples");
                     player.MoveOverride = null;
 
+                    // The dock: out of the water and up onto its boards, walking along them.
+                    Vector2 dockAlong = (L.DockEnd - L.DockStart).normalized;
+                    Vector2 dockSide = new Vector2(-dockAlong.y, dockAlong.x);
+                    Vector2 besideDock = Vector2.Lerp(L.DockStart, L.DockEnd, 0.5f) + dockSide * (L.DockHalfWidth + 1.2f);
+                    yield return Stage(player, V(besideDock), -dockSide, wanderer, away);
+                    player.MoveOverride = -dockSide;
+                    // Wading in until the dock's boards are underfoot.
+                    float waded = 0f;
+                    while (waded < 4f)
+                    {
+                        Vector3 lw = world.transform.InverseTransformPoint(player.transform.position);
+                        if (world.OnDock(new Vector2(lw.x, lw.z), out _)) break;
+                        waded += Time.deltaTime;
+                        yield return null;
+                    }
+                    Vector3 up = world.transform.InverseTransformPoint(player.transform.position);
+                    world.OnDock(new Vector2(up.x, up.z), out float upDeck);
+                    Debug.Log($"[Vision] onto the dock after {waded:0.00} s of wading, at {up.y - upDeck:0.000} m off its deck");
+                    yield return new WaitForSeconds(0.3f);
+                    player.MoveOverride = dockAlong;
+                    yield return new WaitForSeconds(0.6f);
+                    player.MoveOverride = null;
+                    Vector3 onDock = world.transform.InverseTransformPoint(player.transform.position);
+                    bool dockUnder = world.OnDock(new Vector2(onDock.x, onDock.z), out float deckY);
+                    Debug.Log($"[Vision] the dock: on its boards {dockUnder}, standing {onDock.y - deckY:0.000} m off the deck");
+                    yield return Shot("169_on_the_dock");
+
                     // The lobby: its balance card, a joiner's slider moved (in amber).
                     Vision.Net.Listener.LoopbackOnly = true;
                     gameHud.CreateLobby("Capture", 0);
@@ -1306,6 +1374,9 @@ namespace Vision.Player
                         Vision.Net.NetSession.Active.Tune(0, 4f);
                         yield return Wait(10);
                         yield return Shot("168_lobby_balance");
+                        gameHud.PressTuningLock();
+                        yield return Wait(10);
+                        yield return Shot("168b_lobby_sliders_locked");
                         gameHud.LeaveOnline();
                     }
                     Vision.Net.Listener.LoopbackOnly = false;
