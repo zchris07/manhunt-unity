@@ -24,9 +24,6 @@ namespace Vision.Net
             public bool Fields;
             public byte[] Bytes;
             public int[] Offsets;
-            /// <summary>What a hunter gets instead (a hidden survivor, placed nowhere), or null for the same.</summary>
-            public byte[] HunterBytes;
-            public int[] HunterOffsets;
             public bool HuntersOnly;
         }
 
@@ -68,21 +65,7 @@ namespace Vision.Net
             f.Whole(Key(Kind.Roster, 0), w => WriteRoster(w, sim));
             foreach (SimPlayer p in sim.Order)
             {
-                Section s = f.Object(Key(Kind.Player, p.Id), PlayerPlan, p);
-                if (p.Role == Role.Survivor && p.HideState == 2)
-                {
-                    // Zach never learns where a hidden survivor is.
-                    Vector2 pos = p.Pos;
-                    int spot = p.HideSpot;
-                    p.Pos = Vector2.zero;
-                    p.HideSpot = -1;
-                    Section h = f.Object(0, PlayerPlan, p);
-                    p.Pos = pos;
-                    p.HideSpot = spot;
-                    s.HunterBytes = h.Bytes;
-                    s.HunterOffsets = h.Offsets;
-                    f.Sections.Remove(h);
-                }
+                f.Object(Key(Kind.Player, p.Id), PlayerPlan, p);
                 f.Object(Key(Kind.Move, p.Id), MovePlan, p.Move);
                 f.Whole(Key(Kind.Inventory, p.Id), w => WriteInventory(w, p.Inv));
             }
@@ -227,8 +210,8 @@ namespace Vision.Net
             foreach (SnapshotFrame.Section s in f.Sections)
             {
                 if (s.HuntersOnly && !hunter) continue;
-                byte[] bytes = hunter && s.HunterBytes != null ? s.HunterBytes : s.Bytes;
-                int[] offsets = hunter && s.HunterBytes != null ? s.HunterOffsets : s.Offsets;
+                byte[] bytes = s.Bytes;
+                int[] offsets = s.Offsets;
                 last.TryGetValue(s.Key, out var prev);
                 if (!s.Fields)
                 {

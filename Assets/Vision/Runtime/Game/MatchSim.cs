@@ -29,8 +29,6 @@ namespace Vision.Game
         Book,
         WazSlain,
         Boom,
-        Breath,
-        Gasp,
         Knockback,
         Jarvis,
         Hemp,
@@ -117,9 +115,8 @@ namespace Vision.Game
         public readonly bool[] DoorBroken;
         public readonly bool[] WindowsBroken;
         public readonly bool[] LootTaken;
-        /// <summary>Who is on each stake (0 nobody), and who is in each hiding spot.</summary>
+        /// <summary>Who is on each stake (0 nobody).</summary>
         public readonly int[] Stakes;
-        public readonly int[] Hiding;
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<GameEvent> Events = new List<GameEvent>();
         public MatchResult Result;
@@ -153,7 +150,6 @@ namespace Vision.Game
             WindowsBroken = new bool[map.Windows.Count];
             LootTaken = new bool[map.Loot.Count];
             Stakes = new int[map.Stakes.Count];
-            Hiding = new int[map.HidingSpots.Count];
             // Every generator on the map has to run (the lobby sets how many there are).
             if (Bal.RequiredGenerators != Gens.Length && Gens.Length > 0) Bal = WithGenerators(Bal, Gens.Length);
         }
@@ -270,7 +266,6 @@ namespace Vision.Game
                 if (h != null) h.Carrying = 0;
             }
             if (p.StakeId >= 0) Stakes[p.StakeId] = 0;
-            if (p.HideState != 0) ExitHiding(p, false);
             CancelAction(p);
             if (p.Ghost) DropBody(p, BodyOf(p));
             if (cycle && p.Role == Role.Survivor && !p.Ghost)
@@ -294,7 +289,6 @@ namespace Vision.Game
         {
             SimPlayer p = Get(id);
             if (p == null || p.Role == Role.Spectator || p.Health == Health.Carried || p.Health == Health.Staked) return;
-            if (p.HideState != 0) ExitHiding(p, true);
             CancelAction(p);
             Place(p, at);
         }
@@ -330,7 +324,7 @@ namespace Vision.Game
         {
             SimPlayer p = Get(id);
             if (p == null) return;
-            if (p.Health == Health.Carried || p.Health == Health.Staked || p.HideState != 0) return;
+            if (p.Health == Health.Carried || p.Health == Health.Staked) return;
             // The outer ring stops Zach while he can't cross it.
             if (p.Role == Role.Hunter && CrossingBlocked(p) && pos.magnitude > Ring3 - Balance.Boundary.WallSkin)
                 pos = pos.normalized * (Ring3 - Balance.Boundary.WallSkin);
@@ -349,12 +343,12 @@ namespace Vision.Game
             if (p.Role == Role.Hunter)
             {
                 if (p.StunT > 0f || p.KnockT > 0f || p.Health == Health.Eliminated) return MoveMode.Locked;
-                if (p.Action == ActionKind.PickUp || p.Action == ActionKind.Stake || p.Action == ActionKind.Search || p.Action == ActionKind.DamageGen) return MoveMode.Locked;
+                if (p.Action == ActionKind.PickUp || p.Action == ActionKind.Stake || p.Action == ActionKind.DamageGen) return MoveMode.Locked;
                 return MoveMode.Normal;
             }
             if (p.Health == Health.Downed) return MoveMode.Crawl;
             if (p.Health != Health.Healthy && p.Health != Health.Wounded) return MoveMode.Locked;
-            if (p.HideState != 0 || p.Action == ActionKind.Talk || p.StunT > 0f) return MoveMode.Locked;
+            if (p.Action == ActionKind.Talk || p.StunT > 0f) return MoveMode.Locked;
             return MoveMode.Normal;
         }
 
@@ -438,7 +432,7 @@ namespace Vision.Game
             }
             if (p.Role == Role.Spectator || p.Health == Health.Escaped || p.Health == Health.Eliminated) return;
             bool locked = MoveModeFor(p) == MoveMode.Locked;
-            if (!locked || p.HideState == 2)
+            if (!locked)
             {
                 if (cmd.AimDist > 0f || cmd.Aim != 0f) p.Facing = cmd.Aim;
                 p.AimDist = cmd.AimDist;
@@ -454,8 +448,7 @@ namespace Vision.Game
             HandlePresses(p, cmd, pressed);
 
             // Moving cancels survivor interactions.
-            if (cmd.Move.sqrMagnitude > 1e-4f && p.Role == Role.Survivor && p.Action != ActionKind.None && p.Action != ActionKind.HideEnter &&
-                p.Action != ActionKind.HideExit && p.Action != ActionKind.Talk && p.Action != ActionKind.Drink)
+            if (cmd.Move.sqrMagnitude > 1e-4f && p.Role == Role.Survivor && p.Action != ActionKind.None && p.Action != ActionKind.Talk && p.Action != ActionKind.Drink)
                 CancelAction(p);
             p.Move.Mode = MoveModeFor(p);
         }
@@ -586,13 +579,10 @@ namespace Vision.Game
                 SimPlayer h = Get(p.CarriedBy);
                 if (h != null) h.Carrying = 0;
             }
-            if (p.HideSpot >= 0) Hiding[p.HideSpot] = 0;
             CancelAction(p);
             p.Health = Health.Eliminated;
             p.StakeId = -1;
             p.CarriedBy = 0;
-            p.HideSpot = -1;
-            p.HideState = 0;
             p.GogglesOn = false;
             p.Stats.Outcome = "eliminated";
             p.EndedTime = Time;

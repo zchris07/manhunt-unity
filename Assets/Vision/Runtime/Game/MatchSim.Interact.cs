@@ -78,23 +78,6 @@ namespace Vision.Game
             return best;
         }
 
-        int NearbyHidingSpot(Vector2 at, float reach, bool requireFree)
-        {
-            int best = -1;
-            float bd = float.MaxValue;
-            for (int i = 0; i < Map.HidingSpots.Count; i++)
-            {
-                SimMap.HideDef h = Map.HidingSpots[i];
-                if (requireFree && Hiding[i] != 0) continue;
-                float d = Vector2.Distance(h.Pos, at);
-                bool grass = h.Kind == Vision.World.HidingSpot.Kind.Grass;
-                // Tall grass hides you anywhere inside the patch; furniture from beside its door.
-                bool inReach = grass ? d < Mathf.Max(R(reach), h.Reach) : d < R(reach) + Mathf.Max(0f, h.Reach - R(reach)) * 0.5f || Vector2.Distance(h.Exit, at) < R(reach + 10f);
-                if (inReach && d < bd) { bd = d; best = i; }
-            }
-            return best;
-        }
-
         /// <summary>Works out the E and Space prompts for every player.</summary>
         void ComputePrompts()
         {
@@ -129,11 +112,6 @@ namespace Vision.Game
 
         void SurvivorPrompts(SimPlayer p)
         {
-            if (p.HideState == 2 || p.HideState == 3)
-            {
-                Set(p, Prompt.LeaveHiding, p.HideSpot);
-                return;
-            }
             if (!p.CanAct) return;
             Vector2 at = p.Pos;
             // Njaaron waiting for an answer, or Sexton waiting for you to keep listening, comes first.
@@ -150,7 +128,7 @@ namespace Vision.Game
             foreach (SimPlayer q in Order)
             {
                 if (q == p || q.Role != Role.Survivor) continue;
-                if (q.Health != Health.Staked && q.Health != Health.Downed && !(q.Health == Health.Wounded && q.HideState == 0)) continue;
+                if (q.Health != Health.Staked && q.Health != Health.Downed && q.Health != Health.Wounded) continue;
                 float d = Vector2.Distance(q.Pos, at);
                 int cur = mate != null ? Pri(mate) : 9;
                 if (d < R(Balance.Reach.Teammate) && (Pri(q) < cur || (Pri(q) == cur && d < mateD)))
@@ -197,11 +175,6 @@ namespace Vision.Game
             for (int gi = 0; gi < 2 && p.Prompt == Prompt.None; gi++)
                 if (HasGateAt(gi) && Vector2.Distance(LeverAt(gi), at) < R(Balance.Reach.Gate) && !GateAt(gi).Open)
                     Set(p, GateAt(gi).Powered ? Prompt.OpenGate : Prompt.GatePowerless, gi);
-            if (p.Prompt == Prompt.None)
-            {
-                int hi = NearbyHidingSpot(at, Balance.Reach.Hide, true);
-                if (hi >= 0) Set(p, Prompt.Hide, hi);
-            }
             if (p.Prompt == Prompt.None)
             {
                 int di = NearbyDoor(at, Balance.Reach.Door, true);
@@ -298,13 +271,8 @@ namespace Vision.Game
                     }
                     if (p.Prompt == Prompt.None)
                     {
-                        int hi = NearbyHidingSpot(at, Balance.Reach.Hide + 8f, false);
-                        if (hi >= 0) Set(p, Prompt.Search, hi);
-                        else
-                        {
-                            int gi = NearestOf(Map.Generators, at, R(Balance.Reach.Generator), i => !Gens[i].Repaired && Gens[i].Progress > 0.01f && !Gens[i].Regressing);
-                            if (gi >= 0) Set(p, Prompt.DamageGen, gi);
-                        }
+                        int gi = NearestOf(Map.Generators, at, R(Balance.Reach.Generator), i => !Gens[i].Repaired && Gens[i].Progress > 0.01f && !Gens[i].Regressing);
+                        if (gi >= 0) Set(p, Prompt.DamageGen, gi);
                     }
                 }
             }
@@ -367,10 +335,10 @@ namespace Vision.Game
                     return;
                 }
                 // Holding E starts hold-to-act interactions as soon as they become available.
-                bool heldStart = cmd.Has(Btn.Interact) && p.Action == ActionKind.None && p.HideState == 0 && System.Array.IndexOf(HoldPrompts, p.Prompt) >= 0;
+                bool heldStart = cmd.Has(Btn.Interact) && p.Action == ActionKind.None && System.Array.IndexOf(HoldPrompts, p.Prompt) >= 0;
                 // E with nothing to interact with heals (worked out before E does anything else); Space throws unless it
                 // slams a barricade.
-                bool quickHeal = (pressed & Btn.Interact) != 0 && Passive(p.Prompt) && p.HideState == 0;
+                bool quickHeal = (pressed & Btn.Interact) != 0 && Passive(p.Prompt);
                 bool slam = (pressed & Btn.Space) != 0 && p.Prompt2 == Prompt.DropBarricade;
                 if ((pressed & Btn.Interact) != 0 || heldStart) SurvivorInteract(p);
                 if (slam && p.CanAct && p.Action == ActionKind.None) DropBarricade(p, p.Prompt2Target);
@@ -418,19 +386,6 @@ namespace Vision.Game
                 case Prompt.Stake:
                     StartAction(p, ActionKind.Stake, Balance.Hunter.StakeTime, p.PromptTarget);
                     break;
-                case Prompt.Search:
-                {
-                    // Searching is instant.
-                    SimPlayer occupant = Get(Hiding[p.PromptTarget]);
-                    Emit(Near(p.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Talk, A = p.Id, Text = "search", Pos = Map.HidingSpots[p.PromptTarget].Pos });
-                    if (occupant != null && occupant.HideState >= 1)
-                    {
-                        ExitHiding(occupant, true);
-                        DamageSurvivor(occupant, p, Balance.Hunter.Attack.FoundDamage);
-                        Feed($"{p.Name} dragged {occupant.Name} out of hiding");
-                    }
-                    break;
-                }
                 case Prompt.DamageGen:
                     StartAction(p, ActionKind.DamageGen, Balance.Hunter.DamageGenTime, p.PromptTarget);
                     break;
@@ -466,31 +421,11 @@ namespace Vision.Game
 
         void SurvivorInteract(SimPlayer p)
         {
-            if (p.HideState == 2)
-            {
-                p.HideState = 3;
-                StartAction(p, ActionKind.HideExit, Balance.Hiding.ExitTime, p.HideSpot);
-                return;
-            }
-            if (p.HideState == 3)
-            {
-                // Leaving is interruptible: press again to stay hidden.
-                p.HideState = 2;
-                CancelAction(p);
-                return;
-            }
             if (!p.CanAct || p.Action != ActionKind.None) return;
             switch (p.Prompt)
             {
                 case Prompt.Loot:
                     TakeLoot(p, p.PromptTarget);
-                    break;
-                case Prompt.Hide:
-                    Hiding[p.PromptTarget] = p.Id;
-                    p.HideSpot = p.PromptTarget;
-                    p.HideState = 1;
-                    p.GogglesOn = false;
-                    StartAction(p, ActionKind.HideEnter, Balance.Hiding.EnterTime, p.PromptTarget);
                     break;
                 case Prompt.Repair:
                     StartAction(p, ActionKind.Repair, 0f, p.PromptTarget);
@@ -686,24 +621,6 @@ namespace Vision.Game
                             p.QuickT = 0f;
                         }
                         continue;
-                    case ActionKind.HideEnter:
-                    {
-                        p.ActionT += dt;
-                        SimMap.HideDef spot = Map.HidingSpots[p.ActionTarget];
-                        Vector2 to = spot.Kind == Vision.World.HidingSpot.Kind.Grass ? p.Pos : spot.Pos;
-                        Place(p, p.Pos + (to - p.Pos) * Mathf.Min(1f, dt * 8f));
-                        if (p.ActionT >= p.ActionDur)
-                        {
-                            Place(p, to);
-                            p.HideState = 2;
-                            p.Action = ActionKind.None;
-                        }
-                        continue;
-                    }
-                    case ActionKind.HideExit:
-                        p.ActionT += dt;
-                        if (p.ActionT >= p.ActionDur) ExitHiding(p, false);
-                        continue;
                     case ActionKind.PickUp:
                     {
                         p.ActionT += dt;
@@ -739,18 +656,6 @@ namespace Vision.Game
                     }
                 }
             }
-        }
-
-        public void ExitHiding(SimPlayer p, bool forced)
-        {
-            SimMap.HideDef? spot = p.HideSpot >= 0 && p.HideSpot < Map.HidingSpots.Count ? Map.HidingSpots[p.HideSpot] : (SimMap.HideDef?)null;
-            if (p.HideSpot >= 0) Hiding[p.HideSpot] = 0;
-            if (spot.HasValue && spot.Value.Kind != Vision.World.HidingSpot.Kind.Grass) Place(p, spot.Value.Exit);
-            p.HideSpot = -1;
-            p.HideState = 0;
-            p.HoldingBreath = false;
-            if (p.Action == ActionKind.HideExit || p.Action == ActionKind.HideEnter) p.Action = ActionKind.None;
-            Emit(p.Id, new GameEvent { Kind = EventKind.Talk, A = p.Id, Text = forced ? "dragged" : "unhide", Pos = p.Pos });
         }
 
         public void ReleaseFromStake(SimPlayer q)

@@ -58,17 +58,7 @@ namespace Vision.Tests
             foreach (Npc n in new Npc[] { jaden, plasma, shane }) Assert.AreEqual(s.Id, n.GrudgeTarget, $"{n.Name} goes after Chacko's attacker");
             Assert.IsTrue(jaden.Chasing && shane.Chasing && plasma.Target == s.Id);
 
-            // Hidden, they lose the survivor but not the grudge, however long it takes (the old limit was 30 s).
-            s.HideState = 2;
-            rig.Run(Secs(40f));
-            Assert.IsFalse(jaden.Chasing || shane.Chasing, "nobody to chase while they're hidden");
-            foreach (Npc n in new Npc[] { jaden, plasma, shane }) Assert.AreEqual(s.Id, n.GrudgeTarget, $"{n.Name} still holds the grudge after 40 s");
             Assert.AreEqual(s.Id, rig.Sim.Vengeance);
-            s.HideState = 0;
-            rig.Run(3);
-            Assert.IsTrue(jaden.Chasing && jaden.Target == s.Id, "out again: Jaden's straight back on them");
-            Assert.IsTrue(shane.Chasing && shane.Target == s.Id, "and Shane");
-            Assert.AreEqual(s.Id, plasma.Target, "and Plasma");
             Assert.IsTrue(plasma.Raging);
 
             // Nobody else draws Jaden off; Plasma slain doesn't call the others off.

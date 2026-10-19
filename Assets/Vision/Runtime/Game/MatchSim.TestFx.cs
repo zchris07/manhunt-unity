@@ -249,7 +249,6 @@ namespace Vision.Game
                         if (q.CarriedBy == p.Id) { q.CarriedBy = 0; RestoreSurvivor(q, Balance.Survivor.ReviveHp); }
                     }
                     if (p.StakeId >= 0 && p.StakeId < Stakes.Length && Stakes[p.StakeId] == p.Id) Stakes[p.StakeId] = 0;
-                    if (p.HideSpot >= 0 && p.HideSpot < Hiding.Length && Hiding[p.HideSpot] == p.Id) Hiding[p.HideSpot] = 0;
                     Players.Remove(p.Id);
                     Order.Remove(p);
                 }
@@ -263,7 +262,7 @@ namespace Vision.Game
         {
             foreach (SimPlayer p in Order)
             {
-                if (!p.IsDummy || p.Health == Health.Carried || p.Health == Health.Staked || p.HideState != 0) continue;
+                if (!p.IsDummy || p.Health == Health.Carried || p.Health == Health.Staked) continue;
                 p.Move.Mode = MoveModeFor(p);
                 var cmd = new InputCmd { Aim = p.Facing };
                 Vector2 d = Movement.Step(p.Move, p.Pos, cmd, MoveContextFor(p, false), Geo, TickDt, out Gait gait);

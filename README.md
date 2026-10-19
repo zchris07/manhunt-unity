@@ -9,7 +9,7 @@ The map is the original's at **3 cm per original unit**: a round forest 180 m ac
 woods running on into the dark to the end of the world 33.6 m further out, see **The edge of the woods**) with the
 procedural 36 m central building (1200 units) in the middle, its north exit gate and fenced yard, the
 survivors' spawn in the south, clearings joined by footpaths, three cabins, a lake with a dock, fences,
-logs, tall grass to hide in, power lines, a graveyard, an abandoned playground and a hanging tree, and
+logs, patches of tall grass, power lines, a graveyard, an abandoned playground and a hanging tree, and
 about 2,350 evergreens and dead trees. Every map is generated at runtime from a seed (about 3.8 s);
 **New map** in the game menu builds another. Survivors repair the generators, then open one of the two exit gates
 and escape (or, the last one left, jump into the hatch by the dock); Zach Branch hunts them. There is never a time
@@ -64,7 +64,7 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | Ctrl | B / Circle | Crouch |
 | Z / C | – | Turn the view 45° left / right (eased over a quarter of a second; W keeps moving up the screen, the minimap and full map turn with it; each match starts turned 45° off the world's grid, so walls and buildings run diagonally across the screen) |
 | Mouse | Right stick | Aim the light cone (whichever moved last) |
-| E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. With nothing to interact with, survivors **quick heal**: the healing item in hand (duck confit, a Mr Beast bar), or else the first in the inventory; at full health or with nothing to eat, **hold** E to drink a mini shield (let go part way and it stops). Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
+| E | X / Square | Interact: pick up, open or close a door, revive, heal, unstake; **hold** on a generator or the gate lever. With nothing to interact with, survivors **quick heal**: the healing item in hand (duck confit, a Mr Beast bar), or else the first in the inventory; at full health or with nothing to eat, **hold** E to drink a mini shield (let go part way and it stops). Zach: pick up a downed survivor, stake, damage a generator |
 | 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode; there the wheel zooms the view in and out instead) |
 | Left mouse | Right trigger | Use the selected item (survivors); swing the machete, hold to charge a heavy swing (Zach) |
 | Right mouse | Left trigger | Zach: lunge; survivors: aim the 0.50 cal (hold) |
@@ -107,7 +107,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **The night**: everyone builds the host's map from its seed (its fingerprint is checked, so different versions can't
   mix), and plays at the host's pace. The host runs the rules for everyone; each player moves their own avatar and sends
   their input and position 30 times a second; the host sends each player only what changed (20 snapshots a second,
-  about 15 KB/s each), with the events meant for them. Zach is never told where a hidden survivor is. Spectators and the
+  about 15 KB/s each), with the events meant for them. Spectators and the
   eliminated watch the others (left click or the arrow keys). Someone joining while a match is under way isn't turned
   away: they spectate it, and play from the next. A player whose connection drops has 30 s to come back to
   their place (past that they're out of the match, and it goes on). When the night ends everyone sees the results; the host's **Back to lobby** brings them all back (the results put away for good, never coming back up over the lobby), and **Leave** takes you to the title screen.
@@ -148,7 +148,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   Respawn NPCs, and **dummies**: inert survivors and Zachs spawned in front of you to down, carry, stake, cut down,
   revive, heal, shoot or stun.
 - **Other players** (`PlayerPuppets`): dummies (and, online, the other players) are drawn where the match has them,
-  walking at the speed they move, lying down when downed, over Zach's shoulder when carried, gone when hidden or out of
+  walking at the speed they move, lying down when downed, over Zach's shoulder when carried, gone when out of
   the match, with stun stars when stunned. Once you are out, the camera follows someone still in (click or the arrow
   keys switch who). The Hemp Battery zooms Zach's view out, eased in and out over half a second. Every character
   moves at **70%** of the original's speeds (walking, running, the lunge, knockbacks, the NPCs; rounds, thrown items and
@@ -184,7 +184,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   for five seconds after their health or shield last changed, then fade
   to 35%. NPCs your role can slay carry the same health bar (always opaque) over their heads, under their names.
   **Stamina** is the original's wide sprint bar centred above the inventory (SPRINT and the seconds left, cyan when
-  boosted, red when locked; BREATH while hiding), with Zach's exact speed and recovery lines beside it. A survivor's
+  boosted, red when locked), with Zach's exact speed and recovery lines beside it. A survivor's
   health never regenerates; the blue shield takes damage first. Zach's machete takes a third (two thirds charged; it reaches 15% less far than the original's 124 units, and
   a charge takes a second longer: heavy at 1.85 s, letting go on its own at 4 s); at zero you are **downed** and crawl. Zach
   carries the downed to a stake; a teammate can cut them down, and the second staking (or a minute on the
@@ -243,8 +243,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   them (6 to 12). Zach carries the downed there; teammates see a pulsing red ring over a staked survivor anywhere.
 - **Generators under attack**: Zach kicks a part-repaired generator (2 s): 8% off at once, then it keeps running
   down until a survivor works on it.
-- **Hiding**: tall grass, wardrobes, beds, lockers and barrels (in 0.6 s, out 0.5 s). Hidden, the stamina bar shows
-  your breath: Space holds it, and running out makes you gasp. Zach searches a spot and drags out whoever is in it.
+- **No hiding**: there's nowhere to hide (the original's hiding in tall grass, wardrobes, beds, lockers and barrels,
+  holding your breath and Zach searching spots are all gone; the furniture and the grass are only scenery).
   **Pallets** beside doorways (Space).
 - **Smooth poses**: an action's clip blends out into the walk and the flashlight from wherever it was (several can fade
   at once), and the flinch from a hit is a spring integrated in small steps and kept to a believable angle, so a long
@@ -295,7 +295,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   lever handle, a kick plate and a narrow wired-glass vision panel.
 - **Effects** (`Vfx`, the `Vision/Fx` shader): particle bursts, rings and ribbons, either hidden outside the viewer's
   light like characters (splinters, glass, sparks, blood, the scent trail) or drawn above the dark by a senses camera
-  stacked on the main one (breathing Zach hears through a hiding spot's door). Zach sees survivors' scent as red smoke
+  stacked on the main one (the Soundcloud Burst's wave). Zach sees survivors' scent as red smoke
   wisps where they ran and blood where the hurt have been, fading over ten seconds. The scent's thread is twice as thick
   and a fifth more opaque than it was (at its thinnest twice that again and at its thickest a fifth less, so it varies
   less; how solid it is varies at random along it, on its own, not with the swelling and thinning), and it's joined in the order it was laid (by how far along the trail each point
@@ -367,8 +367,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   pink and blue (with its stars), the scent red. The gas never touches the scene: no collision, nothing conforming to the
   ground or objects; it simply covers the screen where it is (Penjamin unmasked, past the
   viewer's light, galaxy gas and the scent inside it; every cloud is drawn in the scene, since the senses overlay camera
-  never drew the volumetric gas, which is why Penjamin's cloud had gone missing). The indicator rings left on the ground (Plasma's colour-cycling rings, the breath rings spreading
-  from a hiding spot) are laid on the ground's own facets every 2.5 degrees round and every few centimetres across, so
+  never drew the volumetric gas, which is why Penjamin's cloud had gone missing). The indicator rings left on the ground (Plasma's colour-cycling rings) are laid on the ground's own facets every 2.5 degrees round and every few centimetres across, so
   they follow each slope, bump and crease of the drawn terrain; the Hemp Battery and Zach's charge have no ring. The Hemp Beam (Zach's, a survivor's from Thomas, Sexton's) fires from the palm of the
   outstretched right arm like a repulsor: green-white motes spiral in and condense into one blinding point as it
   charges, then a layered beam, light green through and through rather than white at its heart (a bright pale green
@@ -527,8 +526,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   wherever they are on the map with no time limit, each until he's dealt them a third of their health himself, or
   they're down (by anything), or he's slain, not giving up for time, distance or anyone else attacking them; Shane runs
   after them until he's stunned and driven off (two bottles, a shotgun blast or galaxy gas; Zach shakes him off with his
-  machete or a Soundcloud Burst), tailing them even while they're down. Hide and they lose you, but the moment you're
-  back out they're after you again. Every
+  machete or a Soundcloud Burst), tailing them even while they're down. Every
   NPC carries a faint light, as in the original. Their looks: Sexton a white man with blond hair; Thomas white with
   grey hair; Plasma a tall white man with light brown hair (the beast stays purple); Waz a tall Indian man with curly
   hair and a short goatee; Soham a tall Indian man with a bowl cut; Njaaron a slightly muscular Asian man; Jaden an
@@ -629,7 +627,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   nothing he's killed, and with every Zach dead the survivors win ("Zach was killed"). His head bar shows the part worn
   away, dark; his HP line reads out of what's left.
 - **Zach's swing**: uncharged it takes 10 of a survivor's 100, growing evenly over the charge to two thirds fully
-  charged (pulling someone out of hiding still takes a third). The swing is traced low as well as across the chest, so
+  charged. The swing is traced low as well as across the chest, so
   it strikes generators, gravestones and anything else no higher than the hip, throwing off dust and debris; a
   generator clanks (the Half-Life metal clank), while stone (a rock, a boulder, a gravestone, the ruined brick walls)
   breaks with one of three stone-breaking sounds.
@@ -779,7 +777,7 @@ building: a 16 x 16 grid of 2.25 m cells (the original: 10 x 10 of 3.6 m). The r
   electrical and server rooms, a studio set for the night shoot, the loading bay and a boiler room, each
   furnished by its own recipe.
 - **Generators**: two, in any room with the space for one (never a corridor), spread apart.
-- **Fittings**: lockers along the corridors (up to 8), wardrobes, beds and barrels to hide in; breaker panels,
+- **Fittings**: lockers along the corridors (up to 8), wardrobes, beds and barrels; breaker panels,
   posters, clocks, stains, cobwebs and dead plants (no air ducts, overhead pipe runs or vent grilles: from above they
   hid the windows, doorways and exits). Furniture keeps
   every doorway clear and covers under half of each room.
@@ -790,8 +788,7 @@ building: a 16 x 16 grid of 2.25 m cells (the original: 10 x 10 of 3.6 m). The r
 
 `SandboxWorld.Building.cs` builds it: cinder-block outer walls, painted inner walls with dark tops so the
 plan reads from above, tiled and concrete floors, hinged doors, windows (glass stops you, not your
-sight), headers, the roll-up gate and every item with its collider, occluder (tall pieces) and hiding
-spot.
+sight), headers, the roll-up gate and every item with its collider, occluder (tall pieces).
 
 ## Terrain
 
@@ -851,7 +848,7 @@ ditches and packed dirt on the paths.
   Catmull-Rom through the keys, eased blends, events such as "release", "hit" and "kick") on the bones each clip owns,
   so the legs keep walking under an upper-body action; hits add a damped flinch from the blow's direction.
   `CharacterView` picks the model, the held prop and the clip from the match: repairing, the lever, healing and
-  reviving, picking up, hiding, drinking, eating, talking, planting a trap, a quick throw (whipped back behind the head,
+  reviving, picking up, drinking, eating, talking, planting a trap, a quick throw (whipped back behind the head,
   snapped over the shoulder), each gun held as it is in real life (the pistol in a two-handed Weaver grip, the support
   arm bent and its hand cupping the grip; the shotgun shouldered with the trigger elbow out and the support hand under
   the forend, the body bladed; the 0.50 cal carried at the hip, its grip low by the right hip and the support hand

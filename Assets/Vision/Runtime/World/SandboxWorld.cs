@@ -11,7 +11,7 @@ namespace Vision.World
     /// Builds the whole level from <see cref="seed"/>, laid out like the original 2D game's map (<see cref="MapLayout"/>):
     /// a 180 m square of hills and woods walled in, the central building's site with the gate yard north of it,
     /// the survivors' spawn in the south, clearings joined by footpaths, three cabins, the woods generators with
-    /// their cover, a lake with a dock in one corner, fences, logs, campfires, tall-grass hiding patches, power
+    /// their cover, a lake with a dock in one corner, fences, logs, campfires, patches of tall grass, power
     /// lines, a graveyard, a playground and a hanging tree; then about 2,900 trees, rocks and plants, crows, the
     /// wanderer and the player.
     ///
@@ -74,8 +74,7 @@ namespace Vision.World
         public readonly List<Transform> Notes = new List<Transform>();
         public List<Pickup> Pickups = new List<Pickup>();
         public List<Transform> Generators = new List<Transform>();
-        /// <summary>Hiding spots, pallets and windows in build order (their index is their id in the match).</summary>
-        public readonly List<HidingSpot> HidingSpots = new List<HidingSpot>();
+        /// <summary>Pallets and windows in build order (their index is their id in the match).</summary>
         public readonly List<Barricade> BarricadeList = new List<Barricade>();
         public readonly List<WindowPiece> Windows = new List<WindowPiece>();
 
@@ -491,7 +490,6 @@ namespace Vision.World
                 else DestroyImmediate(child);
             }
             Doors.Clear();
-            HidingSpots.Clear();
             BarricadeList.Clear();
             Windows.Clear();
             Stakes.Clear();
@@ -912,8 +910,7 @@ namespace Vision.World
                 b.Transform = null;
             }
 
-            // Tall-grass hiding patches: dense, head-high grass (a hiding spot each).
-            Transform hiding = Group("Tall Grass");
+            // Patches of dense, head-high grass.
             foreach (MapLayout.Clearing g in Layout.GrassPatches)
             {
                 int clumps = Mathf.RoundToInt(g.Radius * g.Radius * 3.2f);
@@ -926,14 +923,6 @@ namespace Vision.World
                     LowPolyModels.AddTallGrass(b, Range(1.15f, 1.6f) * (1f - 0.35f * r / g.Radius), Deadness(p.x, p.y) > 0.5f);
                     b.Transform = null;
                 }
-                var spot = new GameObject("Tall Grass Patch");
-                spot.transform.SetParent(hiding, false);
-                spot.transform.localPosition = new Vector3(g.Centre.x, H(g.Centre), g.Centre.y);
-                var hs = spot.AddComponent<HidingSpot>();
-                hs.kind = HidingSpot.Kind.Grass;
-                hs.reach = g.Radius;
-                hs.exit = Vector3.zero;
-                HidingSpots.Add(hs);
             }
 
             for (int cj = 0; cj < chunks; cj++)
@@ -1177,11 +1166,9 @@ namespace Vision.World
                 float wYaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg;
                 GameObject w = Piece("Wardrobe", LowPolyModels.Wardrobe(rng), staticRoot, new Vector3(wardrobe.x, y, wardrobe.y), wYaw);
                 AddBox(w, new Vector3(0f, 0.95f, 0f), new Vector3(1f, 1.9f, 0.55f));
-                AddHiding(w, HidingSpot.Kind.Wardrobe, 1.1f, new Vector3(0f, 0f, 0.9f));
                 Vector2 bedAt = new Vector2(r.center.x + (inward.x >= 0f ? -1f : 1f) * (r.width * 0.5f - 0.7f), r.center.y + (inward.y >= 0f ? -1f : 1f) * (r.height * 0.5f - 1.15f));
                 GameObject bed = Piece("Bed", LowPolyModels.Bed(rng), staticRoot, new Vector3(bedAt.x, y, bedAt.y), 0f);
                 AddBox(bed, new Vector3(0f, 0.3f, 0f), new Vector3(1f, 0.6f, 2f));
-                AddHiding(bed, HidingSpot.Kind.Bed, 1.3f, new Vector3(bedAt.x < r.center.x ? 0.9f : -0.9f, 0f, 0f));
                 Vector2 tableAt = r.center + new Vector2(inward.y, -inward.x) * -1.2f;
                 Piece("Table", LowPolyModels.Table(rng), staticRoot, new Vector3(tableAt.x, y, tableAt.y), Range(-10f, 10f));
                 Piece("Chair", LowPolyModels.Chair(rng, rng.NextDouble() < 0.4), staticRoot, new Vector3(tableAt.x + 0.7f, y, tableAt.y), Range(0f, 360f));
@@ -1195,15 +1182,6 @@ namespace Vision.World
             if (Vector2.Distance(a, b) < 0.05f) return;
             Mesh m = LowPolyModels.PlankWall(rng, Vector2.Distance(a, b), 2.4f, 0.3f);
             Wall("Plank Wall", a, b, 2.4f, 0.3f, m, true, true, baseY);
-        }
-
-        void AddHiding(GameObject go, HidingSpot.Kind kind, float reach, Vector3 exit)
-        {
-            var hs = go.AddComponent<HidingSpot>();
-            hs.kind = kind;
-            hs.reach = reach;
-            hs.exit = exit;
-            HidingSpots.Add(hs);
         }
 
         /// <summary>A window the match can smash (its glass, sill collider and any boards).</summary>

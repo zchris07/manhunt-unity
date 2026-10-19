@@ -256,7 +256,7 @@ namespace Vision.Game
         {
             if (!Active)
                 foreach (SimPlayer q in Sim.Order)
-                    if (q.Role == Role.Survivor && OnFeet(q) && q.HideState == 0 && Vector2.Distance(q.Pos, Pos) < Scale.D(Balance.Chris.Reach + 30f))
+                    if (q.Role == Role.Survivor && OnFeet(q) && Vector2.Distance(q.Pos, Pos) < Scale.D(Balance.Chris.Reach + 30f))
                     {
                         Face(q.Pos);
                         return 0f;

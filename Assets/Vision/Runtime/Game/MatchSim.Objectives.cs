@@ -152,7 +152,7 @@ namespace Vision.Game
             Emit(null, new GameEvent { Kind = EventKind.Result, A = (int)w, Text = reason });
         }
 
-        /// <summary>Noise (for the HUD), scent and blood trails, terror, breath-holding and the breathing cue.</summary>
+        /// <summary>Noise (for the HUD), scent and blood trails, and terror.</summary>
         void UpdateSenses(float dt)
         {
             var hunters = new List<SimPlayer>();
@@ -163,14 +163,13 @@ namespace Vision.Game
                 float noise = 0f;
                 if (p.Health == Health.Healthy || p.Health == Health.Wounded)
                 {
-                    if (p.HideState == 2) noise = 0f;
-                    else noise = p.Gait == Gait.Run ? Balance.Survivor.NoiseRun : p.Gait == Gait.Walk ? Balance.Survivor.NoiseWalk : p.Gait == Gait.Crouch ? Balance.Survivor.NoiseCrouch : Balance.Survivor.NoiseIdle;
+                    noise = p.Gait == Gait.Run ? Balance.Survivor.NoiseRun : p.Gait == Gait.Walk ? Balance.Survivor.NoiseWalk : p.Gait == Gait.Crouch ? Balance.Survivor.NoiseCrouch : Balance.Survivor.NoiseIdle;
                     if (p.Action == ActionKind.Repair) noise = Mathf.Max(noise, Balance.Objectives.RepairNoise);
                 }
                 p.Noise = noise;
 
                 // Scent (walking or running; crouching leaves none) and blood (wounded or downed) for Zach's nose.
-                bool onGround = p.HideState == 0 && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed);
+                bool onGround = p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed;
                 if (onGround)
                 {
                     bool running = p.Move.Sprinting && p.Gait == Gait.Run;
@@ -204,32 +203,6 @@ namespace Vision.Game
                 float terror = 0f;
                 foreach (SimPlayer h in hunters) terror = Mathf.Max(terror, 1f - Vector2.Distance(h.Pos, p.Pos) / R(700f));
                 p.Terror = Mathf.Clamp01(terror);
-
-                // Breath: holding it hides your breathing; running out makes you gasp.
-                p.GaspCd = Mathf.Max(0f, p.GaspCd - dt);
-                bool wantsHold = p.HideState == 2 && p.LastCmd.Has(Btn.Space) && p.GaspCd <= 0f;
-                if (wantsHold && p.Breath > 0f)
-                {
-                    p.HoldingBreath = true;
-                    p.Breath = Mathf.Max(0f, p.Breath - dt / Balance.Hiding.BreathMax);
-                    if (p.Breath <= 0f)
-                    {
-                        p.HoldingBreath = false;
-                        p.GaspCd = Balance.Hiding.GaspCooldown;
-                        Emit(Near(p.Pos, 600f), new GameEvent { Kind = EventKind.Gasp, A = p.Id, Pos = p.Pos });
-                        foreach (SimPlayer h in hunters)
-                            if (Vector2.Distance(h.Pos, p.Pos) < R(Balance.Hiding.GaspHearRadius)) Emit(h.Id, new GameEvent { Kind = EventKind.Breath, Pos = p.Pos, F = 1f });
-                    }
-                }
-                else
-                {
-                    p.HoldingBreath = false;
-                    p.Breath = Mathf.Min(1f, p.Breath + Balance.Hiding.BreathRegen * dt / Balance.Hiding.BreathMax);
-                }
-                // Zach sees the breath of anyone hiding close by who isn't holding it.
-                if (p.HideState == 2 && !p.HoldingBreath && Mathf.Floor(Time / Balance.Hiding.BreathingIntervalSec) != Mathf.Floor((Time - dt) / Balance.Hiding.BreathingIntervalSec))
-                    foreach (SimPlayer h in hunters)
-                        if (Vector2.Distance(h.Pos, p.Pos) < R(Balance.Hiding.BreathingHearRadius)) Emit(h.Id, new GameEvent { Kind = EventKind.Breath, Pos = p.Pos });
             }
             float cut = Time - Balance.Trails.MaxAgeSec;
             if (Trails.Count > 0 && Trails[0].T < cut) Trails.RemoveAll(t => t.T < cut);

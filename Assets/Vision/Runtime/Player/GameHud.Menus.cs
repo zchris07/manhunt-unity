@@ -14,7 +14,7 @@ namespace Vision.Player
         {
             ("W A S D", "Move"), ("Mouse", "Aim"), ("Shift", "Sprint"), ("Ctrl", "Crouch"), ("E", "Interact · quick heal (hold: mini shield)"),
             ("Left mouse", "Use item"), ("Wheel / 1-8", "Select item"), ("G", "Drop item"), ("Tab", "Arrange inventory"),
-            ("Q", "JARVIS"), ("RMB", "Night vision (with goggles)"), ("Space", "Quick throw · barricade · hold breath"), ("R", "Quick drink (Dr Pepper)"),
+            ("Q", "JARVIS"), ("RMB", "Night vision (with goggles)"), ("Space", "Quick throw · barricade"), ("R", "Quick drink (Dr Pepper)"),
             ("Z / C", "Turn the view"), ("M", "Map"),
         };
 

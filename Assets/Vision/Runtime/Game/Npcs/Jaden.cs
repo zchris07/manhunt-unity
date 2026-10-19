@@ -118,7 +118,7 @@ namespace Vision.Game
         static bool Targetable(SimPlayer p)
         {
             if (p.Role == Role.Hunter) return p.Health != Health.Eliminated && p.KnockT <= 0f;
-            return p.Role == Role.Survivor && (p.Health == Health.Healthy || p.Health == Health.Wounded) && p.HideState == 0;
+            return p.Role == Role.Survivor && (p.Health == Health.Healthy || p.Health == Health.Wounded);
         }
 
         void Die(SimPlayer by)
@@ -207,7 +207,7 @@ namespace Vision.Game
             SimPlayer hit = null;
             foreach (SimPlayer q in Sim.Order)
             {
-                bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && OnFeet(q) && q.HideState != 2;
+                bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && OnFeet(q);
                 if (!ok) continue;
                 float tt = MatchSim.RayCircle(s, dir, q.Pos, q.RadiusD);
                 if (tt < best) { best = tt; hit = q; }

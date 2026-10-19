@@ -63,7 +63,7 @@ namespace Vision.Game
         /// </summary>
         int NextSwingSide(SimPlayer h) => Time - h.LastSwingAt < Balance.Hunter.Attack.ComboWindow ? 1 - h.SwingSide : 0;
 
-        static bool Hittable(SimPlayer q) => q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
+        static bool Hittable(SimPlayer q) => q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded);
 
         /// <summary>True if a body at <paramref name="at"/> of radius r (design units) is inside the swipe in front of the hunter.</summary>
         bool InSwipe(SimPlayer h, Vector2 at, float r)
@@ -310,7 +310,7 @@ namespace Vision.Game
         /// </summary>
         public void HurtSurvivor(SimPlayer q, float amount, SimPlayer by, string kind)
         {
-            if (q.Role != Role.Survivor || (q.Health != Health.Healthy && q.Health != Health.Wounded) || q.HideState == 2) return;
+            if (q.Role != Role.Survivor || (q.Health != Health.Healthy && q.Health != Health.Wounded)) return;
             bool zach = by != null && by.Role == Role.Hunter;
             if (zach) PlayerAttacked(q, by);
             // The lobby's damage slider for whichever side dealt it (Zach's, or a survivor's own stray shot).

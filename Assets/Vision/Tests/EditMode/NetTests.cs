@@ -146,24 +146,6 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void ZachNeverLearnsWhereAHiddenSurvivorIs()
-        {
-            SimRig host = Match();
-            SimPlayer s = host.P(2);
-            s.Pos = new Vector2(12f, -7f);
-            s.HideState = 2;
-            s.HideSpot = 3;
-            SimRig zach = Match();
-            new SnapshotReader().Apply(zach.Sim, new SnapshotWriter().Write(SnapshotFrame.Build(host.Sim), true, new List<GameEvent>()), 1, 1);
-            Assert.AreEqual(Vector2.zero, zach.P(2).Pos);
-            Assert.AreEqual(-1, zach.P(2).HideSpot);
-            SimRig mate = Match();
-            new SnapshotReader().Apply(mate.Sim, new SnapshotWriter().Write(SnapshotFrame.Build(host.Sim), false, new List<GameEvent>()), 1, 3);
-            Assert.AreEqual(new Vector2(12f, -7f), mate.P(2).Pos, "a teammate knows");
-            Assert.AreEqual(new Vector2(12f, -7f), s.Pos, "the host's own copy is untouched");
-        }
-
-        [Test]
         public void TheLobbySplitsRolesAsTheOriginal()
         {
             var lobby = new Lobby();

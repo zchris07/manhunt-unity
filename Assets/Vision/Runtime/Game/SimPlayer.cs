@@ -119,14 +119,6 @@ namespace Vision.Game
         public float StakeT;
         public float Wiggle;
 
-        public int HideSpot = -1;
-        /// <summary>0 none, 1 entering, 2 hidden, 3 leaving.</summary>
-        public int HideState;
-        public float HideT;
-        public float Breath = 1f;
-        public bool HoldingBreath;
-        public float GaspCd, BreathCueT;
-
         public Inventory Inv = new Inventory();
         /// <summary>Selected slot, 0-based (-1 none).</summary>
         public int SelSlot = -1;
@@ -285,11 +277,11 @@ namespace Vision.Game
             {
                 if (Role == Role.Spectator) return false;
                 if (Role == Role.Hunter) return StunT <= 0f && KnockT <= 0f && Health != Health.Eliminated;
-                return (Health == Health.Healthy || Health == Health.Wounded) && HideState == 0;
+                return Health == Health.Healthy || Health == Health.Wounded;
             }
         }
 
-        /// <summary>Standing survivor (still on their feet or hiding).</summary>
+        /// <summary>Standing survivor (still on their feet).</summary>
         public bool Standing => Role == Role.Survivor && (Health == Health.Healthy || Health == Health.Wounded);
 
         /// <summary>World units of collision radius (design).</summary>

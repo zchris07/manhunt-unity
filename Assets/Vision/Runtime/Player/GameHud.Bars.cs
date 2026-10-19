@@ -138,7 +138,7 @@ namespace Vision.Player
                 {
                     if (p.Role != Role.Survivor && p.Role != Role.Hunter) continue;
                     bool zach = p.Role == Role.Hunter;
-                    if (p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.HideState == 2) continue;
+                    if (p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated) continue;
                     // As the original: not while staked or carried (survivors), nor while Zach is down.
                     if (!zach && (p.Health == Game.Health.Staked || p.Health == Game.Health.Carried)) continue;
                     if (zach && p.KnockT > 0f) continue;

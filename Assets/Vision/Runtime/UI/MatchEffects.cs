@@ -25,8 +25,6 @@ namespace Vision.UI
         /// <summary>A wave on its way out: Zach's Soundcloud Burst.</summary>
         struct Wave { public Vector2 At; public float Angle, Born; }
 
-        struct Breath { public Vector2 At; public bool Gasp; public float Born; }
-        readonly List<Breath> breaths = new List<Breath>();
         readonly List<Vector3> arcGrid = new List<Vector3>(2048);
         readonly List<Wave> waves = new List<Wave>();
         readonly HashSet<int> beamLoops = new HashSet<int>();
@@ -133,7 +131,6 @@ namespace Vision.UI
                         Fx.RingAt(Ground(e.Pos, 0.05f), 0.2f * S, 1.8f * S, 0.6f, new Color(0.9f, 0.95f, 1f, 0.8f), 0.06f * S, false, true);
                     }
                     else if (e.Text == "slam") Audio.PlayCue("slam", Units(e.Pos));
-                    else if (e.Text == "search") Audio.PlayCue("hide", Units(e.Pos));
                     else if (e.Text == "drink") Audio.PlayCue("drink", Units(e.Pos));
                     else if (e.Text == "eat") Audio.PlayCue("eat", Units(e.Pos));
                     else if (e.Text == "pick_hit") Audio.PlayCue("pick_hit", Units(e.Pos));
@@ -143,10 +140,6 @@ namespace Vision.UI
                     break;
                 case EventKind.Throw:
                     Audio.PlayCue("throw", Units(e.Pos));
-                    break;
-                case EventKind.Breath:
-                    // Breathing heard through a hiding spot's door (a gasp is louder): a ring spreading over the ground.
-                    breaths.Add(new Breath { At = e.Pos, Gasp = e.F > 0f, Born = Time.time });
                     break;
                 case EventKind.Gas:
                     if (string.IsNullOrEmpty(e.Text))
@@ -305,7 +298,6 @@ namespace Vision.UI
                 LungeLines(p);
             }
             BladeTrails(sim);
-            DrawBreaths();
             DrawRipples(sim);
             DrawWaves(sim);
             DrawVapes(sim);
@@ -366,21 +358,6 @@ namespace Vision.UI
 
         /// <summary>A point just above the drawn ground (design units in, world out).</summary>
         Vector3 OnSurface(Vector2 at, float up) => world.transform.TransformPoint(new Vector3(at.x, world.SurfaceHeight(at) + up, at.y));
-
-        /// <summary>Breathing heard from a hiding spot: a pale ring spreading out over the ground and fading (as the original's).</summary>
-        void DrawBreaths()
-        {
-            const float life = 1.4f;
-            for (int i = breaths.Count - 1; i >= 0; i--)
-            {
-                Breath b = breaths[i];
-                float k = (Time.time - b.Born) / life;
-                if (k >= 1f) { breaths.RemoveAt(i); continue; }
-                float rad = Scale.D(Mathf.Lerp(10f, b.Gasp ? 70f : 50f, 1f - (1f - k) * (1f - k))) * RingSize;
-                float half = 0.025f * RingSize;
-                GroundArc(b.At, Mathf.Max(0f, rad - half), rad + half, 0f, Mathf.PI * 2f, new Color(0.85f, 0.94f, 1f, 0.7f * RingBright * (1f - k)), false, true);
-            }
-        }
 
         readonly Dictionary<int, ActionKind> lastAction = new Dictionary<int, ActionKind>();
 

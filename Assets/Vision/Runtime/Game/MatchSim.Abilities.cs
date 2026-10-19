@@ -323,7 +323,7 @@ namespace Vision.Game
                 SimPlayer by = Get(v.By);
                 foreach (SimPlayer p in Order)
                 {
-                    if (p.Role != Role.Survivor || p.HideState == 2) continue;
+                    if (p.Role != Role.Survivor) continue;
                     // (A body a ghost is in is slowed and blinded too; the gas's burn passes it by.)
                     if (p.Health != Health.Healthy && p.Health != Health.Wounded && p.Health != Health.Downed && !InBody(p)) continue;
                     if (VapeCoverage(v, ext, p.Pos, p.RadiusD) < Balance.Hunter.Vape.Coverage) continue;
@@ -543,7 +543,7 @@ namespace Vision.Game
                 // A body a ghost is in stops Zach's beam (one tick knocks the ghost out); a survivor's passes through it.
                 bool body = InBody(p);
                 if (body && h.Role != Role.Hunter) continue;
-                if (!body && (p.Role == Role.Hunter ? p.Health == Health.Eliminated : (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState == 2)) continue;
+                if (!body && (p.Role == Role.Hunter ? p.Health == Health.Eliminated : (p.Health != Health.Healthy && p.Health != Health.Wounded))) continue;
                 float along = Vector2.Dot(p.Pos - s, d);
                 if (along < 0f || along > vt) continue;
                 if (SimMap.SegmentDistance(p.Pos, s, s + d * len) > p.RadiusD + halfW) continue;
@@ -663,7 +663,7 @@ namespace Vision.Game
                 {
                     if (q.Id == b.By || b.Hit.Contains(q)) continue;
                     if (SimMap.SegmentDistance(q.Pos, a, e) > q.RadiusD + hitR) continue;
-                    if (q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2)
+                    if (q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded))
                     {
                         b.Hit.Add(q);
                         BulletStruck(q.Pos);
@@ -696,6 +696,6 @@ namespace Vision.Game
 
         /// <summary>A survivor holding the 0.50 cal with it up: its laser shows to everyone.</summary>
         public static bool LaserHolder(SimPlayer p) =>
-            p.Role == Role.Survivor && p.CanAct && p.HideState == 0 && p.Selected != null && p.Selected.item == ItemType.Sniper;
+            p.Role == Role.Survivor && p.CanAct && p.Selected != null && p.Selected.item == ItemType.Sniper;
     }
 }

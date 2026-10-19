@@ -64,14 +64,10 @@ namespace Vision.Tests
             Assert.AreEqual(ItemType.Piss, r2.Sim.Thrown[0].Item, "the jar in hand");
             Assert.AreEqual(1, s2.Inv.Count(ItemType.Bottle));
 
-            // Nothing to throw: nothing happens; hidden, Space is the held breath, never a throw.
+            // Nothing to throw: nothing happens.
             SimRig r3 = Rig(out SimPlayer s3, ItemType.Confit);
             r3.Tap(s3.Id, Btn.Space);
             Assert.AreEqual(0, r3.Sim.Thrown.Count);
-            SimRig r4 = Rig(out SimPlayer s4, ItemType.Bottle);
-            s4.HideState = 2;
-            r4.Tap(s4.Id, Btn.Space);
-            Assert.AreEqual(0, r4.Sim.Thrown.Count, "hidden: no throw");
         }
 
         [Test]

@@ -35,16 +35,6 @@ namespace Vision.Player
         /// <summary>Buttons held down by a capture or test, added to the real input.</summary>
         public Btn ExtraButtons { get; set; }
 
-        /// <summary>Where the player is hiding (null when not hidden).</summary>
-        public HidingSpot Hidden
-        {
-            get
-            {
-                SimPlayer p = Me;
-                return p != null && p.HideSpot >= 0 && world != null && p.HideSpot < world.HidingSpots.Count && p.HideState >= 1 ? world.HidingSpots[p.HideSpot] : null;
-            }
-        }
-
         /// <summary>What Interact would do right now ("Hold E to start the generator"), or null.</summary>
         public string InteractPrompt { get; private set; }
 
@@ -263,8 +253,8 @@ namespace Vision.Player
             InputCmd cmd = ReadInput(p, menu);
             h.Sim.SubmitInput(p.Id, cmd);
 
-            // The rules moved the player (or they are hidden, carried or staked): put the avatar there.
-            bool pinned = p.HideState != 0 || p.Health == Game.Health.Carried || p.Health == Game.Health.Staked;
+            // The rules moved the player (or they are carried or staked): put the avatar there.
+            bool pinned = p.Health == Game.Health.Carried || p.Health == Game.Health.Staked;
             if (pinned || p.PlaceVersion != placeSeen)
             {
                 placeSeen = p.PlaceVersion;
@@ -664,14 +654,9 @@ namespace Vision.Player
                     composite.jarvis = jarvisK;
                     composite.jarvisTime = jarvisAge;
                 }
-                // Hidden: peeking out through the slats (or the grass all round) for the original's short reach.
-                bool peeking = p.HideState == 2;
-                bool grass = peeking && world.HidingSpots[p.HideSpot].kind == HidingSpot.Kind.Grass;
-                if (peeking) cone = grass ? Balance.Hiding.GrassPeekHalfAngleDeg : Balance.Hiding.PeekHalfAngleDeg;
                 viewer.coneHalfAngleDeg = Mathf.Clamp(cone, 5f, 90f);
-                viewer.reachScreenEdge = !peeking;
-                if (peeking) viewer.coneRange = Scale.D(grass ? Balance.Hiding.GrassPeekRange : Balance.Hiding.PeekRange);
-                viewer.proximityRadius = Scale.D(peeking ? (grass ? Balance.Hiding.GrassPeekProximity : Balance.Hiding.PeekProximity) : zach ? Balance.Hunter.Proximity : Balance.Survivor.Proximity) * Mathf.Sqrt(p.FovMul);
+                viewer.reachScreenEdge = true;
+                viewer.proximityRadius = Scale.D(zach ? Balance.Hunter.Proximity : Balance.Survivor.Proximity) * Mathf.Sqrt(p.FovMul);
                 // The edge of the woods dims the whole light evenly; the beam keeps its full reach until the light is out.
                 float light = BoundaryLight(p, dt0);
                 bool lightOut = p.LostInWoods || p.ShutdownT >= Balance.Boundary.ShutdownTime;
@@ -711,7 +696,7 @@ namespace Vision.Player
                 animator.Lift = merging ? Vision.UI.CorpseViews.PossessLift(mergeM) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y)
                     : p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, Host != null ? Host.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y) : 0f;
             }
-            bool hidden = !p.Ghost && (p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator);
+            bool hidden = !p.Ghost && (p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator);
             if (hidden != hiddenShown)
             {
                 hiddenShown = hidden;
@@ -787,11 +772,6 @@ namespace Vision.Player
                     return p.PromptTarget >= 0 && p.PromptTarget < sim.Map.Loot.Count ? Items.Name(sim.Map.Loot[p.PromptTarget].Item, sim.Map.Loot[p.PromptTarget].Golden) : null;
                 case Prompt.NameDrop:
                     return p.PromptTarget >= 0 && p.PromptTarget < sim.Drops.Count ? Items.Name(sim.Drops[p.PromptTarget].Item, sim.Drops[p.PromptTarget].Golden) : null;
-                case Prompt.Hide:
-                {
-                    var kind = sim.Map.HidingSpots[p.PromptTarget].Kind;
-                    return kind == HidingSpot.Kind.Bed ? "Press E to hide under the bed" : $"Press E to hide in the {HideLabel(kind)}";
-                }
                 case Prompt.GatePowerless:
                 {
                     int running = 0;
@@ -802,15 +782,6 @@ namespace Vision.Player
                     return Texts.PromptLabel(p.Prompt);
             }
         }
-
-        static string HideLabel(HidingSpot.Kind k) => k switch
-        {
-            HidingSpot.Kind.Grass => "tall grass",
-            HidingSpot.Kind.Wardrobe => "wardrobe",
-            HidingSpot.Kind.Locker => "locker",
-            HidingSpot.Kind.Bed => "bed",
-            _ => "barrel",
-        };
 
         Vector2 ReadAim()
         {
@@ -864,26 +835,6 @@ namespace Vision.Player
             float t = (transform.position.y - ray.origin.y) / ray.direction.y;
             Vector3 hit = ray.origin + ray.direction * t;
             return new Vector2(hit.x - transform.position.x, hit.z - transform.position.z);
-        }
-
-        /// <summary>Hides in a spot at once (captures and tests): inside it, out of sight.</summary>
-        public void EnterHiding(HidingSpot spot)
-        {
-            SimPlayer p = Me;
-            int i = world != null ? world.HidingSpots.IndexOf(spot) : -1;
-            if (p == null || i < 0) return;
-            Host.Sim.Hiding[i] = p.Id;
-            p.HideSpot = i;
-            p.HideState = 2;
-            Host.Sim.CancelAction(p);
-            if (spot.kind != HidingSpot.Kind.Grass) Host.Sim.Place(p, Host.Sim.Map.HidingSpots[i].Pos);
-        }
-
-        public void LeaveHiding()
-        {
-            SimPlayer p = Me;
-            if (p == null || p.HideState == 0) return;
-            Host.Sim.ExitHiding(p, false);
         }
 
         public bool ToggleNearestDoor()

@@ -529,44 +529,6 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Hiding_TakesAMoment_BreathRunsOut_AndZachDragsThemOut()
-        {
-            var rig = new SimRig(1, 1);
-            rig.Map.HidingSpots.Add(new SimMap.HideDef { Pos = SimRig.U(300, 300), Exit = SimRig.U(300, 250), Kind = Vision.World.HidingSpot.Kind.Locker, Reach = 0.5f });
-            var sim = new MatchSim(rig.Map, rig.Geo, MatchRules.Resolve(1, 1), false, 3);
-            sim.AddPlayer(1, "Zach", Role.Hunter, SimRig.U(2500, -2500));
-            SimPlayer s = sim.AddPlayer(2, "S", Role.Survivor, SimRig.U(300, 260));
-            void Run(int ticks, Btn b, int id = 2)
-            {
-                for (int t = 0; t < ticks; t++)
-                {
-                    foreach (SimPlayer p in sim.Order) sim.SubmitInput(p.Id, p.Id == id ? new InputCmd { Buttons = b, AimDist = 100f } : new InputCmd { AimDist = 100f });
-                    sim.Step();
-                    sim.Events.Clear();
-                }
-            }
-            Run(2, Btn.None);
-            Assert.AreEqual(Prompt.Hide, s.Prompt);
-            Run(1, Btn.Interact);
-            Run(Secs(Balance.Hiding.EnterTime) + 2, Btn.None);
-            Assert.AreEqual(2, s.HideState, "hidden after 0.6 s");
-            Run(Secs(Balance.Hiding.BreathMax * 0.5f), Btn.Space);
-            Assert.AreEqual(0.5f, s.Breath, 0.05f, "holding your breath uses it up");
-            Assert.IsTrue(s.HoldingBreath);
-            Run(Secs(Balance.Hiding.BreathMax * 0.6f), Btn.Space);
-            Assert.IsFalse(s.HoldingBreath, "it runs out");
-            Assert.Greater(s.GaspCd, 0f, "a gasp");
-
-            SimPlayer zach = sim.Get(1);
-            sim.Teleport(1, SimRig.U(300, 230));
-            Run(2, Btn.None, 1);
-            Assert.AreEqual(Prompt.Search, zach.Prompt);
-            Run(1, Btn.Interact, 1);
-            Assert.AreEqual(0, s.HideState, "dragged out");
-            Assert.AreEqual(Health.Wounded, s.Health, "and cut");
-        }
-
-        [Test]
         public void Stakes_AreTheOriginalsCount()
         {
             Assert.AreEqual(6, MatchRules.StakeCount(1));

@@ -43,16 +43,16 @@ namespace Vision.Game
     /// <summary>The timed thing a player is doing (the original's Action).</summary>
     public enum ActionKind : byte
     {
-        None = 0, Repair = 1, Heal = 3, Revive = 4, Unstake = 5, OpenGate = 6, Loot = 7, HideEnter = 8, HideExit = 9,
-        PickUp = 11, Stake = 12, Search = 13, DamageGen = 15, Attack = 17, Talk = 18, Plant = 19, Drink = 20, PickLock = 21,
+        None = 0, Repair = 1, Heal = 3, Revive = 4, Unstake = 5, OpenGate = 6, Loot = 7,
+        PickUp = 11, Stake = 12, DamageGen = 15, Attack = 17, Talk = 18, Plant = 19, Drink = 20, PickLock = 21,
     }
 
     public enum BarricadeState : byte { Up = 0, Down = 1, Broken = 2 }
 
     public enum Prompt : byte
     {
-        None = 0, Repair = 1, Heal = 5, Revive = 6, Unstake = 7, OpenGate = 8, Loot = 9, Hide = 10, LeaveHiding = 11,
-        DropBarricade = 13, PickUp = 14, Stake = 15, Search = 16, DamageGen = 18, GatePowerless = 19, InventoryFull = 20,
+        None = 0, Repair = 1, Heal = 5, Revive = 6, Unstake = 7, OpenGate = 8, Loot = 9,
+        DropBarricade = 13, PickUp = 14, Stake = 15, DamageGen = 18, GatePowerless = 19, InventoryFull = 20,
         OpenDoor = 21, CloseDoor = 22, TalkSexton = 23, TakeHemp = 24, TalkChris = 27, TalkMarc = 28, TalkPlasma = 29,
         SextonMore = 30, PickDrop = 31, NameNpc = 32, NameLoot = 33, NameDrop = 34, TalkWaz = 35, ReadNote = 36,
         TalkChacko = 37, TalkNjaaron = 38, NjaaronAsk = 39, TalkMonique = 40, TalkThomas = 41, TalkSoham = 42,
@@ -74,7 +74,7 @@ namespace Vision.Game
         Primary = 1 << 3,
         /// <summary>F: Zach's Soundcloud Burst.</summary>
         Secondary = 1 << 4,
-        /// <summary>Space: slam a barricade, hold breath while hidden.</summary>
+        /// <summary>Space: slam a barricade; survivors' quick throw.</summary>
         Space = 1 << 5,
         /// <summary>Q: JARVIS (survivors) or the Hemp Battery (Zach).</summary>
         Ability = 1 << 6,
@@ -121,11 +121,8 @@ namespace Vision.Game
             ActionKind.Unstake => "Unstaking",
             ActionKind.OpenGate => "Opening gate",
             ActionKind.Loot => "Picking up",
-            ActionKind.HideEnter => "Hiding",
-            ActionKind.HideExit => "Leaving",
             ActionKind.PickUp => "Picking up",
             ActionKind.Stake => "Staking",
-            ActionKind.Search => "Searching",
             ActionKind.DamageGen => "Damaging",
             ActionKind.Attack => "Swinging",
             ActionKind.Talk => "Listening to Sexton",
@@ -144,12 +141,9 @@ namespace Vision.Game
             Prompt.Unstake => "Hold E to unstake",
             Prompt.OpenGate => "Hold E to open the gate",
             Prompt.Loot => "Press E to pick up",
-            Prompt.Hide => "Press E to hide",
-            Prompt.LeaveHiding => "Press E to leave",
             Prompt.DropBarricade => "Press Space to slam the barricade",
             Prompt.PickUp => "Press E to pick up",
             Prompt.Stake => "Press E to stake",
-            Prompt.Search => "Press E to search",
             Prompt.DamageGen => "Hold E to damage generator",
             Prompt.GatePowerless => "The gate has no power",
             Prompt.CloseHatch => "Press E to slam the hatch shut",

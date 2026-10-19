@@ -93,7 +93,7 @@ namespace Vision.Game
         {
             foreach (SimPlayer p in Order)
             {
-                if (p.Role != Role.Survivor || p.Ghost || (p.Health != Health.Healthy && p.Health != Health.Wounded) || p.HideState != 0) continue;
+                if (p.Role != Role.Survivor || p.Ghost || (p.Health != Health.Healthy && p.Health != Health.Wounded)) continue;
                 bool gate = (Gate.Open && InGateZone(0, p.Pos)) || (Gate2.Open && Map.HasGate2 && InGateZone(1, p.Pos));
                 bool hatch = HatchOpen && Map.HasHatch && Vector2.Distance(p.Pos, Map.Hatch) < R(Balance.Objectives.HatchRadius);
                 if (!gate && !hatch) continue;

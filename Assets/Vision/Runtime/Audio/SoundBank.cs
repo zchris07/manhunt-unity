@@ -126,7 +126,6 @@ namespace Vision.Audio
                 Near = 30f, Radius = Vision.Game.Balance.Objectives.GeneratorHearRadius, DecayTime = 7f, DecayTo = 0.2f, Start = 2.3f, Warm = true },
             ["gate"] = new Cue { Files = new[] { "sfx100_metal_03", "sfx100_metal_07" }, Volume = 1f, Radius = 3000f },
             ["note"] = new Cue { Files = new[] { "sfx100_paper_01", "sfx100_paper_02", "sfx100_paper_03" }, Volume = 0.8f, Radius = 300f },
-            ["hide"] = new Cue { Files = new[] { "rpg_creak1", "rpg_creak2", "rpg_creak3" }, Volume = 0.7f, Radius = 700f },
             // The graveyard's lock and gates.
             ["pick_hit"] = new Cue { Files = new[] { "rpg_metalclick" }, Volume = 0.8f, Pitch = 1.25f, Radius = 300f },
             ["pick_miss"] = new Cue { Files = new[] { "rpg_metallatch" }, Volume = 0.6f, Pitch = 0.7f, Radius = 300f },

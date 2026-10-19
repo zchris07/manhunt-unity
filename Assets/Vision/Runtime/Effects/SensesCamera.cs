@@ -6,7 +6,7 @@ namespace Vision.Effects
     /// <summary>
     /// Draws the "senses" layer above the vision mask, as the original draws its senses over the darkness: an overlay
     /// camera stacked on the main camera, matching its view every frame, drawing only <see cref="Vfx.SensesLayer"/> (which
-    /// the main camera skips). Breathing heard through a wardrobe door, the Soundcloud Burst's wave and the like.
+    /// the main camera skips). The Soundcloud Burst's wave and the like.
     /// Before it, a second overlay draws <see cref="Vfx.OverGroundLayer"/> (the laser and rounds in flight): it keeps the
     /// scene's depth and stencil, so they show over the ground (which marks its pixels) and behind whatever else is nearer,
     /// and it comes after the vision composite, so the darkness never covers them.

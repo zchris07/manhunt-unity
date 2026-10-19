@@ -60,7 +60,7 @@ namespace Vision.Tests
             Assert.AreEqual(5, world.Generators.Count, "three generators in the woods and two in the building");
             Assert.NotNull(world.Gate, "the building's exit gate");
             Assert.Greater(world.Doors.Count, 10, "the building's doors");
-            Assert.Greater(System.Linq.Enumerable.Count(world.GetComponentsInChildren<HidingSpot>(), h => h.kind == HidingSpot.Kind.Locker), 0, "lockers to hide in");
+            Assert.AreEqual(0, world.GetComponentsInChildren<Transform>(true).Count(t => t.GetComponents<Component>().Any(c => c != null && c.GetType().Name == "HidingSpot")), "nowhere to hide");
             Assert.Greater(world.GetComponentsInChildren<Barricade>().Length, 0, "pallets by the doorways");
             var buildingSize = world.Layout.Plan.Bounds;
             int wallsInside = System.Linq.Enumerable.Count(world.GetComponentsInChildren<Occluder>(), o =>
@@ -69,7 +69,6 @@ namespace Vision.Tests
                 return buildingSize.Contains(new Vector2(lp.x, lp.z));
             });
             Assert.Greater(wallsInside, 40, "the building's walls and tall furniture block sight");
-            Assert.AreEqual(world.Layout.GrassPatches.Count, System.Linq.Enumerable.Count(world.GetComponentsInChildren<HidingSpot>(), h => h.kind == HidingSpot.Kind.Grass));
             Assert.Greater(world.GetComponentsInChildren<Occluder>().Length, 60, "walls, trunks, rocks, crates, doors");
             // The story NPCs' places: the ambulance off the paths, the Four Notes far apart, the lounge in the building.
             Assert.NotNull(world.Ambulance, "Chris Zelley's ambulance");

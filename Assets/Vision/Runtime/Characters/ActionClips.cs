@@ -56,7 +56,7 @@ namespace Vision.Characters
             .Event(0.32f, "grab")
             .Blend(0.08f, 0.12f);
 
-        /// <summary>Crouched low (going into or out of a hiding spot).</summary>
+        /// <summary>Crouched low.</summary>
         public static readonly ActionClip Crouch = new ActionClip("Crouch", 0.5f)
             .Key(0f, P().Lower(0.32f).Both(Bone.ThighR, -62f).Both(Bone.ShinR, 98f).Both(Bone.FootR, -20f).R(Bone.Spine, 22f).R(Bone.Head, -12f).Both(Bone.UpperArmR, -30f, 0f, 8f).Both(Bone.ForearmR, -40f))
             .Blend(0.2f, 0.25f);
@@ -566,21 +566,6 @@ namespace Vision.Characters
             .Event(0.9f, "stake")
             .Blend(0.3f, 0.2f);
 
-        /// <summary>Searching a hiding spot: rummaging with both hands (loop).</summary>
-        public static readonly ActionClip Search = new ActionClip("Search", 0.9f, true)
-            .Key(0f, P().R(Bone.Spine, 22f).R(Bone.Head, 12f).R(Bone.UpperArmR, -92f, 0f, 8f).R(Bone.ForearmR, -16f).R(Bone.UpperArmL, -72f, 0f, -8f).R(Bone.ForearmL, -30f))
-            .Key(0.45f, P().R(Bone.Spine, 26f).R(Bone.Head, 16f).R(Bone.UpperArmR, -74f, 0f, 8f).R(Bone.ForearmR, -30f).R(Bone.UpperArmL, -94f, 0f, -8f).R(Bone.ForearmL, -14f))
-            .Blend(0.2f, 0.25f);
-
-        /// <summary>Searching a hiding spot (the original's search is instant): one rummage.</summary>
-        public static readonly ActionClip SearchOnce = new ActionClip("SearchOnce", 0.9f)
-            .Key(0f, Stand())
-            .Key(0.28f, Search.Keys[0].pose)
-            .Key(0.55f, Search.Keys[1].pose)
-            .Key(0.9f, Stand())
-            .Event(0.4f, "search")
-            .Blend(0.12f, 0.2f);
-
         /// <summary>Damaging a generator: stamping kicks ("kick" each time, loop).</summary>
         public static readonly ActionClip Kick = new ActionClip("Kick", 1.0f, true)
             .Key(0f, P().R(Bone.Spine, -4f).R(Bone.ThighR, -10f).R(Bone.ShinR, 20f))
@@ -687,7 +672,7 @@ namespace Vision.Characters
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, PumpReloadShotgun, PumpReloadGolden, AimRifle, RecoilRifle,
             AimPistol, RecoilPistol, HipRifle, RecoilHip, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
-            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes, Reel, SitFlinch, APose,
+            Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes, Reel, SitFlinch, APose,
         };
     }
 }

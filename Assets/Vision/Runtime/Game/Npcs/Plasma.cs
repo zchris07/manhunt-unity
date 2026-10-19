@@ -11,8 +11,7 @@ namespace Vision.Game
     /// changes he turns back on his own. Items and the machete stun him; only the beast can be killed. Talk to him (either
     /// side) and he says "ggs" and hands you a golden pump: one to the survivors and one to Zach, no more; anyone after
     /// that is told "sorry, i'm all out bro". After anyone attacks Chacko he rages at them, from wherever he is, until he's
-    /// dealt them a third of their health (or they're down, or he's slain), turning on them again whenever they come back
-    /// out of hiding.
+    /// dealt them a third of their health (or they're down, or he's slain).
     /// </summary>
     public sealed class Plasma : Walker
     {
@@ -136,14 +135,13 @@ namespace Vision.Game
         }
 
         /// <summary>
-        /// Keeps after Chacko's attacker until they're down: losing them in hiding he calms down, and he rages at them again
-        /// the moment they're back out.
+        /// Keeps after Chacko's attacker until they're down.
         /// </summary>
         void KeepGrudge()
         {
             if (grudge == 0) return;
             SimPlayer g = Sim.Get(grudge);
-            if (g == null || !Huntable(g, true) || grudgeDealt >= GrudgeShare - 1e-4f)
+            if (g == null || !Huntable(g) || grudgeDealt >= GrudgeShare - 1e-4f)
             {
                 grudge = 0;
                 avenging = false;
@@ -228,12 +226,12 @@ namespace Vision.Game
             Moving = false;
         }
 
-        /// <summary>Someone he can go after: Zach up and about, or a survivor on their feet (out of hiding, unless <paramref name="hiddenToo"/>).</summary>
-        static bool Huntable(SimPlayer p, bool hiddenToo = false)
+        /// <summary>Someone he can go after: Zach up and about, or a survivor on their feet.</summary>
+        static bool Huntable(SimPlayer p)
         {
             if (p == null) return false;
             if (p.Role == Role.Hunter) return p.Health != Health.Eliminated && p.KnockT <= 0f;
-            return p.Role == Role.Survivor && !p.Ghost && OnFeet(p) && (hiddenToo || p.HideState == 0);
+            return p.Role == Role.Survivor && !p.Ghost && OnFeet(p);
         }
 
         public override void Update(MatchSim sim, float dt)

@@ -48,7 +48,7 @@ namespace Vision.Game
         public Sexton(MatchSim sim) : base(sim, 101) => SpawnAnywhere(4f, 500f);
 
         bool CanTalk(SimPlayer p) =>
-            alive && (State == Mode.Idle || State == Mode.Walk) && p.Role == Role.Survivor && OnFeet(p) && p.HideState == 0 && !given.Contains(p.Id) && Near(p, Balance.Sexton.Reach);
+            alive && (State == Mode.Idle || State == Mode.Walk) && p.Role == Role.Survivor && OnFeet(p) && !given.Contains(p.Id) && Near(p, Balance.Sexton.Reach);
 
         bool IsAwaiting(SimPlayer p) =>
             alive && State == Mode.Talk && Stage == TalkStage.Await && TalkTo == p.Id && Vector2.Distance(p.Pos, Pos) < Scale.D(Balance.Sexton.Reach + 30f);
@@ -272,7 +272,7 @@ namespace Vision.Game
         {
             var near = new List<SimPlayer>();
             foreach (SimPlayer p in Sim.Order)
-                if (p.Role == Role.Survivor && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed) && p.HideState != 2
+                if (p.Role == Role.Survivor && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed)
                     && Vector2.Distance(p.Pos, Pos) < Scale.D(Balance.Sexton.Defense.Vicinity))
                     near.Add(p);
             return near;
@@ -395,7 +395,7 @@ namespace Vision.Game
             float halfW = Scale.D(Balance.Sexton.Defense.BeamWidth) * 0.5f;
             foreach (SimPlayer p in Sim.Order)
             {
-                if (p.Role != Role.Survivor || !OnFeet(p) || p.HideState == 2) continue;
+                if (p.Role != Role.Survivor || !OnFeet(p)) continue;
                 float along = Vector2.Dot(p.Pos - s, dir);
                 if (along < 0f || along > vt) continue;
                 if (SimMap.SegmentDistance(p.Pos, s, s + dir * len) > p.RadiusD + halfW) continue;

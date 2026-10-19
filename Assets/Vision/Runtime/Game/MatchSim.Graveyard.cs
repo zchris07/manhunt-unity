@@ -79,7 +79,7 @@ namespace Vision.Game
         void UpdatePick(SimPlayer p, float dt)
         {
             int g = p.ActionTarget;
-            if (g < 0 || g >= DoorLocked.Length || !DoorLocked[g] || !p.CanAct || p.HideState != 0 ||
+            if (g < 0 || g >= DoorLocked.Length || !DoorLocked[g] || !p.CanAct ||
                 SimMap.SegmentDistance(p.Pos, Map.Doors[g].A, Map.Doors[g].B) > R(Balance.Reach.Door + 20f))
             {
                 CancelAction(p);

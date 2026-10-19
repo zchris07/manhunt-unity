@@ -52,8 +52,6 @@ namespace Vision.Game
             }
             foreach (Pickup p in w.Pickups)
                 if (p != null) map.Loot.Add(new SimMap.LootDef { Pos = Local(p.transform.position), Item = p.item, Golden = p.golden });
-            foreach (HidingSpot h in w.HidingSpots)
-                map.HidingSpots.Add(new SimMap.HideDef { Pos = Local(h.transform.position), Exit = Local(h.ExitPosition), Kind = h.kind, Reach = h.reach });
             foreach (Door d in w.Doors) map.Doors.Add(new SimMap.DoorDef { A = d.a, B = d.b, StartsOpen = d.IsOpen, Shutter = d.blocksMovementWhenOpen, Gate = d.gate });
             foreach (Barricade b in w.BarricadeList) map.Barricades.Add(new SimMap.BarricadeDef { A = b.a, B = b.b, Pos = (b.a + b.b) * 0.5f });
             foreach (WindowPiece win in w.Windows) map.Windows.Add(new SimMap.WindowDef { A = win.a, B = win.b });

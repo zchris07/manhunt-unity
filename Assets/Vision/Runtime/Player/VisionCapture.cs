@@ -345,19 +345,6 @@ namespace Vision.Player
                 power.Refresh();
             }
 
-            // Hiding in the tall grass: the player vanishes, the prompt offers the way out.
-            if (L.GrassPatches.Count > 0 && gameHud != null)
-            {
-                gameHud.visible = true;
-                yield return Stage(player, V(L.GrassPatches[0].Centre), Vector2.up, wanderer, away);
-                foreach (HidingSpot h in HidingSpot.All)
-                    if (h.kind == HidingSpot.Kind.Grass) { player.EnterHiding(h); break; }
-                yield return Wait(5);
-                gameHud.Refresh();
-                yield return Shot("39b_hiding_in_grass");
-                player.LeaveHiding();
-                gameHud.visible = false;
-            }
             cameraRig.orthographicSize = ortho;
 
             // 9. The whole map from above (raw scene), and a closer survey around the building's site.
@@ -1823,7 +1810,7 @@ namespace Vision.Player
             var zachClips = new System.Collections.Generic.HashSet<ActionClip>
             {
                 ActionClips.Charge, ActionClips.Swing, ActionClips.SwingHeavy, ActionClips.Lunge, ActionClips.Carry, ActionClips.LiftBody, ActionClips.StakeBody,
-                ActionClips.Search, ActionClips.Kick, ActionClips.Burst, ActionClips.Vape, ActionClips.Hemp, ActionClips.Beam, ActionClips.SwingBack, ActionClips.RecoilPump,
+                ActionClips.Kick, ActionClips.Burst, ActionClips.Vape, ActionClips.Hemp, ActionClips.Beam, ActionClips.SwingBack, ActionClips.RecoilPump,
             };
             const int perRow = 10;
             int rows = (clips.Count + perRow - 1) / perRow;

@@ -24,7 +24,7 @@ namespace Vision.UI
             float now = Time.time, dt = Mathf.Max(1e-4f, Time.deltaTime);
             foreach (SimPlayer p in sim.Order)
             {
-                if (p.Role == Role.Spectator || p.HideState == 2 || p.Health == Health.Carried || p.Health == Health.Escaped) continue;
+                if (p.Role == Role.Spectator || p.Health == Health.Carried || p.Health == Health.Escaped) continue;
                 if (p.Health == Health.Eliminated && !p.Ghost) continue;
                 // (A ghost's wake only for those who can see a ghost.)
                 if (Vision.Player.PlayerController.GhostForm(p) && !MatchSim.SeesGhosts(host.Local)) continue;

@@ -79,8 +79,8 @@ namespace Vision.Game
         }
 
         /// <summary>
-        /// The original's win check without its time limit. The night goes on while any survivor is still on their feet (or
-        /// hiding); when none is, the survivors win if enough escaped. If every hunter has left, the survivors win.
+        /// The original's win check without its time limit. The night goes on while any survivor is still on their feet;
+        /// when none is, the survivors win if enough escaped. If every hunter has left, the survivors win.
         /// </summary>
         public static Winner CheckWin(int survivors, int standing, int escaped, int eliminated, int hunters, int huntersGone, int escapeNeeded, out string reason)
         {

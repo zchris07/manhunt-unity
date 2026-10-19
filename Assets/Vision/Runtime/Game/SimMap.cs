@@ -26,7 +26,6 @@ namespace Vision.Game
         public Vector2 Hatch;
         public bool HasHatch;
         public readonly List<LootDef> Loot = new List<LootDef>();
-        public readonly List<HideDef> HidingSpots = new List<HideDef>();
         public readonly List<DoorDef> Doors = new List<DoorDef>();
         public readonly List<BarricadeDef> Barricades = new List<BarricadeDef>();
         public readonly List<WindowDef> Windows = new List<WindowDef>();
@@ -44,14 +43,6 @@ namespace Vision.Game
         public readonly List<Vector2> HunterSpawns = new List<Vector2>();
 
         public struct LootDef { public Vector2 Pos; public ItemType Item; public bool Golden; }
-
-        public struct HideDef
-        {
-            public Vector2 Pos, Exit;
-            public World.HidingSpot.Kind Kind;
-            /// <summary>Tall grass: the patch radius (anywhere inside it hides you).</summary>
-            public float Reach;
-        }
 
         /// <summary>A door's closed panel runs A to B.</summary>
         /// <summary>A door; <see cref="Gate"/>: the graveyard's gates (locked at the start, survivors only).</summary>
@@ -79,8 +70,6 @@ namespace Vision.Game
                 h = h * 31 + Mathf.RoundToInt(AmbulanceAngle * 1000f);
                 h = h * 31 + Loot.Count;
                 foreach (LootDef l in Loot) { V(l.Pos); h = h * 31 + (int)l.Item; }
-                h = h * 31 + HidingSpots.Count;
-                foreach (HideDef d in HidingSpots) V(d.Pos);
                 h = h * 31 + Doors.Count;
                 foreach (DoorDef d in Doors) { V(d.A); V(d.B); }
                 h = h * 31 + Barricades.Count;

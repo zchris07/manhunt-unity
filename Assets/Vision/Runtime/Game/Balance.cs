@@ -79,9 +79,9 @@ namespace Vision.Game
                 public const float ChargeMax = 0.9f + 1f, HeavyAt = 0.85f + 1f, ChargeRangeMul = 1.3f, ChargeArcMul = 1.25f, ChargeSlowMul = 0.65f, AutoRelease = 3f + 1f;
                 /// <summary>
                 /// An uncharged swing takes 10 of a survivor's 100 (the user's rule; the original's a third), growing evenly over
-                /// the charge to two thirds fully charged. Pulling a survivor out of hiding still takes a third (<see cref="FoundDamage"/>).
+                /// the charge to two thirds fully charged.
                 /// </summary>
-                public const float DamageBase = 0.1f, DamageFull = 2f / 3f, TapGrace = 0.1f, FoundDamage = 1f / 3f;
+                public const float DamageBase = 0.1f, DamageFull = 2f / 3f, TapGrace = 0.1f;
                 /// <summary>
                 /// Swings, charged or not, go back and forth in an X (forehand, backhand...) while each is started within this
                 /// long of the last one; after a longer pause the next starts again with the forehand.
@@ -174,16 +174,6 @@ namespace Vision.Game
 
         public const float SprintLockout = 1.5f;
         public const float WadeMul = 0.45f;
-
-        public static class Hiding
-        {
-            public const float EnterTime = 0.6f, ExitTime = 0.5f, BreathMax = 6f, BreathRegen = 0.6f, BreathingHearRadius = 130f;
-            public const float PeekHalfAngleDeg = 28f, PeekRange = 420f, PeekProximity = 40f;
-            public const float GrassPeekHalfAngleDeg = 180f, GrassPeekRange = 150f, GrassPeekProximity = 150f;
-            public const float BreathingIntervalSec = 1.5f, GaspCooldown = 2f;
-            /// <summary>Zach within this distance hears a gasp (twice the breathing radius).</summary>
-            public const float GaspHearRadius = 260f;
-        }
 
         public static class Items
         {
@@ -491,7 +481,7 @@ namespace Vision.Game
 
         public static class Reach
         {
-            public const float Hatch = 80f, Note = 64f, Teammate = 70f, Generator = 78f, Gate = 58f, Loot = 48f, Hide = 58f, Barricade = 80f, Door = 62f, Stake = 78f, Pickup = 68f, NpcName = 110f;
+            public const float Hatch = 80f, Note = 64f, Teammate = 70f, Generator = 78f, Gate = 58f, Loot = 48f, Barricade = 80f, Door = 62f, Stake = 78f, Pickup = 68f, NpcName = 110f;
         }
 
         public static class Trails

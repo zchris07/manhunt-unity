@@ -40,8 +40,8 @@ namespace Vision.Game
                 if (p.Role != Role.Survivor && p.Role != Role.Hunter) continue;
                 p.CrossCd = Mathf.Max(0f, p.CrossCd - dt);
                 bool gone = p.Health == Health.Eliminated || p.Health == Health.Escaped;
-                // Carried, staked or hidden, a survivor is where Zach or the hiding spot is; nothing applies.
-                bool pinned = p.Health == Health.Carried || p.Health == Health.Staked || p.HideState != 0;
+                // Carried or staked, a survivor is where Zach or the stake is; nothing applies.
+                bool pinned = p.Health == Health.Carried || p.Health == Health.Staked;
                 p.Zone = gone || pinned ? 0 : ZoneAt(p.Pos);
                 if (p.Zone == 2) p.ShutdownT = Mathf.Min(Balance.Boundary.ShutdownTime, p.ShutdownT + dt);
                 // Back inside the second ring, the light comes back about twice as fast as it went.

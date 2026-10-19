@@ -134,8 +134,6 @@ namespace Vision.Characters
                 case ActionKind.Heal:
                 case ActionKind.Revive:
                 case ActionKind.Unstake: return ActionClips.Tend;
-                case ActionKind.HideEnter:
-                case ActionKind.HideExit: return ActionClips.Crouch;
                 case ActionKind.Drink: return ActionClips.Drink;
                 case ActionKind.Talk: return ActionClips.Talk;
             }
@@ -163,7 +161,6 @@ namespace Vision.Characters
             if (p.StunT > 0f) return ActionClips.Reel;
             switch (p.Action)
             {
-                case ActionKind.Search: return ActionClips.Search;
                 case ActionKind.DamageGen: return ActionClips.Kick;
                 case ActionKind.Talk: return ActionClips.Talk;
             }
@@ -215,7 +212,6 @@ namespace Vision.Characters
                     break;
                 case EventKind.Talk:
                     if (e.A == self.Id && e.Text == "burst") PlayOnce(ActionClips.Burst);
-                    else if (e.A == self.Id && e.Text == "search") PlayOnce(ActionClips.SearchOnce);
                     else if (e.A == self.Id && e.Text == "slam") PlayOnce(ActionClips.Slam);
                     else if (e.A == self.Id && e.Text == "door") PlayOnce(ActionClips.Push);
                     else if (e.A == self.Id && e.Text == "drink") PlayOnce(ActionClips.Swig);

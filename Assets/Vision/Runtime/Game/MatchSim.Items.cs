@@ -292,7 +292,7 @@ namespace Vision.Game
             if (q.Role == Role.Hunter) return hunters && q.Health != Health.Eliminated;
             // A body a ghost is in: only Zach's golden pump reaches it (a single pellet knocks the ghost out).
             if (InBody(q)) return shooter != null && shooter.Role == Role.Hunter;
-            return q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
+            return q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded);
         }
 
         static void Knock(SimPlayer q, float dur, float peak, float ang)
@@ -474,7 +474,7 @@ namespace Vision.Game
                 SimPlayer hitP = null;
                 foreach (SimPlayer q in Order)
                 {
-                    bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
+                    bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated && q.KnockT <= 0f : q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded);
                     if (!ok) continue;
                     float t = RayCircle(s, d, q.Pos, q.RadiusD);
                     if (t < best) { best = t; hitP = q; }
@@ -658,7 +658,7 @@ namespace Vision.Game
                 foreach (SimPlayer q in Order)
                 {
                     if (q.Id == b.Owner) continue;
-                    bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated : q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded) && q.HideState != 2;
+                    bool ok = q.Role == Role.Hunter ? q.Health != Health.Eliminated : q.Role == Role.Survivor && (q.Health == Health.Healthy || q.Health == Health.Wounded);
                     if (!ok) continue;
                     float t = RayCircle(b.Pos, b.Dir, q.Pos, q.RadiusD + hitRadius);
                     if (t < best) { best = t; hitP = q; }
@@ -764,7 +764,7 @@ namespace Vision.Game
                 p.JarvisT = Mathf.Max(0f, p.JarvisT - dt);
                 Inventory.Slot s = p.Selected;
                 // Right click with the 0.50 cal aims it: the scope up, the laser on, and slower on the feet.
-                p.Aiming = p.LastCmd.Has(Btn.Lunge) && s != null && s.item == ItemType.Sniper && p.CanAct && p.HideState == 0 && p.Action == ActionKind.None;
+                p.Aiming = p.LastCmd.Has(Btn.Lunge) && s != null && s.item == ItemType.Sniper && p.CanAct && p.Action == ActionKind.None;
                 if (p.Aiming)
                 {
                     p.Move.SlowT = Mathf.Max(p.Move.SlowT, 0.1f);

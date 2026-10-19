@@ -441,22 +441,12 @@ namespace Vision.Player
             bool zach = me.Role == Role.Hunter;
             bool downed = me.Health == Game.Health.Downed;
 
-            // Stamina (the original's SPRINT bar); hidden, it's your breath.
+            // Stamina (the original's SPRINT bar).
             float maxStamina = MoveState.MaxStamina(me.Role, me.Move.BoostT);
-            if (me.HideState == 2)
-            {
-                // Hidden: the bar shows your breath (Space holds it; run out and you gasp).
-                staminaLabel.text = "BREATH " + Mathf.RoundToInt(me.Breath * 100f);
-                SetFill(staminaFill, me.Breath);
-                staminaImage.texture = me.HoldingBreath ? staminaBoost : me.GaspCd > 0f ? staminaLocked : staminaTex;
-            }
-            else
-            {
-                bool locked = me.Move.StaminaLock > 0f || me.Move.SprintBlocked;
-                staminaLabel.text = locked ? "SPRINT LOCKED " + Mathf.Max(me.Move.StaminaLock, 0f).ToString("0.0") + "s" : "SPRINT " + me.Move.Stamina.ToString("0.0") + "s";
-                SetFill(staminaFill, me.Move.Stamina / maxStamina);
-                staminaImage.texture = locked ? staminaLocked : me.Move.BoostT > 0f ? staminaBoost : staminaTex;
-            }
+            bool sprintLocked = me.Move.StaminaLock > 0f || me.Move.SprintBlocked;
+            staminaLabel.text = sprintLocked ? "SPRINT LOCKED " + Mathf.Max(me.Move.StaminaLock, 0f).ToString("0.0") + "s" : "SPRINT " + me.Move.Stamina.ToString("0.0") + "s";
+            SetFill(staminaFill, me.Move.Stamina / maxStamina);
+            staminaImage.texture = sprintLocked ? staminaLocked : me.Move.BoostT > 0f ? staminaBoost : staminaTex;
 
             // Inventory (survivors).
             Inventory inv = me.Inv;

@@ -235,8 +235,6 @@ namespace Vision.Game
                         if (State == Mode.Wander) { Idle = true; ModeT = 2f; }
                         return;
                     }
-                    // Hidden, he waits where he lost them; out again, he's straight back on them.
-                    if (t.Role == Role.Survivor && t.HideState == 2) return;
                     Hunt(t, dt);
                     return;
                 }
@@ -251,7 +249,7 @@ namespace Vision.Game
                     }
                     huntT = Mathf.Max(0f, huntT - dt);
                     SimPlayer prey = Hunting ? Sim.Get(huntId) : null;
-                    if (prey != null && OnFeet(prey) && prey.HideState != 2)
+                    if (prey != null && OnFeet(prey))
                     {
                         Fight(prey, dt);
                         return;
@@ -558,7 +556,7 @@ namespace Vision.Game
                 if (t == null) return;
                 // Rifle up on them the whole time; she fires whenever they can be hurt.
                 Face(t.Pos);
-                bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t) && t.HideState != 2;
+                bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t);
                 if (up && shotCd <= 0f)
                 {
                     shotCd = Balance.Monique.Reload;
@@ -671,7 +669,7 @@ namespace Vision.Game
                 // Where she stands: turning to keep them in her sights, firing while she has a clear line and they're in
                 // reach (and can be hurt); the pump worked between blasts.
                 Face(t.Pos);
-                bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t) && t.HideState != 2;
+                bool up = t.Role == Role.Hunter ? t.Health != Health.Eliminated && t.KnockT <= 0f : OnFeet(t);
                 if (up && fireCd <= 0f && Vector2.Distance(Pos, t.Pos) <= Scale.D(ShotgunReach) && Sim.Geo.LineOfSight(Pos, t.Pos))
                 {
                     fireCd = Balance.Items.Shotgun.Reload;

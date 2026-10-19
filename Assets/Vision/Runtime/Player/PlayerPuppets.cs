@@ -172,7 +172,7 @@ namespace Vision.Player
             // A ghost shows wherever they go, glowing white, to those who can see one (never a survivor); in a body, they're
             // whoever it was, to everyone, in the light like anyone. Ghosts make no sound.
             bool ghostForm = PlayerController.GhostForm(p);
-            bool visible = ghostForm ? seesGhosts : p.Reanimated || (p.HideState != 2 && p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated);
+            bool visible = ghostForm ? seesGhosts : p.Reanimated || (p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated);
             if (p.Role != Role.Hunter) pup.View.SetSpec(PlayerController.SpecFor(p));
             GhostLook.Set(pup.Go, ghostForm, world.lowPolyMaterial);
             // Back in a body: a small golden halo over its head.

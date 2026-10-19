@@ -80,7 +80,7 @@ namespace Vision.Game
         protected static bool CanChat(SimPlayer p)
         {
             if (p.Role == Role.Spectator) return false;
-            if (p.Role == Role.Survivor) return OnFeet(p) && p.HideState == 0;
+            if (p.Role == Role.Survivor) return OnFeet(p);
             return p.CanAct;
         }
 

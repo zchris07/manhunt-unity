@@ -556,7 +556,6 @@ namespace Vision.Player
             float scale = FullPx / (2f * world.MapExtent);
             Vector2 at = local / scale;
             world.Player.Teleport(world.transform.TransformPoint(new Vector3(at.x, 0f, at.y)));
-            world.Player.LeaveHiding();
         }
 
         // ---------------------------------------------------------------- ui helpers

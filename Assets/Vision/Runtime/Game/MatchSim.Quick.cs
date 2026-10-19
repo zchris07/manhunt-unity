@@ -25,7 +25,7 @@ namespace Vision.Game
             || q == Prompt.GatePowerless || q == Prompt.InventoryFull;
 
         /// <summary>Free to use an item off a quick key: on their feet, hands free, not hidden, busy or climbing.</summary>
-        bool QuickReady(SimPlayer p) => p.Role == Role.Survivor && !p.Ghost && p.CanAct && p.Action == ActionKind.None && p.HideState == 0 && !p.Move.Climbing;
+        bool QuickReady(SimPlayer p) => p.Role == Role.Survivor && !p.Ghost && p.CanAct && p.Action == ActionKind.None && !p.Move.Climbing;
 
         /// <summary>The slot a quick key uses: the one in hand if it's the right kind, else the first in the inventory that is.</summary>
         int QuickSlotFor(SimPlayer p, System.Func<ItemType, bool> kind)

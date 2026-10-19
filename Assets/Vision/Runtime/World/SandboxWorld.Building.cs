@@ -298,17 +298,6 @@ namespace Vision.World
                 occ.shape = Occluder.Shape.Box;
                 occ.size = item.Size;
             }
-            if (item.Hide)
-            {
-                HidingSpot.Kind kind = item.Kind switch
-                {
-                    BF.Barrel => HidingSpot.Kind.Barrel,
-                    BF.Bed => HidingSpot.Kind.Bed,
-                    BF.Wardrobe => HidingSpot.Kind.Wardrobe,
-                    _ => HidingSpot.Kind.Locker,
-                };
-                AddHiding(go, kind, kind == HidingSpot.Kind.Bed ? 1.3f : 1.0f, new Vector3(0f, 0f, item.Size.y * 0.5f + 0.45f));
-            }
         }
 
         void BuildLamp(BuildingPlan.Lamp lamp, Transform root, float floor)

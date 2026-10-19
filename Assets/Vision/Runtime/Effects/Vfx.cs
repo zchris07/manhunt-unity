@@ -7,7 +7,7 @@ namespace Vision.Effects
     /// The game's effects, drawn as a few dynamic meshes rebuilt each frame: particle bursts (camera-facing soft dots,
     /// with drag and gravity), expanding rings on the ground, and ribbons (trails). Each kind has a "masked" variant that,
     /// like characters, shows only inside the viewer's own light (splinters, glass, the scent trail), and a "senses"
-    /// variant on the overlay layer that shows through the dark (breath rings, the Burst wave). Positions are world space.
+    /// variant on the overlay layer that shows through the dark (the Burst wave). Positions are world space.
     /// </summary>
     // Last in the frame (after the camera and everything that draws effects), so this frame's effects show this frame.
     [DefaultExecutionOrder(150)]

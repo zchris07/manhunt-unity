@@ -203,7 +203,7 @@ namespace Vision.Game
 
         /// <summary>Someone he'll follow: a survivor about (not hidden), or Zach himself when Chacko's attacker was Zach.</summary>
         protected virtual bool Eligible(SimPlayer p) =>
-            (p.Role == Role.Survivor && !p.Ghost && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed) && p.HideState == 0)
+            (p.Role == Role.Survivor && !p.Ghost && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed))
             || (p.Role == Role.Hunter && p.Id == Grudge && p.Health != Health.Eliminated);
 
         /// <summary>Whether a flashlight kept on him alerts him too (Shane), or only standing close does (Jaden).</summary>

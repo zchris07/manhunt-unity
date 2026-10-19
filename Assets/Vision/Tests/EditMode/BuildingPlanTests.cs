@@ -183,7 +183,7 @@ namespace Vision.Tests
                 foreach (Plan.Room r in p.Rooms) types.Add(r.Type);
                 Assert.Greater(p.Rooms.Select(r => r.Type).Distinct().Count(), 5, $"seed {p.Seed}: many kinds of room");
                 Assert.Greater(p.Items.Count, 150, "full of things");
-                Assert.That(p.Items.Count(i => i.Hide && i.Kind == Plan.Furn.Locker && p.Rooms[i.Room].IsHallway), Is.InRange(1, Plan.MaxHallLockers), "lockers in the hallways");
+                Assert.That(p.Items.Count(i => i.Kind == Plan.Furn.Locker && p.Rooms[i.Room].IsHallway), Is.InRange(1, Plan.MaxHallLockers), "lockers in the hallways");
                 foreach (Plan.Furn k in new[] { Plan.Furn.Poster, Plan.Furn.Stain, Plan.Furn.Cobweb })
                     Assert.IsTrue(p.Items.Any(i => i.Kind == k), $"seed {p.Seed}: has {k}");
             }
