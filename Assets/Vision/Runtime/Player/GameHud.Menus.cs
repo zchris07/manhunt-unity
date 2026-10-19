@@ -12,9 +12,10 @@ namespace Vision.Player
     {
         public static readonly (string key, string action)[] SurvivorControls =
         {
-            ("W A S D", "Move"), ("Mouse", "Aim"), ("Shift", "Sprint"), ("Ctrl", "Crouch"), ("E", "Interact"),
+            ("W A S D", "Move"), ("Mouse", "Aim"), ("Shift", "Sprint"), ("Ctrl", "Crouch"), ("E", "Interact · quick heal (hold: mini shield)"),
             ("Left mouse", "Use item"), ("Wheel / 1-8", "Select item"), ("G", "Drop item"), ("Tab", "Arrange inventory"),
-            ("Q", "JARVIS"), ("RMB", "Night vision (with goggles)"), ("R", "Hemp Beam (once you have it)"), ("Space", "Barricade · hold breath"), ("Z / C", "Turn the view"), ("M", "Map"),
+            ("Q", "JARVIS"), ("RMB", "Night vision (with goggles)"), ("Space", "Quick throw · barricade · hold breath"), ("R", "Quick drink (Dr Pepper)"),
+            ("Z / C", "Turn the view"), ("M", "Map"),
         };
 
         public static readonly (string key, string action)[] HunterControls =

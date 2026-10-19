@@ -130,6 +130,14 @@ namespace Vision.Game
         public Inventory Inv = new Inventory();
         /// <summary>Selected slot, 0-based (-1 none).</summary>
         public int SelSlot = -1;
+        /// <summary>
+        /// The item a quick key (Space, E, R) last used, as an ItemType (-1 none), shown in hand for <see cref="QuickT"/> s in
+        /// place of the selected one, which never changes.
+        /// </summary>
+        public int QuickItem = -1;
+        public float QuickT;
+        /// <summary>Drinking a mini shield off E: only while E is held.</summary>
+        public bool QuickShield;
         /// <summary>They've been told how to aim the 0.50 cal (shown once, the first time they take it in hand).</summary>
         public bool SniperHintShown;
         /// <summary>The slot in hand when JARVIS came on: the tablet is held up until they take something else in hand.</summary>

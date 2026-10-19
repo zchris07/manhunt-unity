@@ -70,7 +70,9 @@ namespace Vision.Characters
             else
             {
                 Inventory.Slot s = p.Selected;
-                PropKind held = s != null ? PropModels.ForItem(s.item, s.golden) : PropKind.None;
+                // A quick throw, heal or drink: the item used, in hand for the moment (then the selected one again).
+                PropKind held = Quick(p) ? PropModels.ForItem((ItemType)p.QuickItem, false)
+                    : s != null ? PropModels.ForItem(s.item, s.golden) : PropKind.None;
                 bool hands = p.Health == Game.Health.Healthy || p.Health == Game.Health.Wounded;
                 right = hands ? (held != PropKind.None ? held : PropKind.Flashlight) : PropKind.None;
             }
@@ -139,7 +141,7 @@ namespace Vision.Characters
             }
             if (p.Move.Climbing) return ActionClips.Climb;
             if (p.VapeT > 0f) return ActionClips.CoverEyes;
-            Inventory.Slot s = p.Selected;
+            Inventory.Slot s = Quick(p) ? null : p.Selected;
             if (s != null)
             {
                 // Each gun held the way it is in real life: a pistol in a two-handed Weaver grip, the shotgun shouldered,
@@ -150,6 +152,9 @@ namespace Vision.Characters
             }
             return null;
         }
+
+        /// <summary>A quick key's item in hand right now (instead of the selected one).</summary>
+        static bool Quick(SimPlayer p) => p.QuickT > 0f && p.QuickItem >= 0;
 
         static ActionClip HunterState(SimPlayer p)
         {

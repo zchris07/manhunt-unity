@@ -685,14 +685,14 @@ namespace Vision.Player
                     yield return new WaitForSeconds(0.5f);
                     yield return FireAndCatch(player, "114_shotgun_from_the_barrel", 0.02f);
                     yield return new WaitForSeconds(0.8f);
-                    player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Bottle);
-                    yield return new WaitForSeconds(0.4f);
-                    player.ExtraButtons = Btn.Primary;
+                    // Space with the shotgun in hand: a quick throw, the bottle in hand as it goes, then the shotgun back.
+                    player.ExtraButtons = Btn.Space;
                     yield return Wait(2);
                     player.ExtraButtons = Btn.None;
                     yield return new WaitForSeconds(0.09f);
                     yield return Shot("115_quick_throw");
                     yield return new WaitForSeconds(0.8f);
+                    yield return Shot("115b_shotgun_back_in_hand");
                     // Goggles: the x-ray grows out of the torch over half a second; then worn over the eyes.
                     cameraRig.orthographicSize = o;
                     // (Night vision stays on while right click is held.)

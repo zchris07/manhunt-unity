@@ -64,13 +64,13 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | Ctrl | B / Circle | Crouch |
 | Z / C | – | Turn the view 45° left / right (eased over a quarter of a second; W keeps moving up the screen, the minimap and full map turn with it; each match starts turned 45° off the world's grid, so walls and buildings run diagonally across the screen) |
 | Mouse | Right stick | Aim the light cone (whichever moved last) |
-| E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
+| E | X / Square | Interact: pick up, open or close a door, hide or leave, revive, heal, unstake; **hold** on a generator or the gate lever. With nothing to interact with, survivors **quick heal**: the healing item in hand (duck confit, a Mr Beast bar), or else the first in the inventory; at full health or with nothing to eat, **hold** E to drink a mini shield (let go part way and it stops). Zach: pick up a downed survivor, stake, search a hiding spot, damage a generator |
 | 1-9, 0, -, = or the wheel | D-pad left/right | Select an inventory slot (twelve in testing mode; there the wheel zooms the view in and out instead) |
 | Left mouse | Right trigger | Use the selected item (survivors); swing the machete, hold to charge a heavy swing (Zach) |
 | Right mouse | Left trigger | Zach: lunge; survivors: aim the 0.50 cal (hold) |
-| Space | A / Cross | Slam a pallet down |
+| Space | A / Cross | Slam a pallet down; otherwise survivors **quick throw**: the throwable in hand (a bottle, a jar of piss, the Grapes of Wrath), or else the first in the inventory, where they aim |
 | G | D-pad down | Drop the selected item |
-| F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam; survivors: R fires the Hemp Beam once Thomas gives it |
+| F / Q / R | Y / LB / RB | Zach: Soundcloud Burst / Penjamin or Hemp Battery / Hemp Beam; survivors: R is a **quick drink** of a Dr Pepper (a survivor fires the Hemp Beam Thomas gives like any item, with left mouse) |
 | Y / N | D-pad up | Answer yes or no |
 | T | – | Testing: switch between Zach and a survivor where you stand |
 | Tab (hold) | – | Full map (the minimap is always on); survivors also drag items between slots, or off the bar to drop the stack |
@@ -78,6 +78,8 @@ map), so bindings can be changed there or rebound at runtime. The keys follow th
 | R | – | Get back up when downed (testing, survivors) |
 | Esc | Start | Game menu (does not pause) |
 | F1-F5 | – | Visibility polygons, debug views, stats, look panel, camera effects |
+
+The quick keys never change the item in hand: the item they use shows in it for the moment it's used (a mini shield for as long as E is held drinking it), then the one selected is back (`MatchSim.Quick`).
 
 M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions asset.
 

@@ -126,11 +126,13 @@ namespace Vision.Game
         void Consume(SimPlayer p, int slot) => p.Inv.Remove(slot);
 
         /// <summary>Left click: use the item in the selected slot.</summary>
-        void UseItem(SimPlayer p, InputCmd cmd)
+        void UseItem(SimPlayer p, InputCmd cmd) => UseItemAt(p, cmd, p.SelSlot);
+
+        /// <summary>Uses the item in <paramref name="slot"/> (the one in hand, or a quick key's); false if it couldn't be.</summary>
+        bool UseItemAt(SimPlayer p, InputCmd cmd, int slot)
         {
-            Inventory.Slot s = p.Selected;
-            int slot = p.SelSlot;
-            if (s == null || p.Action != ActionKind.None || !p.CanAct) return;
+            Inventory.Slot s = p.Inv.SlotAt(slot);
+            if (s == null || s.Empty || p.Action != ActionKind.None || !p.CanAct) return false;
             switch (s.item)
             {
                 case ItemType.Bottle:
@@ -144,13 +146,13 @@ namespace Vision.Game
                     break;
                 }
                 case ItemType.Shotgun:
-                    if (p.ReloadT > 0f) return;
+                    if (p.ReloadT > 0f) return false;
                     FireShotgun(p, cmd.Aim, Balance.Items.Shotgun.PelletDamage, s.golden);
                     p.ReloadT = s.golden ? Balance.Items.Golden.Reload : Balance.Items.Shotgun.Reload;
                     SpendRound(p, slot);
                     break;
                 case ItemType.Sniper:
-                    if (p.ReloadT > 0f) return;
+                    if (p.ReloadT > 0f) return false;
                     FireSniper(p, cmd.Aim);
                     p.ReloadT = Balance.Items.Sniper.Reload;
                     SpendRound(p, slot);
@@ -159,7 +161,7 @@ namespace Vision.Game
                     FireBeamItem(p, slot, cmd.Aim);
                     break;
                 case ItemType.Pistol:
-                    if (p.ReloadT > 0f) return;
+                    if (p.ReloadT > 0f) return false;
                     FirePistol(p, cmd.Aim);
                     p.ReloadT = Balance.Items.Pistol.Reload;
                     SpendRound(p, slot);
@@ -180,7 +182,7 @@ namespace Vision.Game
                     if (p.Hp >= 0.999f)
                     {
                         Tell(p, "Already at full health");
-                        return;
+                        return false;
                     }
                     UseSlow(p);
                     RestoreSurvivor(p, 1f);
@@ -192,7 +194,7 @@ namespace Vision.Game
                     if (p.Hp >= 0.999f)
                     {
                         Tell(p, "Already at full health");
-                        return;
+                        return false;
                     }
                     UseSlow(p);
                     RestoreSurvivor(p, p.Hp + Balance.Items.BeastBarHeal);
@@ -204,14 +206,17 @@ namespace Vision.Game
                     if (p.Shield >= Balance.Items.ShieldMax - 1e-6f)
                     {
                         Tell(p, "Shield is full");
-                        return;
+                        return false;
                     }
                     StartAction(p, ActionKind.Drink, Balance.Items.ShieldDrinkTime, 0);
                     break;
                 case ItemType.Trap:
                     StartAction(p, ActionKind.Plant, Balance.Items.Trap.PlantTime, 0);
                     break;
+                default:
+                    return false;
             }
+            return true;
         }
 
         /// <summary>Healing and boost items can be used on the move, at half speed for a moment.</summary>
@@ -754,6 +759,7 @@ namespace Vision.Game
                 if (p.Role == Role.Hunter) p.BookT = Mathf.Max(0f, p.BookT - dt);
                 if (p.Role != Role.Survivor) continue;
                 p.ReloadT = Mathf.Max(0f, p.ReloadT - dt);
+                p.QuickT = Mathf.Max(0f, p.QuickT - dt);
                 p.ScareT = Mathf.Max(0f, p.ScareT - dt);
                 p.JarvisT = Mathf.Max(0f, p.JarvisT - dt);
                 Inventory.Slot s = p.Selected;

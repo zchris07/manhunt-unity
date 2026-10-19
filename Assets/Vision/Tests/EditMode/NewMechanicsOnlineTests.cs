@@ -174,6 +174,15 @@ namespace Vision.Tests
                 Pump(() => ga.Received.Any(e => e.Kind == EventKind.Jarvis && e.B == 1) && gb.Received.Any(e => e.Kind == EventKind.Jarvis && e.B == 1), "the JARVIS event (first use)");
                 Assert.AreEqual(0f, hs.Get(zachId).JarvisT, "not Zach");
 
+                // Ben's R: a quick Dr Pepper, drunk on the host, the can in his hand on both guests, nothing selected after.
+                ben.Inv.Add(ItemType.DoctorPepper, 1);
+                Frames(3);
+                bButtons = Btn.Beam;
+                Pump(() => hs.Get(benId).Move.BoostT > 0f, "Ben's quick drink to reach the host");
+                bButtons = Btn.None;
+                Pump(() => ga.Sim.Get(benId).QuickItem == (int)ItemType.DoctorPepper && gb.Sim.Get(benId).QuickT > 0f, "the can in his hand on both guests");
+                Assert.AreEqual(-1, hs.Get(benId).SelSlot, "his hand's selection never changed");
+
                 // Both gates powered; Miga Sushi's opened; the end game; the hatch.
                 foreach (GenState g in hs.Gens) { g.Progress = 1f; g.Repaired = true; }
                 Pump(() => ga.Sim.Gate.Powered && ga.Sim.Gate2.Powered && gb.Sim.Gate2.Powered, "both gates' power");

@@ -472,6 +472,12 @@ namespace Vision.Game
         {
             if (p.Action == ActionKind.Repair && p.ActionTarget >= 0 && p.ActionTarget < Gens.Length) Gens[p.ActionTarget].Workers = Mathf.Max(0, Gens[p.ActionTarget].Workers - 1);
             if (p.Action == ActionKind.Talk) foreach (Npc n in Npcs) n.CancelTalk(this, p);
+            // A mini shield drunk off E, stopped: the item in hand is back at once.
+            if (p.QuickShield)
+            {
+                p.QuickShield = false;
+                p.QuickT = 0f;
+            }
             p.Action = ActionKind.None;
             p.ActionT = 0f;
             p.ActionDur = 0f;

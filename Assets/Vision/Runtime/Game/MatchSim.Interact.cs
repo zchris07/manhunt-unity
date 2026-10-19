@@ -368,14 +368,22 @@ namespace Vision.Game
                 }
                 // Holding E starts hold-to-act interactions as soon as they become available.
                 bool heldStart = cmd.Has(Btn.Interact) && p.Action == ActionKind.None && p.HideState == 0 && System.Array.IndexOf(HoldPrompts, p.Prompt) >= 0;
+                // E with nothing to interact with heals (worked out before E does anything else); Space throws unless it
+                // slams a barricade.
+                bool quickHeal = (pressed & Btn.Interact) != 0 && Passive(p.Prompt) && p.HideState == 0;
+                bool slam = (pressed & Btn.Space) != 0 && p.Prompt2 == Prompt.DropBarricade;
                 if ((pressed & Btn.Interact) != 0 || heldStart) SurvivorInteract(p);
-                if ((pressed & Btn.Space) != 0 && p.CanAct && p.Action == ActionKind.None && p.Prompt2 == Prompt.DropBarricade) DropBarricade(p, p.Prompt2Target);
+                if (slam && p.CanAct && p.Action == ActionKind.None) DropBarricade(p, p.Prompt2Target);
                 // Climbing over something (a log, a fence, a broken window): hands busy, no items, guns or abilities.
                 if (p.Move.Climbing) return;
                 // Guns fire for as long as left click is held (a shot each time they've reloaded); anything else once a click.
                 Inventory.Slot held = p.Selected;
                 bool gun = held != null && (held.item == ItemType.Pistol || held.item == ItemType.Shotgun || held.item == ItemType.Sniper);
                 if (p.CanAct && ((pressed & Btn.Primary) != 0 || (gun && cmd.Has(Btn.Primary)))) UseItem(p, cmd);
+                // The quick keys (the item in hand stays in hand): Space throws, E heals, R drinks a Dr Pepper.
+                if ((pressed & Btn.Space) != 0 && !slam) QuickThrow(p, cmd);
+                if (quickHeal) QuickHeal(p, cmd);
+                if ((pressed & Btn.Beam) != 0) QuickDrink(p, cmd);
                 if ((pressed & Btn.Drop) != 0) DropItem(p);
                 if ((pressed & Btn.Ability) != 0) TryJarvis(p);
                 return;
@@ -659,17 +667,24 @@ namespace Vision.Game
                         PlantTrap(p);
                         continue;
                     case ActionKind.Drink:
-                        if (!p.CanAct)
+                        // Off E (a quick heal), it's drunk only while E is held: let go and it stops, the item in hand back.
+                        if (!p.CanAct || (p.QuickShield && !holding))
                         {
                             CancelAction(p);
                             continue;
                         }
                         p.ActionT += dt;
+                        if (p.QuickShield) p.QuickT = Mathf.Max(p.QuickT, 0.1f);
                         // Drinking on the move is allowed, at half speed.
                         UseSlow(p, 0.15f);
                         if (p.ActionT < p.ActionDur) continue;
                         p.Action = ActionKind.None;
                         DrinkShield(p);
+                        if (p.QuickShield)
+                        {
+                            p.QuickShield = false;
+                            p.QuickT = 0f;
+                        }
                         continue;
                     case ActionKind.HideEnter:
                     {
