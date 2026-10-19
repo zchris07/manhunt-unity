@@ -56,7 +56,7 @@ namespace Vision.Tests
             bool AtSite(VisionLight l) { for (Transform t = l.transform; t != null; t = t.parent) if (t.name == "Generator Work Site" || t.name == "Building Lights") return true; return false; }
             int lights = all.Count(l => !AtSite(l));
             Assert.That(lights, Is.InRange(20, 76), "campfires, cabin lamps, the dock lantern, lanterns along the paths and the building's lamps");
-            Assert.AreEqual((world.Generators.Count - 2) * 3 - 1, all.Count(l => AtSite(l) && l.bright), "and three light towers at every generator's work site in the woods (two at the graveyard's; none in the building)");
+            Assert.AreEqual((world.Generators.Count - 2) * 2, all.Count(l => AtSite(l) && l.bright), "and two light towers at every generator's work site in the woods (the graveyard's too; none in the building)");
             Assert.AreEqual(5, world.Generators.Count, "three generators in the woods and two in the building");
             Assert.NotNull(world.Gate, "the building's exit gate");
             Assert.Greater(world.Doors.Count, 10, "the building's doors");

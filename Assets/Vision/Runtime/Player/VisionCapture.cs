@@ -1143,23 +1143,55 @@ namespace Vision.Player
                     yield return Shot("110_zach_backhand");
                     // The blade low: a generator and a gravestone struck, each throwing off dust and debris (and clanking).
                     {
-                        var marks = new System.Collections.Generic.List<(string shot, Vector2 at)>();
-                        if (host.Sim.Map.Generators.Count > 0) marks.Add(("130_machete_generator", host.Sim.Map.Generators[host.Sim.Map.Generators.Count - 1]));
+                        var marks = new System.Collections.Generic.List<(string shot, Vector2 at, Vector2 face)>();
+                        if (host.Sim.Map.Generators.Count > 0) marks.Add(("130_machete_generator", host.Sim.Map.Generators[host.Sim.Map.Generators.Count - 1], Vector2.up));
                         foreach (Transform t in world.GetComponentsInChildren<Transform>(true))
                             if (t.name == "Headstone")
                             {
                                 Vector3 sl = world.transform.InverseTransformPoint(t.position);
-                                marks.Add(("131_machete_gravestone", new Vector2(sl.x, sl.z)));
+                                marks.Add(("131_machete_gravestone", new Vector2(sl.x, sl.z), Vector2.up));
                                 break;
                             }
-                        foreach (var (shot, at) in marks)
+                        // A ruined brick wall (struck from one side of it, at its middle).
+                        foreach (Transform t in world.GetComponentsInChildren<Transform>(true))
+                            if (t.name == "Brick Wall Ruin")
+                            {
+                                Vector3 sl = world.transform.InverseTransformPoint(t.position);
+                                Vector3 across = world.transform.InverseTransformDirection(t.forward);
+                                var side = new Vector2(across.x, across.z).normalized;
+                                marks.Add(("132_machete_brick_ruin", new Vector2(sl.x, sl.z), -side));
+                                break;
+                            }
+                        foreach (var (shot, at, face) in marks)
                         {
-                            yield return Stage(player, V(at + new Vector2(0f, -1.3f)), Vector2.up, wanderer, away);
+                            yield return Stage(player, V(at - face * 1.3f), face, wanderer, away);
                             yield return new WaitForSeconds(0.9f);
                             yield return Press(Btn.Primary, 2);
                             yield return new WaitForSeconds(0.24f);
                             yield return Shot(shot);
                         }
+                        // Soham struck once: he blows up, leaving three jars of piss where he stood.
+                        Soham soham = null;
+                        foreach (Npc n in host.Sim.Npcs) if (n is Soham sh && sh.Alive) { soham = sh; break; }
+                        if (soham != null)
+                        {
+                            yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
+                            soham.Pos = host.Local.Pos + Vector2.up * Scale.D(70f);
+                            yield return new WaitForSeconds(0.5f);
+                            soham.Pos = host.Local.Pos + Vector2.up * Scale.D(70f);
+                            yield return Press(Btn.Primary, 2);
+                            yield return new WaitForSeconds(0.4f);
+                            yield return Shot("172_soham_slain");
+                            yield return new WaitForSeconds(1.2f);
+                            yield return Shot("172b_soham_jars");
+                        }
+                        // Zach pissed on twice (the testing effect): yellow all over, the extra damage stacked in his status.
+                        gameHud.PlayTestFx(TestFx.Piss);
+                        yield return new WaitForSeconds(0.3f);
+                        gameHud.PlayTestFx(TestFx.Piss);
+                        yield return new WaitForSeconds(2.3f);
+                        yield return Shot("171_zach_pissed_on");
+                        host.Local.PissStacks = new float[0];
                         yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
                         if (target != null) host.Sim.Teleport(target.Id, z.Pos + new Vector2(0f, 3.2f));
                     }
@@ -1385,6 +1417,14 @@ namespace Vision.Player
                     Vector3 onDock = world.transform.InverseTransformPoint(player.transform.position);
                     bool dockUnder = world.OnDock(new Vector2(onDock.x, onDock.z), out float deckY);
                     Debug.Log($"[Vision] the dock: on its boards {dockUnder}, standing {onDock.y - deckY:0.000} m off the deck");
+                    {
+                        // The feet: their ankles' and toes' heights over the boards (they sank through them when the legs
+                        // reached for the lake bed).
+                        var legs = player.GetComponentInChildren<Vision.Characters.HumanoidAnimator>();
+                        float deckW = world.transform.TransformPoint(new Vector3(onDock.x, deckY, onDock.z)).y, k = world.transform.lossyScale.y;
+                        if (legs != null && legs.bones != null)
+                            Debug.Log($"[Vision] the dock: ankles {(legs.bones[(int)Vision.Characters.Bone.FootL].position.y - deckW) / k:0.000} / {(legs.bones[(int)Vision.Characters.Bone.FootR].position.y - deckW) / k:0.000} m and toes {(legs.bones[(int)Vision.Characters.Bone.ToeL].position.y - deckW) / k:0.000} / {(legs.bones[(int)Vision.Characters.Bone.ToeR].position.y - deckW) / k:0.000} m over its boards");
+                    }
                     yield return Shot("169_on_the_dock");
 
                     // The lobby: its balance card, a joiner's slider moved (in amber).

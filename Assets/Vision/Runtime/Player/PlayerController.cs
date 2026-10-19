@@ -722,6 +722,8 @@ namespace Vision.Player
             GhostLook.Set(gameObject, ghostForm, world != null ? world.lowPolyMaterial : null);
             // Back in a body: a small golden halo over its head.
             Vision.Player.Halo.Set(gameObject, MatchSim.InBody(p), world != null ? world.entityMaterial : null);
+            // Zach soaked in piss: yellow, fading with it.
+            PissLook.Set(gameObject, p.Role == Role.Hunter ? PissLook.Amount(MatchSim.PissBonus(p)) : 0f);
             if (steps == null) steps = GetComponent<Vision.Audio.Footsteps>();
             if (steps != null && steps.enabled == ghostForm) steps.enabled = !ghostForm;
         }

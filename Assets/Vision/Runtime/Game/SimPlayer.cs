@@ -92,7 +92,10 @@ namespace Vision.Game
         public int StakeBuff;
         public float BookT;
         public float AbilityLockT;
+        /// <summary>Soaked in piss (Zach): the seconds left on the freshest splash.</summary>
         public float PissT;
+        /// <summary>Every splash still on him, by its seconds left (each +50% damage taken, falling off linearly with it).</summary>
+        public float[] PissStacks = new float[0];
         /// <summary>Piss in the eyes: the view blurred and yellowed, falling off linearly over <see cref="Balance.Items.Piss.BlurTime"/> s.</summary>
         public float PissBlurT;
         /// <summary>Hit by a 0.50 cal round: slowed, falling off linearly over <see cref="Balance.Items.Sniper.SlowTime"/> s.</summary>

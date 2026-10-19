@@ -39,7 +39,13 @@ namespace Vision.World
         /// Whether a point on the level's plane is on the lake dock's boards (from the shore at its foot to its end, its
         /// width across), and the height of its deck: solid ground to walk on, the water a step down either side.
         /// </summary>
-        public bool OnDock(Vector2 at, out float deck)
+        public bool OnDock(Vector2 at, out float deck) => OnDock(at, out deck, 0f);
+
+        /// <summary>How far past the dock's edges a foot still stands on its boards (a step can swing out over them).</summary>
+        public const float DockFeetMargin = 0.3f;
+
+        /// <summary><see cref="OnDock(Vector2, out float)"/>, its width taken <paramref name="margin"/> wider either side.</summary>
+        public bool OnDock(Vector2 at, out float deck, float margin)
         {
             deck = 0f;
             if (Layout == null || Terrain == null || Terrain.LakeLayout == null) return false;
@@ -47,7 +53,7 @@ namespace Vision.World
             float len2 = ab.sqrMagnitude;
             if (len2 < 1e-6f) return false;
             float t = Vector2.Dot(at - a, ab) / len2;
-            if (t < 0f || t > 1f || (at - (a + ab * t)).magnitude > Layout.DockHalfWidth) return false;
+            if (t < 0f || t > 1f || (at - (a + ab * t)).magnitude > Layout.DockHalfWidth + margin) return false;
             // Standing on the tops of its boards.
             deck = Mathf.Max(Terrain.Height(a.x, a.y), Terrain.LakeLevel) + DockDeckAbove + DockBoardTop;
             return true;

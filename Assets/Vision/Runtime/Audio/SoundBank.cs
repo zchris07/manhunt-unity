@@ -31,6 +31,11 @@ namespace Vision.Audio
             public float CutEnd;
             /// <summary>Whether its volume follows the listener as it plays (a long sound from a fixed spot), rather than set once.</summary>
             public bool Tracked => DecayTime > 0f || TailFade > 0f || CutEnd > 0f;
+            /// <summary>
+            /// Decoded ahead, when the audio starts up (a long file that would otherwise take a moment to load the first
+            /// time it plays, and start late).
+            /// </summary>
+            public bool Warm;
         }
 
         static string[] Range(string prefix, int from, int to, string fmt = "D3")
@@ -65,7 +70,7 @@ namespace Vision.Audio
             ["jarvis_voice"] = new Cue { Prefer = new[] { "local_jarvis_voice" }, Files = new string[0], Volume = 0.85f, PitchJitter = 0f, VolumeJitter = 0f, TailFade = 1f },
             // A generator started, or a survivor reaching an exit: the victory jingle, heard by everyone (a local file; its
             // last second and a half cut off: white noise sets in about 3.35 s into its 4.79).
-            ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1.5f },
+            ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1.5f, Warm = true },
             // Plasma.TTV going into his gamer rage, from where he stands (a local file).
             ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // Anyone attacking Chacko, from the couch (a local file).
@@ -83,9 +88,12 @@ namespace Vision.Audio
             // Into sturdy metal (the building's doors, a car, a generator, a light tower, a locker): one of three clangs,
             // as loud as the wood and fading out the same way.
             ["metal_heavy"] = new Cue { Prefer = new[] { "local_metal_heavy_1", "local_metal_heavy_2", "local_metal_heavy_3" }, Files = new string[0], Volume = 0.425f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
-            // Into lighter metal (fences, the graveyard's gates, lampposts, barrels, racks, generators) and ringing stone (rocks,
-            // boulders, gravestones): one of nine Half-Life clanks, held to the end (40% softer than the wood, at the user's request).
+            // Into lighter metal (fences, the graveyard's gates, lampposts, barrels, racks, generators): one of nine Half-Life
+            // clanks, held to the end (40% softer than the wood, at the user's request).
             ["metal_light"] = new Cue { Prefer = new[] { "local_metal_1", "local_metal_2", "local_metal_3", "local_metal_4", "local_metal_5", "local_metal_6", "local_metal_7", "local_metal_8", "local_metal_9" }, Files = new string[0], Volume = 0.425f * 0.6f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
+            // Into stone (a rock, a boulder, a gravestone, a grave, the gate's pillars, a stone wall, a ruined brick wall): one
+            // of three stones breaking (local files, cut from the user's recording), held to the end.
+            ["stone_hit"] = new Cue { Prefer = new[] { "local_stone_1", "local_stone_2", "local_stone_3" }, Files = new string[0], Volume = 0.35f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
             // Into a wall of a building, a cabin or a shack: one of three slams.
             ["wall_slam"] = new Cue { Prefer = new[] { "local_wall_slam_1", "local_wall_slam_2", "local_wall_slam_3" }, Files = new string[0], Volume = 0.5f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
             // A bullet or pellet striking a body (a player or an NPC): one of three, quiet, held to the end.
@@ -111,9 +119,11 @@ namespace Vision.Audio
             ["stun"] = new Cue { Files = Range("impact_impactplate_heavy_", 0, 4), Volume = 0.8f, Radius = 900f },
             // A generator started: a small diesel generator coming to life (a local file), played through once from where it
             // stands, falling off linearly to a fifth of its volume over its first seven seconds; only those within ten feet
-            // of it hear it, faintly. (The old machine whirr is gone.)
-            ["generator_done"] = new Cue { Prefer = new[] { "local_generator_start" }, Files = new string[0], Volume = 0.55f, PitchJitter = 0f, VolumeJitter = 0f,
-                Near = 30f, Radius = Vision.Game.Balance.Objectives.GeneratorHearRadius, DecayTime = 7f, DecayTo = 0.2f },
+            // of it hear it. It starts the moment the generator does, with the victory jingle: from the engine catching, 2.3 s
+            // into the file (past its silence and the faint crank), and decoded ahead so it never waits on loading. 30%
+            // louder than it was (its fall-off's end too). (The old machine whirr is gone.)
+            ["generator_done"] = new Cue { Prefer = new[] { "local_generator_start" }, Files = new string[0], Volume = 0.55f * 1.3f, PitchJitter = 0f, VolumeJitter = 0f,
+                Near = 30f, Radius = Vision.Game.Balance.Objectives.GeneratorHearRadius, DecayTime = 7f, DecayTo = 0.2f, Start = 2.3f, Warm = true },
             ["gate"] = new Cue { Files = new[] { "sfx100_metal_03", "sfx100_metal_07" }, Volume = 1f, Radius = 3000f },
             ["note"] = new Cue { Files = new[] { "sfx100_paper_01", "sfx100_paper_02", "sfx100_paper_03" }, Volume = 0.8f, Radius = 300f },
             ["hide"] = new Cue { Files = new[] { "rpg_creak1", "rpg_creak2", "rpg_creak3" }, Volume = 0.7f, Radius = 700f },
@@ -131,6 +141,22 @@ namespace Vision.Audio
         };
 
         static readonly Dictionary<string, AudioClip> loaded = new Dictionary<string, AudioClip>();
+
+        /// <summary>Loads and decodes every <see cref="Cue.Warm"/> cue's files ahead (in the background).</summary>
+        public static void WarmUp()
+        {
+            foreach (Cue c in Cues.Values)
+            {
+                if (!c.Warm) continue;
+                foreach (string[] files in new[] { c.Prefer, c.Files })
+                    if (files != null)
+                        foreach (string f in files)
+                        {
+                            AudioClip clip = Load(f);
+                            if (clip != null && clip.loadState == AudioDataLoadState.Unloaded) clip.LoadAudioData();
+                        }
+            }
+        }
 
         public static AudioClip Load(string file)
         {

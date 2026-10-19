@@ -141,7 +141,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   map, Look settings, Full screen, How to play, Quit to main menu, the three volume sliders, and the controls for
   your role (a list that scrolls inside the panel, with the wheel or its bar). Testing mode adds the original's **TEST
   EFFECTS** panel (left): every stun and flash played on yourself
-  (being shot by a 0.50 cal among them: thrown back, slowed, the sprint locked out),
+  (being shot by a 0.50 cal among them: thrown back, slowed, the sprint locked out; and **Pissed on**: a jar's splash,
+  the piss in the eyes and, on Zach, its extra damage and yellow, stacking with any already on him),
   Respawn NPCs, and **dummies**: inert survivors and Zachs spawned in front of you to down, carry, stake, cut down,
   revive, heal, shoot or stun.
 - **Other players** (`PlayerPuppets`): dummies (and, online, the other players) are drawn where the match has them,
@@ -412,8 +413,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   poles, the cabins' doors, crates; one of five cracks, half as loud as at first, each fading out linearly to
   nothing), into sturdy metal (the building's doors, its exit gate, cars, light towers, lockers; one of
   three clangs, as loud and fading the same way), into other metal (generators, fences, the graveyard's gates, lampposts,
-  barrels, racks; one of nine hits, as loud, held to the end) and into the wall of a building, cabin or shack (one of
-  three slams); a window breaking; a bullet or pellet striking any body, a player's or an NPC's (one of three,
+  barrels, racks; one of nine hits, held to the end), into stone (rocks, boulders, gravestones, graves, the graveyard
+  gate's pillars, stone walls and the ruined brick walls; one of three stones breaking, cut from the user's recording,
+  held to the end) and into the wall of a building, cabin or shack (one of three slams); a window breaking; a bullet or pellet striking any body, a player's or an NPC's (one of three,
   quiet, held to the end); and a sting heard by everyone when a survivor is sacrificed (staked to the end, or gone
   into the woods). The first thing a 0.50 cal round goes into sounds as the machete striking it would. Without the
   files the slash, the window and the 0.50 cal fall back to their own sounds and the rest are silent. Every sound is
@@ -454,7 +456,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   out of every wall, tree or object it punches into and out of, as it gets there. It shoves Zach back a quarter less far
   than at first and slows him by half, the slow falling off linearly to nothing over a second; the first time a player
   takes it in hand they're told "Hold right click to aim". The shotgun stuns Zach half as long as at first (1.05 s). A jar
-  of piss in Zach's face also blurs his view under a yellow filter, falling off linearly over two seconds. Zach's
+  of piss in Zach's face also blurs his view under a yellow filter, falling off linearly over two seconds; and soaks
+  him: +50% damage taken, falling off linearly to nothing over fifteen seconds, every jar adding another +50% on top
+  of what's left of the others, without limit (his status shows the total and how many). He's tinted yellow all over
+  (whatever he holds too) as strongly as the piss on him is fresh, fading with it. Zach's
   machete throws debris off every solid thing its swing meets (up to five in a swing, each where it was struck),
   by what it's made of (read from what was struck):
   wood throws long splinters, bark chips and sawdust (and cracks: local sounds cut from five wood breaks); stone grey
@@ -488,7 +493,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   gets his health coming back 10% faster for good (even after Njaaron's slain), and Njaaron goes with Zach: he follows
   him about and hunts down any survivor Zach lands a swing or an ability on, and any survivor who lands an attack on
   Zach; nothing of Zach's (his machete, lunge, beam, Penjamin, burst, golden pump) ever touches him; he runs 20% faster than the
-  original's (210 units a second); he explodes when he dies. **Soham** says Hi and explodes. Whoever explodes (Chacko, Soham, Njaaron) goes up in a bloody blast: a hot flash, a cloud of red mist, blood sprayed out everywhere in streaking droplets with lumps of gore among them and smoke rolling up after, leaving dark blood stains on the ground for the rest of the match (a ragged pool where they stood, splashes and long streaks out to five metres, spatters beyond). **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
+  original's (210 units a second); he explodes when he dies. **Soham** says Hi and explodes; any one hit slays him
+  (anyone's blow, shot, thrown item or beam), and he explodes all the same, leaving three jars of piss where he stood. Whoever explodes (Chacko, Soham, Njaaron) goes up in a bloody blast: a hot flash, a cloud of red mist, blood sprayed out everywhere in streaking droplets with lumps of gore among them and smoke rolling up after, leaving dark blood stains on the ground for the rest of the match (a ragged pool where they stood, splashes and long streaks out to five metres, spatters beyond). **Thomas Bourgeois** hands his one full Hemp Beam to whoever talks to
   him first, Zach or a survivor (testing mode gives survivors one to try, in a thirteenth slot on the backslash key).
   A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
   fired with a left click, its charges left kept on it, so dropped (G) and picked up by someone else it has the charges
@@ -571,12 +577,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   red satin sheets and a pile of pillows, and bottles of baby oil all over the floor. Walking into either, its name
   fades up on screen between two thin rules, holds and fades away.
 - **Generator work sites** (`SandboxWorld.FloodSet`): every generator stands in a work site laid out by hand (one
-  fixed arrangement, turned with the generator): three trailer light towers as tall as a big tree (a cream trailer with
+  fixed arrangement, turned with the generator): two trailer light towers as tall as a big tree, behind it either side (a cream trailer with
   red and blue stripes, outriggers and a tow bar, a telescopic mast with four lamp heads on a frame at the top), each
   wired to it by a cable winding over the ground and throwing a loop of slack; four yellow work lights (a box light on
-  a frame, a twin on a bar, a tripod with one head, a tripod with two), wired too; and the mess of a site gone to seed:
-  broken glass, planks, corrugated metal, a cable spool, a jerry can, a toolbox, a small portable generator, loose
-  wires, ferns and grass grown up through it. The graveyard's is bare: just the generator, two towers either side of
+  a frame, a twin on a bar, a tripod with one head, a tripod with two), wired too; and the mess of a work site:
+  broken glass, planks, corrugated metal, a cable spool, a jerry can, a toolbox and loose wires. Nothing grows on it:
+  no ferns, grass, shrubs or flowers within 7.5 m of the generator. The graveyard's is bare: just the generator, two towers either side of
   it on the walk between the graves, and their two cables. Dark until the generator runs, then on for good: each
   tower lights the ground all round it (13 m) as brightly and as white as a player's own light, each work light a
   little round it. Anything that would stand in a wall, tree or rock moves to the nearest clear ground. The
@@ -622,8 +628,15 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   away, dark; his HP line reads out of what's left.
 - **Zach's swing**: uncharged it takes 10 of a survivor's 100, growing evenly over the charge to two thirds fully
   charged (pulling someone out of hiding still takes a third). The swing is traced low as well as across the chest, so
-  it strikes generators, gravestones and anything else no higher than the hip, throwing off dust and debris; a rock, a
-  boulder or a gravestone rings under the machete with the Half-Life metal clank, as a generator does.
+  it strikes generators, gravestones and anything else no higher than the hip, throwing off dust and debris; a
+  generator clanks (the Half-Life metal clank), while stone (a rock, a boulder, a gravestone, the ruined brick walls)
+  breaks with one of three stone-breaking sounds.
+- **Ruined brick walls**: a dozen or so broken stretches of old red brick wall stand about the map, somewhere new each
+  match (the same for every player in it), some with the stub of a second wall turning a corner: courses laid
+  staggered, a ragged top falling away to a broken end, gaps where bricks have fallen out and a few lying at the foot.
+  Out on the open ground and in the woods (trees grow round them), never on a path, in the lake, at a site or a
+  generator's work site. Solid and blocking sight like any wall, drawn on the map; the machete throws red brick chips
+  and dust off them.
 - **The building's lights**: each of the building's generators lights its own half of the building (every room by the
   generator nearest it; a long hallway split light by light), a lone one all of it (testing mode too). Lit rooms and
   halls look as night vision's see-through light does, the same whether the player can see there or not (behind walls,
@@ -650,10 +663,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **The lake dock** is solid underfoot (`SandboxWorld.OnDock`): walk along its boards (they sound like wood); step off
   its side or end and you're straight down in the water at its depth, no fall; walk back to it from the water and
   you're snapped straight up onto its deck and walking on it again. Everyone else (players, NPCs, bodies) stands on it
-  too.
+  too, and their feet are on its boards: the legs reach for the deck under them (a foot swung a little past its edge
+  too), never the lake bed beneath, which once bent the legs down through the boards.
 - **Sounds** (local files, kept out of git): a jingle for everyone when a generator starts or someone escapes; and, in
-  place of the old machine whirr, a small diesel generator coming to life where it stands, played through once, falling
-  off linearly to a fifth of its volume over its first seven seconds and heard (faintly) only within ten feet of it; the
+  place of the old machine whirr, a small diesel generator coming to life where it stands, starting the moment the
+  generator does, with the jingle (from the engine catching, past its file's silence and faint crank, and decoded
+  ahead so it never waits on loading), 30% louder than at first, played through once, falling off linearly to a fifth
+  of that over its first seven seconds and heard only within ten feet of it; the
   gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
   rage; a clip from Chacko's couch when anyone attacks him. The jingle stops a second and a half before its file ends
   (white noise sets in after that). The machete's slash into someone is a quarter as loud as it was at first (halved

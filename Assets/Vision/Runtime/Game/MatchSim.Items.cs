@@ -532,6 +532,53 @@ namespace Vision.Game
             Tell(p, $"Dropped: {Items.Name(kind, golden)}");
         }
 
+        /// <summary>
+        /// Piss splashed over someone (a thrown jar, or the testing effect): a moment of it in their eyes and, on Zach, +50%
+        /// damage taken, falling off linearly to nothing over fifteen seconds, on top of whatever's left of earlier splashes.
+        /// </summary>
+        public void SoakInPiss(SimPlayer h)
+        {
+            h.PissBlurT = Balance.Items.Piss.BlurTime;
+            if (h.Role != Role.Hunter) return;
+            var stacks = new float[h.PissStacks.Length + 1];
+            System.Array.Copy(h.PissStacks, stacks, h.PissStacks.Length);
+            stacks[stacks.Length - 1] = Balance.Items.Piss.Time;
+            h.PissStacks = stacks;
+            h.PissT = Balance.Items.Piss.Time;
+            Tell(h, $"Soaked: +{Mathf.RoundToInt(PissBonus(h) * 100f)}% damage, wearing off over {Balance.Items.Piss.Time:0} s");
+        }
+
+        /// <summary>The extra damage the piss on someone adds (0.5 for a fresh splash, falling off linearly; splashes add up).</summary>
+        public static float PissBonus(SimPlayer p)
+        {
+            float left = 0f;
+            if (p.PissStacks != null) foreach (float t in p.PissStacks) left += Mathf.Max(0f, t);
+            return (Balance.Items.Piss.Mul - 1f) * left / Balance.Items.Piss.Time;
+        }
+
+        /// <summary>Each splash wears off; the spent ones are dropped.</summary>
+        static void TickPiss(SimPlayer p, float dt)
+        {
+            float[] s = p.PissStacks;
+            if (s == null || s.Length == 0) { p.PissT = 0f; return; }
+            int live = 0;
+            float most = 0f;
+            for (int i = 0; i < s.Length; i++)
+            {
+                s[i] -= dt;
+                if (s[i] <= 0f) continue;
+                live++;
+                most = Mathf.Max(most, s[i]);
+            }
+            if (live < s.Length)
+            {
+                var keep = new float[live];
+                for (int i = 0, k = 0; i < s.Length; i++) if (s[i] > 0f) keep[k++] = s[i];
+                p.PissStacks = keep;
+            }
+            p.PissT = most;
+        }
+
         /// <summary>A Hemp Beam with all its charges, lying on the ground (Sexton's when he falls).</summary>
         public void DropHempBeam(Vector2 at) =>
             Drops.Add(new DropItem { Id = AllocEntityId(), Pos = at, Item = ItemType.HempBeam, Amount = Balance.Hunter.Beam.Charges });
@@ -643,9 +690,7 @@ namespace Vision.Game
                     if (book) BookHit(hitP, owner);
                     else if (piss)
                     {
-                        hitP.PissT = Balance.Items.Piss.Time;
-                        hitP.PissBlurT = Balance.Items.Piss.BlurTime;
-                        Tell(hitP, $"Soaked: +{Mathf.RoundToInt((Balance.Items.Piss.Mul - 1f) * 100f)}% damage for {Balance.Items.Piss.Time:0} s");
+                        SoakInPiss(hitP);
                         Feed($"{owner?.Name ?? "Someone"} threw piss on {hitP.Name}");
                     }
                     else if (StunHunter(hitP, Balance.Items.Bottle.Stun, "bottle", owner)) Feed($"{owner?.Name ?? "Someone"} smashed a bottle on {hitP.Name}");
@@ -705,11 +750,8 @@ namespace Vision.Game
             foreach (SimPlayer p in Order)
             {
                 p.PissBlurT = Mathf.Max(0f, p.PissBlurT - dt);
-                if (p.Role == Role.Hunter)
-                {
-                    p.BookT = Mathf.Max(0f, p.BookT - dt);
-                    p.PissT = Mathf.Max(0f, p.PissT - dt);
-                }
+                TickPiss(p, dt);
+                if (p.Role == Role.Hunter) p.BookT = Mathf.Max(0f, p.BookT - dt);
                 if (p.Role != Role.Survivor) continue;
                 p.ReloadT = Mathf.Max(0f, p.ReloadT - dt);
                 p.ScareT = Mathf.Max(0f, p.ScareT - dt);

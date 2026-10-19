@@ -151,6 +151,12 @@ namespace Vision.Tests
                 hs.DownHunter(zach, true);
                 Pump(() => Mathf.Abs(ga.Sim.Get(zachId).MaxHp - 0.9f) < 1e-4f && gb.Sim.Get(zachId).KnockT > 0f, "Zach's worn bar on both guests");
 
+                // Piss on Zach, twice: both splashes (and so his extra damage and his yellow) on both guests.
+                hs.SoakInPiss(zach);
+                hs.SoakInPiss(zach);
+                Pump(() => ga.Sim.Get(zachId).PissStacks.Length == 2 && gb.Sim.Get(zachId).PissStacks.Length == 2, "both splashes on both guests");
+                Assert.AreEqual(MatchSim.PissBonus(zach), MatchSim.PissBonus(gb.Sim.Get(zachId)), 0.02f, "the extra damage alike");
+
                 // A second 0.50 cal: 10/10 on Ana's own screen; Monique's arrow on it.
                 ana.Inv.Add(ItemType.Sniper);
                 ana.Inv.Add(ItemType.Sniper);

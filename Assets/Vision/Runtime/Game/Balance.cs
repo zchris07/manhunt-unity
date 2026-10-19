@@ -218,7 +218,11 @@ namespace Vision.Game
                 public const float Reload = 0.35f / 1.4f, Range = BeamRange, SpreadDeg = 2.5f + 5f, Damage = 0.1f, ZachDamage = 10f, Stun = 0.1f, KbPeak = 300f, KbDuration = 0.2f;
             }
 
-            public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 5f, BlurTime = 2f; }
+            /// <summary>
+            /// A splash on Zach: +50% damage taken, falling off linearly to nothing over fifteen seconds; every splash adds
+            /// another on top of what's left of the others, without limit.
+            /// </summary>
+            public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 15f, BlurTime = 2f; }
 
             public const float AnywhereShare = 0.3f;
             public const float UseSlow = 0.5f, UseSlowTime = 0.8f;
@@ -397,7 +401,13 @@ namespace Vision.Game
             public const string LineAsk = "you wanna go to the Y later?", LineYes = "Let's go!", LineNo = "cmon man";
         }
 
-        public static class Soham { public const float Radius = 14f, Reach = 70f, Walk = 60f, Fuse = 2f; public const string Line = "Hi"; }
+        public static class Soham
+        {
+            public const float Radius = 14f, Reach = 70f, Walk = 60f, Fuse = 2f;
+            public const string Line = "Hi";
+            /// <summary>Slain, he leaves this many jars of piss where he blew apart.</summary>
+            public const int PissDrops = 3;
+        }
 
         public static class Monique
         {

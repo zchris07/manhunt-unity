@@ -7,8 +7,8 @@ namespace Vision.World
     /// A generator's work-light set: the trailer light tower (a cream trailer with red and blue stripes, outriggers and a
     /// tow bar, a telescopic mast as tall as a big tree with four lamp heads on a frame at the top), the yellow work lights
     /// (a box light on a frame, a twin on a bar, a tripod with one head and a tripod with two), and what lies about: a
-    /// cable spool, a jerry can, a toolbox, a small yellow portable generator, a blue tarp, broken glass, planks, a sheet of
-    /// corrugated metal, overgrowth, and the cables themselves. Each light's glowing faces are a mesh of their own, so they
+    /// cable spool, a jerry can, a toolbox, a blue tarp, broken glass, planks, a sheet of corrugated metal, and the cables
+    /// themselves. Each light's glowing faces are a mesh of their own, so they
     /// can light up when the generator runs. Origin at the bottom centre, front facing +Z.
     /// </summary>
     public static partial class LowPolyModels
@@ -202,23 +202,6 @@ namespace Vision.World
             return b.ToMesh("Tool Box");
         }
 
-        /// <summary>A small yellow portable generator in its tubular frame, on two wheels.</summary>
-        public static Mesh PortableGenerator(System.Random rng)
-        {
-            var b = new LowPolyMeshBuilder(rng);
-            b.AddBox(new Vector3(-0.36f, 0.12f, -0.25f), new Vector3(0.72f, 0.36f, 0.5f), new Color(0.2f, 0.2f, 0.21f), 0.05f);
-            b.AddBox(new Vector3(-0.34f, 0.46f, -0.22f), new Vector3(0.68f, 0.18f, 0.44f), WorkYellow, 0.05f);
-            b.AddFrustum(new Vector3(0.36f, 0.3f, 0f), new Vector3(0.39f, 0.3f, 0f), 0.13f, 0.13f, 8, WorkYellow * 0.85f, 0.04f);
-            foreach (float z in new[] { -0.27f, 0.27f })
-            {
-                b.AddFrustum(new Vector3(-0.42f, 0.05f, z), new Vector3(-0.42f, 0.66f, z), 0.016f, 0.016f, 5, WorkYellow, 0.04f);
-                b.AddFrustum(new Vector3(0.42f, 0.05f, z), new Vector3(0.42f, 0.66f, z), 0.016f, 0.016f, 5, WorkYellow, 0.04f);
-                b.AddFrustum(new Vector3(-0.42f, 0.66f, z), new Vector3(0.42f, 0.66f, z), 0.016f, 0.016f, 5, WorkYellow, 0.04f);
-                b.AddFrustum(new Vector3(-0.3f, 0.1f, z * 1.15f), new Vector3(-0.3f, 0.1f, z * 1.3f), 0.1f, 0.1f, 8, new Color(0.08f, 0.08f, 0.08f), 0.03f);
-            }
-            return b.ToMesh("Portable Generator");
-        }
-
         /// <summary>A tarp thrown down in folds (<paramref name="w"/> by <paramref name="d"/>), creased and humped, one corner lifted.</summary>
         public static Mesh Tarp(System.Random rng, float w, float d, Color color)
         {
@@ -279,26 +262,6 @@ namespace Vision.World
             return b.ToMesh("Metal Sheet");
         }
 
-        /// <summary>Overgrowth: ferns, tall grass and leafy clumps in a tangle.</summary>
-        public static Mesh Overgrowth(System.Random rng, float size)
-        {
-            var b = new LowPolyMeshBuilder(rng);
-            for (int i = 0; i < 4; i++)
-            {
-                b.Transform = Matrix4x4.Translate(new Vector3(b.Range(-0.6f, 0.6f), 0f, b.Range(-0.6f, 0.6f)) * size);
-                AddFern(b, b.Range(0.45f, 0.75f) * size);
-            }
-            for (int i = 0; i < 3; i++)
-            {
-                b.Transform = Matrix4x4.Translate(new Vector3(b.Range(-0.7f, 0.7f), 0f, b.Range(-0.7f, 0.7f)) * size);
-                AddTallGrass(b, b.Range(0.6f, 1f) * size, false);
-            }
-            b.Transform = null;
-            for (int i = 0; i < 3; i++)
-                b.AddBlob(new Vector3(b.Range(-0.5f, 0.5f), 0.18f, b.Range(-0.5f, 0.5f)) * size, new Vector3(0.32f, 0.22f, 0.3f) * size, 0, 0.3f,
-                    _ => b.Jitter(new Color(0.22f, 0.38f, 0.16f), 0.15f), true);
-            return b.ToMesh("Overgrowth");
-        }
 
         /// <summary>A cable along a path of points (world-local), a thin dark tube.</summary>
         public static Mesh Cable(System.Random rng, IList<Vector3> path, float radius, Color color)

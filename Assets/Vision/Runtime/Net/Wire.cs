@@ -23,7 +23,7 @@ namespace Vision.Net
     public static class Wire
     {
         /// <summary>Bumped whenever the wire format or the rules change: a client must match its host.</summary>
-        public const int Version = 3;
+        public const int Version = 4;
         /// <summary>The port a lobby listens on unless told otherwise.</summary>
         public const int DefaultPort = 7777;
         /// <summary>No frame may be larger (guards against garbage on the socket).</summary>

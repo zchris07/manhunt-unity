@@ -33,18 +33,25 @@ namespace Vision.Tests
             // Other metal: fences, gates, lampposts, barrels.
             foreach (string metal in new[] { "Iron Fence", "Yard Fence", "Graveyard Gates", "LanternPost", "BurningBarrel", "Rack", "Generator" })
                 Assert.AreEqual(MatchEffects.Surface.Metal, Of(metal), metal);
-            // Walls of a structure (a rock's "wall" is stone, as are the gate's pillars).
+            // Walls of a structure (a rock's "wall" is stone, as are the gate's pillars, a stone wall and a ruined brick one).
             foreach (string wall in new[] { "Outer Wall", "Wall", "Plank Wall" })
                 Assert.AreEqual(MatchEffects.Surface.Wall, Of(wall), wall);
-            // A rock or a boulder: stone that rings with the lighter metal's clink under the machete (not a 0.50 cal round).
+            // A rock, a boulder, a gravestone, a grave, the gate's pillars, a stone wall, a ruined brick wall: stone, that
+            // breaks under the machete with one of the three stone-breaking sounds (a 0.50 cal round passes through quietly).
             Assert.AreEqual(MatchEffects.Surface.Rock, Of("Rock Wall"));
             Assert.AreEqual(MatchEffects.Surface.Rock, Of("Rock"));
             Assert.AreEqual(MatchEffects.Surface.Rock, Of("Boulder"));
-            Assert.AreEqual("metal_light", MatchEffects.CueFor(MatchEffects.Surface.Rock));
-            Assert.IsNull(MatchEffects.CueFor(MatchEffects.Surface.Rock, false));
-            // Gravestones too; and the clank 40% softer than it was.
             Assert.AreEqual(MatchEffects.Surface.Rock, Of("Headstone"));
-            Assert.AreEqual(MatchEffects.Surface.Stone, Of("Gate Pillar"), "the gate's pillars stay quiet stone");
+            Assert.AreEqual(MatchEffects.Surface.Stone, Of("Gate Pillar"));
+            Assert.AreEqual(MatchEffects.Surface.Stone, Of("Stone Wall"), "a stone wall, not a building's");
+            Assert.AreEqual(MatchEffects.Surface.Brick, Of("Brick Wall Ruin"), "brick, not a building's wall");
+            foreach (MatchEffects.Surface stone in new[] { MatchEffects.Surface.Rock, MatchEffects.Surface.Stone, MatchEffects.Surface.Brick })
+            {
+                Assert.AreEqual("stone_hit", MatchEffects.CueFor(stone), stone.ToString());
+                Assert.IsNull(MatchEffects.CueFor(stone, false), stone + ": a round through it is quiet");
+            }
+            CollectionAssert.AreEqual(new[] { "local_stone_1", "local_stone_2", "local_stone_3" }, SoundBank.Cues["stone_hit"].Prefer, "the three cut from the user's recording");
+            // The clank 40% softer than it was.
             Assert.AreEqual(MatchEffects.Surface.Metal, Of("Generator"));
             Assert.AreEqual(0.425f * 0.6f, Vision.Audio.SoundBank.Cues["metal_light"].Volume, 1e-5f);
             // The swing is traced low as well as across the chest: a generator (1.05 m) and the lowest gravestone (0.44 m) are in it.
@@ -58,7 +65,6 @@ namespace Vision.Tests
             Assert.AreEqual("metal_heavy", MatchEffects.CueFor(MatchEffects.Surface.HeavyMetal));
             Assert.AreEqual("metal_light", MatchEffects.CueFor(MatchEffects.Surface.Metal));
             Assert.AreEqual("wall_slam", MatchEffects.CueFor(MatchEffects.Surface.Wall));
-            Assert.IsNull(MatchEffects.CueFor(MatchEffects.Surface.Stone));
         }
 
         [Test]

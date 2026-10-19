@@ -249,7 +249,7 @@ namespace Vision.Game
             if (by != null && by.Role == Role.Survivor) PlayerAttacked(h, by);
             // The lobby's survivor damage slider.
             if (by != null && by.Role == Role.Survivor) amount *= MatchState.Current.Tuning.SurvivorDamage;
-            if (h.PissT > 0f && kind != "gas") amount *= Balance.Items.Piss.Mul;
+            if (kind != "gas") amount *= 1f + PissBonus(h);
             h.Hp = Mathf.Max(0f, h.Hp - amount / Balance.Hunter.Health.Max);
             if (kind != "gas")
             {

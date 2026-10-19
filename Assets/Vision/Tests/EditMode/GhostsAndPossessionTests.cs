@@ -636,7 +636,7 @@ namespace Vision.Tests
             Assert.AreEqual(3, b.Ghost);
             Assert.AreEqual(12.5f, b.Since);
             Assert.IsTrue(SnapshotFrame.Lists.Any(l => l.element == typeof(Body)), "sent with the snapshot");
-            Assert.AreEqual(3, Wire.Version, "a new wire: everyone needs this build");
+            Assert.GreaterOrEqual(Wire.Version, 3, "a new wire: everyone needs this build");
         }
     }
 }

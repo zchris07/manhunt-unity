@@ -335,7 +335,10 @@ namespace Vision.Game
         }
     }
 
-    /// <summary>Soham: says Hi, then his fuse burns for two seconds and he explodes. Nothing slays him; he just flinches.</summary>
+    /// <summary>
+    /// Soham: says Hi, then his fuse burns for two seconds and he explodes. Any one hit slays him (anyone's blow, shot, thrown
+    /// item or beam), and he explodes all the same, leaving three jars of piss where he stood.
+    /// </summary>
     public sealed class Soham : Walker
     {
         float fuseT;
@@ -362,14 +365,28 @@ namespace Vision.Game
             Speak(Balance.Soham.Line);
         }
 
-        public override void ItemHit(MatchSim sim, SimPlayer by, string kind)
-        {
-            if (alive) HurtT = 0.3f;
-        }
+        public override void ItemHit(MatchSim sim, SimPlayer by, string kind) => Slain(by);
 
         public override void Slash(MatchSim sim, SimPlayer h, int power, bool harm = true)
         {
-            if (alive && harm) HurtT = 0.3f;
+            if (harm) Slain(h);
+        }
+
+        /// <summary>One hit and he's done: he blows up as his fuse would have, and three jars of piss fall where he stood.</summary>
+        void Slain(SimPlayer by)
+        {
+            if (!alive) return;
+            alive = false;
+            lit = false;
+            Moving = false;
+            Sim.Feed($"{by?.Name ?? "Someone"} slew Soham and he exploded");
+            Sim.ExplodeAt(Pos);
+            for (int i = 0; i < Balance.Soham.PissDrops; i++)
+            {
+                float a = Facing + i * Mathf.PI * 2f / Balance.Soham.PissDrops;
+                var drop = new DropItem { Id = Sim.AllocEntityId(), Pos = Pos, Item = ItemType.Piss, Amount = Items.FreshAmount(ItemType.Piss) };
+                Sim.PlaceDrop(drop, Pos + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Scale.D(26f));
+            }
         }
 
         public override void Update(MatchSim sim, float dt)

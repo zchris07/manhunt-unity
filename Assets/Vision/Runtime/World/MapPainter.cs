@@ -15,6 +15,7 @@ namespace Vision.World
         static readonly Color Evergreen = new Color(0.13f, 0.22f, 0.14f);
         static readonly Color DeadTree = new Color(0.32f, 0.29f, 0.25f);
         static readonly Color Rock = new Color(0.45f, 0.44f, 0.42f);
+        static readonly Color Ruin = new Color(0.46f, 0.27f, 0.2f);
 
         public static float MetresPerPixel(SandboxWorld world, int size) => 2f * world.MapExtent / size;
 
@@ -99,6 +100,7 @@ namespace Vision.World
             }
 
             foreach ((Vector2 p, float r) in world.MapRocks) Disc(p, r, (Color32)Rock);
+            foreach ((Vector2 a, Vector2 b) in world.MapRuins) Line(a, b, SandboxWorld.RuinThickness + 0.1f, (Color32)Ruin);
             foreach ((Vector2 p, float r, bool dead) in world.MapTrees)
             {
                 Color c = dead ? DeadTree : Evergreen;

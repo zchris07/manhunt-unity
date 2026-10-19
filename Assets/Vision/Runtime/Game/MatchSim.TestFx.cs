@@ -4,7 +4,7 @@ using Vision.Player;
 namespace Vision.Game
 {
     /// <summary>The testing-mode effects panel: each button plays a stun or flash on yourself (the original's testFx.ts).</summary>
-    public enum TestFx : byte { Scare, Book, Waz, Stun, Blast, Gas, Down, Vape, Sniper }
+    public enum TestFx : byte { Scare, Book, Waz, Stun, Blast, Gas, Down, Vape, Sniper, Piss }
 
     public sealed partial class MatchSim
     {
@@ -19,6 +19,7 @@ namespace Vision.Game
             (TestFx.Down, "Knocked down"),
             (TestFx.Vape, "Penjamin gas"),
             (TestFx.Sniper, "Shot by a 0.50 cal"),
+            (TestFx.Piss, "Pissed on"),
         };
 
         /// <summary>Puts the NPCs back where they started (testing). The NPC framework sets it.</summary>
@@ -85,6 +86,12 @@ namespace Vision.Game
                     // Zach knocked out cold (no lasting slowdown); a survivor flinches.
                     if (zach) DownHunter(p, false);
                     else Emit(null, new GameEvent { Kind = EventKind.Hit, A = p.Id, B = 0, Pos = p.Pos, F = 0f, Text = "punch" });
+                    break;
+                case TestFx.Piss:
+                    // A jar of piss broken over them: the splash, a moment of it in the eyes and, on Zach, the extra damage
+                    // (stacking with any already on him) and the yellow.
+                    Noise(p.Pos, 900f, "piss");
+                    SoakInPiss(p);
                     break;
                 case TestFx.Sniper:
                 {

@@ -243,6 +243,68 @@ namespace Vision.Tests
             onto.Invoke(pc, null);
             Assert.AreEqual(world.Terrain.Height(offSide.x, offSide.y), Y(), 1e-3f, "stepping off: straight down into the water, no fall");
             Assert.AreEqual("step_wood", Vision.Audio.Footsteps.Surface(world, mid), "boards underfoot");
+
+            // The legs stand on the boards too: the ground the feet reach for on the dock is its deck (a foot swung just
+            // past its edge too), never the lake bed under it, which would bend the legs down through the boards.
+            float WorldY(Vector2 at, float y) => world.transform.TransformPoint(new Vector3(at.x, y, at.y)).y;
+            Vector3 W(Vector2 at) => world.transform.TransformPoint(new Vector3(at.x, 0f, at.y));
+            Assert.IsTrue(world.FeetGround(W(mid), out float feet, out Vector3 up));
+            Assert.AreEqual(WorldY(mid, deck), feet, 1e-3f, "the feet on the tops of the boards");
+            Assert.Greater(up.y, 0.99f, "level");
+            Vector2 swung = mid + side * (L.DockHalfWidth + SandboxWorld.DockFeetMargin * 0.6f);
+            world.FeetGround(W(swung), out float swungY, out _);
+            Assert.AreEqual(WorldY(swung, deck), swungY, 1e-3f, "a foot just past the edge still on the boards");
+            world.FeetGround(W(offSide), out float wading, out _);
+            Assert.AreEqual(WorldY(offSide, world.Terrain.Height(offSide.x, offSide.y)), wading, 1e-3f, "off it, the lake bed");
+        }
+
+        [Test]
+        public void BrickRuins_StandAboutTheMap_Solid_BlockingSight_StruckAsBrick_AndTheWorkSitesGrowNothing()
+        {
+            SandboxWorld world = NewWorld();
+            MapLayout L = world.Layout;
+            var ruins = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Brick Wall Ruin").ToList();
+            Assert.GreaterOrEqual(world.MapRuins.Count, SandboxWorld.RuinCount, "a dozen or so, some turning a corner");
+            Assert.AreEqual(world.MapRuins.Count, ruins.Count, "each piece on the map");
+            foreach (Transform t in ruins)
+            {
+                Assert.NotNull(t.GetComponent<BoxCollider>(), "solid");
+                Assert.NotNull(t.GetComponent<Vision.Visibility.Occluder>(), "it blocks sight");
+                Assert.AreEqual(Vision.UI.MatchEffects.Surface.Brick, Vision.UI.MatchEffects.SurfaceOf(t.GetComponent<Collider>()), "the machete strikes brick");
+                Vector2 p = Plane(world, t);
+                Assert.Less(p.magnitude, L.HalfExtent, "on the playable map");
+                Assert.Less(L.LakeDepth(p), -1f, "not in the lake");
+                Assert.Greater(world.Terrain.PathClearance(p.x, p.y), 0.5f, "off the paths");
+                Assert.IsFalse(world.OnWorkSite(p), "not on a generator's work site");
+                Bounds b = t.GetComponent<MeshFilter>().sharedMesh.bounds;
+                Assert.Greater(b.size.y, 0.7f, "still standing in part");
+            }
+            for (int i = 0; i < world.MapRuins.Count; i++)
+                for (int j = i + 1; j < world.MapRuins.Count; j++)
+                {
+                    var (a, b) = world.MapRuins[i];
+                    var (c, d) = world.MapRuins[j];
+                    if ((a - c).magnitude < 0.5f || (a - d).magnitude < 0.5f || (b - c).magnitude < 0.5f || (b - d).magnitude < 0.5f) continue;   // a corner
+                    Assert.Greater(Vector2.Distance((a + b) * 0.5f, (c + d) * 0.5f), 2f, "apart");
+                }
+
+            // The same seed, the same ruins (every player's level alike).
+            var first = world.MapRuins.ToList();
+            world.Generate();
+            CollectionAssert.AreEqual(first, world.MapRuins);
+
+            // Outdoor generators' work sites: nothing grows there.
+            int sites = 0;
+            foreach (GeneratorObjective g in GeneratorObjective.All.Where(g => g.transform.IsChildOf(root.transform)))
+            {
+                Vector2 at = Plane(world, g);
+                bool grave = L.Graveyard.width > 0f && (at - L.Graveyard.center).magnitude < 0.5f;
+                if (L.Building.Contains(at) || grave) continue;
+                sites++;
+                Assert.IsTrue(world.OnWorkSite(at) && world.OnWorkSite(at + new Vector2(SandboxWorld.WorkSiteClear - 0.5f, 0f)), "its ground kept bare");
+                Assert.IsFalse(world.OnWorkSite(at + new Vector2(SandboxWorld.WorkSiteClear + 0.5f, 0f)));
+            }
+            Assert.Greater(sites, 0);
         }
 
         [Test]

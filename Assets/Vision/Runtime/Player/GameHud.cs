@@ -308,7 +308,7 @@ namespace Vision.Player
         /// <summary>Testing mode: a button for every stun and flash effect, played on yourself, and one to respawn the NPCs.</summary>
         void BuildFxPanel(Transform parent)
         {
-            RectTransform panel = Node("Test Effects", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -140f), new Vector2(240f, 440f));
+            RectTransform panel = Node("Test Effects", parent, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(28f, -140f), new Vector2(240f, 480f));
             kit.Label(Node("Title", panel, new Vector2(0f, 1f), new Vector2(0f, 1f), Vector2.zero, new Vector2(240f, 18f)), "TEST EFFECTS", 12, TextAnchor.MiddleLeft, UiKit.Hex(0xb8b0a0), UiKit.Face.Mono, 0.2f);
             float y = -22f;
             foreach (var (fx, label) in MatchSim.TestFxButtons)

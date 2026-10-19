@@ -99,6 +99,8 @@ namespace Vision.Audio
             }
             instance = this;
             Volume = Load();
+            // Long files decoded now, so they start the moment they're played (the generator starting up).
+            if (Application.isPlaying) SoundBank.WarmUp();
         }
 
         void OnDestroy()

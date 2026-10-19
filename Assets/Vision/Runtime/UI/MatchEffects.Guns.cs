@@ -426,7 +426,7 @@ namespace Vision.UI
         /// What a struck thing is made of, as its debris shows it and as it sounds (a rock, a boulder or a gravestone is stone
         /// that rings with the metal clank).
         /// </summary>
-        public enum Surface { Wood, Stone, Metal, HeavyMetal, Glass, Plaster, Wall, Rock }
+        public enum Surface { Wood, Stone, Metal, HeavyMetal, Glass, Plaster, Wall, Rock, Brick }
 
         /// <summary>
         /// The sound of the machete (or, <paramref name="blade"/> false, a 0.50 cal round) striking a thing made of this; none
@@ -438,7 +438,8 @@ namespace Vision.UI
             Surface.HeavyMetal => "metal_heavy",
             Surface.Metal => "metal_light",
             Surface.Wall => "wall_slam",
-            Surface.Rock => blade ? "metal_light" : null,
+            // Stone of every kind breaks under the blade (a round passing through is quiet).
+            Surface.Rock or Surface.Stone or Surface.Brick => blade ? "stone_hit" : null,
             _ => null,
         };
 
@@ -447,7 +448,7 @@ namespace Vision.UI
         {
             ("Window Sill", Surface.Plaster), ("Window", Surface.Glass), ("Glass", Surface.Glass), ("Pane", Surface.Glass),
             // Walls of a building, a cabin, a shack (a rock's wall is stone).
-            ("Rock Wall", Surface.Rock), ("Plank Wall", Surface.Wall), ("Outer Wall", Surface.Wall), ("Wall", Surface.Wall),
+            ("Rock Wall", Surface.Rock), ("Brick", Surface.Brick), ("Stone Wall", Surface.Stone), ("Plank Wall", Surface.Wall), ("Outer Wall", Surface.Wall), ("Wall", Surface.Wall),
             ("Graveyard Gates", Surface.Metal),
             // Sturdy metal.
             // (A generator clanks like the lighter metal.)
@@ -534,6 +535,13 @@ namespace Vision.UI
                     for (int i = 0; i < N(12); i++) Chip(new Color(0.62f, 0.46f, 0.28f, 1f), new Color(0.82f, 0.68f, 0.46f, 1f), 2.5f, 6.5f, 0.06f, 0.9f, true);
                     for (int i = 0; i < N(5); i++) Chip(new Color(0.22f, 0.16f, 0.11f, 1f), new Color(0.34f, 0.25f, 0.17f, 1f), 1.5f, 4f, 0.07f, 1.1f);
                     for (int i = 0; i < N(6); i++) Dust(new Color(0.72f, 0.6f, 0.42f, 0.45f), 0.16f, 1.1f, 2.4f);
+                    break;
+                case Surface.Brick:
+                    // Red brick chips and crumbs, grey mortar grit, a cloud of brick dust.
+                    for (int i = 0; i < N(10); i++) Chip(new Color(0.42f, 0.2f, 0.14f, 1f), new Color(0.62f, 0.36f, 0.26f, 1f), 2f, 5.5f, 0.05f, 0.8f);
+                    for (int i = 0; i < N(6); i++) Chip(new Color(0.5f, 0.48f, 0.44f, 1f), new Color(0.64f, 0.62f, 0.57f, 1f), 1f, 3f, 0.025f, 0.6f);
+                    for (int i = 0; i < N(7); i++) Dust(new Color(0.58f, 0.42f, 0.34f, 0.42f), 0.2f, 1.4f, 2.8f);
+                    Spark(N(2));
                     break;
                 case Surface.Stone:
                 case Surface.Rock:

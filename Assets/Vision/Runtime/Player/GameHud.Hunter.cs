@@ -200,7 +200,11 @@ namespace Vision.Player
             zachRates.text = ZachRates(me);
             if (me.KnockT > 0f) sb.Append($"<color=#d05a4a>DOWN: getting back up {me.KnockT:0.0}s</color>\n");
             if (me.StunT > 0f) sb.Append($"<color=#d05a4a>STUNNED {me.StunT:0.0}s</color>\n");
-            if (me.PissT > 0f) sb.Append($"<color=#d05a4a>SOAKED IN PISS: +50% damage {me.PissT:0.0}s</color>\n");
+            if (me.PissT > 0f)
+            {
+                int splashes = me.PissStacks != null ? me.PissStacks.Length : 1;
+                sb.Append($"<color=#d05a4a>SOAKED IN PISS: +{MatchSim.PissBonus(me) * 100f:0}% damage{(splashes > 1 ? $" (x{splashes})" : "")} {me.PissT:0.0}s</color>\n");
+            }
             if (locked) sb.Append($"<color=#d05a4a>ABILITIES OFF {me.AbilityLockT:0.0}s</color>\n");
             if (me.HempOn) sb.Append($"<color=#8fae7a>HEMP BATTERY {(test && me.Hemp == 2 ? "∞" : $"{me.HempLeft:0.0}s")}</color>\n");
             if (me.BeamT > 0f) sb.Append($"<color=#8fae7a>HEMP BEAM {(me.BeamT > Balance.Sexton.Defense.BeamTime ? "CHARGING" : $"{me.BeamT:0.0}s")}</color>\n");

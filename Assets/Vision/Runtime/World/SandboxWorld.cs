@@ -364,13 +364,30 @@ namespace Vision.World
                 Terrain = CreateTerrain(Layout);
             }
             TerrainField.SetActive(Terrain, transform);
-            HumanoidAnimator.Ground = TerrainField.TrySample;
+            HumanoidAnimator.Ground = FeetGround;
         }
 
         void OnDisable()
         {
             TerrainField.ClearActive(transform);
             if (TerrainField.Active == null) HumanoidAnimator.Ground = null;
+            else if (HumanoidAnimator.Ground == (HumanoidAnimator.GroundSampler)FeetGround) HumanoidAnimator.Ground = TerrainField.TrySample;
+        }
+
+        /// <summary>
+        /// The ground under a world point as feet stand on it: the terrain, or on the lake dock its boards (not the lake bed
+        /// under them, which the legs would otherwise reach down through the boards for).
+        /// </summary>
+        public bool FeetGround(Vector3 world, out float height, out Vector3 normal)
+        {
+            if (!TerrainField.TrySample(world, out height, out normal)) return false;
+            Vector3 local = transform.InverseTransformPoint(world);
+            if (OnDock(new Vector2(local.x, local.z), out float deck, DockFeetMargin))
+            {
+                height = transform.TransformPoint(new Vector3(local.x, deck, local.z)).y;
+                normal = transform.up;
+            }
+            return true;
         }
 
         /// <summary>Builds a fresh map from a new seed (random when none is given).</summary>
@@ -489,6 +506,7 @@ namespace Vision.World
             Generators.Clear();
             MapTrees.Clear();
             MapRocks.Clear();
+            workSites.Clear();
             blocked.Clear();
             Player = null;
             Wanderer = null;
@@ -518,7 +536,8 @@ namespace Vision.World
             Step("sites", () => { BuildGraveyard(); BuildPlayground(); BuildHangingTree(); BuildSushi(); BuildChamber(); BuildSushiGate(); BuildHatch(); });
             Step("lights", () => { BuildGenerators(); BuildFloodSets(); BuildLights(); });
             Step("stakes", () => { BuildStakes(); BuildAmbulance(); });
-            Step("trees", BuildTrees);
+            // (The ruins before the trees and rocks, which grow and lie round them.)
+            Step("trees", () => { BuildRuins(); BuildTrees(); });
             Step("rocks", BuildRocks);
             Step("supplies", () => { BuildPickups(); BuildNotes(); });
             Step("ground", BuildGround);   // last, so plants and grass grow around everything placed
@@ -731,7 +750,8 @@ namespace Vision.World
             Rect sushi = Expand(Layout.Sushi, 0.6f), chamber = Expand(Layout.Chamber, 0.6f), gateYard = Expand(Layout.SushiGate, 0.4f);
             bool Indoors(Vector2 p) => (Layout.Sushi.width > 0f && sushi.Contains(p)) || (Layout.Chamber.width > 0f && chamber.Contains(p))
                 || (Layout.HasSushiGate && gateYard.Contains(p)) || (p - Layout.Hatch).magnitude < Hatch.Size;
-            bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p) || Indoors(p);
+            // (Nor on a generator's work site.)
+            bool Bare(Vector2 p) => Flat(p) || Layout.LakeDepth(p) > -0.3f || Layout.Playground.Contains(p) || Indoors(p) || OnWorkSite(p);
             float lim = WorldRadius - 0.8f;
 
             // Short grass blades (dead or green with the ground), pebbles and bone-pale debris, over the world's circle.
