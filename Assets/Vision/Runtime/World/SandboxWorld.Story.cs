@@ -52,11 +52,23 @@ namespace Vision.World
             Vector2 a = Layout.DockStart, ab = Layout.DockEnd - a;
             float len2 = ab.sqrMagnitude;
             if (len2 < 1e-6f) return false;
-            float t = Vector2.Dot(at - a, ab) / len2;
-            if (t < 0f || t > 1f || (at - (a + ab * t)).magnitude > Layout.DockHalfWidth + margin) return false;
-            // Standing on the tops of its boards.
+            float len = Mathf.Sqrt(len2), t = Vector2.Dot(at - a, ab) / len2, ramp = DockRampLength / len;
+            if (t < -ramp || t > 1f || (at - (a + ab * t)).magnitude > Layout.DockHalfWidth + margin) return false;
+            // Standing on the tops of its boards (up the ramp from the bank, then the deck).
             deck = Mathf.Max(Terrain.Height(a.x, a.y), Terrain.LakeLevel) + DockDeckAbove + DockBoardTop;
+            if (t < 0f) deck = Mathf.Lerp(DockRampFoot() + DockBoardTop, deck, (t + ramp) / ramp);
             return true;
+        }
+
+        /// <summary>The ramp up onto the dock from the bank: how far inland its foot is.</summary>
+        public const float DockRampLength = 1.6f;
+
+        /// <summary>The height of the ground at the ramp's foot (where its boards rest on the bank).</summary>
+        public float DockRampFoot()
+        {
+            Vector2 a = Layout.DockStart, d = (Layout.DockEnd - Layout.DockStart).normalized;
+            Vector2 foot = a - d * DockRampLength;
+            return Mathf.Max(Terrain.Height(foot.x, foot.y), Terrain.LakeLevel);
         }
 
         /// <summary>

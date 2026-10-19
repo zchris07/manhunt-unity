@@ -20,8 +20,11 @@ namespace Vision.Player
         static readonly System.Collections.Generic.List<Renderer> found = new System.Collections.Generic.List<Renderer>();
         static MaterialPropertyBlock block;
 
+        /// <summary>How yellow a fresh splash makes him (30% less than the full tint, at the user's request).</summary>
+        public const float Strongest = 0.7f;
+
         /// <summary>How yellow (0-1) a figure is for so much extra damage from piss (a fresh splash's +50% the most).</summary>
-        public static float Amount(float bonus) => Mathf.Clamp01(bonus / (Balance.Items.Piss.Mul - 1f));
+        public static float Amount(float bonus) => Strongest * Mathf.Clamp01(bonus / (Balance.Items.Piss.Mul - 1f));
 
         /// <summary>The yellow showing now (0 none).</summary>
         public float Shown { get; private set; }

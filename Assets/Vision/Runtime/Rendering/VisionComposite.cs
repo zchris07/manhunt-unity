@@ -84,7 +84,7 @@ namespace Vision.Rendering
         [Range(0f, 1f)] public float fogScale = 1f;
         [Tooltip("Gassed (Penjamin on a survivor, galaxy gas on Zach): blurs the whole view, 0-1 (set by the player).")]
         [Range(0f, 1f)] public float gasBlur;
-        [Tooltip("Piss in the eyes: blurs and yellows the whole view, 0-1 (set by the player).")]
+        [Tooltip("Piss in the eyes: liquid running over the whole view, bending it, blurred and yellowed, 0-1 (set by the player).")]
         [Range(0f, 1f)] public float piss;
         [Tooltip("JARVIS (its user): every outline drawn in blue, a scan sweeping out from the player (0-1), and how long it's run.")]
         [Range(0f, 1f)] public float jarvis;
@@ -98,8 +98,11 @@ namespace Vision.Rendering
         /// images drift, and how far the swimming warp pushes the view.
         /// </summary>
         public const float GasBlurPx = 15f, GasSplitPx = 16f, GasWarpPx = 7f;
-        /// <summary>Piss in the eyes at its strongest: the blur's radius (pixels at 1080p).</summary>
-        public const float PissBlurPx = 12f;
+        /// <summary>
+        /// Piss in the eyes at its strongest (pixels at 1080p): the blur's radius, and how far the liquid running over the
+        /// view bends it (both fall off with it, linearly over two seconds).
+        /// </summary>
+        public const float PissBlurPx = 12f, PissWarpPx = 11f;
         [Tooltip("Near-neutral so unlit areas carry almost no colour.")]
         public Color darkTint = new Color(0.99f, 1f, 1.01f);
 
@@ -173,7 +176,7 @@ namespace Vision.Rendering
             material.SetVector(ViewerId, new Vector4(viewerLight, 0f, 0f, 0f));
             float px = cam.pixelHeight / 1080f;
             material.SetVector(BlurId, new Vector4(l.blurStart, l.blurEnd, fx ? l.blurMaxPixels : 0f, 0f));
-            material.SetVector(PissId, new Vector4(piss, PissBlurPx * px * piss, 0f, 0f));
+            material.SetVector(PissId, new Vector4(piss, PissBlurPx * px * piss, PissWarpPx * px * piss, 0f));
             material.SetVector(JarvisId, new Vector4(jarvis, jarvisTime, 0f, 0f));
             material.SetVector(GasId, new Vector4(gasBlur, GasBlurPx * px * Mathf.Lerp(0.45f, 1f, gasBlur), GasSplitPx * px * gasBlur, GasWarpPx * px * gasBlur));
             material.SetVector(DarkId, new Vector4(darkLevel * fogScale, darkFloor * fogScale, normalOffset, 0f));

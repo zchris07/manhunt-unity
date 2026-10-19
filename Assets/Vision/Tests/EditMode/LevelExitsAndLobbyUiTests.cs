@@ -223,6 +223,16 @@ namespace Vision.Tests
             Vector2 offSide = mid + side * (L.DockHalfWidth + 0.4f);
             Assert.IsFalse(world.OnDock(offSide, out _));
             Assert.AreEqual(world.Terrain.Height(offSide.x, offSide.y), world.GroundHeight(offSide), 1e-4f, "a step off: the water's depth");
+            // Up from the bank: a ramp of boards from the ground inland of the dock rising to its deck.
+            Vector2 along = (b - a).normalized;
+            Vector2 foot = a - along * (SandboxWorld.DockRampLength - 0.05f), halfway = a - along * SandboxWorld.DockRampLength * 0.5f;
+            Assert.IsTrue(world.OnDock(foot, out float footDeck), "the ramp's foot, on the bank");
+            Assert.AreEqual(world.DockRampFoot() + SandboxWorld.DockBoardTop, footDeck, 0.05f, "at the ground there");
+            Assert.IsTrue(world.OnDock(halfway, out float midDeck));
+            Assert.AreEqual((footDeck + deck) * 0.5f, midDeck, 0.06f, "rising evenly");
+            Assert.IsTrue(world.OnDock(a + along * 0.02f, out float topDeck));
+            Assert.AreEqual(deck, topDeck, 1e-3f, "and level with the deck where it meets it");
+            Assert.IsFalse(world.OnDock(a - along * (SandboxWorld.DockRampLength + 0.3f), out _), "beyond its foot, the bank");
             Assert.IsTrue(world.Terrain.InWater(offSide.x, offSide.y), "wading");
             Assert.IsFalse(world.OnDock(b + (b - a).normalized * 0.4f, out _), "past its end, the water");
 
@@ -259,34 +269,97 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheCabins_HaveFloorsOfBoardsOrStone_AndAreFurnished_WithoutCrowdingTheDoorway()
+        {
+            SandboxWorld world = NewWorld();
+            MapLayout L = world.Layout;
+            Assert.AreEqual(L.Cabins.Count, world.CabinStoneFloors.Count, "a floor for every cabin");
+            var all = root.GetComponentsInChildren<Transform>(true);
+            int floors = all.Count(t => t.name == "Stone Floor" || t.name == "Board Floor");
+            Assert.AreEqual(L.Cabins.Count, floors);
+            string[] fittings = { "Stove", "Shelf", "Crate", "Barrel", "Rug", "Chair", "Papers", "Bottles", "Debris", "Blood", "Wall Stain", "Wallpaper", "Poster", "Mirror", "Clock", "Cobweb" };
+            for (int i = 0; i < L.Cabins.Count; i++)
+            {
+                MapLayout.Cabin c = L.Cabins[i];
+                var inside = all.Where(t => fittings.Contains(t.name) && c.Area.Contains(Plane(world, t))).ToList();
+                var kinds = inside.Select(t => t.name).Distinct().ToList();
+                Debug.Log($"[Ruins] cabin {i} ({(world.CabinStoneFloors[i] ? "stone" : "boards")}): {string.Join(", ", inside.GroupBy(t => t.name).Select(g => g.Key + (g.Count() > 1 ? " x" + g.Count() : "")))}");
+                Assert.GreaterOrEqual(kinds.Count, 5, "furnished, and with signs of what happened");
+                Assert.LessOrEqual(inside.Count(t => t.name != "Wallpaper" && t.name != "Wall Stain"), 16, "but not too cluttered");
+                Assert.AreEqual(world.CabinStoneFloors[i] ? "step_concrete" : "step_wood", Vision.Audio.Footsteps.Surface(world, c.Area.center), "footsteps on its floor");
+                // The way in from the door kept clear of anything solid.
+                Vector2 inward = c.DoorSide switch { 0 => Vector2.down, 1 => Vector2.left, 2 => Vector2.up, _ => Vector2.right };
+                Vector2 door = c.Area.center - inward * (c.DoorSide % 2 == 0 ? c.Area.height : c.Area.width) * 0.5f;
+                foreach (BoxCollider box in root.GetComponentsInChildren<BoxCollider>(true).Where(b => fittings.Contains(b.name)))
+                    Assert.Greater((Plane(world, box) - (door + inward * 0.8f)).magnitude, 0.8f, $"{box.name} clear of the doorway");
+            }
+        }
+
+        [Test]
         public void BrickRuins_StandAboutTheMap_Solid_BlockingSight_StruckAsBrick_AndTheWorkSitesGrowNothing()
         {
             SandboxWorld world = NewWorld();
             MapLayout L = world.Layout;
-            var ruins = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Brick Wall Ruin").ToList();
-            Assert.GreaterOrEqual(world.MapRuins.Count, SandboxWorld.RuinCount, "a dozen or so, some turning a corner");
-            Assert.AreEqual(world.MapRuins.Count, ruins.Count, "each piece on the map");
-            foreach (Transform t in ruins)
+            Assert.AreEqual(SandboxWorld.RuinCount, world.Ruins.Count, "a dozen ruins");
+            Assert.GreaterOrEqual(world.MapRuins.Count, SandboxWorld.RuinCount, "each wall on the map");
+            Debug.Log("[Ruins] placed: " + string.Join(", ", world.Ruins.Select(r => r.kind)) + "; " + world.RuinReport);
+            Assert.IsTrue(world.Ruins.Any(r => r.plan.Structure), "the shell of a building among them");
+            Assert.IsTrue(world.Ruins.Any(r => !r.plan.Structure), "and broken walls and corners");
+            var chunks = new List<Transform>();
+            foreach (var r in world.Ruins)
             {
-                Assert.NotNull(t.GetComponent<BoxCollider>(), "solid");
-                Assert.NotNull(t.GetComponent<Vision.Visibility.Occluder>(), "it blocks sight");
-                Assert.AreEqual(Vision.UI.MatchEffects.Surface.Brick, Vision.UI.MatchEffects.SurfaceOf(t.GetComponent<Collider>()), "the machete strikes brick");
-                Vector2 p = Plane(world, t);
-                Assert.Less(p.magnitude, L.HalfExtent, "on the playable map");
-                Assert.Less(L.LakeDepth(p), -1f, "not in the lake");
-                Assert.Greater(world.Terrain.PathClearance(p.x, p.y), 0.5f, "off the paths");
-                Assert.IsFalse(world.OnWorkSite(p), "not on a generator's work site");
-                Bounds b = t.GetComponent<MeshFilter>().sharedMesh.bounds;
-                Assert.Greater(b.size.y, 0.7f, "still standing in part");
-            }
-            for (int i = 0; i < world.MapRuins.Count; i++)
-                for (int j = i + 1; j < world.MapRuins.Count; j++)
+                var mine = r.root.GetComponentsInChildren<MeshFilter>(true).Where(m => m.name == "Brick Wall Ruin").ToList();
+                Assert.Greater(mine.Count, 0, "its brickwork");
+                chunks.AddRange(mine.Select(m => m.transform));
+                foreach (MeshFilter m in mine)
                 {
-                    var (a, b) = world.MapRuins[i];
-                    var (c, d) = world.MapRuins[j];
-                    if ((a - c).magnitude < 0.5f || (a - d).magnitude < 0.5f || (b - c).magnitude < 0.5f || (b - d).magnitude < 0.5f) continue;   // a corner
-                    Assert.Greater(Vector2.Distance((a + b) * 0.5f, (c + d) * 0.5f), 2f, "apart");
+                    Assert.LessOrEqual(m.sharedMesh.triangles.Length / 3, 12000, "each piece within its cap");
+                    Assert.Greater(m.sharedMesh.bounds.size.y, 0.7f, "still standing in part");
                 }
+                var cols = r.root.GetComponentsInChildren<BoxCollider>(true);
+                Assert.Greater(cols.Length, 0, "solid");
+                Assert.Greater(r.root.GetComponentsInChildren<Vision.Visibility.Occluder>(true).Length, 0, "it blocks sight");
+                foreach (BoxCollider c in cols)
+                {
+                    Assert.AreEqual(Vision.UI.MatchEffects.Surface.Brick, Vision.UI.MatchEffects.SurfaceOf(c), "the machete strikes brick");
+                    Assert.Greater(Vector3.Dot(c.transform.up, world.transform.up), 0.999f, "upright walls only: no ramps");
+                }
+                // One flat base for the whole ruin.
+                Assert.IsTrue(mine.All(m => Mathf.Abs(m.transform.position.y - r.root.transform.position.y) < 1e-4f));
+                foreach (RuinRun run in r.plan.Runs)
+                    for (float k = 0f; k <= 1.001f; k += 0.25f)
+                    {
+                        Vector2 p = r.at + RotatePlan(Vector2.Lerp(run.A, run.B, k), r.yaw);
+                        Assert.Less(p.magnitude, L.HalfExtent, "on the playable map");
+                        Assert.Less(L.LakeDepth(p), -1f, "not in the lake");
+                        Assert.Greater(world.Terrain.PathClearance(p.x, p.y), 0.5f, "off the paths");
+                        Assert.IsFalse(world.OnWorkSite(p), "not on a generator's work site");
+                    }
+            }
+            // Every wall on the map is a wall of brick there.
+            float s = world.transform.lossyScale.x;
+            foreach (var (a, b) in world.MapRuins)
+            {
+                Vector2 mid = (a + b) * 0.5f;
+                Vector3 w = world.transform.TransformPoint(new Vector3(mid.x, 0f, mid.y));
+                Assert.IsTrue(chunks.Any(c =>
+                {
+                    Bounds wb = c.GetComponent<MeshRenderer>().bounds;
+                    w.y = wb.center.y;
+                    return wb.SqrDistance(w) < 0.25f * s * s;
+                }), "a wall's brickwork where the map shows it");
+            }
+            // Ruins apart from one another.
+            for (int i = 0; i < world.Ruins.Count; i++)
+                for (int j = i + 1; j < world.Ruins.Count; j++)
+                    foreach (RuinRun ra in world.Ruins[i].plan.Runs)
+                        foreach (RuinRun rb in world.Ruins[j].plan.Runs)
+                        {
+                            Vector2 a0 = world.Ruins[i].at + RotatePlan(ra.A, world.Ruins[i].yaw), a1 = world.Ruins[i].at + RotatePlan(ra.B, world.Ruins[i].yaw);
+                            Vector2 b0 = world.Ruins[j].at + RotatePlan(rb.A, world.Ruins[j].yaw), b1 = world.Ruins[j].at + RotatePlan(rb.B, world.Ruins[j].yaw);
+                            for (float k = 0f; k <= 1.001f; k += 0.1f)
+                                Assert.Greater(SimMap.SegmentDistance(Vector2.Lerp(a0, a1, k), b0, b1), 1f, "ruins don't run into each other");
+                        }
 
             // The same seed, the same ruins (every player's level alike).
             var first = world.MapRuins.ToList();
@@ -306,6 +379,8 @@ namespace Vision.Tests
             }
             Assert.Greater(sites, 0);
         }
+
+        static Vector2 RotatePlan(Vector2 p, float yaw) => new Vector2(p.x * Mathf.Cos(yaw) - p.y * Mathf.Sin(yaw), p.x * Mathf.Sin(yaw) + p.y * Mathf.Cos(yaw));
 
         [Test]
         public void AGhost_SeesItsPanel_InPlaceOfTheInventory_ThroughFindingABodyToBeingKnockedOutOfIt()

@@ -44,7 +44,7 @@ Shader "Hidden/Vision/Composite"
             float4 _VisGrade;      // x = contrast, y = saturation, z = lit brightness, w = unlit brightness
             float4 _VisBeam;       // x = flashlight beam intensity, y = back-side light share, z = back-side reach (world), w = blackout (the edge of the woods)
             float4 _VisBlur;       // x = start, y = end (world units from the player), z = max radius px, w = unused
-            float4 _VisPiss;       // piss in the eyes: x = strength 0-1 (falling off linearly), y = blur radius px
+            float4 _VisPiss;       // piss in the eyes: x = strength 0-1 (falling off linearly), y = blur radius px, z = liquid warp px
             float4 _VisGas;        // gassed (Penjamin on a survivor, galaxy gas on Zach): x = strength 0-1, y = blur radius px, z = double vision px, w = warp px
             float4 _VisionViewerPos;
             float4 _VisViewer;     // x = the player's own light dimmed evenly (flicker and dying at the edge of the woods)
@@ -123,10 +123,38 @@ Shader "Hidden/Vision/Composite"
                 return frac(p.x * p.y);
             }
 
+            // Piss in the eyes: liquid running down over the view and bending it, as through a wet lens: wavering rivulets,
+            // each running at its own pace, and drops here and there sliding down and magnifying what's under them.
+            float2 PissWarp(float2 uv, float ampPx)
+            {
+                float t = _Time.y;
+                float2 amp = ampPx / _ScreenParams.xy;
+                float col = uv.x * 22.0;
+                float lane = floor(col);
+                float pace = 0.7 + Hash(float2(lane, 3.1)) * 0.8;
+                float run = uv.y * 9.0 + t * pace * 2.4;
+                float2 off;
+                off.x = sin(run + Hash(float2(lane, 7.3)) * 6.283) * sin(frac(col) * 3.14159);
+                off.y = cos(uv.x * 13.0 + t * 1.3 + sin(uv.y * 7.0 + t * 0.9)) * 0.6;
+                float2 aspect = float2(_ScreenParams.x / _ScreenParams.y, 1.0);
+                float2 g = uv * aspect * 6.0 + float2(0.0, t * 0.35);
+                float2 cell = floor(g);
+                float2 f = frac(g) - 0.5;
+                float h = Hash(cell + 11.0);
+                float2 c0 = (float2(Hash(cell + 3.7), Hash(cell + 9.1)) - 0.5) * 0.5;
+                float2 d = f - c0;
+                float r = 0.16 + 0.14 * h;
+                float drop = (1.0 - smoothstep(r * 0.4, r, length(d))) * step(0.5, h);
+                off += -d / r * drop * 2.5;
+                return uv + off * amp;
+            }
+
             half4 frag(Varyings input) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float2 uv = input.texcoord;
+                // Piss in the eyes: the whole view swims under the liquid (falling off with the blur).
+                if (_VisPiss.x > 0.002 && _VisPiss.z > 0.05) uv = PissWarp(uv, _VisPiss.z);
                 half3 scene = SAMPLE_TEXTURE2D_X(_BlitTexture, sampler_LinearClamp, uv).rgb;
                 if (_VisDebug > 2.5 && _VisDebug < 3.5) return half4(scene, 1);
 

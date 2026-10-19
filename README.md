@@ -457,10 +457,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   out of every wall, tree or object it punches into and out of, as it gets there. It shoves Zach back a quarter less far
   than at first and slows him by half, the slow falling off linearly to nothing over a second; the first time a player
   takes it in hand they're told "Hold right click to aim". The shotgun stuns Zach half as long as at first (1.05 s). A jar
-  of piss in Zach's face also blurs his view under a yellow filter, falling off linearly over two seconds; and soaks
+  of piss in Zach's face also runs over his view like liquid over a lens (wavering rivulets running down it, drops
+  sliding down and magnifying what's under them, everything bending) and blurs it under a yellow filter, all of it
+  falling off linearly over two seconds; and soaks
   him: +50% damage taken, falling off linearly to nothing over fifteen seconds, every jar adding another +50% on top
   of what's left of the others, without limit (his status shows the total and how many). He's tinted yellow all over
-  (whatever he holds too) as strongly as the piss on him is fresh, fading with it. Zach's
+  (whatever he holds too) as strongly as the piss on him is fresh (a fresh splash 30% short of the full yellow), fading
+  with it. Zach's
   machete throws debris off every solid thing its swing meets (up to five in a swing, each where it was struck),
   by what it's made of (read from what was struck):
   wood throws long splinters, bark chips and sawdust (and cracks: local sounds cut from five wood breaks); stone grey
@@ -631,12 +634,27 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   it strikes generators, gravestones and anything else no higher than the hip, throwing off dust and debris; a
   generator clanks (the Half-Life metal clank), while stone (a rock, a boulder, a gravestone, the ruined brick walls)
   breaks with one of three stone-breaking sounds.
-- **Ruined brick walls**: a dozen or so broken stretches of old red brick wall stand about the map, somewhere new each
-  match (the same for every player in it), some with the stub of a second wall turning a corner: courses laid
-  staggered, a ragged top falling away to a broken end, gaps where bricks have fallen out and a few lying at the foot.
-  Out on the open ground and in the woods (trees grow round them), never on a path, in the lake, at a site or a
-  generator's work site. Solid and blocking sight like any wall, drawn on the map; the machete throws red brick chips
-  and dust off them.
+- **Brick ruins** (`RuinPlanner`, `RuinBricks`, `SandboxWorld.Ruins`): a dozen about the map, somewhere new each match
+  (the same for every player in it). About a fifth are the shells of buildings, sited with the map's layout on ground
+  levelled for them (the paths go round, no trees inside): a **church** (a nave with tall arched windows down its
+  sides, a gable end with a big arched door and an arched window over it, a three- or five-sided apse, sometimes a
+  tower's stub), a **warehouse** (a long shed with gable ends, a 3 m door in one side, a big arched door in an end, a
+  row of high little windows, sometimes a lean-to) or a **house** (an L or a T: a front door into a 1.2 m hallway
+  between two walls, a doorway through to the room beyond, a nook against the back wall, windows round the outside).
+  The rest are lone broken walls and corners, out in the woods and the open (never on a path, in the lake, at a site
+  or a work site). All upright walls on one flat base: no stairs, ramps or floors. Every wall is laid brick by brick
+  the way brick generators lay them: bricks 0.2 x 0.088 x 0.144 m (60% smaller than before), two to the wall's depth
+  (0.288 m) back to back, in running bond (each course half a brick along, the back layer a further quarter), each a
+  little uneven in length, rust-brown in five tones with small shifts of hue and value, grey weathered patches spread
+  across the face and the odd grey brick, on grey mortar set back from the faces; whole courses laid, then the holes cut
+  out of them (start full, then subtract): windows with stone sills and lintels, doors with stone lintels, arches with
+  a ring of radial bricks (an odd number, one at the crown) round their heads. Their tops are broken brick by brick
+  along a rough profile (stepped where the bond shows), falling away to stubs at free ends and where a stretch has
+  fallen; corners interlock course by course and stand tallest. Fallen bricks heap at the foot of the breaks and lie
+  strewn along the walls, and one or two teeter on top. Play: the walls stop you and block sight, you walk through the
+  doorways and arches and see (not walk) through the windows, and a stretch fallen to knee height is climbed and seen
+  over like a log; the machete throws red brick chips and dust off them. Only the faces that can be seen are drawn
+  (in pieces of at most 12,000 triangles; a building's shell 40,000 at most).
 - **The building's lights**: each of the building's generators lights its own half of the building (every room by the
   generator nearest it; a long hallway split light by light), a lone one all of it (testing mode too). Lit rooms and
   halls look as night vision's see-through light does, the same whether the player can see there or not (behind walls,
@@ -660,7 +678,19 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   kept out of git).
 - **Wading**: anyone moving through the lake, player or NPC, leaves rings rippling out over the water round their legs,
   a small wake behind them and now and then a splash (`MatchEffects.Water`).
-- **The lake dock** is solid underfoot (`SandboxWorld.OnDock`): walk along its boards (they sound like wood); step off
+- **The lake dock** rises out of the bank: a ramp of boards runs up to its deck from the ground 1.6 m inland, on a
+  footing of stones, with rocks along the bank either side and reeds at the water's edge. Its deck is boards of uneven
+  widths and tones (a few missing out at the end, greened by the water there, one or two broken) on three stringers
+  and pairs of posts, dark and wet up to the waterline, braced crosswise underneath; a ladder runs down into the water
+  at the end, beside a pair of cleats and a coil of rope.
+- **The cabins** have floors of weathered boards or of stone flags (nothing grows, lies or pokes up through them;
+  footsteps sound by the floor) and are furnished beyond the wardrobe, bed, table and chair, never crowding the doorway:
+  an iron stove with its flue against the back wall, a shelf, a crate or a barrel in a corner, a rug under the table,
+  papers, bottles and debris on the floor, sometimes a chair knocked over; torn, peeling striped wallpaper in some
+  (strips gone or torn short, grimy along the floor), water and grime stains on the walls, a poster, a mirror or a clock,
+  cobwebs up in a corner, and in some, blood: a pool dragged across the floor with spatters round it, sometimes a smear
+  on a wall.
+- **The lake dock** is solid underfoot (`SandboxWorld.OnDock`; the ramp too, rising evenly): walk along its boards (they sound like wood); step off
   its side or end and you're straight down in the water at its depth, no fall; walk back to it from the water and
   you're snapped straight up onto its deck and walking on it again. Everyone else (players, NPCs, bodies) stands on it
   too, and their feet are on its boards: the legs reach for the deck under them (a foot swung a little past its edge

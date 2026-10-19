@@ -1414,6 +1414,113 @@ namespace Vision.Player
                     }
                     yield return Shot("169_on_the_dock");
 
+                    // The brick ruins as built, seen plain (no night over them): bricks close up, a window, an arch, each kind
+                    // of building's shell (any the level hasn't got stood up at the spawn for the shot), one from inside in
+                    // the player's own light; then a cabin's inside and the dock rising out of the bank.
+                    {
+                        Vector3 cf = world.transform.InverseTransformDirection(cameraRig.transform.forward);
+                        Vector2 view = new Vector2(cf.x, cf.z).normalized;
+                        Vector2 Turn(Vector2 p, float a) => new Vector2(p.x * Mathf.Cos(a) - p.y * Mathf.Sin(a), p.x * Mathf.Sin(a) + p.y * Mathf.Cos(a));
+                        GameObject showcase = null;
+                        (RuinPlan plan, Vector2 at, float yaw) Ruin(RuinArchetype kind)
+                        {
+                            foreach (var r in world.Ruins) if (r.kind == kind) return (r.plan, r.at, r.yaw);
+                            if (showcase != null) Destroy(showcase);
+                            RuinPlan p = RuinPlanner.Generate(new System.Random(7), kind);
+                            Vector2 at = L.Spawn + new Vector2(0f, 3f);
+                            showcase = world.PlaceRuin(p, at, 0.35f, world.GroundHeight(at) - 0.1f, 7, null, false);
+                            return (p, at, 0.35f);
+                        }
+                        // A wall (of any ruin) with an opening of the kind, its face turned to the camera.
+                        bool Opening(RuinOpeningKind kind, out Vector2 where)
+                        {
+                            where = default;
+                            var kinds = new[] { RuinArchetype.Fragment, RuinArchetype.Corner, RuinArchetype.Church, RuinArchetype.Warehouse, RuinArchetype.Residential };
+                            foreach (RuinArchetype k in kinds)
+                            {
+                                var (rPlan, rAt, rYaw) = Ruin(k);
+                                foreach (RuinRun run in rPlan.Runs)
+                                {
+                                    Vector2 n = Turn(new Vector2(-run.Dir.y, run.Dir.x), rYaw);
+                                    if (Mathf.Abs(Vector2.Dot(n, view)) < 0.92f) continue;
+                                    foreach (RuinOpening o in run.Openings)
+                                        if (o.Kind == kind && run.TopAt(o.Center) > o.Top + 0.3f)
+                                        {
+                                            where = rAt + Turn(run.A + run.Dir * o.Center, rYaw);
+                                            return true;
+                                        }
+                                }
+                            }
+                            return false;
+                        }
+                        composite.debugView = VisionComposite.DebugView.SceneOnly;
+                        bool hudWas = gameHud.visible;
+                        gameHud.visible = false;
+                        {
+                            // A wall square to the camera, the player just behind it (so its face fills the view).
+                            Vector2 mid = default;
+                            bool found = false;
+                            foreach (var r in world.Ruins)
+                            {
+                                foreach (RuinRun run in r.plan.Runs)
+                                {
+                                    Vector2 n = Turn(new Vector2(-run.Dir.y, run.Dir.x), r.yaw);
+                                    if (Mathf.Abs(Vector2.Dot(n, view)) < 0.92f || run.Length < 2.5f) continue;
+                                    mid = r.at + Turn(run.A + run.Dir * run.Length * 0.5f, r.yaw);
+                                    found = true;
+                                    break;
+                                }
+                                if (found) break;
+                            }
+                            if (found)
+                            {
+                                cameraRig.orthographicSize = ortho * 0.3f;
+                                yield return Stage(player, V(mid + view * 0.9f), view, wanderer, away);
+                                yield return Shot("175_ruin_bricks_close");
+                            }
+                        }
+                        foreach (var (kind, name) in new[] { (RuinOpeningKind.Window, "176_ruin_window"), (RuinOpeningKind.Arch, "177_ruin_arch"), (RuinOpeningKind.Door, "177b_ruin_door") })
+                            if (Opening(kind, out Vector2 where))
+                            {
+                                cameraRig.orthographicSize = ortho * 0.42f;
+                                yield return Stage(player, V(where + view * 1.2f), view, wanderer, away);
+                                yield return Shot(name);
+                            }
+                        foreach (var (kind, name) in new[] { (RuinArchetype.Church, "178_ruin_church"), (RuinArchetype.Warehouse, "179_ruin_warehouse"), (RuinArchetype.Residential, "180_ruin_house") })
+                        {
+                            var (rPlan, rAt, rYaw) = Ruin(kind);
+                            cameraRig.orthographicSize = ortho * 1.9f;
+                            yield return Stage(player, V(rAt), view, wanderer, away);
+                            yield return Shot(name);
+                        }
+                        // From inside a house's shell, in the player's own light.
+                        {
+                            var (rPlan, rAt, rYaw) = Ruin(RuinArchetype.Residential);
+                            composite.debugView = VisionComposite.DebugView.Final;
+                            gameHud.visible = hudWas;
+                            cameraRig.orthographicSize = ortho;
+                            yield return Stage(player, V(rAt), view, wanderer, away);
+                            yield return new WaitForSeconds(0.4f);
+                            yield return Shot("181_ruin_house_inside");
+                            composite.debugView = VisionComposite.DebugView.SceneOnly;
+                            gameHud.visible = false;
+                        }
+                        if (showcase != null) Destroy(showcase);
+                        if (L.Cabins.Count > 0)
+                        {
+                            MapLayout.Cabin cab = L.Cabins[0];
+                            cameraRig.orthographicSize = ortho * 0.95f;
+                            yield return Stage(player, V(cab.Area.center), view, wanderer, away);
+                            yield return Shot("182_cabin_inside");
+                        }
+                        cameraRig.orthographicSize = ortho * 0.9f;
+                        yield return Stage(player, V(L.DockStart - (L.DockEnd - L.DockStart).normalized * 0.8f), view, wanderer, away);
+                        yield return Shot("183_dock_from_the_bank");
+                        composite.debugView = VisionComposite.DebugView.Final;
+                        gameHud.visible = hudWas;
+                        cameraRig.orthographicSize = ortho;
+                    }
+
                     // The lobby: its balance card, a joiner's slider moved (in amber).
                     Vision.Net.Listener.LoopbackOnly = true;
                     gameHud.CreateLobby("Capture", 0);

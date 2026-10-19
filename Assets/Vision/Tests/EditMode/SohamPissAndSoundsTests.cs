@@ -86,10 +86,10 @@ namespace Vision.Tests
             rig.Place(rig.P(2), 2000f, 2000f);
             rig.Sim.SoakInPiss(zach);
             Assert.AreEqual(0.5f, MatchSim.PissBonus(zach), 1e-4f, "a fresh splash: +50%");
-            Assert.AreEqual(1f, PissLook.Amount(MatchSim.PissBonus(zach)), 1e-4f, "full yellow");
+            Assert.AreEqual(0.7f, PissLook.Amount(MatchSim.PissBonus(zach)), 1e-4f, "a fresh splash: 30% short of the full yellow");
             rig.Run(SimRig.Secs(7.5f));
             Assert.AreEqual(0.25f, MatchSim.PissBonus(zach), 0.01f, "half way: half of it");
-            Assert.AreEqual(0.5f, PissLook.Amount(MatchSim.PissBonus(zach)), 0.02f, "and half as yellow");
+            Assert.AreEqual(0.35f, PissLook.Amount(MatchSim.PissBonus(zach)), 0.02f, "and half as yellow");
             // Another splash on top: the old one's half left plus a whole new one.
             rig.Sim.SoakInPiss(zach);
             Assert.AreEqual(0.75f, MatchSim.PissBonus(zach), 0.01f);

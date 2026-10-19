@@ -410,6 +410,7 @@ namespace Vision.World
         /// </summary>
         public TerrainField CreateTerrain(MapLayout layout)
         {
+            SiteRuins(layout);
             var f = new TerrainField(seed, WorldRadius);
             f.AddPad(Expand(layout.Building, 1.5f), 6f);
             f.AddPad(Expand(layout.Yard, 1f), 4f);
@@ -427,6 +428,8 @@ namespace Vision.World
             if (layout.HasSushiGate) f.AddPad(Expand(layout.SushiGate, 1.5f), 4f);
             f.AddPad(layout.Hatch, 1.6f, 2.5f);
             f.AddPad(layout.HangingTree, 2.5f, 3f);
+            // Level ground for each building's ruined shell.
+            foreach (RuinSite s in ruinSites) f.AddPad(s.At, s.Radius, 5f);
             f.SetLake(layout);
 
             var building = Expand(layout.Building, 1.4f);   // paths keep a path-width and a bit from the walls, windows and all
@@ -443,6 +446,7 @@ namespace Vision.World
                 if (layout.HasSushiGate && Expand(layout.SushiGate, 0.6f).Contains(p)) return true;
                 foreach (Vector2 pole in layout.PowerPoles) if ((pole - p).sqrMagnitude < 1.6f * 1.6f) return true;
                 foreach (Vector2 g in layout.WoodsGenerators) if ((g - p).sqrMagnitude < 2.2f * 2.2f) return true;
+                foreach (RuinSite s in ruinSites) if ((s.At - p).sqrMagnitude < (s.Radius + 1.2f) * (s.Radius + 1.2f)) return true;
                 foreach (MapLayout.Kit k in layout.Kits) if ((k.Centre - p).sqrMagnitude < 3.2f * 3.2f) return true;
                 foreach (MapLayout.Segment fence in layout.Fences)
                 {
@@ -541,7 +545,7 @@ namespace Vision.World
             Step("ground", BuildGround);   // last, so plants and grass grow around everything placed
             Step("entities", () => { BuildCrows(); BuildWanderer(); BuildPlayer(); });
             TrimLowsAtMounds();
-            LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees";
+            LastGenerationReport = $"seed {seed}: {timer.ElapsedMilliseconds} ms ({times.ToString().Trim()} ms; {TerrainReport}), {TreeCount} trees, {RuinReport}";
             Debug.Log($"[Vision] Generated {LastGenerationReport}");
             // The gas's noise volume takes a moment to make: do it with the level, not on the first cloud.
             if (Application.isPlaying) Vision.Effects.VolumetricGas.Prepare();
@@ -1145,6 +1149,9 @@ namespace Vision.World
         void BuildCabins()
         {
             const float doorW = 1.3f, winW = 1.4f;
+            CabinStoneFloors.Clear();
+            // Their fittings from a stream of their own (adding to them never shifts the rest of the level).
+            System.Random fittings = FeatureRng(45);
             foreach (MapLayout.Cabin cabin in Layout.Cabins)
             {
                 Rect r = cabin.Area;
@@ -1174,6 +1181,8 @@ namespace Vision.World
                 Piece("Chair", LowPolyModels.Chair(rng, rng.NextDouble() < 0.4), staticRoot, new Vector3(tableAt.x + 0.7f, y, tableAt.y), Range(0f, 360f));
                 Lamp(new Vector3(r.center.x, y, r.center.y), 2.4f);
                 blocked.Add(r.center);
+                var taken = new List<(Vector2, float)> { (wardrobe, 0.6f), (bedAt, 1.15f), (tableAt, 0.75f), (tableAt + new Vector2(0.7f, 0f), 0.35f) };
+                FurnishCabin(cabin, y, inward, new System.Random(fittings.Next()), taken);
             }
         }
 
@@ -1347,7 +1356,8 @@ namespace Vision.World
             float len = Vector2.Distance(Layout.DockStart, Layout.DockEnd);
             float yaw = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
             float deck = Mathf.Max(H(Layout.DockStart), Terrain.LakeLevel) + DockDeckAbove - Terrain.LakeLevel;
-            Piece("Dock", LowPolyModels.Dock(rng, len, Layout.DockHalfWidth, deck), parent, new Vector3(Layout.DockStart.x, Terrain.LakeLevel, Layout.DockStart.y), yaw);
+            float foot = DockRampFoot() - Terrain.LakeLevel;
+            Piece("Dock", LowPolyModels.Dock(FeatureRng(46), len, Layout.DockHalfWidth, deck, DockRampLength, foot), parent, new Vector3(Layout.DockStart.x, Terrain.LakeLevel, Layout.DockStart.y), yaw);
             // A lantern at the end of the dock.
             Vector2 at = Layout.DockEnd - d * 0.6f + new Vector2(d.y, -d.x) * (Layout.DockHalfWidth - 0.25f);
             GameObject lantern = Prop(library != null ? library.lantern : null, parent,
@@ -1912,7 +1922,9 @@ namespace Vision.World
         void BuildPickups()
         {
             float limit = halfExtent - PickupEdgeMargin;
-            bool Open(Vector2 p) => p.magnitude <= limit && !(Layout.LakeDepth(p) > -1f) && !Layout.Yard.Contains(p) && !Layout.Building.Contains(p) && !blocked.AnyWithin(p, 0.6f);
+            // (Never inside Miga Sushi or the Diddy Chamber: they hold what they hold.)
+            bool Open(Vector2 p) => p.magnitude <= limit && !(Layout.LakeDepth(p) > -1f) && !Layout.Yard.Contains(p) && !Layout.Building.Contains(p) && !blocked.AnyWithin(p, 0.6f)
+                && !(Layout.Sushi.width > 0f && Expand(Layout.Sushi, 0.5f).Contains(p)) && !(Layout.Chamber.width > 0f && Expand(Layout.Chamber, 0.5f).Contains(p));
             var inside = new List<Vector2>();
             if (Layout.Plan != null) inside.AddRange(Layout.Plan.LootSpots);
             var outside = new List<Vector2>();

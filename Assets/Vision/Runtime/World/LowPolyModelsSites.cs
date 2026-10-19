@@ -79,19 +79,118 @@ namespace Vision.World
         }
 
         /// <summary>A plank dock along +Z from 0 to <paramref name="length"/>, on posts, deck at <paramref name="deck"/> above the origin.</summary>
-        public static Mesh Dock(System.Random rng, float length, float halfWidth, float deck)
+        /// <summary>
+        /// The lake dock, from the shore (its origin, on the water's level) out along +z: boards of uneven widths and
+        /// tones laid across three stringers (a few missing near the end, greened by the water out there), on pairs of
+        /// posts (dark and wet up to the waterline) braced crosswise under the deck; a ladder down into the water at the
+        /// end, a pair of cleats and a coil of rope. At the shore a ramp of boards runs up to the deck from the ground
+        /// <paramref name="rampLength"/> inland (its foot <paramref name="rampFoot"/> over the water's level), on a footing
+        /// of stones, with rocks along the bank either side and reeds at the water's edge, so it rises out of the bank.
+        /// </summary>
+        public static Mesh Dock(System.Random rng, float length, float halfWidth, float deck, float rampLength = 0f, float rampFoot = 0f)
         {
             var b = new LowPolyMeshBuilder(rng);
-            int planks = Mathf.RoundToInt(length / 0.32f);
-            for (int i = 0; i < planks; i++)
+            float hw = halfWidth;
+            Color wet = new Color(0.17f, 0.19f, 0.14f), algae = new Color(0.27f, 0.33f, 0.22f);
+            // The deck's boards, across it.
+            for (float z = 0f; z < length - 0.05f;)
             {
-                if (i > planks - 4 && b.Next() < 0.35f) continue;   // missing boards near the end
-                float z = i * length / planks;
-                b.AddBox(new Vector3(-halfWidth, deck - 0.05f + b.Range(-0.02f, 0.02f), z + 0.02f), new Vector3(halfWidth * 2f, 0.06f, length / planks - 0.04f), Site.Weathered, 0.12f);
+                float w = b.Range(0.24f, 0.34f);
+                float far = z / length;
+                if (far > 0.85f && b.Next() < 0.3f) { z += w; continue; }   // missing boards near the end
+                float x0 = -hw + b.Range(-0.05f, 0.04f), x1 = hw + b.Range(-0.04f, 0.05f);
+                bool broken = far > 0.4f && b.Next() < 0.06f;
+                if (broken) { if (b.Next() < 0.5f) x0 += b.Range(0.4f, hw); else x1 -= b.Range(0.4f, hw); }
+                float roll = b.Next();
+                Color c = roll < 0.15f ? Site.WeatheredDark : roll < 0.25f ? Site.Weathered * 1.15f : Site.Weathered;
+                if (far > 0.6f && b.Next() < far - 0.45f) c = Color.Lerp(c, algae, 0.45f);
+                float y = deck - 0.05f + b.Range(-0.012f, 0.012f);
+                b.AddBox(new Vector3(x0, y, z + 0.015f), new Vector3(x1 - x0, 0.06f, w - 0.03f), b.Jitter(c, 0.1f), 0.06f);
+                z += w;
             }
-            for (float z = 0.4f; z < length; z += 2f)
-                foreach (float x in new[] { -halfWidth + 0.08f, halfWidth - 0.08f })
-                    b.AddFrustum(new Vector3(x, -1.2f, z), new Vector3(x, deck + 0.25f, z), 0.08f, 0.08f, 5, Site.WeatheredDark, 0.1f);
+            // Three stringers under it.
+            foreach (float x in new[] { -hw + 0.12f, 0f, hw - 0.12f })
+                b.AddBox(new Vector3(x - 0.06f, deck - 0.24f, 0f), new Vector3(0.12f, 0.19f, length), Site.WeatheredDark, 0.08f);
+            // Posts in pairs, dark and wet to the waterline, braced crosswise.
+            for (float z = 0.3f; z < length; z += 1.8f)
+            {
+                foreach (float x in new[] { -hw + 0.04f, hw - 0.04f })
+                {
+                    b.AddFrustum(new Vector3(x, -1.6f, z), new Vector3(x, 0.06f, z), 0.1f, 0.095f, 6, b.Jitter(wet, 0.08f), 0.05f);
+                    b.AddFrustum(new Vector3(x, 0.06f, z), new Vector3(x, deck + 0.16f, z), 0.095f, 0.09f, 6, b.Jitter(Site.WeatheredDark, 0.08f), 0.06f);
+                }
+                b.AddFrustum(new Vector3(-hw + 0.1f, -0.25f, z), new Vector3(hw - 0.1f, deck - 0.28f, z), 0.035f, 0.035f, 4, Site.WeatheredDark * 0.9f, 0.06f);
+            }
+            // A ladder down into the water at the end.
+            float lx = hw - 0.45f, lz = length + 0.04f;
+            foreach (float x in new[] { lx - 0.22f, lx + 0.22f })
+                b.AddFrustum(new Vector3(x, -0.9f, lz + 0.06f), new Vector3(x, deck + 0.45f, lz), 0.025f, 0.025f, 4, Site.Iron, 0.05f);
+            for (float y = -0.6f; y < deck; y += 0.28f)
+                b.AddFrustum(new Vector3(lx - 0.22f, y, lz + 0.05f), new Vector3(lx + 0.22f, y, lz + 0.05f), 0.018f, 0.018f, 4, Site.Iron, 0.05f);
+            // Two cleats near the end, and a coil of rope.
+            foreach (float x in new[] { -hw + 0.18f, hw - 0.18f })
+            {
+                float z = length - b.Range(0.5f, 0.9f);
+                b.AddBox(new Vector3(x - 0.03f, deck + 0.01f, z - 0.12f), new Vector3(0.06f, 0.05f, 0.24f), Site.Iron * 0.8f, 0.05f);
+                b.AddBox(new Vector3(x - 0.04f, deck, z - 0.04f), new Vector3(0.08f, 0.03f, 0.08f), Site.Iron * 0.8f, 0.05f);
+            }
+            var coil = new Vector3(-hw * 0.4f, deck + 0.02f, length - 1.5f);
+            for (int ring = 0; ring < 3; ring++)
+            {
+                float r = 0.22f - ring * 0.05f;
+                for (int i = 0; i < 8; i++)
+                {
+                    float a0 = i * Mathf.PI / 4f, a1 = (i + 1) * Mathf.PI / 4f;
+                    b.AddFrustum(coil + new Vector3(Mathf.Cos(a0) * r, ring * 0.03f, Mathf.Sin(a0) * r), coil + new Vector3(Mathf.Cos(a1) * r, ring * 0.03f, Mathf.Sin(a1) * r),
+                        0.022f, 0.022f, 4, new Color(0.5f, 0.43f, 0.3f), 0.06f);
+                }
+            }
+            if (rampLength > 0.05f)
+            {
+                // The ramp up from the bank: boards on two sloping stringers.
+                float Rise(float z) => Mathf.Lerp(rampFoot, deck, Mathf.InverseLerp(-rampLength, 0f, z));
+                for (float z = -rampLength; z < -0.02f;)
+                {
+                    float w = Mathf.Min(b.Range(0.24f, 0.32f), -z);
+                    float y0 = Rise(z) - 0.05f, y1 = Rise(z + w) - 0.05f;
+                    float x0 = -hw + 0.06f + b.Range(-0.04f, 0.03f), x1 = hw - 0.06f + b.Range(-0.03f, 0.04f);
+                    var c = b.Jitter(b.Next() < 0.2f ? Site.WeatheredDark : Site.Weathered, 0.1f);
+                    b.AddHexahedron(new[]
+                    {
+                        new Vector3(x0, y0, z + 0.015f), new Vector3(x1, y0, z + 0.015f), new Vector3(x1, y1, z + w - 0.015f), new Vector3(x0, y1, z + w - 0.015f),
+                        new Vector3(x0, y0 + 0.06f, z + 0.015f), new Vector3(x1, y0 + 0.06f, z + 0.015f), new Vector3(x1, y1 + 0.06f, z + w - 0.015f), new Vector3(x0, y1 + 0.06f, z + w - 0.015f),
+                    }, c, 0.04f);
+                    z += w;
+                }
+                foreach (float x in new[] { -hw + 0.14f, hw - 0.14f })
+                    b.AddHexahedron(new[]
+                    {
+                        new Vector3(x - 0.06f, rampFoot - 0.3f, -rampLength), new Vector3(x + 0.06f, rampFoot - 0.3f, -rampLength), new Vector3(x + 0.06f, deck - 0.24f, 0.2f), new Vector3(x - 0.06f, deck - 0.24f, 0.2f),
+                        new Vector3(x - 0.06f, rampFoot - 0.1f, -rampLength), new Vector3(x + 0.06f, rampFoot - 0.1f, -rampLength), new Vector3(x + 0.06f, deck - 0.06f, 0.2f), new Vector3(x - 0.06f, deck - 0.06f, 0.2f),
+                    }, Site.WeatheredDark, 0.05f);
+                // A footing of stones where the dock meets the bank, and rocks along the bank either side.
+                Color Stone() => b.Jitter(b.Next() < 0.5f ? Palette.Stone : Palette.StoneDark, 0.12f);
+                for (int i = 0; i < 9; i++)
+                {
+                    float x = b.Range(-hw, hw), z = b.Range(-0.5f, 0.7f), s = b.Range(0.16f, 0.3f);
+                    b.AddBlob(new Vector3(x, Mathf.Min(rampFoot, deck - 0.3f) - s * 0.3f + b.Range(0f, 0.15f), z), new Vector3(s * 1.3f, s * 0.8f, s), 0, 0.25f, _ => Stone(), true);
+                }
+                foreach (float side in new[] { -1f, 1f })
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float s = b.Range(0.14f, 0.34f), z = b.Range(-rampLength * 0.9f, 0.8f);
+                        b.AddBlob(new Vector3(side * (hw + b.Range(0.15f, 0.7f)), Mathf.Lerp(rampFoot, 0f, Mathf.InverseLerp(-rampLength, 0.8f, z)) - s * 0.35f, z),
+                            new Vector3(s * 1.2f, s * 0.7f, s), 0, 0.25f, _ => Stone(), true);
+                    }
+                // Reeds at the water's edge, either side.
+                foreach (float side in new[] { -1f, 1f })
+                    for (int i = 0; i < 3; i++)
+                    {
+                        b.Transform = Matrix4x4.TRS(new Vector3(side * (hw + b.Range(0.6f, 1.6f)), -0.25f, b.Range(0.4f, 2.6f)), Quaternion.Euler(0f, b.Range(0f, 360f), 0f), Vector3.one * b.Range(0.8f, 1.15f));
+                        AddReeds(b, b.Range(0.9f, 1.3f));
+                    }
+                b.Transform = null;
+            }
             return b.ToMesh("Dock");
         }
 
