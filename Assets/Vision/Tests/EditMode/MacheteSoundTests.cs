@@ -42,6 +42,14 @@ namespace Vision.Tests
             Assert.AreEqual(MatchEffects.Surface.Rock, Of("Boulder"));
             Assert.AreEqual("metal_light", MatchEffects.CueFor(MatchEffects.Surface.Rock));
             Assert.IsNull(MatchEffects.CueFor(MatchEffects.Surface.Rock, false));
+            // Gravestones too; and the clank 40% softer than it was.
+            Assert.AreEqual(MatchEffects.Surface.Rock, Of("Headstone"));
+            Assert.AreEqual(MatchEffects.Surface.Stone, Of("Gate Pillar"), "the gate's pillars stay quiet stone");
+            Assert.AreEqual(MatchEffects.Surface.Metal, Of("Generator"));
+            Assert.AreEqual(0.425f * 0.6f, Vision.Audio.SoundBank.Cues["metal_light"].Volume, 1e-5f);
+            // The swing is traced low as well as across the chest: a generator (1.05 m) and the lowest gravestone (0.44 m) are in it.
+            Assert.Less(Mathf.Min(MatchEffects.BladeHeights), 0.44f);
+            Assert.Less(Mathf.Min(MatchEffects.BladeHeights), Vision.World.LowPolyModels.GeneratorSize.y);
             Assert.AreEqual(MatchEffects.Surface.Stone, Of("Gate Pillar"));
             Assert.AreEqual(MatchEffects.Surface.Glass, Of("Window"));
             Assert.AreEqual(MatchEffects.Surface.Metal, Of("Barrel", "Building"), "its own name first");
@@ -79,7 +87,7 @@ namespace Vision.Tests
             Assert.AreEqual(0.5f, c["shotgun_shot"].Volume, 1e-4f, "the shotgun half as loud as it was (1)");
             Assert.AreEqual(0.9f, c["pistol_shot"].Volume, 1e-4f, "the P250 as it was");
             Assert.AreEqual(c["machete_wood"].Volume, c["metal_heavy"].Volume, "sturdy metal as loud as wood");
-            Assert.AreEqual(c["machete_wood"].Volume, c["metal_light"].Volume, "other metal as loud");
+            Assert.AreEqual(c["machete_wood"].Volume * 0.6f, c["metal_light"].Volume, 1e-5f, "the Half-Life clanks 40% softer than the wood");
             Assert.AreEqual(c["shotgun_shot"].Volume, c["sniper_shot"].Volume, "the 0.50 cal as loud as the shotgun");
             Assert.Less(c["bullet_flesh"].Volume, c["machete_wood"].Volume, "bullets into bodies quiet");
             CollectionAssert.AreEqual(new[] { "local_headshot_1", "local_headshot_2", "local_headshot_3" }, c["bullet_flesh"].Prefer);

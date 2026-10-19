@@ -2,7 +2,7 @@
 // (reconstructed from depth for the pitched orthographic camera).
 //   scene = camera image, blurred with distance from the player (Darkwood-style, a camera effect); gassed, the whole
 //           view swims, doubles and goes out of focus, washed out and closing in at the edges
-//   lit  = max(B * beam, R * smoothstep(G))
+//   lit  = max(B * beam, G (the building's lights, as night vision's see-through light), R (light sources))
 //   lit ground  = scene * lit * litBrightness (light-source light is tinted warm)
 //   unlit ground = near-neutral faint grey * unlitBrightness (darkness lifted so the layout stays readable)
 //   out  = mix(grey, lit ground, smoothstep(0, 1, lit)), then vignette and grain (camera effects),
@@ -152,7 +152,9 @@ Shader "Hidden/Vision/Composite"
                 // Lit areas show whether or not the player has a line of sight to them.
                 // Light sources come in at half (so a light tower can reach a player's own light's brightness).
                 half fromSources = m.r * 2.0;
-                half beam = m.b * _VisBeam.x * _VisViewer.x;
+                // The building's lights: drawn as night vision's see-through light (its brightness, the player's own tint),
+                // seen or not; they never show anyone (entities go by B alone).
+                half beam = max(m.b * _VisBeam.x * _VisViewer.x, m.g * 2.0 * _VisBeam.x);
 
                 // Upright faces turned away from a light (a trunk's or rock's back side) get part of the light on the
                 // object's lit side, found a little way through the object: a natural, soft darkness. The ground
@@ -162,7 +164,7 @@ Shader "Hidden/Vision/Composite"
                 {
                     half4 front = SampleVisionMask(ws.xz - normalize(n.xz + 1e-5) * _VisBeam.z);
                     half k = _VisBeam.y * upright;
-                    beam = max(beam, front.b * _VisBeam.x * _VisViewer.x * k);
+                    beam = max(beam, max(front.b * _VisBeam.x * _VisViewer.x, front.g * 2.0 * _VisBeam.x) * k);
                     fromSources = max(fromSources, front.r * 2.0 * k);
                 }
                 half lit = max(beam, fromSources);

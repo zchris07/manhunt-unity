@@ -49,6 +49,19 @@ namespace Vision.Player
             return t;
         }
 
+        /// <summary>
+        /// Whether the local player sees someone standing at a ground point: in their own light on the screen, exactly as
+        /// entities are shown or hidden (a name, a bubble or a bar never shows over someone unseen); without the vision mask
+        /// (tests, tools), roughly.
+        /// </summary>
+        bool SeesEntity(MatchSim sim, SimPlayer me, Vector2 at)
+        {
+            var mask = Vision.Rendering.VisionMaskRenderer.Active;
+            if (mask != null && mask.Ready && world != null && mask.isActiveAndEnabled)
+                return mask.SeesEntity(world.transform.TransformPoint(new Vector3(at.x, world.GroundHeight(at), at.y)));
+            return Sees(sim, me, at);
+        }
+
         /// <summary>Roughly whether the local player can see a point: close by, or in their light with nothing in the way.</summary>
         static bool Sees(MatchSim sim, SimPlayer me, Vector2 at)
         {
@@ -70,11 +83,11 @@ namespace Vision.Player
             int used = 0;
             if (sim != null && cam != null && world != null && !MainMenuOpen && !map.FullOpen && Vision.Effects.SensesCamera.Blackout < 0.9f)
             {
-                bool testing = sim.TestMode;
                 foreach (Npc n in sim.Npcs)
                 {
                     if (n.Gone || !n.Alive) continue;
-                    if (!testing && !Sees(sim, me, n.Pos)) continue;
+                    // Only over an NPC the player sees right now (testing mode too).
+                    if (!SeesEntity(sim, me, n.Pos)) continue;
                     float hgt = world.GroundHeight(n.Pos);
                     Vector3 wp = world.transform.TransformPoint(new Vector3(n.Pos.x, hgt + 2.05f, n.Pos.y));
                     Vector3 sp = cam.WorldToScreenPoint(wp);

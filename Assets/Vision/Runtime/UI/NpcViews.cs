@@ -220,6 +220,7 @@ namespace Vision.UI
                 else if ((f & NpcFlags.Working) != 0) clip = ActionClips.Repair;
                 else if ((f & NpcFlags.Transforming) != 0) clip = ActionClips.Rage;
                 else if (n is Sexton sb && (sb.Beaming || sb.DefensePhase == Sexton.Phase.Approach && sb.Defending)) clip = ActionClips.Beam;
+                else if ((f & NpcFlags.Climbing) != 0) clip = ActionClips.Climb;
                 else if ((f & NpcFlags.Punching) != 0) clip = ActionClips.Push;
                 else if ((f & NpcFlags.Raging) != 0 && !n.Moving) clip = ActionClips.Rage;
                 else if (prop == PropKind.Pistol) clip = ActionClips.AimPistol;

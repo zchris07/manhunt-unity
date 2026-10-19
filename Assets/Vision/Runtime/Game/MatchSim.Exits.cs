@@ -57,8 +57,8 @@ namespace Vision.Game
                         else living++;
                     }
                 if (living == 0) continue;
-                // A ghost in a body lending a hand speeds it by two thirds of a generator's step for a second survivor.
-                float mul = 1f + Balance.Objectives.CoopStep * Balance.Ghost.HelpShare * helping;
+                // As at a generator: each living survivor past the first adds a step of speed, a ghost in a body two thirds of one.
+                float mul = 1f + Balance.Objectives.CoopStep * (living - 1 + Balance.Ghost.HelpShare * helping);
                 g.Progress = Mathf.Min(1f, g.Progress + mul * dt / Balance.Objectives.GateOpenTime);
                 if (g.Progress < 1f) continue;
                 g.Open = true;

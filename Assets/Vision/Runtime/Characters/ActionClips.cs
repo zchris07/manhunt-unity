@@ -673,12 +673,21 @@ namespace Vision.Characters
             .Key(0.6f, P().R(Bone.Chest, -8f).R(Bone.Head, -24f).Both(Bone.UpperArmR, -12f, 0f, 78f).Both(Bone.ForearmR, -6f).Both(Bone.HandR, -15f))
             .Blend(0.4f, 0.3f);
 
+        /// <summary>
+        /// The A pose (a ghost and the body it's taking, hovering face to face as they merge): standing straight, the arms
+        /// held a little way out from the sides, palms in, the head level; a slow breath through it.
+        /// </summary>
+        public static readonly ActionClip APose = new ActionClip("APose", 2.4f, true)
+            .Key(0f, P().R(Bone.Chest, -3f).Both(Bone.UpperArmR, -4f, 0f, 32f).Both(Bone.ForearmR, -6f).Both(Bone.HandR, -4f))
+            .Key(1.2f, P().R(Bone.Chest, -5f).R(Bone.Head, -4f).Both(Bone.UpperArmR, -5f, 0f, 36f).Both(Bone.ForearmR, -8f).Both(Bone.HandR, -6f))
+            .Blend(0.5f, 0.4f);
+
         /// <summary>Every clip, for the animation lab.</summary>
         public static IEnumerable<ActionClip> All => new[]
         {
             Repair, Lever, Tend, PickUp, Crouch, Drink, Swig, Eat, Talk, Plant, Push, Slam, Throw, AimLong, RecoilLong, RecoilPump, PumpReloadShotgun, PumpReloadGolden, AimRifle, RecoilRifle,
             AimPistol, RecoilPistol, HipRifle, RecoilHip, Tablet, Stunned, Cough, Cringe, Staked, Carried, Crawl, Charge, ChargeBack, Swing, SwingHeavy, SwingHeavyBack, Lunge, Carry, LiftBody, StakeBody,
-            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes, Reel, SitFlinch,
+            Search, SearchOnce, Kick, Burst, Vape, Hemp, Beam, Climb, ReadNote, Sit, Rage, Ascend, SwingBack, CoverEyes, Reel, SitFlinch, APose,
         };
     }
 }

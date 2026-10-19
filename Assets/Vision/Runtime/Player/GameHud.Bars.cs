@@ -146,6 +146,8 @@ namespace Vision.Player
                     {
                         PlayerPuppets.Puppet pup = puppets != null ? puppets.For(p.Id) : null;
                         if (pup == null || !pup.Visible) continue;
+                        // Only over someone the player sees right now.
+                        if (!SeesEntity(sim, me, p.Pos)) continue;
                     }
                     HeadBar b = BarFor(p.Id, ref used);
                     float top = zach ? 2.5f : 2.05f;

@@ -218,16 +218,18 @@ namespace Vision.Game
     {
         readonly MatchSim sim;
         readonly float radiusUnits;
-        readonly bool doorsOpen;
+        readonly bool doorsOpen, climbs;
         List<Vector2> path = new List<Vector2>();
         float pathT;
 
-        /// <param name="doorsOpen">Paths may go through doors (NPCs who open them); otherwise doors stand as they are.</param>
-        public Chaser(MatchSim sim, float radiusUnits, bool doorsOpen = true)
+        /// <param name="doorsOpen">Paths may go through doors (NPCs who open them, or knock them down); otherwise doors stand as they are.</param>
+        /// <param name="climbs">Paths may go over logs and fences and through windows (an NPC who climbs them on a chase).</param>
+        public Chaser(MatchSim sim, float radiusUnits, bool doorsOpen = true, bool climbs = false)
         {
             this.sim = sim;
             this.radiusUnits = radiusUnits;
             this.doorsOpen = doorsOpen;
+            this.climbs = climbs;
         }
 
         public void Reset()
@@ -248,7 +250,7 @@ namespace Vision.Game
             if (pathT <= 0f || path.Count < 1)
             {
                 pathT = 1f;
-                NavGrid nav = sim.Geo.Nav(radiusUnits, doorsOpen);
+                NavGrid nav = sim.Geo.Nav(radiusUnits, doorsOpen, climbs);
                 path = (nav != null ? nav.FindPath(at, target, 40000) : null) ?? new List<Vector2> { target };
             }
             while (path.Count > 1 && Vector2.Distance(path[0], at) < Scale.D(20f)) path.RemoveAt(0);

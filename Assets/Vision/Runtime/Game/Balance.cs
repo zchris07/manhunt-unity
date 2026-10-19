@@ -307,7 +307,14 @@ namespace Vision.Game
         /// In a body they help a living survivor's repair or gate at <see cref="HelpShare"/> of the speed-up another living
         /// survivor would add.
         /// </summary>
-        public static class Ghost { public const float RespawnDelay = 4f, PossessTime = 2.2f, FallTime = 0.6f, Reach = 70f, HelpShare = 2f / 3f; }
+        /// <summary>
+        /// NPCs on a chase (the user's rules): they climb over logs and fences and through windows (smashing any glass) at a
+        /// survivor's climbing pace; Jaden, Njaaron and Plasma knock a shut door down with <see cref="DoorPunches"/> punches,
+        /// one every <see cref="DoorPunchEvery"/> s.
+        /// </summary>
+        public static class NpcChase { public const int DoorPunches = 3; public const float DoorPunchEvery = 0.6f, ClimbMul = Survivor.WindowClimbMul; }
+
+        public static class Ghost { public const float RespawnDelay = 4f, PossessTime = 3.6f, FallTime = 0.6f, Reach = 70f, HelpShare = 2f / 3f; }
 
         public static class Sexton
         {

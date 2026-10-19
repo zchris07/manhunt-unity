@@ -100,7 +100,9 @@ namespace Vision.World
                         light.range = range;
                         light.height = 2.2f;
                         light.intensity = Game.Balance.Xray.Brightness;
-                        light.falloffStart = 0.75f;
+                        // Drawn as night vision's see-through light: the same brightness whether the player sees there or not.
+                        light.seeThroughLook = true;
+                        light.falloffStart = 0.9f;
                         light.flickerAmount = 0.01f;
                         light.enabled = false;
                         power.lights.Add(light);

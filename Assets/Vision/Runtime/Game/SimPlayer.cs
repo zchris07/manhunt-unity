@@ -195,6 +195,9 @@ namespace Vision.Game
         public int BeamCharges;
         public float BeamCd, BeamT, BeamAng, BeamLen, BeamTick, BeamFlinch;
         public int BeamId;
+        /// <summary>The graveyard gate the beam is burning into (-1: none), and for how long it's been on it: one beam's whole firing breaks it.</summary>
+        public int BeamGate = -1;
+        public float BeamGateT;
         public readonly Dictionary<string, float> BeamHit = new Dictionary<string, float>();
         public int VapeCharges = Balance.Hunter.Vape.Charges;
         public float VapeCd;

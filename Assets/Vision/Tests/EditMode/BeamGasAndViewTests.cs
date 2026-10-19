@@ -101,7 +101,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void TheBeam_DestroysADoorStandingOpen_APallet_AndUnlockedGates_AtOnce_ButNeverLockedOnes()
+        public void TheBeam_DestroysADoorStandingOpen_AndAPallet_AtOnce_UnlockedGatesAfterAWholeCharge_NeverLockedOnes()
         {
             // A door standing open, its panel swung out across the beam.
             var rig = new SimRig(1, 1, false, 1, m => m.Doors.Add(new SimMap.DoorDef { A = U(200, 10), B = U(200, 90), StartsOpen = true }));
@@ -126,11 +126,13 @@ namespace Vision.Tests
             rig.Place(rig.P(1), 0f, 2500f);
             Beam(rig, s, 2.3f);
             Assert.IsFalse(rig.Sim.DoorBroken[0], "never the graveyard's gates while they're locked");
-            // Unlocked and shut again (the machete could break them then): the beam destroys them too.
+            // Unlocked and shut again (the machete could break them then): a whole charge of the beam held on them breaks them.
             rig.Sim.DoorLocked[0] = false;
             rig.Run(Secs(Balance.Hunter.Beam.Cooldown + 3f));
-            Beam(rig, s, 2f / Balance.Net.TickHz);
-            Assert.IsTrue(rig.Sim.DoorBroken[0], "unlocked, they go at once");
+            Beam(rig, s, Balance.Sexton.Defense.BeamTime * 0.5f);
+            Assert.IsFalse(rig.Sim.DoorBroken[0], "half a charge on them: they hold");
+            rig.Run(Secs(Balance.Sexton.Defense.BeamTime * 0.5f + 0.2f), p => new InputCmd { Aim = 0f, AimDist = 100f, Item = p.SelSlot + 1 });
+            Assert.IsTrue(rig.Sim.DoorBroken[0], "the whole charge: they give");
         }
 
         [Test]

@@ -107,7 +107,7 @@ namespace Vision.Game
         /// The walkable grid for a body of this radius (original units), 25-unit cells. With <paramref name="doorsOpen"/>
         /// every door counts as passable (NPCs who open doors on the way); otherwise doors stand as they are now.
         /// </summary>
-        NavGrid Nav(float radiusUnits, bool doorsOpen = true);
+        NavGrid Nav(float radiusUnits, bool doorsOpen = true, bool climbs = false);
 
         /// <summary>True if nothing that blocks sight (walls, closed doors, trees, rocks) lies between a and b.</summary>
         bool LineOfSight(Vector2 a, Vector2 b);
@@ -117,6 +117,11 @@ namespace Vision.Game
         float CastBody(Vector2 from, Vector2 dir, float max, float radius);
         /// <summary>True if a body of <paramref name="radius"/> at p overlaps anything solid.</summary>
         bool Blocked(Vector2 p, float radius);
+        /// <summary>
+        /// As <see cref="Blocked"/>, for a body that climbs (an NPC on a chase): fallen logs and trees, fences and windows
+        /// (their sills, glass and boards) never stop it; it goes over or through them.
+        /// </summary>
+        bool BlockedClimbing(Vector2 p, float radius);
         bool InExitZone(Vector2 p);
     }
 
@@ -127,13 +132,15 @@ namespace Vision.Game
         public float Half = 90f;
         /// <summary>Optional walls for tests: a body hits these discs (centre, radius).</summary>
         public readonly List<(Vector2 c, float r)> Pillars = new List<(Vector2, float)>();
-        readonly Dictionary<int, NavGrid> navs = new Dictionary<int, NavGrid>();
+        /// <summary>Optional climbable walls for tests (a, b, half width): they stop a body unless it climbs (a fence, a window).</summary>
+        public readonly List<(Vector2 a, Vector2 b, float half)> Climbables = new List<(Vector2, Vector2, float)>();
+        readonly Dictionary<(int, bool), NavGrid> navs = new Dictionary<(int, bool), NavGrid>();
 
-        public NavGrid Nav(float radiusUnits, bool doorsOpen = true)
+        public NavGrid Nav(float radiusUnits, bool doorsOpen = true, bool climbs = false)
         {
-            int key = Mathf.RoundToInt(radiusUnits);
+            var key = (Mathf.RoundToInt(radiusUnits), climbs);
             if (!navs.TryGetValue(key, out NavGrid n))
-                navs[key] = n = new NavGrid(Half, Scale.D(25f), p => Blocked(p, Scale.D(radiusUnits)));
+                navs[key] = n = new NavGrid(Half, Scale.D(25f), p => climbs ? BlockedClimbing(p, Scale.D(radiusUnits)) : Blocked(p, Scale.D(radiusUnits)));
             return n;
         }
         public bool LineOfSight(Vector2 a, Vector2 b) => true;
@@ -144,6 +151,12 @@ namespace Vision.Game
         public float CastSight(Vector2 from, Vector2 dir, float max) => Sight != null ? Sight(from, dir, max) : max;
         public float CastBody(Vector2 from, Vector2 dir, float max, float radius) => max;
         public bool Blocked(Vector2 p, float radius)
+        {
+            foreach (var (a, b, half) in Climbables) if (SimMap.SegmentDistance(p, a, b) < half + radius) return true;
+            return BlockedClimbing(p, radius);
+        }
+
+        public bool BlockedClimbing(Vector2 p, float radius)
         {
             foreach (var (c, r) in Pillars) if (Vector2.Distance(p, c) < r + radius) return true;
             return false;
@@ -164,6 +177,7 @@ namespace Vision.Game
             for (int i = 0; i < Lows.Count; i++)
                 if (SimMap.SegmentDistance(p, Lows[i].a, Lows[i].b) < Lows[i].half + radius)
                     v = Mathf.Max(v, MatchSim.VaultFor(i < LowSlow.Count ? LowSlow[i] : 1f));
+            foreach (var (a, b, half) in Climbables) if (SimMap.SegmentDistance(p, a, b) < half + radius) v = Mathf.Max(v, 1f);
             return v;
         }
     }

@@ -109,13 +109,14 @@ namespace Vision.Game
         /// Moves a body by a step, sliding along whatever is in the way (the original's moveCircle): the whole step if it is
         /// clear, else along one axis, else not at all.
         /// </summary>
-        public Vector2 MoveCircle(Vector2 at, float radiusDesign, Vector2 step)
+        public Vector2 MoveCircle(Vector2 at, float radiusDesign, Vector2 step, bool climbs = false)
         {
             if (step.sqrMagnitude < 1e-10f) return at;
+            bool Blocked(Vector2 p) => climbs ? Geo.BlockedClimbing(p, radiusDesign) : Geo.Blocked(p, radiusDesign);
             Vector2 to = at + step;
-            if (!Geo.Blocked(to, radiusDesign)) return InsideRing(at, to, radiusDesign);
+            if (!Blocked(to)) return InsideRing(at, to, radiusDesign);
             Vector2 x = at + new Vector2(step.x, 0f), y = at + new Vector2(0f, step.y);
-            bool okX = Mathf.Abs(step.x) > 1e-6f && !Geo.Blocked(x, radiusDesign), okY = Mathf.Abs(step.y) > 1e-6f && !Geo.Blocked(y, radiusDesign);
+            bool okX = Mathf.Abs(step.x) > 1e-6f && !Blocked(x), okY = Mathf.Abs(step.y) > 1e-6f && !Blocked(y);
             if (okX && (!okY || Mathf.Abs(step.x) >= Mathf.Abs(step.y))) return InsideRing(at, x, radiusDesign);
             if (okY) return InsideRing(at, y, radiusDesign);
             return at;
@@ -130,6 +131,14 @@ namespace Vision.Game
             float lim = Ring1 - radiusDesign, r = to.magnitude;
             if (r <= lim || r <= at.magnitude) return to;
             return to * (Mathf.Max(lim, at.magnitude) / r);
+        }
+
+        /// <summary>The window (index into the map's) a body of this radius at p is in the frame of, or -1.</summary>
+        public int WindowAt(Vector2 p, float radiusDesign)
+        {
+            for (int i = 0; i < Map.Windows.Count; i++)
+                if (SimMap.SegmentDistance(p, Map.Windows[i].A, Map.Windows[i].B) < radiusDesign) return i;
+            return -1;
         }
 
         /// <summary>A small shove away from a point (a punch, a blast): knockback on the player's own movement.</summary>

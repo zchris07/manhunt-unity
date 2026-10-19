@@ -25,7 +25,7 @@ namespace Vision.Game
     /// <summary>
     /// Ghosts (the user's rules): a survivor sacrificed (on a stake, or gone into the woods) comes back a little later as a
     /// glowing white ghost of themselves in Miga Sushi or the Diddy Chamber, with a sprint that never runs out, passing
-    /// through walls and anything solid. Survivors never see them. They can't be hurt and count as sacrificed for the
+    /// through walls and anything solid. Only other ghosts see them (never a survivor, never Zach). They can't be hurt and count as sacrificed for the
     /// night's result; nothing they do touches an NPC. What they can do is find a body (a sacrificed survivor's, a slain
     /// NPC's) and take it over (E): it levitates upright and the ghost merges with it, and they walk about in it looking
     /// as its owner did, moving and sprinting as a survivor does (none of an NPC's abilities), seen by everyone. In a body
@@ -54,11 +54,12 @@ namespace Vision.Game
         public Body BodyOf(SimPlayer p) => p != null && p.Ghost ? BodyById(p.Body) : null;
 
         /// <summary>
-        /// Survivors (on their feet or down, and those back in a body) never see a ghost out of a body; Zach, the other ghosts
-        /// and anyone only watching do.
+        /// Only the other ghosts (out of a body) see a ghost, and anyone only watching (a spectator, a survivor who got out or
+        /// is waiting to come back): never a survivor (on their feet, down, or back in a body), never Zach.
         /// </summary>
         public static bool SeesGhosts(SimPlayer viewer) =>
-            viewer == null || viewer.Role != Role.Survivor || viewer.FreeGhost || viewer.Health == Health.Escaped || (viewer.Health == Health.Eliminated && !viewer.Ghost);
+            viewer == null || viewer.FreeGhost || viewer.Role == Role.Spectator
+            || (viewer.Role == Role.Survivor && (viewer.Health == Health.Escaped || (viewer.Health == Health.Eliminated && !viewer.Ghost)));
 
         Body LayBody(Vector2 at, float facing, int of, bool npc, string name, string look)
         {
@@ -103,6 +104,9 @@ namespace Vision.Game
                     continue;
                 }
                 if (p.PossessT <= 0f) continue;
+                // Face to face with the body as they merge.
+                Body taking = BodyOf(p);
+                if (taking != null && (taking.Pos - p.Pos).sqrMagnitude > 1e-3f) p.Facing = Mathf.Atan2(taking.Pos.y - p.Pos.y, taking.Pos.x - p.Pos.x);
                 p.PossessT = Mathf.Max(0f, p.PossessT - dt);
                 if (p.PossessT <= 0f) Reanimate(p);
             }

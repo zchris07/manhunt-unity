@@ -128,8 +128,21 @@ namespace Vision.Rendering
         public int LastRayCount { get; private set; }
         public int LastShadowCount { get; private set; }
 
+        /// <summary>The renderer drawing the local player's sight (the newest one enabled; null with none).</summary>
+        public static VisionMaskRenderer Active { get; private set; }
+
+        /// <summary>Whether this frame's sight has been worked out yet (before it, nothing is seen).</summary>
+        public bool Ready { get; private set; }
+
+        /// <summary>
+        /// Whether an entity (a player, an NPC) standing at <paramref name="world"/> shows on this player's screen: in their
+        /// own light, exactly as the mask shader cuts entities (a name tag or a bar never shows over someone unseen).
+        /// </summary>
+        public bool SeesEntity(Vector3 world) => Ready && ViewerLightAt(VisionWorld.ToPlane(world)) >= entityThreshold;
+
         void OnEnable()
         {
+            Active = this;
             maskMaterial = new Material(maskShader) { hideFlags = HideFlags.HideAndDontSave };
             blurMaterial = new Material(blurShader) { hideFlags = HideFlags.HideAndDontSave };
             cmd = new CommandBuffer { name = "Vision Mask" };
@@ -140,6 +153,8 @@ namespace Vision.Rendering
 
         void OnDisable()
         {
+            if (Active == this) Active = null;
+            Ready = false;
             RenderPipelineManager.endCameraRendering -= DrawDebug;
             Release(ref maskTexture);
             Release(ref blurTexture);
@@ -399,14 +414,25 @@ namespace Vision.Rendering
             // G (line of sight) is no longer drawn: light-source light shows whether or not the player can see it.
             SightMarker.End();
             LightsMarker.Begin();
-            // R: the nearest light sources, each with its own (cached when static) polygon.
+            // R: the nearest light sources, each with its own (cached when static) polygon. G: the building's lights (each
+            // one on the screen, however many), drawn as night vision's see-through light.
             lightOrder.Clear();
-            lightOrder.AddRange(VisionWorld.Lights);
+            int version = VisionWorld.Occluders.Version;
+            if (version != LastVersion) { VersionChanges++; LastVersion = version; }
+            var cover = new Rect(coverMin, Vector2.one * CoverSize);
+            foreach (VisionLight light in VisionWorld.Lights)
+            {
+                if (!light.seeThroughLook) { lightOrder.Add(light); continue; }
+                Vector2 lp = light.PlanePosition;
+                float r = light.WorldRange;
+                if (lp.x + r < cover.xMin || lp.x - r > cover.xMax || lp.y + r < cover.yMin || lp.y - r > cover.yMax) continue;
+                List<Vector2> poly = light.GetPolygon(vc, version);
+                AddPolygon(poly, !light.IsCone, lp, new Color(0f, light.CurrentIntensity * 0.5f, 0f, 0f), r, light.falloffStart);
+                polygons++;
+            }
             // Nearest by where their light reaches (a big flood light's swath counts as near when its edge is).
             lightOrder.Sort((a, b) => ((a.PlanePosition - origin).magnitude - a.WorldRange).CompareTo((b.PlanePosition - origin).magnitude - b.WorldRange));
             int lightCount = Mathf.Min(LightCap, lightOrder.Count);
-            int version = VisionWorld.Occluders.Version;
-            if (version != LastVersion) { VersionChanges++; LastVersion = version; }
             for (int i = 0; i < lightCount; i++)
             {
                 VisionLight light = lightOrder[i];
@@ -451,6 +477,7 @@ namespace Vision.Rendering
             Shader.SetGlobalVector(ViewerPosId, new Vector4(feet.x, feet.y, feet.z, 1f));
 
             LastPolygonCount = polygons;
+            Ready = true;
             LastLightPolygonCount = lightCount;
             LastRayCount = rays;
 

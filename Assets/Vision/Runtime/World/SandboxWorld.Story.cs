@@ -32,6 +32,8 @@ namespace Vision.World
 
         /// <summary>How far the dock's deck stands above the lake's water (or the shore at its foot, if that's higher).</summary>
         public const float DockDeckAbove = 0.35f;
+        /// <summary>The tops of the dock's boards over its deck line (the planks sit a little proud of it, a few higher still).</summary>
+        public const float DockBoardTop = 0.03f;
 
         /// <summary>
         /// Whether a point on the level's plane is on the lake dock's boards (from the shore at its foot to its end, its
@@ -46,7 +48,8 @@ namespace Vision.World
             if (len2 < 1e-6f) return false;
             float t = Vector2.Dot(at - a, ab) / len2;
             if (t < 0f || t > 1f || (at - (a + ab * t)).magnitude > Layout.DockHalfWidth) return false;
-            deck = Mathf.Max(Terrain.Height(a.x, a.y), Terrain.LakeLevel) + DockDeckAbove;
+            // Standing on the tops of its boards.
+            deck = Mathf.Max(Terrain.Height(a.x, a.y), Terrain.LakeLevel) + DockDeckAbove + DockBoardTop;
             return true;
         }
 
@@ -57,7 +60,7 @@ namespace Vision.World
         public float SurfaceHeight(Vector2 at)
         {
             if (Layout != null && Layout.Plan != null && Layout.Building.Contains(at)) return BuildingFloor + 0.015f;
-            if (OnDock(at, out float deck)) return deck + 0.01f;
+            if (OnDock(at, out float deck)) return deck + 0.005f;
             if (hasSurface && surface.SurfaceHeight(at.x, at.y, out float h)) return h;
             return GroundHeight(at);
         }

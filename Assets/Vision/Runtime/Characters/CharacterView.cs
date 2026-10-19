@@ -110,6 +110,8 @@ namespace Vision.Characters
 
         static ActionClip SurvivorState(SimPlayer p)
         {
+            // A ghost taking a body: the A pose, hovering, as the body before it.
+            if (p.Ghost && p.Body != 0 && p.PossessT > 0f) return ActionClips.APose;
             // (A ghost is out of the match, but in a body it still works a generator, cowers in gas...)
             if (!p.Ghost)
                 switch (p.Health)

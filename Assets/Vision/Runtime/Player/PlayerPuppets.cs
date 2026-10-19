@@ -32,6 +32,8 @@ namespace Vision.Player
             public bool Visible = true;
             /// <summary>A teammate's faint glow (a survivor sees the other survivors' this way).</summary>
             public VisionLight Glow;
+            /// <summary>How far through merging with a body it's drawn (0-1), run on smoothly between the match's ticks.</summary>
+            public float MergeM;
             public Vision.Audio.Footsteps Steps;
         }
 
@@ -173,6 +175,8 @@ namespace Vision.Player
             bool visible = ghostForm ? seesGhosts : p.Reanimated || (p.HideState != 2 && p.Health != Game.Health.Escaped && p.Health != Game.Health.Eliminated);
             if (p.Role != Role.Hunter) pup.View.SetSpec(PlayerController.SpecFor(p));
             GhostLook.Set(pup.Go, ghostForm, world.lowPolyMaterial);
+            // Back in a body: a small golden halo over its head.
+            Halo.Set(pup.Go, MatchSim.InBody(p), world.entityMaterial);
             if (pup.Steps == null) pup.Steps = pup.Go.GetComponent<Vision.Audio.Footsteps>();
             if (pup.Steps != null && pup.Steps.enabled == ghostForm) pup.Steps.enabled = !ghostForm;
             if (visible != pup.Visible)
@@ -195,9 +199,16 @@ namespace Vision.Player
             {
                 Vector3 vLocal = dt > 0f ? (now - before) / dt : Vector3.zero;
                 Vector3 vWorld = world.transform.TransformVector(new Vector3(vLocal.x, 0f, vLocal.z));
+                // A ghost merging with a body floats into it in its A pose, never walking.
+                bool merging = p.Ghost && p.Body != 0 && p.PossessT > 0f;
+                float mSim = Vision.UI.CorpseViews.PossessProgress(p.PossessT);
+                pup.MergeM = merging ? Mathf.Clamp(pup.MergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f) : 0f;
+                if (merging) vWorld = Vector3.zero;
                 pup.Animator.Drive(vWorld, new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
                 MatchHost mh = MatchHost.For(world);
-                pup.Animator.Lift = p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, mh != null ? mh.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, pup.Go.transform.lossyScale.y) : 0f;
+                float up = world.transform.lossyScale.y / Mathf.Max(1e-4f, pup.Go.transform.lossyScale.y);
+                pup.Animator.Lift = merging ? Vision.UI.CorpseViews.PossessLift(pup.MergeM) * up
+                    : p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, mh != null ? mh.Sim.WindowsBroken : null) * up : 0f;
             }
             bool dazed = p.StunT > 0f || (p.Role == Role.Hunter && p.KnockT > 0f);
             pup.Stars.Dizzy = !dazed && p.VapeT > 0f;

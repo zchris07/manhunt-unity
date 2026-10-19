@@ -192,7 +192,7 @@ namespace Vision.Tests
                 Assert.AreEqual(MoveMode.Normal, ga.Sim.MoveModeFor(ga.Sim.Get(anaId)), "she can move on her own game");
                 Assert.IsTrue(ga.Sim.MoveContextFor(ga.Sim.Get(anaId), false).Ghost, "with endless sprint");
                 Assert.IsFalse(MatchSim.SeesGhosts(gb.Sim.Get(benId)), "Ben can't see her");
-                Assert.IsTrue(MatchSim.SeesGhosts(gb.Sim.Get(zachId)), "Zach can");
+                Assert.IsFalse(MatchSim.SeesGhosts(gb.Sim.Get(zachId)), "nor can Zach");
                 // She walks to her body (her own game moves her and tells the host), and her own E takes it.
                 Vector2 to = where + SimRig.U(40f, 0f);
                 ga.Sim.SetPose(anaId, to, 0f, Gait.Walk);

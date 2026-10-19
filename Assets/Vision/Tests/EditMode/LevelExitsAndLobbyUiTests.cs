@@ -214,6 +214,8 @@ namespace Vision.Tests
             Vector2 a = L.DockStart, b = L.DockEnd, side = new Vector2(-(b - a).normalized.y, (b - a).normalized.x);
             Vector2 mid = Vector2.Lerp(a, b, 0.6f);
             Assert.IsTrue(world.OnDock(mid, out float deck), "on the boards");
+            float deckLine = Mathf.Max(world.Terrain.Height(L.DockStart.x, L.DockStart.y), world.Terrain.LakeLevel) + SandboxWorld.DockDeckAbove;
+            Assert.AreEqual(deckLine + SandboxWorld.DockBoardTop, deck, 1e-4f, "standing on the tops of the boards, not sunk into them");
             float bed = world.Terrain.Height(mid.x, mid.y);
             Assert.Greater(deck, bed + 0.5f, "the deck stands well above the lake bed");
             Assert.AreEqual(deck, world.GroundHeight(mid), 1e-4f, "the ground a body stands on there is the deck");
@@ -234,7 +236,9 @@ namespace Vision.Tests
             Assert.AreEqual(world.GroundHeight(offSide), Y(), 1e-3f, "in the water, on the bed");
             Put(mid, world.GroundHeight(offSide));
             onto.Invoke(pc, null);
-            Assert.AreEqual(deck, Y(), 1e-3f, "climbing out onto the dock: straight up onto its deck");
+            var cc = pc.GetComponent<CharacterController>();
+            float skin = cc.skinWidth * pc.transform.lossyScale.y / world.transform.lossyScale.y;
+            Assert.AreEqual(deck + skin, Y(), 1e-3f, "climbing out onto the dock: straight up onto the tops of its boards, as on any ground");
             Put(offSide, deck);
             onto.Invoke(pc, null);
             Assert.AreEqual(world.Terrain.Height(offSide.x, offSide.y), Y(), 1e-3f, "stepping off: straight down into the water, no fall");

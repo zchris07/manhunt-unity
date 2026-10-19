@@ -84,16 +84,80 @@ namespace Vision.Game
             return p.CanAct;
         }
 
+        /// <summary>
+        /// On a chase: climbing over logs and fences and through windows (set by the NPC each step it chases), and whether
+        /// it's climbing over one right now (the view plays the climb).
+        /// </summary>
+        protected bool Climbs;
+        bool climbing;
+
         /// <summary>One step along the heading, sliding on walls; it notes when it is stuck.</summary>
         protected void Step(float speedUnits, float dt)
         {
             float speed = Scale.Speed(speedUnits);
             if (VapeSlowT > 0f) speed *= 1f - VapeSlow;
             if (Sim.Geo.InWater(Pos)) speed *= Balance.WadeMul;
+            // Over a log or a fence, or through a window (its glass smashed as it goes): at a survivor's climbing pace.
+            climbing = false;
+            if (Climbs)
+            {
+                int win = Sim.WindowAt(Pos, MoveRadius);
+                if (win >= 0 && !Sim.WindowsBroken[win])
+                {
+                    Sim.BreakWindow(win);
+                    Sim.Noise((Sim.Map.Windows[win].A + Sim.Map.Windows[win].B) * 0.5f, 800f, "glass");
+                }
+                climbing = win >= 0 || Sim.Geo.Vault(Pos, MoveRadius * 0.5f, false) > 0f;
+                if (climbing) speed *= Balance.NpcChase.ClimbMul;
+            }
             Vector2 before = Pos;
-            Pos = Sim.MoveCircle(Pos, MoveRadius, new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * speed * dt);
+            Pos = Sim.MoveCircle(Pos, MoveRadius, new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * speed * dt, Climbs);
             Moving = true;
             StuckT = Vector2.Distance(Pos, before) < speed * dt * 0.35f ? StuckT + dt : 0f;
+        }
+
+        // ---------------------------------------------------------------- a shut door in the way of a chase
+
+        int punchedDoor = -1, doorPunches;
+        float doorPunchCd, doorPunchAt = -9f;
+
+        /// <summary>
+        /// On a chase and stuck at a shut door (Jaden, Njaaron, Plasma): it stands and punches it, three punches knocking it
+        /// down for good. True while it's at a door (nothing else to do this step).
+        /// </summary>
+        protected bool PunchDoorAhead(float dt)
+        {
+            doorPunchCd = Mathf.Max(0f, doorPunchCd - dt);
+            Vector2 ahead = Pos + new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * Scale.D(30f);
+            int di = Sim.NearbyDoor(ahead, 44f);
+            if (di < 0 || Sim.Doors[di] || Sim.DoorBroken[di] || Sim.Map.Doors[di].Shutter)
+            {
+                punchedDoor = -1;
+                doorPunches = 0;
+                return false;
+            }
+            if (di != punchedDoor)
+            {
+                punchedDoor = di;
+                doorPunches = 0;
+            }
+            Vector2 at = MatchSim.ClosestOnSegment(Pos, Sim.Map.Doors[di].A, Sim.Map.Doors[di].B);
+            Moving = false;
+            Gait = 0;
+            Face(at);
+            if (doorPunchCd > 0f) return true;
+            doorPunchCd = Balance.NpcChase.DoorPunchEvery;
+            doorPunchAt = Sim.Time;
+            doorPunches++;
+            Sim.Noise(at, 700f, "door_hit");
+            if (doorPunches < Balance.NpcChase.DoorPunches) return true;
+            Sim.SetDoor(di, true);
+            Sim.DoorBroken[di] = true;
+            Sim.Noise(at, 900f, "door_smash");
+            Sim.Feed($"{Name} knocked a door down");
+            punchedDoor = -1;
+            doorPunches = 0;
+            return true;
         }
 
         /// <summary>A step toward a point; true once within <paramref name="stopUnits"/>.</summary>
@@ -181,6 +245,7 @@ namespace Vision.Game
             TalkT = Mathf.Max(0f, TalkT - dt);
         }
 
-        public override NpcFlags Flags => base.Flags | (FleeT > 0f ? NpcFlags.Fleeing : 0) | (TalkT > 0f ? NpcFlags.Talking : 0);
+        public override NpcFlags Flags => base.Flags | (FleeT > 0f ? NpcFlags.Fleeing : 0) | (TalkT > 0f ? NpcFlags.Talking : 0)
+            | (Sim.Time - doorPunchAt < 0.3f ? NpcFlags.Punching : 0) | (climbing && Moving ? NpcFlags.Climbing : 0);
     }
 }

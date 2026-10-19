@@ -572,7 +572,7 @@ namespace Vision.Player
             if (me.Ghost && me.Body != 0 && me.PossessT > 0f) return $"Taking the body: it rises\n<color=#9c9b91>{me.BodyName}</color>";
             if (me.Ghost && me.Body != 0) return $"Help your team: hold E at a generator or a gate a survivor is working\n<color=#9c9b91>Reanimated{(string.IsNullOrEmpty(me.BodyName) ? "" : " as " + me.BodyName)}: no items, no fighting</color>";
             if (me.Ghost && me.Spent) return "You see everything now\n<color=#9c9b91>Knocked out of your body: you can't take another</color>";
-            if (me.Ghost) return "Find a body, help your team: E by a body possesses it\n<color=#9c9b91>You pass through walls; survivors can't see you</color>";
+            if (me.Ghost) return "Find a body, help your team: E by a body possesses it\n<color=#9c9b91>You pass through walls; only other ghosts can see you</color>";
             if (me.Role == Role.Hunter)
                 return sim.HatchOpen ? $"The hatch is open by the dock: slam it shut (E)\n{gens}" : $"Hunt them down: carry the downed to a stake\n{gens}";
             if (me.Role == Role.Spectator) return "Spectating";

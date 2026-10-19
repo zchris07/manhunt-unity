@@ -381,10 +381,19 @@ namespace Vision.Player
                 Body b = p.PossessT > 0f ? h.Sim.BodyOf(p) : null;
                 if (b != null)
                 {
-                    // Into the body by the time it's upright (two thirds of the way through).
-                    float left = Mathf.Max(dt, p.PossessT - Balance.Ghost.PossessTime / 3f);
-                    at = Vector2.MoveTowards(at, b.Pos, Vector2.Distance(at, b.Pos) * Mathf.Clamp01(dt / left));
+                    // Floating face to face with it, then drifting slowly into it (run on smoothly between the match's ticks).
+                    if (mergingInto != b.Id)
+                    {
+                        mergingInto = b.Id;
+                        mergeFrom = new Vector2(l0.x, l0.z);
+                        mergeM = 0f;
+                    }
+                    float mSim = Vision.UI.CorpseViews.PossessProgress(p.PossessT);
+                    mergeM = Mathf.Clamp(mergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f);
+                    at = Vector2.Lerp(mergeFrom, b.Pos, Vision.UI.CorpseViews.PossessGlide(mergeM));
+                    if ((b.Pos - at).sqrMagnitude > 1e-4f) p.Facing = Mathf.Atan2(b.Pos.y - at.y, b.Pos.x - at.x);
                 }
+                else mergingInto = 0;
                 // (Kept to the playable circle, as the match keeps it.)
                 if (at.magnitude > h.Sim.Ring1) at = at.normalized * h.Sim.Ring1;
                 GhostTo(at);
@@ -437,6 +446,9 @@ namespace Vision.Player
             var at = new Vector2(l.x, l.z);
             if (world.OnDock(at, out float deck))
             {
+                // On the boards as on any ground: the controller's own small gap over what it stands on (its skin).
+                if (cc == null) cc = GetComponent<CharacterController>();
+                deck += cc.skinWidth * transform.lossyScale.y / Mathf.Max(1e-4f, world.transform.lossyScale.y);
                 onDock = true;
                 verticalSpeed = 0f;
                 if (Mathf.Abs(l.y - deck) > 0.005f) SetHeight(l, deck);
@@ -455,6 +467,11 @@ namespace Vision.Player
             transform.position = world.transform.TransformPoint(new Vector3(local.x, y, local.z));
             cc.enabled = true;
         }
+
+        /// <summary>The body this ghost is merging with (0: none), where it started from, and how far through it is (0-1).</summary>
+        int mergingInto;
+        Vector2 mergeFrom;
+        float mergeM;
 
         /// <summary>A ghost's avatar put straight there, on the ground, whatever is in the way.</summary>
         void GhostTo(Vector2 local)
@@ -687,8 +704,12 @@ namespace Vision.Player
             if (animator != null)
             {
                 Vector3 moved = cc.enabled ? cc.velocity : Vector3.zero;
+                // Merging with a body: no walk at all (it floats, in its A pose, level with the body).
+                bool merging = p.Ghost && p.Body != 0 && p.PossessT > 0f && mergingInto != 0;
+                if (merging) moved = Vector3.zero;
                 animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
-                animator.Lift = p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, Host != null ? Host.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y) : 0f;
+                animator.Lift = merging ? Vision.UI.CorpseViews.PossessLift(mergeM) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y)
+                    : p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, Host != null ? Host.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y) : 0f;
             }
             bool hidden = !p.Ghost && (p.HideState == 2 || p.Health == Game.Health.Escaped || p.Health == Game.Health.Eliminated || p.Role == Role.Spectator);
             if (hidden != hiddenShown)
@@ -699,6 +720,8 @@ namespace Vision.Player
             // Back as a ghost: glowing white (in a body, its owner's look), and silent.
             bool ghostForm = GhostForm(p);
             GhostLook.Set(gameObject, ghostForm, world != null ? world.lowPolyMaterial : null);
+            // Back in a body: a small golden halo over its head.
+            Vision.Player.Halo.Set(gameObject, MatchSim.InBody(p), world != null ? world.entityMaterial : null);
             if (steps == null) steps = GetComponent<Vision.Audio.Footsteps>();
             if (steps != null && steps.enabled == ghostForm) steps.enabled = !ghostForm;
         }

@@ -484,8 +484,9 @@ namespace Vision.Game
                 p.LastTickPos = p.Pos;
                 if (p.Health == Health.Staked)
                 {
+                    // (Testing mode too: a staked survivor dies on the stake, leaving their body at its foot.)
                     p.StakeT -= dt;
-                    if (p.StakeT <= 0f && !TestMode)
+                    if (p.StakeT <= 0f)
                     {
                         Emit(null, new GameEvent { Kind = EventKind.Staked, A = p.Id, B = 2, Pos = p.Pos });
                         Eliminate(p, "stake", Get(p.StakedBy));

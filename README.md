@@ -282,7 +282,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   two miss lamps under the dial keep count, with a pulse of gold on each hit, a red jolt on a miss and START OVER when
   the pins drop; the match judges each press. Unlocked, survivors open and close the gates freely. Zach never opens
   them: shut again once unlocked, he can only smash them in, with four full charged swings (eight hits: two for each
-  charged swing, one for a light one), or burn them away at once with a Hemp Beam; locked, they don't give at all,
+  charged swing, one for a light one), or burn them away with a whole charge of a Hemp Beam; locked, they don't give at all,
   and nothing (the Hemp Beam, the 0.50 cal) breaks them. A fallen tree's torn-up root plate at its base is different: a solid wall that players, NPCs, thrown
   items and shots all run into and nobody vaults. It takes up only where the disc meets the ground, a thin upright
   ellipse across the trunk's end (as thick as the plate and the dirt banked at its foot, as wide as the plate), and it
@@ -375,9 +375,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Every
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
   side included; everyone has 100 HP) and gives NPCs a light hit every half second. Everything it can destroy goes the
-  moment it touches it: glass in its path shatters, a door (shut, or standing open with its panel swung across it),
-  a pallet (standing or dropped) and the graveyard's gates once unlocked and shut again are destroyed; never locked
-  gates or a shutter. A player's bullets and pellets only strike an NPC
+  moment it touches it: glass in its path shatters, a door (shut, or standing open with its panel swung across it) and
+  a pallet (standing or dropped) are destroyed; the graveyard's gates, once unlocked and shut again, give only to a whole
+  charge held on them (all of one beam's three seconds of firing); never locked gates or a shutter. A player's bullets and pellets only strike an NPC
   that isn't already roused (alert, armed, angry, chasing) within 1.1 times of what their own screen shows (each
   client tells the host the rectangle of ground its screen covers), so a stray round never sets off an NPC they can't
   see; once roused, an NPC can be struck anywhere. Guns flash
@@ -595,19 +595,22 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   end, or gone into the woods) leaves their body where they died (at the stake's foot; out of the woods, at the edge of
   the trees) and comes back four seconds later (out of the woods, once the black screen lifts) as a glowing white ghost
   of themselves in **Miga Sushi or the Diddy Chamber**, with a sprint that never runs out, passing through walls and
-  anything solid. **Survivors never see a ghost** (Zach, the other ghosts and anyone watching do). They can't be hurt,
+  anything solid. **Only other ghosts see a ghost** (and anyone only watching): never a survivor, never Zach. They can't be hurt,
   still count as sacrificed for the night's result, and nothing they do touches an NPC. Their panel, where the
   inventory was, says **find a body, help your team**, and their map shows where the bodies lie.
 - **Possession**: a ghost by a body (a sacrificed survivor's, or a slain NPC's; those who blew apart leave none) takes
-  it with **E**: it levitates, rising off the ground and swinging upright with a pale glow, while the ghost glides into
-  it and they merge; then everyone sees "**X has been reanimated**" across their screen (X whoever the body was). They
-  walk about in it exactly as its owner looked (in Daphne's body, as Daphne, with none of her abilities), moving and
+  it with **E**, over 3.6 s: the body rises off the ground and swings upright into an A pose (arms a little out from its
+  sides), turned to face the ghost, who floats up level with it in the same pose (never walking); a pale glow grows round
+  it and wisps of light spiral into it while the ghost drifts slowly into it, until they're one and settle to the ground
+  together; then everyone sees "**X has been reanimated**" across their screen (X whoever the body was). They wear a
+  small golden halo over the head and walk about exactly as its owner looked (in Daphne's body, as Daphne, with none of her abilities), moving and
   sprinting as a survivor does, with a survivor's sight, no inventory and no health bar, seen by everyone. They're told
   **you cannot use items or fight, but you can help your team repair generators**: they can't pick anything up, talk
   to an NPC, use an item or a weapon or hurt anyone; the Soundcloud Burst and Penjamin's or 50 Nic's gas still reach
   them, hurting nothing. All they can do is hold E at a generator or a gate's lever a living survivor is already
   working, adding two thirds of the speed-up a second living survivor would (never a skill check; they let go when
-  the survivor does). Any blow of Zach's (a machete hit at any charge, a lunge, one tick of the Hemp Beam, a single
+  the survivor does; living survivors at a gate's lever together open it faster too, a quarter each past the first, as
+  at a generator). Any blow of Zach's (a machete hit at any charge, a lunge, one tick of the Hemp Beam, a single
   golden pump pellet) drops the body where it stands and throws the ghost out of it, as a 0.50 cal round throws a body
   back. They're a ghost again, sprinting forever, and never take another body; instead they **see everything**: the
   whole screen lit, through walls, the map revealed, the wheel zooming the view as in testing mode. The **Ghost Pulse
@@ -618,11 +621,20 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   nothing he's killed, and with every Zach dead the survivors win ("Zach was killed"). His head bar shows the part worn
   away, dark; his HP line reads out of what's left.
 - **Zach's swing**: uncharged it takes 10 of a survivor's 100, growing evenly over the charge to two thirds fully
-  charged (pulling someone out of hiding still takes a third). A rock or a boulder rings under the machete with the
-  Half-Life metal clink.
+  charged (pulling someone out of hiding still takes a third). The swing is traced low as well as across the chest, so
+  it strikes generators, gravestones and anything else no higher than the hip, throwing off dust and debris; a rock, a
+  boulder or a gravestone rings under the machete with the Half-Life metal clank, as a generator does.
 - **The building's lights**: each of the building's generators lights its own half of the building (every room by the
-  generator nearest it; a long hallway split light by light), a lone one all of it, at night vision's shaded brightness:
-  they show the rooms and halls, never who's in them (players only ever see who's in their own light).
+  generator nearest it; a long hallway split light by light), a lone one all of it (testing mode too). Lit rooms and
+  halls look as night vision's see-through light does, the same whether the player can see there or not (behind walls,
+  off to the side), and every light on the screen is drawn (they no longer count against the cap on nearby lights);
+  they never show who's in them (players only ever see who's in their own light).
+- **Name tags and bars** over NPCs and other players show only while the player can actually see them (in their own
+  light, as the vision mask shows entities), testing mode included.
+- **NPCs on a chase** (Shane, Jaden, Plasma in his rage, Njaaron on the hunt) climb over fallen logs and fences and
+  through windows, smashing any glass, at a survivor's climbing pace, and path over them. Jaden, Njaaron and Plasma
+  knock a shut door down when it's in their way: three punches and it's down for good.
+- **Testing mode**: a staked survivor (a dummy too) dies when the stake's time runs out, leaving their body.
 - **Night vision** widens the beam as it comes on, never snapping to it: the angle opens out as the see-through light
   lengthens, all the way by the time the light passes the side of the screen.
 - **Numbers**: the Hemp Battery recharges over 50 s (40 at first); Penjamin's strongest slow is 40% less; the Hemp Beam
@@ -643,8 +655,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   place of the old machine whirr, a small diesel generator coming to life where it stands, played through once, falling
   off linearly to a fifth of its volume over its first seven seconds and heard (faintly) only within ten feet of it; the
   gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
-  rage; a clip from Chacko's couch when anyone attacks him. The jingle stops a second before its file ends (something
-  else is in its last second). The machete's slash into someone is a quarter as loud as it was at first (halved twice).
+  rage; a clip from Chacko's couch when anyone attacks him. The jingle stops a second and a half before its file ends
+  (white noise sets in after that). The machete's slash into someone is a quarter as loud as it was at first (halved
+  twice); the Half-Life metal clanks are 40% softer than at first.
   Sounds can start part way into their file, decay over time, fall away at the end or be cut short
   (`SoundBank.Cue`'s Start, DecayTime and DecayTo, TailFade, CutEnd).
 - **Zach and golden pumps**: he can pick up any golden pump lying on the map (or one a survivor dropped): twelve shots

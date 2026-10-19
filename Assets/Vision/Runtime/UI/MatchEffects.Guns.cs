@@ -349,26 +349,31 @@ namespace Vision.UI
             if (go == null || world == null) return;
             float reach = Scale.D(Balance.Hunter.Attack.Range) * (heavy ? Balance.Hunter.Attack.ChargeRangeMul : 1f) * S;
             float arc = Balance.Hunter.Attack.ArcDeg * (heavy ? Balance.Hunter.Attack.ChargeArcMul : 1f) * Mathf.Deg2Rad;
-            Vector3 from = go.transform.position + Vector3.up * 1.05f * S;
             int mask = Vfx.SolidMask & ~((1 << Vfx.OverGroundLayer) | (1 << SandboxWorld.GroundLayer) | (1 << SandboxWorld.CharacterLayer));
             const int rays = 13;
             struck.Clear();
-            for (int i = 0; i < rays; i++)
+            // The blade sweeps from the shoulder down past the hip: a fan at chest height and one low down, so a generator,
+            // a gravestone or anything else no higher than the waist is struck too.
+            foreach (float height in BladeHeights)
             {
-                Vector3 d = WorldDir(by.Facing + arc * (i / (rays - 1f) - 0.5f));
-                int n = Physics.RaycastNonAlloc(from, d, bladeHits, reach, mask, QueryTriggerInteraction.Ignore);
-                int best = -1;
-                for (int k = 0; k < n; k++)
+                Vector3 from = go.transform.position + Vector3.up * height * S;
+                for (int i = 0; i < rays; i++)
                 {
-                    if (bladeHits[k].collider.transform.IsChildOf(go.transform)) continue;
-                    if (best < 0 || bladeHits[k].distance < bladeHits[best].distance) best = k;
+                    Vector3 d = WorldDir(by.Facing + arc * (i / (rays - 1f) - 0.5f));
+                    int n = Physics.RaycastNonAlloc(from, d, bladeHits, reach, mask, QueryTriggerInteraction.Ignore);
+                    int best = -1;
+                    for (int k = 0; k < n; k++)
+                    {
+                        if (bladeHits[k].collider.transform.IsChildOf(go.transform)) continue;
+                        if (best < 0 || bladeHits[k].distance < bladeHits[best].distance) best = k;
+                    }
+                    if (best < 0) continue;
+                    // Each thing once, where it was struck nearest.
+                    RaycastHit h = bladeHits[best];
+                    int at = struck.FindIndex(x => x.c == h.collider);
+                    if (at < 0) struck.Add((h.collider, h.distance, h.point, h.normal, d));
+                    else if (h.distance < struck[at].d) struck[at] = (h.collider, h.distance, h.point, h.normal, d);
                 }
-                if (best < 0) continue;
-                // Each thing once, where it was struck nearest.
-                RaycastHit h = bladeHits[best];
-                int at = struck.FindIndex(x => x.c == h.collider);
-                if (at < 0) struck.Add((h.collider, h.distance, h.point, h.normal, d));
-                else if (h.distance < struck[at].d) struck[at] = (h.collider, h.distance, h.point, h.normal, d);
             }
             if (struck.Count == 0) return;
             struck.Sort((x, y) => x.d.CompareTo(y.d));
@@ -414,7 +419,13 @@ namespace Vision.UI
             return false;
         }
 
-        /// <summary>What a struck thing is made of, as its debris shows it and as it sounds (a rock or a boulder is stone that rings).</summary>
+        /// <summary>The heights (metres over the feet) the machete's swing is traced at: across the chest, and low by the hip.</summary>
+        public static readonly float[] BladeHeights = { 1.05f, 0.42f };
+
+        /// <summary>
+        /// What a struck thing is made of, as its debris shows it and as it sounds (a rock, a boulder or a gravestone is stone
+        /// that rings with the metal clank).
+        /// </summary>
         public enum Surface { Wood, Stone, Metal, HeavyMetal, Glass, Plaster, Wall, Rock }
 
         /// <summary>
@@ -447,7 +458,7 @@ namespace Vision.UI
             // Wood that sounds like metal by name.
             ("Power Pole", Surface.Wood), ("Spool", Surface.Wood),
             // Stone.
-            ("Rock", Surface.Rock), ("Boulder", Surface.Rock), ("Grave", Surface.Stone), ("Headstone", Surface.Stone), ("Pillar", Surface.Stone),
+            ("Rock", Surface.Rock), ("Boulder", Surface.Rock), ("Headstone", Surface.Rock), ("Grave", Surface.Stone), ("Pillar", Surface.Stone),
             ("Stone", Surface.Stone), ("Toilet", Surface.Stone),
             // Other metal.
             ("Iron", Surface.Metal), ("Yard Fence", Surface.Metal), ("Gate", Surface.Metal), ("Lantern", Surface.Metal), ("Lamp", Surface.Metal),
@@ -533,9 +544,11 @@ namespace Vision.UI
                     break;
                 case Surface.Metal:
                 case Surface.HeavyMetal:
+                    // Sparks, flakes of paint and rust, and the dust and grime knocked off it.
                     Spark(N(20));
-                    for (int i = 0; i < N(5); i++) Chip(new Color(0.12f, 0.12f, 0.13f, 1f), new Color(0.3f, 0.3f, 0.32f, 1f), 2f, 5f, 0.025f, 0.6f);
-                    for (int i = 0; i < N(2); i++) Dust(new Color(0.4f, 0.4f, 0.42f, 0.3f), 0.14f, 0.9f, 2f);
+                    for (int i = 0; i < N(8); i++) Chip(new Color(0.12f, 0.12f, 0.13f, 1f), new Color(0.3f, 0.3f, 0.32f, 1f), 2f, 5f, 0.025f, 0.6f);
+                    for (int i = 0; i < N(4); i++) Chip(new Color(0.45f, 0.26f, 0.14f, 1f), new Color(0.62f, 0.5f, 0.2f, 1f), 1.5f, 4f, 0.02f, 0.7f);
+                    for (int i = 0; i < N(5); i++) Dust(new Color(0.46f, 0.44f, 0.4f, 0.36f), 0.16f, 1.1f, 2.4f);
                     break;
                 case Surface.Glass:
                     for (int i = 0; i < N(14); i++)

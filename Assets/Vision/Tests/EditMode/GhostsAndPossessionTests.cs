@@ -177,8 +177,8 @@ namespace Vision.Tests
 
             // Who sees it.
             Assert.IsFalse(MatchSim.SeesGhosts(s), "a survivor never sees a ghost");
-            Assert.IsTrue(MatchSim.SeesGhosts(zach), "Zach does");
-            Assert.IsTrue(MatchSim.SeesGhosts(g), "and other ghosts");
+            Assert.IsFalse(MatchSim.SeesGhosts(zach), "nor does Zach");
+            Assert.IsTrue(MatchSim.SeesGhosts(g), "only the other ghosts do");
             Assert.IsTrue(PlayerController.GhostForm(g));
 
             // The Ghost Pulse is gone: a click or F does nothing.
@@ -245,7 +245,7 @@ namespace Vision.Tests
             UI.CorpseViews.Pose(true, Balance.Ghost.PossessTime + 0.1f, out _, out _, out _, out bool still);
             Assert.IsFalse(still, "the lying body is gone: it's them now");
             Assert.IsFalse(PlayerController.GhostForm(g));
-            Assert.IsTrue(MatchSim.SeesGhosts(zach) && !MatchSim.SeesGhosts(g), "back in a body, they can't see ghosts either");
+            Assert.IsFalse(MatchSim.SeesGhosts(g), "back in a body, they can't see ghosts either");
 
             // A survivor's walk and sprint (its bar runs down), a survivor's look.
             Assert.AreEqual(MoveMode.Normal, rig.Sim.MoveModeFor(g));
@@ -375,6 +375,68 @@ namespace Vision.Tests
             Assert.Greater(g.DarkT, 0f, "and blinded");
             Assert.AreEqual(1f, g.Hp, "never hurt");
             Assert.IsTrue(MatchSim.InBody(g));
+        }
+
+        [Test]
+        public void AGhostTakingABody_HoversInAnAPose_FacingIt_NeverWalking_AndInABodyWearsAGoldenHalo()
+        {
+            SimRig rig = Rig(2);
+            SimPlayer zach = rig.P(1), g = rig.P(2);
+            rig.Place(zach, 1500f, -1500f);
+            rig.Place(rig.P(3), -600f, 600f);
+            rig.Place(g, 300f, 300f);
+            Body b = Sacrifice(rig, g, zach);
+            rig.Sim.Teleport(g.Id, b.Pos + SimRig.U(50f, 0f));
+            rig.Run(2);
+            rig.Tap(g.Id, Btn.Interact);
+            rig.Run(Secs(0.5f));
+            Assert.AreEqual(Mathf.PI, Mathf.Abs(g.Facing), 0.05f, "turned to face the body");
+            Assert.AreEqual(MoveMode.Locked, rig.Sim.MoveModeFor(g), "no walking while they merge");
+            // The ghost's figure: the A pose, its legs still.
+            GameObject go = Vision.World.PropFactory.CreateCharacter("Ghost", null, null);
+            try
+            {
+                var view = go.GetComponent<Vision.Characters.CharacterView>();
+                view.SetSpec(Vision.Characters.CharacterSpec.Survivor());
+                view.Present(g);
+                Assert.AreSame(Vision.Characters.ActionClips.APose, view.Layer.Current, "the A pose as it merges");
+                // Hovering level with the body, up and then down again at the end.
+                Assert.AreEqual(0f, UI.CorpseViews.PossessLift(0f), 1e-4f);
+                Assert.Greater(UI.CorpseViews.PossessLift(0.5f), 0.4f, "floating, face to face");
+                Assert.AreEqual(0f, UI.CorpseViews.PossessLift(1f), 1e-4f, "down together");
+                Assert.Less(UI.CorpseViews.PossessGlide(0.25f), 0.01f, "it waits, face to face, before drifting in");
+                Assert.AreEqual(1f, UI.CorpseViews.PossessGlide(0.9f), 1e-4f, "one with it before the end");
+                Assert.GreaterOrEqual(Balance.Ghost.PossessTime, 3f, "slowly");
+                rig.Run(Secs(Balance.Ghost.PossessTime));
+                Assert.IsTrue(MatchSim.InBody(g));
+                // In the body: a small golden halo over the head (and off again out of one).
+                Vision.Player.Halo.Set(go, MatchSim.InBody(g), new Material(Shader.Find("Vision/LowPoly")));
+                Assert.IsTrue(Vision.Player.Halo.Showing(go), "the halo");
+                Transform halo = go.transform.Find("Golden Halo");
+                Assert.Greater(halo.localPosition.y, Vision.Characters.HumanoidSkeleton.Height, "over the head");
+                Vision.Player.Halo.Set(go, false, null);
+                Assert.IsFalse(Vision.Player.Halo.Showing(go));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void TestingMode_AStakedSurvivorDiesOnTheStake_LeavingTheirBody()
+        {
+            var rig = Rig(1, true);
+            SimPlayer zach = rig.P(1);
+            SimPlayer d = rig.Sim.AddDummy(Role.Survivor, rig.Map.Stakes[0] + SimRig.U(40f, 0f));
+            rig.Sim.HurtSurvivor(d, 1f, zach, "slash");
+            rig.Sim.CarrySurvivor(zach, d);
+            rig.Sim.StakeSurvivor(zach, d, 0);
+            Assert.AreEqual(Health.Staked, d.Health);
+            rig.Run(Secs(Balance.Objectives.StakeStageTime + 0.5f));
+            Assert.AreEqual(Health.Eliminated, d.Health, "testing mode too: the stake's time runs out");
+            Body b = rig.Sim.Bodies.Single(x => x.Of == d.Id);
+            Assert.Less(Vector2.Distance(b.Pos, rig.Map.Stakes[0]), 0.5f, "their body at the stake's foot");
         }
 
         // ---------------------------------------------------------------- knocked out
@@ -547,7 +609,7 @@ namespace Vision.Tests
         public void VictoryRoyalesLastSecond_IsCut_AndTheMachetesFleshHit_IsHalfAsLoudAgain()
         {
             SoundBank.Cue v = SoundBank.Cues["victory_royale"];
-            Assert.AreEqual(1f, v.CutEnd, 1e-5f, "its last second cut off");
+            Assert.AreEqual(1.5f, v.CutEnd, 1e-5f, "its last second and a half (white noise from 3.35 s of its 4.79) cut off");
             Assert.IsTrue(v.Tracked, "played so it can be stopped");
             Assert.AreEqual(0.225f, SoundBank.Cues["slash"].Volume, 1e-5f, "half of 0.45");
             foreach (string cue in new[] { "possess", "reanimate", "ghost_out" })

@@ -57,7 +57,7 @@ namespace Vision.Game
         public Njaaron(MatchSim sim) : base(sim, 201)
         {
             SpawnAnywhere(6f, 600f);
-            chaser = new Chaser(sim, Balance.Njaaron.Radius);
+            chaser = new Chaser(sim, Balance.Njaaron.Radius, true, true);
         }
 
         /// <summary>Races to <paramref name="t"/> across the map (along walkable paths, through doors) and punches them when close.</summary>
@@ -73,15 +73,13 @@ namespace Vision.Game
                 return;
             }
             Heading = chaser.Heading(Pos, t.Pos, dt, StuckT > 0.3f);
+            // On the hunt he climbs logs, fences and windows, and knocks a shut door down with three punches.
+            Climbs = true;
             Step(Balance.Njaaron.Run, dt);
+            Climbs = false;
             Facing = Heading;
             Gait = 2;
-            if (StuckT > 0f)
-            {
-                Vector2 ahead = Pos + new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * Scale.D(30f);
-                int di = Sim.NearbyDoor(ahead, 40f);
-                if (di >= 0 && !Sim.Doors[di] && Sim.DoorCd[di] <= 0f) Sim.SetDoor(di, true);
-            }
+            if (StuckT > 0f) PunchDoorAhead(dt);
         }
 
         /// <summary>Someone attacked Chacko: after them, wherever they are (never Zach while he's Zach's friend).</summary>

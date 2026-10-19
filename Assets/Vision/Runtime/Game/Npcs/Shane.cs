@@ -53,7 +53,8 @@ namespace Vision.Game
         {
             C = cfg;
             // No door opening: closed doors stop him.
-            Chaser = new Chaser(sim, cfg.Radius, false);
+            // On a chase he climbs logs, fences and windows; Jaden knocks shut doors down too (his paths go through them).
+            Chaser = new Chaser(sim, cfg.Radius, BreaksDoors, true);
             SpawnAnywhere(4f, 700f);
             State = Mode.Idle;
         }
@@ -189,6 +190,9 @@ namespace Vision.Game
             if (alerted) Sim.Feed("Shane Jeans has been alerted");
         }
 
+        /// <summary>Knocks shut doors down on a chase (Jaden; Shane goes round).</summary>
+        protected virtual bool BreaksDoors => false;
+
         /// <summary>One chase step toward <paramref name="t"/>: his speed (he stops right beside them).</summary>
         protected virtual float ChaseStep(SimPlayer t, float d, float dt)
         {
@@ -300,7 +304,10 @@ namespace Vision.Game
             Moving = speed > 0f;
             Gait = !Moving ? 0 : speed > C.Walk * 1.5f ? 2 : 1;
             if (!Moving) return;
+            Climbs = State == Mode.Chase;
             Step(speed, dt);
+            // Jaden at a shut door on a chase: three punches and it's down.
+            if (State == Mode.Chase && BreaksDoors && StuckT > 0f && PunchDoorAhead(dt)) return;
             if (State != Mode.Chase) Facing = Heading;
             if (State != Mode.Chase && StuckT > 0.25f)
             {

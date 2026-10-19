@@ -181,6 +181,8 @@ namespace Vision.Game
             base.Update(sim, dt);
         }
 
+        protected override bool BreaksDoors => true;
+
         /// <summary>Closes to a few metres, then stands and shoots while he has a clear line.</summary>
         protected override float ChaseStep(SimPlayer t, float d, float dt)
         {

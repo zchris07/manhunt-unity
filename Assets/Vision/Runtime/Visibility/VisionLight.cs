@@ -24,6 +24,11 @@ namespace Vision.Visibility
         [Range(1f, 180f)] public float coneHalfAngleDeg = 180f;
         [Tooltip("As bright as a player's own light (the light towers), rather than a lamp's.")]
         public bool bright;
+        /// <summary>
+        /// Drawn as night vision's see-through light rather than a lamp's (the building's ceiling lights): flat and cool, every
+        /// one on the screen drawn whatever the cap on lights, and it never shows anyone in it.
+        /// </summary>
+        public bool seeThroughLook;
         [Tooltip("Share of the range that stays at full brightness before it falls off.")]
         [Range(0f, 0.95f)] public float falloffStart = 0.25f;
 

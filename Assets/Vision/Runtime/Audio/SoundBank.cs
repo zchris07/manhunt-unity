@@ -64,8 +64,8 @@ namespace Vision.Audio
             // Its last second falls away by an inverse square.
             ["jarvis_voice"] = new Cue { Prefer = new[] { "local_jarvis_voice" }, Files = new string[0], Volume = 0.85f, PitchJitter = 0f, VolumeJitter = 0f, TailFade = 1f },
             // A generator started, or a survivor reaching an exit: the victory jingle, heard by everyone (a local file; its
-            // last second, with something else in it, cut off).
-            ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1f },
+            // last second and a half cut off: white noise sets in about 3.35 s into its 4.79).
+            ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1.5f },
             // Plasma.TTV going into his gamer rage, from where he stands (a local file).
             ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // Anyone attacking Chacko, from the couch (a local file).
@@ -83,8 +83,9 @@ namespace Vision.Audio
             // Into sturdy metal (the building's doors, a car, a generator, a light tower, a locker): one of three clangs,
             // as loud as the wood and fading out the same way.
             ["metal_heavy"] = new Cue { Prefer = new[] { "local_metal_heavy_1", "local_metal_heavy_2", "local_metal_heavy_3" }, Files = new string[0], Volume = 0.425f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
-            // Into lighter metal (fences, the graveyard's gates, lampposts, barrels, racks): one of nine, as loud, held to the end.
-            ["metal_light"] = new Cue { Prefer = new[] { "local_metal_1", "local_metal_2", "local_metal_3", "local_metal_4", "local_metal_5", "local_metal_6", "local_metal_7", "local_metal_8", "local_metal_9" }, Files = new string[0], Volume = 0.425f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
+            // Into lighter metal (fences, the graveyard's gates, lampposts, barrels, racks, generators) and ringing stone (rocks,
+            // boulders, gravestones): one of nine Half-Life clanks, held to the end (40% softer than the wood, at the user's request).
+            ["metal_light"] = new Cue { Prefer = new[] { "local_metal_1", "local_metal_2", "local_metal_3", "local_metal_4", "local_metal_5", "local_metal_6", "local_metal_7", "local_metal_8", "local_metal_9" }, Files = new string[0], Volume = 0.425f * 0.6f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
             // Into a wall of a building, a cabin or a shack: one of three slams.
             ["wall_slam"] = new Cue { Prefer = new[] { "local_wall_slam_1", "local_wall_slam_2", "local_wall_slam_3" }, Files = new string[0], Volume = 0.5f, PitchJitter = 0.05f, Near = 150f, Radius = 1300f },
             // A bullet or pellet striking a body (a player or an NPC): one of three, quiet, held to the end.

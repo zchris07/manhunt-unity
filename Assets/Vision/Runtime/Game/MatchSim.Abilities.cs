@@ -410,6 +410,8 @@ namespace Vision.Game
             h.BeamAng = aim;
             h.BeamLen = 0f;
             h.BeamHit.Clear();
+            h.BeamGate = -1;
+            h.BeamGateT = 0f;
             h.ChargeT = -1f;
             Feed($"{h.Name} fired a Hemp Beam");
         }
@@ -451,10 +453,10 @@ namespace Vision.Game
 
         /// <summary>
         /// The beam runs until it meets something solid or a person, and hurts whoever it touches: Zach or a survivor, the
-        /// beamer's own side too (1 HP ten times a second). Everything it can destroy goes the moment it touches it (the
-        /// user's rule): glass shatters and it carries on through the empty frame; a door (shut or standing open), a pallet
-        /// (standing or dropped) and the graveyard's gates once they're unlocked and shut again are destroyed (locked, the
-        /// gates hold; shutters never give).
+        /// beamer's own side too (1 HP ten times a second). What it can destroy goes the moment it touches it (the user's
+        /// rule): glass shatters and it carries on through the empty frame; a door (shut or standing open) and a pallet
+        /// (standing or dropped) are destroyed. The graveyard's gates, unlocked and shut again, take a whole charge: held on
+        /// them for all of one beam's firing, they give (locked, they hold; shutters never give).
         /// </summary>
         void FireBeam(SimPlayer h, int ticks, float dt)
         {
@@ -470,9 +472,10 @@ namespace Vision.Game
                 Noise(s + d * t, 800f, "glass");
             }
             float len = wall;
-            // Everything it can destroy goes the moment it touches it: a shut door at its end, a door standing open (its
-            // panel swung out from the hinge), a pallet (standing or dropped) it crosses, the graveyard's gates once
-            // unlocked and shut again; never a locked gate or a shutter.
+            // What it can destroy goes the moment it touches it: a shut door at its end, a door standing open (its panel
+            // swung out from the hinge), a pallet (standing or dropped) it crosses; the graveyard's gates, unlocked and shut
+            // again, only after a whole charge on them; never a locked gate or a shutter.
+            int onGate = -1;
             for (int i = 0; i < Map.Doors.Count; i++)
             {
                 if (DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i] || (Map.Doors[i].Gate && Doors[i])) continue;
@@ -495,9 +498,33 @@ namespace Vision.Game
                     }
                 }
                 if (float.IsPositiveInfinity(hitT)) continue;
+                if (Map.Doors[i].Gate)
+                {
+                    onGate = i;
+                    continue;
+                }
                 SetDoor(i, true);
                 DoorBroken[i] = true;
-                Noise(s + d * Mathf.Min(hitT, len), 900f, Map.Doors[i].Gate ? "gate_smash" : "door_smash");
+                Noise(s + d * Mathf.Min(hitT, len), 900f, "door_smash");
+            }
+            if (onGate != h.BeamGate)
+            {
+                h.BeamGate = onGate;
+                h.BeamGateT = 0f;
+            }
+            if (onGate >= 0)
+            {
+                h.BeamGateT += dt;
+                // (Half a tick short, so a beam held on them from its first tick to its last does it.)
+                if (h.BeamGateT >= Balance.Sexton.Defense.BeamTime - TickDt * 0.5f)
+                {
+                    Vector2 c = (Map.Doors[onGate].A + Map.Doors[onGate].B) * 0.5f;
+                    SetDoor(onGate, true);
+                    DoorBroken[onGate] = true;
+                    Noise(c, 900f, "gate_smash");
+                    h.BeamGate = -1;
+                    h.BeamGateT = 0f;
+                }
             }
             for (int i = 0; i < Map.Barricades.Count; i++)
             {

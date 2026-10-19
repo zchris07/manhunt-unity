@@ -1141,6 +1141,28 @@ namespace Vision.Player
                     yield return Press(Btn.Primary, 2);
                     yield return new WaitForSeconds(0.17f);
                     yield return Shot("110_zach_backhand");
+                    // The blade low: a generator and a gravestone struck, each throwing off dust and debris (and clanking).
+                    {
+                        var marks = new System.Collections.Generic.List<(string shot, Vector2 at)>();
+                        if (host.Sim.Map.Generators.Count > 0) marks.Add(("130_machete_generator", host.Sim.Map.Generators[host.Sim.Map.Generators.Count - 1]));
+                        foreach (Transform t in world.GetComponentsInChildren<Transform>(true))
+                            if (t.name == "Headstone")
+                            {
+                                Vector3 sl = world.transform.InverseTransformPoint(t.position);
+                                marks.Add(("131_machete_gravestone", new Vector2(sl.x, sl.z)));
+                                break;
+                            }
+                        foreach (var (shot, at) in marks)
+                        {
+                            yield return Stage(player, V(at + new Vector2(0f, -1.3f)), Vector2.up, wanderer, away);
+                            yield return new WaitForSeconds(0.9f);
+                            yield return Press(Btn.Primary, 2);
+                            yield return new WaitForSeconds(0.24f);
+                            yield return Shot(shot);
+                        }
+                        yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
+                        if (target != null) host.Sim.Teleport(target.Id, z.Pos + new Vector2(0f, 3.2f));
+                    }
                     // Facing the camera, a burst of frames through each cut of the X: a light forehand, its backhand, then a
                     // charged forehand.
                     player.AimOverride = Vector2.down;
