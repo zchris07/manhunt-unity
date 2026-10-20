@@ -51,7 +51,8 @@ namespace Vision.UI
             if (jarvisHud == null) jarvisHud = gameObject.AddComponent<JarvisHud>();
             bool jarvisOn = MatchSim.JarvisActive(me);
             bool rebooting = jarvisBootedRun == host.Sim.JarvisUses;
-            jarvisHud.Run(jarvisOn ? me.JarvisT : 0f, Balance.Sexton.JarvisUserSec, GameHud.MenuOpen, rebooting);
+            // (The pointer stays up over a menu, the full map and the inventory editor: JARVIS's reticle only over the game.)
+            jarvisHud.Run(jarvisOn ? me.JarvisT : 0f, Balance.Sexton.JarvisUserSec, GameHud.PointerWanted, rebooting);
             if (jarvisOn) jarvisBootedRun = host.Sim.JarvisUses;
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;

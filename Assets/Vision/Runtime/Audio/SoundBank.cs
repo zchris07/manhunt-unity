@@ -75,8 +75,8 @@ namespace Vision.Audio
             // last second and a half cut off: white noise sets in about 3.35 s into its 4.79).
             ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1.5f, Warm = true },
             // Plasma.TTV going into his gamer rage, from where he stands (a local file).
-            // (60% softer than at first, at the user's request.)
-            ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f * 0.4f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
+            // (60% softer than at first, then half that again, at the user's request.)
+            ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f * 0.4f * 0.5f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // Anyone attacking Chacko, from the couch (a local file).
             ["chacko_attacked"] = new Cue { Prefer = new[] { "local_chacko_attacked" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // A ghost taking a body (a deep, slow whoosh as it starts to rise), becoming one with it (the rush of it), and

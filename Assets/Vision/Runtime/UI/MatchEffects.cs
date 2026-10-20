@@ -69,6 +69,24 @@ namespace Vision.UI
 
         // ---------------------------------------------------------------- events
 
+        /// <summary>
+        /// The sound of a blow landing on someone, and how loud (of its cue's own volume): an NPC's punch (Plasma's, Njaaron's
+        /// fist) sounds as Zach's machete cutting flesh does, at the same volume; Zach's slash and lunge the thud of a body
+        /// hit. Null for anything else.
+        /// </summary>
+        public static string HitCue(string kind, out float volume)
+        {
+            volume = 1f;
+            switch (kind)
+            {
+                case "punch":
+                case "fist": return "slash";
+                case "slash":
+                case "lunge": volume = 0.8f; return "body_hit";
+                default: return null;
+            }
+        }
+
         public void OnEvent(GameEvent e)
         {
             Bind();
@@ -105,7 +123,7 @@ namespace Vision.UI
                     Audio.PlayCue("victory_royale");
                     break;
                 case EventKind.Hit:
-                    if (e.Text == "slash" || e.Text == "lunge" || e.Text == "punch") Audio.PlayCue("body_hit", Units(e.Pos), 0.8f);
+                    if (HitCue(e.Text, out float hitVolume) is string hitCue) Audio.PlayCue(hitCue, Units(e.Pos), hitVolume);
                     break;
                 case EventKind.Talk:
                     if (by == null) break;

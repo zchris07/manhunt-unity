@@ -79,8 +79,11 @@ namespace Vision.World
         /// <summary>A board floor's plank sizes: width and length ranges (30% smaller than the first boards).</summary>
         public const float PlankWidthMin = 0.16f * 0.7f, PlankWidthMax = 0.22f * 0.7f, PlankLengthMin = 1.2f * 0.7f, PlankLengthMax = 2.4f * 0.7f;
 
+        /// <summary>The planks' own woods: honey oak, a mid brown, warm amber, a dark brown (never a grey one).</summary>
+        public static readonly Color[] PlankTones = { new Color(0.56f, 0.39f, 0.2f), new Color(0.47f, 0.33f, 0.19f), new Color(0.6f, 0.42f, 0.21f), new Color(0.35f, 0.24f, 0.14f) };
+
         /// <summary>What a board floor came out with (for checks).</summary>
-        public struct PlankTally { public int Count, Knots, Cracks, Holes, Missing, Nails, Rotten, Mossy; }
+        public struct PlankTally { public int Count, Knots, Cracks, Holes, Missing, Nails, Rotten, Mossy, Moldy, Stained; }
 
         /// <summary>The last board floor built's tally (tests).</summary>
         public static PlankTally LastPlanks;
@@ -98,13 +101,13 @@ namespace Vision.World
 
         /// <summary>
         /// A cabin's board floor, <paramref name="len"/> along x by <paramref name="across"/> (centred), its top at
-        /// <see cref="CabinFloorTop"/>, the boards laid along x (the material's grain runs with them): planks 0.11-0.15 m wide
-        /// and 0.85-1.7 m long in staggered lengths, each its own: honey-gold oak, a mid brown, silvered grey with weather,
-        /// now and then a dark one; each shaded along its length, a little cupped. Some have a knot (dark, ringed), some a
-        /// split running in from an end, a few a knot-hole, the odd one a piece broken out of it (the dark between the joists
-        /// showing); nail heads at the ends. Where the floor stays damp (a few patches, mostly by the walls) the boards are
-        /// rotten, darkened and greyed, water-stained, and moss grows in the wettest of them and in the splits and knots
-        /// there. Most of the floor is just old boards: the wear is in places, not all over.
+        /// <see cref="CabinFloorTop"/>, laid along x (the material's grain runs with them): planks 0.11-0.15 m wide and
+        /// 0.85-1.7 m long in staggered lengths, butted tight against each other (no dark line between: each plank shows by
+        /// its own wood, <see cref="PlankTones"/>, never grey), each shaded along its length and a little cupped. A floor
+        /// long left: grime over all of it (dulled, browned, thicker in places); across whole areas of it moss (where it's
+        /// damp, creeping out from the walls), mould (dark, speckled), water stains (dark tide-marked blotches) and rot
+        /// (darkened, greyed); knots, splits running in from the ends, knot-holes, the odd piece broken out (more where
+        /// it's rotten) and nail heads at the ends.
         /// </summary>
         public static Mesh BoardFloor(System.Random rng, float len, float across)
         {
@@ -112,29 +115,39 @@ namespace Vision.World
             var tally = new PlankTally();
             float top = CabinFloorTop, hl = len * 0.5f, ha = across * 0.5f;
             int seed = rng.Next();
-            // The dark under and between the boards.
+            // The dark under the boards (seen only where a piece is broken out).
             FlatQuad(b, new Vector3(-hl, top - 0.008f, -ha), new Vector3(hl, top - 0.008f, -ha), new Vector3(hl, top - 0.008f, ha), new Vector3(-hl, top - 0.008f, ha),
                 new Color(0.08f, 0.06f, 0.05f), Vector3.up);
-            Color oak = new Color(0.56f, 0.39f, 0.2f), mid = new Color(0.46f, 0.33f, 0.2f), grey = new Color(0.45f, 0.42f, 0.37f), darkWood = new Color(0.32f, 0.23f, 0.15f);
-            Color rot = new Color(0.25f, 0.21f, 0.17f), moss = new Color(0.27f, 0.34f, 0.16f), black = new Color(0.07f, 0.055f, 0.045f);
-            // How damp the floor is at a point: a few patches, wetter toward the walls.
+            Color grime = new Color(0.27f, 0.21f, 0.15f), rot = new Color(0.24f, 0.21f, 0.17f), moss = new Color(0.25f, 0.34f, 0.15f);
+            Color mould = new Color(0.12f, 0.13f, 0.1f), stain = new Color(0.2f, 0.15f, 0.1f), black = new Color(0.07f, 0.055f, 0.045f);
+            float N(float x, float z, float scale, int ch) => PlankNoise(seed, x / scale, z / scale, ch);
+            // How damp a point is: patches over the floor, wetter toward the walls.
             float Damp(float x, float z)
             {
                 float edge = Mathf.Min(hl - Mathf.Abs(x), ha - Mathf.Abs(z));
-                float wall = Mathf.Clamp01(1f - edge / 0.9f);
-                return PlankNoise(seed, x / 1.3f, z / 1.3f, 1) * 0.75f + wall * 0.32f + PlankNoise(seed, x / 0.4f, z / 0.4f, 2) * 0.12f - 0.06f;
+                float wall = Mathf.Clamp01(1f - edge / 1.1f);
+                return N(x, z, 1.3f, 1) * 0.75f + wall * 0.35f + N(x, z, 0.4f, 2) * 0.12f - 0.05f;
+            }
+            float MossAt(float x, float z) => Mathf.Clamp01((Damp(x, z) - 0.56f) / 0.14f) * (0.55f + 0.45f * N(x, z, 0.25f, 8));
+            float MouldAt(float x, float z) => Mathf.Clamp01((N(x, z, 0.9f, 6) - 0.6f) / 0.12f);
+            float StainAt(float x, float z)
+            {
+                float s = N(x, z, 0.7f, 7);
+                // A blotch, darkest at its tide-mark.
+                return Mathf.Clamp01((s - 0.62f) / 0.06f) * (0.55f + 0.45f * Mathf.Clamp01(1f - Mathf.Abs(s - 0.66f) / 0.02f));
             }
             Color Weather(Color c, float x, float z)
             {
+                // Grime over everything, thicker in places.
+                c = Color.Lerp(c, grime, 0.22f + 0.28f * N(x, z, 1.1f, 3));
                 float d = Damp(x, z);
-                float r = Mathf.Clamp01((d - 0.7f) / 0.14f);
-                c = Color.Lerp(c, Color.Lerp(rot, grey * 0.7f, 0.3f), r * 0.75f);
-                float m = Mathf.Clamp01((d - 0.84f) / 0.1f);
-                c = Color.Lerp(c, moss, m * 0.55f);
+                c = Color.Lerp(c, rot, Mathf.Clamp01((d - 0.5f) / 0.18f) * 0.6f);
+                c = Color.Lerp(c, stain, StainAt(x, z) * 0.6f);
+                c = Color.Lerp(c, mould, MouldAt(x, z) * (0.35f + 0.4f * N(x, z, 0.06f, 9)));
+                c = Color.Lerp(c, moss, MossAt(x, z) * 0.8f);
                 c.a = 1f;
                 return c;
             }
-            Vector3 Up = Vector3.up;
             void Spot(Vector2 at, float rx, float rz, float y, Color col, int n = 7)
             {
                 var ring = new Vector3[n];
@@ -148,16 +161,11 @@ namespace Vision.World
                 for (int i = 1; i + 1 < n; i++) b.AddTriangleOutward(ring[0], ring[i], ring[i + 1], col, below);
             }
             // One run of a plank, x0 to x1 (z0 to z1 across), in lengths shaded along it; a broken end is ragged.
-            void Piece(float x0, float x1, float z0, float z1, Color tone, float y, float shadeSeed, bool raggedStart, bool raggedEnd)
+            void Run(float x0, float x1, float z0, float z1, Color tone, float y, float shadeSeed, bool raggedStart, bool raggedEnd)
             {
-                int segs = Mathf.Max(1, Mathf.CeilToInt((x1 - x0) / 0.22f));
-                Vector3 V(float x, float z) => new Vector3(x, y + 0.0015f * Mathf.Sin((z - z0) / Mathf.Max(0.01f, z1 - z0) * Mathf.PI), z);
-                Color At(float x, float z)
-                {
-                    float streak = PlankNoise(seed, x / 0.35f + shadeSeed, shadeSeed, 5);
-                    Color c = tone * (0.88f + 0.24f * streak);
-                    return Weather(c, x, z);
-                }
+                int segs = Mathf.Max(1, Mathf.CeilToInt((x1 - x0) / 0.2f));
+                Vector3 V(float x, float z) => new Vector3(x, y + 0.0012f * Mathf.Sin((z - z0) / Mathf.Max(0.01f, z1 - z0) * Mathf.PI), z);
+                Color At(float x, float z) => Weather(tone * (0.88f + 0.24f * PlankNoise(seed, x / 0.35f + shadeSeed, shadeSeed, 5)), x, z);
                 for (int i = 0; i < segs; i++)
                 {
                     float a = Mathf.Lerp(x0, x1, i / (float)segs), c = Mathf.Lerp(x0, x1, (i + 1f) / segs);
@@ -166,58 +174,54 @@ namespace Vision.World
                     if (i == segs - 1 && raggedEnd) { c0 -= b.Range(0f, 0.05f); c1 -= b.Range(0f, 0.05f); }
                     Vector3 p00 = V(a0, z0), p01 = V(a1, z1), p10 = V(c0, z0), p11 = V(c1, z1);
                     var below = new Vector3((a + c) * 0.5f, y - 1f, (z0 + z1) * 0.5f);
-                    Color k00 = At(a0, z0), k01 = At(a1, z1), k10 = At(c0, z0), k11 = At(c1, z1);
-                    b.AddTriangleShaded(p00, p10, p11, k00, k10, k11, below);
-                    b.AddTriangleShaded(p00, p11, p01, k00, k11, k01, below);
+                    b.AddTriangleShaded(p00, p10, p11, At(a0, z0), At(c0, z0), At(c1, z1), below);
+                    b.AddTriangleShaded(p00, p11, p01, At(a0, z0), At(c1, z1), At(a1, z1), below);
                 }
             }
             void Plank(float x0, float x1, float z0, float z1)
             {
                 tally.Count++;
                 float roll = b.Next();
-                Color tone = b.Jitter(roll < 0.45f ? oak : roll < 0.75f ? mid : roll < 0.93f ? grey : darkWood, 0.07f);
-                float y = top + b.Range(-0.0015f, 0.0015f), cz = (z0 + z1) * 0.5f, w = z1 - z0, shade = b.Range(0f, 50f);
-                float damp = Damp((x0 + x1) * 0.5f, cz);
-                if (damp > 0.7f) tally.Rotten++;
-                if (damp > 0.84f) tally.Mossy++;
-                // The odd one with a piece broken out of it (more where it's rotten).
-                if (x1 - x0 > 0.6f && b.Next() < (damp > 0.7f ? 0.12f : 0.025f))
+                Color tone = b.Jitter(PlankTones[roll < 0.38f ? 0 : roll < 0.7f ? 1 : roll < 0.9f ? 2 : 3], 0.07f);
+                float y = top + b.Range(-0.001f, 0.001f), cx = (x0 + x1) * 0.5f, cz = (z0 + z1) * 0.5f, w = z1 - z0, shade = b.Range(0f, 50f);
+                float damp = Damp(cx, cz);
+                if (damp > 0.5f) tally.Rotten++;
+                if (MossAt(cx, cz) > 0.3f) tally.Mossy++;
+                if (MouldAt(cx, cz) > 0.3f) tally.Moldy++;
+                if (StainAt(cx, cz) > 0.3f) tally.Stained++;
+                // A piece broken out of it (more where it's rotten).
+                if (x1 - x0 > 0.6f && b.Next() < (damp > 0.5f ? 0.1f : 0.03f))
                 {
                     tally.Missing++;
                     float g0 = b.Range(x0 + 0.15f, x1 - 0.45f), g1 = g0 + b.Range(0.18f, 0.4f);
-                    Piece(x0, g0, z0, z1, tone, y, shade, false, true);
-                    Piece(g1, x1, z0, z1, tone, y, shade, true, false);
+                    Run(x0, g0, z0, z1, tone, y, shade, false, true);
+                    Run(g1, x1, z0, z1, tone, y, shade, true, false);
                 }
-                else Piece(x0, x1, z0, z1, tone, y, shade, false, false);
+                else Run(x0, x1, z0, z1, tone, y, shade, false, false);
                 float yt = y + 0.0012f;
-                bool wet = damp > 0.8f;
-                // A knot.
-                if (b.Next() < 0.2f)
+                bool wet = MossAt(cx, cz) > 0.3f;
+                if (b.Next() < 0.22f)
                 {
                     tally.Knots++;
                     var at = new Vector2(b.Range(x0 + 0.08f, x1 - 0.08f), cz + b.Range(-0.25f, 0.25f) * w);
                     float rz = b.Range(0.016f, 0.028f);
-                    Spot(at, rz * b.Range(1.4f, 1.9f), rz * 1.15f, yt, wet ? Color.Lerp(tone * 0.6f, moss, 0.5f) : tone * 0.72f);
+                    Spot(at, rz * b.Range(1.4f, 1.9f), rz * 1.15f, yt, wet ? Color.Lerp(tone * 0.6f, moss, 0.5f) : Weather(tone * 0.72f, at.x, at.y));
                     Spot(at, rz * 0.9f, rz * 0.6f, yt + 0.0004f, wet ? moss * 0.8f : new Color(0.2f, 0.13f, 0.08f));
                 }
-                // A split running in from an end.
-                if (b.Next() < 0.15f)
+                if (b.Next() < 0.18f)
                 {
                     tally.Cracks++;
                     bool fromStart = b.Next() < 0.5f;
                     float l = Mathf.Min(b.Range(0.12f, 0.45f), (x1 - x0) * 0.6f), zc = cz + b.Range(-0.3f, 0.3f) * w, hw = b.Range(0.002f, 0.004f);
                     float xs = fromStart ? x0 : x1, xe = fromStart ? x0 + l : x1 - l;
-                    Color crack = wet ? moss * 0.75f : black;
                     var below = new Vector3((xs + xe) * 0.5f, yt - 1f, zc);
-                    b.AddTriangleOutward(new Vector3(xs, yt, zc - hw), new Vector3(xs, yt, zc + hw), new Vector3(xe, yt, zc + b.Range(-0.004f, 0.004f)), crack, below);
+                    b.AddTriangleOutward(new Vector3(xs, yt, zc - hw), new Vector3(xs, yt, zc + hw), new Vector3(xe, yt, zc + b.Range(-0.004f, 0.004f)), wet ? moss * 0.75f : black, below);
                 }
-                // A knot-hole.
-                if (b.Next() < 0.02f)
+                if (b.Next() < 0.03f)
                 {
                     tally.Holes++;
                     Spot(new Vector2(b.Range(x0 + 0.1f, x1 - 0.1f), cz), b.Range(0.012f, 0.02f), b.Range(0.01f, 0.016f), yt + 0.0006f, black);
                 }
-                // Nail heads at the ends.
                 if (b.Next() < 0.8f)
                     foreach (float nx in new[] { x0 + 0.035f, x1 - 0.035f })
                         foreach (float nz in new[] { z0 + w * 0.27f, z1 - w * 0.27f })
@@ -225,21 +229,21 @@ namespace Vision.World
                             if (nx < -hl + 0.01f || nx > hl - 0.01f) continue;
                             tally.Nails++;
                             float s = 0.0055f;
-                            Color nail = b.Next() < 0.4f ? new Color(0.3f, 0.17f, 0.1f) : new Color(0.13f, 0.12f, 0.11f);
-                            FlatQuad(b, new Vector3(nx - s, yt, nz - s), new Vector3(nx + s, yt, nz - s), new Vector3(nx + s, yt, nz + s), new Vector3(nx - s, yt, nz + s), nail, Up);
+                            Color nail = b.Next() < 0.5f ? new Color(0.3f, 0.17f, 0.1f) : new Color(0.13f, 0.12f, 0.11f);
+                            FlatQuad(b, new Vector3(nx - s, yt, nz - s), new Vector3(nx + s, yt, nz - s), new Vector3(nx + s, yt, nz + s), new Vector3(nx - s, yt, nz + s), nail, Vector3.up);
                         }
             }
+            // Butted tight: each plank starts where the last ended, across and along.
             for (float c0 = -ha; c0 < ha - 0.02f;)
             {
                 float bw = Mathf.Min(b.Range(PlankWidthMin, PlankWidthMax), ha - c0);
                 if (ha - c0 - bw < 0.06f) bw = ha - c0;
-                float c1 = c0 + bw - 0.006f;
                 for (float a0 = -hl - b.Range(0f, PlankLengthMin); a0 < hl;)
                 {
-                    float bl = b.Range(PlankLengthMin, PlankLengthMax), x0 = Mathf.Max(a0, -hl), x1 = Mathf.Min(a0 + bl - 0.006f, hl);
+                    float bl = b.Range(PlankLengthMin, PlankLengthMax), x0 = Mathf.Max(a0, -hl), x1 = Mathf.Min(a0 + bl, hl);
                     a0 += bl;
                     if (x1 - x0 < 0.05f) continue;
-                    Plank(x0, x1, c0, c1);
+                    Plank(x0, x1, c0, c0 + bw);
                 }
                 c0 += bw;
             }

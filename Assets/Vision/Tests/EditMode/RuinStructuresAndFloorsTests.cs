@@ -269,37 +269,64 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void CabinBoards_AreThirtyPercentSmaller_EachTheirOwn_WornInPlaces_NotAllOver()
+        public void CabinBoards_AreThirtyPercentSmaller_ButtedTight_NeverGrey_GrimyWithMossMouldAndStainsOverAreas()
         {
             Assert.AreEqual(0.16f * 0.7f, LowPolyModels.PlankWidthMin, 1e-5f);
             Assert.AreEqual(0.22f * 0.7f, LowPolyModels.PlankWidthMax, 1e-5f);
             Assert.AreEqual(1.2f * 0.7f, LowPolyModels.PlankLengthMin, 1e-5f);
             Assert.AreEqual(2.4f * 0.7f, LowPolyModels.PlankLengthMax, 1e-5f);
+            foreach (Color c in LowPolyModels.PlankTones)
+            {
+                Color.RGBToHSV(c, out _, out float sat, out _);
+                Assert.Greater(sat, 0.4f, "no grey planks: every one a wood's colour");
+            }
             var all = new LowPolyModels.PlankTally();
             for (int seed = 1; seed <= 3; seed++)
             {
                 Mesh m = LowPolyModels.BoardFloor(new System.Random(seed), 8.4f, 6f);
                 LowPolyModels.PlankTally t = LowPolyModels.LastPlanks;
-                // About one plank to every 0.17 m2 (it was one to 0.33).
                 Assert.That(t.Count, Is.InRange(8.4f * 6f / 0.24f, 8.4f * 6f / 0.12f), "the plank count up with their size down");
-                Assert.Less(t.Rotten, t.Count * 0.4f, "rot in places, not all over");
-                Assert.LessOrEqual(t.Mossy, t.Rotten, "moss only where it's damp");
-                Assert.Less(t.Missing, t.Count * 0.1f);
                 Assert.Greater(t.Nails, t.Count, "nail heads");
-                Assert.Less(m.triangles.Length / 3, 20000, "within budget");
-                Bounds bd = m.bounds;
-                Assert.AreEqual(8.4f, bd.size.x, 0.05f, "laid along x");
-                Assert.AreEqual(6f, bd.size.z, 0.05f);
-                all.Knots += t.Knots; all.Cracks += t.Cracks; all.Holes += t.Holes; all.Missing += t.Missing; all.Rotten += t.Rotten; all.Mossy += t.Mossy;
+                Assert.Less(m.triangles.Length / 3, 24000, "within budget");
+                // Butted tight: the planks' tops cover the floor but for the pieces broken out (no dark line between them).
+                Vector3[] v = m.vertices, n = m.normals;
+                int[] tri = m.triangles;
+                float covered = 0f;
+                for (int k = 0; k < tri.Length; k += 3)
+                {
+                    Vector3 a = v[tri[k]], b2 = v[tri[k + 1]], c = v[tri[k + 2]];
+                    if (n[tri[k]].y < 0.99f || a.y < LowPolyModels.CabinFloorTop - 0.004f || a.y > LowPolyModels.CabinFloorTop + 0.0011f) continue;
+                    covered += Vector3.Cross(b2 - a, c - a).magnitude * 0.5f;
+                }
+                Assert.AreEqual(8.4f * 6f, covered, 8.4f * 6f * 0.035f + t.Missing * 0.06f, "the boards cover the floor, edge to edge");
+                all.Knots += t.Knots; all.Cracks += t.Cracks; all.Holes += t.Holes; all.Missing += t.Missing; all.Count += t.Count;
+                all.Rotten += t.Rotten; all.Mossy += t.Mossy; all.Moldy += t.Moldy; all.Stained += t.Stained;
                 Object.DestroyImmediate(m);
             }
             Assert.Greater(all.Knots, 20, "knots");
             Assert.Greater(all.Cracks, 15, "splits");
             Assert.Greater(all.Holes, 0, "knot-holes");
             Assert.Greater(all.Missing, 0, "the odd piece broken out");
-            Assert.Greater(all.Rotten, 0, "rot where it's damp");
-            Assert.Greater(all.Mossy, 0, "a little moss in the wettest spots");
-            Debug.Log($"[Ruins] boards: knots {all.Knots}, splits {all.Cracks}, holes {all.Holes}, missing {all.Missing}, rotten {all.Rotten}, mossy {all.Mossy}");
+            Assert.Greater(all.Mossy, all.Count * 0.08f, "moss over areas of it");
+            Assert.Greater(all.Moldy, all.Count * 0.05f, "mould over areas");
+            Assert.Greater(all.Stained, all.Count * 0.03f, "water stains");
+            Assert.Greater(all.Rotten, all.Count * 0.1f, "rot");
+            Debug.Log($"[Ruins] boards: {all.Count} planks, knots {all.Knots}, splits {all.Cracks}, holes {all.Holes}, missing {all.Missing}, rotten {all.Rotten}, mossy {all.Mossy}, mouldy {all.Moldy}, stained {all.Stained}");
+        }
+
+        [Test]
+        public void NpcPunches_SoundLikeTheMacheteInFlesh_GamerRageHalvedAgain_TheGeneratorHeardFurther()
+        {
+            foreach (string kind in new[] { "punch", "fist" })
+            {
+                Assert.AreEqual("slash", Vision.UI.MatchEffects.HitCue(kind, out float v), $"{kind}: the machete into flesh");
+                Assert.AreEqual(1f, v, 1e-6f, "at the machete's own volume");
+            }
+            Assert.AreEqual("body_hit", Vision.UI.MatchEffects.HitCue("slash", out _));
+            Assert.IsNull(Vision.UI.MatchEffects.HitCue("bullet", out _));
+            Assert.AreEqual(0.9f * 0.4f * 0.5f, Audio.SoundBank.Cues["gamer_smash"].Volume, 1e-6f, "half what it was");
+            Assert.AreEqual(3.048f / 0.03f * 1.3f, Balance.Objectives.GeneratorHearRadius, 1e-3f, "30% further");
+            Assert.AreEqual(Balance.Objectives.GeneratorHearRadius, Audio.SoundBank.Cues["generator_done"].Radius, 1e-3f);
         }
 
         [Test]

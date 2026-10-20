@@ -447,8 +447,8 @@ namespace Vision.Game
             /// Entity (Dead by Daylight's end game collapse). A survivor this close to the open hatch (units) jumps in.
             /// </summary>
             public const float EndGameTime = 120f, HatchRadius = 34f;
-            /// <summary>How far (units) a started generator's sound carries: ten feet (3.05 m).</summary>
-            public const float GeneratorHearRadius = 3.048f / 0.03f;
+            /// <summary>How far (units) a started generator's sound carries: ten feet (3.05 m), and 30% further again.</summary>
+            public const float GeneratorHearRadius = 3.048f / 0.03f * 1.3f;
         }
 
         /// <summary>

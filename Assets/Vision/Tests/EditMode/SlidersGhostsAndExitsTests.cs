@@ -659,7 +659,7 @@ namespace Vision.Tests
             Assert.AreEqual(1f, Audio.AudioManager.Envelope(gen, 0f, 60f), 1e-4f);
             Assert.AreEqual(1f, Audio.AudioManager.Envelope(gen, 3.5f, 60f), 1e-4f, "no falling off");
             Assert.AreEqual(1f, Audio.AudioManager.Envelope(gen, 40f, 60f), 1e-4f, "full to the end of the clip");
-            Assert.AreEqual(3.048f / 0.03f, gen.Radius, 0.01f, "heard within ten feet");
+            Assert.AreEqual(3.048f / 0.03f * 1.3f, gen.Radius, 0.01f, "heard within ten feet, and 30% further again");
             var voice = Audio.SoundBank.Cues["jarvis_voice"];
             Assert.AreEqual(1f, Audio.AudioManager.Envelope(voice, 5f, 10f), 1e-4f);
             Assert.AreEqual(1f / (5.5f * 5.5f), Audio.AudioManager.Envelope(voice, 9.5f, 10f), 1e-4f, "its last second by an inverse square");

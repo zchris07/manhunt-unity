@@ -556,7 +556,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   it (network, protocol, memory, CHECKSUM: OK), a segmented bar fills and it all breaks up in a glitch. Psionic waves
   ripple out from them, close about the body first and sinking to the ground, then ring after ring spreading out over
   the ground, pulsing; the light spreads out from them over the whole screen in 0.8 s, and the view zooms out 30% over
-  half a second. For as long as it runs: a blue wash, a vignette and scanlines, corner brackets, panels of ticking
+  half a second. Its reticle follows the mouse in place of the pointer, except over a menu, the full map (Tab) or the
+  inventory editor, where the pointer stays. For as long as it runs: a blue wash, a vignette and scanlines, corner brackets, panels of ticking
   stats and metrics (uplink, satellite fix, core temperature, power, scan progress, the session counting down, the
   threat), turning range rings, a scrolling hex dump and a bank of meters; the cursor becomes a square target reticle
   with a cross in the middle (an airstrike marker); and everything on screen is outlined in blue, scanned (wherever the
@@ -740,13 +741,14 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   at the end, beside a pair of cleats and a coil of rope.
 - **The cabins** have floors of weathered boards (nothing grows, lies or pokes up through them; footsteps sound like
   wood). The boards are 30% smaller than at first, 0.11-0.15 m wide and 0.85-1.7 m long:
-  - **Each plank its own:** honey-gold oak, a mid brown, silvered grey with weather, now and then a dark one. Each is
-    shaded along its length, slightly cupped, and the material adds wood grain running along the boards.
+  - **Each plank its own:** butted tight against its neighbours, with no dark line between them; each shows by its own
+    wood (honey-gold oak, a mid brown, warm amber, now and then a dark brown, never grey). Each is shaded along its
+    length, slightly cupped, and the material adds wood grain running along the boards.
   - **Detail:** some have a ringed knot, some a split running in from an end, a few a knot-hole, and the odd one has a
-    piece broken out (the dark under the floor showing). Nail heads sit at the ends.
-  - **Wear:** only where the floor stays damp (a few patches, mostly by the walls) are boards rotten, darkened and
-    water-stained, with a little moss in the wettest spots and in the splits and knots there. Most of the floor is just
-    old boards.
+    piece broken out (the dark under the floor showing; more where it's rotten). Nail heads sit at the ends.
+  - **Wear:** a floor long left. Grime lies over all of it, thicker in places. Across whole areas: moss where it's damp
+    (creeping out from the walls, in the splits and knots there too), dark speckled mould, water stains with a darker
+    tide-mark, and rot, darkened and greyed.
 
   Bookshelves hold dull, faded books. Nothing solid ever stands in a doorway or in front of a window: the bed lies in a
   back corner along whichever wall keeps it clear of that wall's window, the table and chair sit short of the side
@@ -766,11 +768,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   place of the old machine whirr, a small diesel generator coming to life where it stands, starting the moment the
   generator does, with the jingle (from the engine catching, past its file's silence and faint crank, and decoded
   ahead so it never waits on loading), 30% louder than at first and then 20% louder again, played right through to the
-  end of its file at that volume, never falling off, and heard only within ten feet of it; the
+  end of its file at that volume, never falling off, and heard within ten feet of it and 30% further again (about 4 m); the
   gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
-  rage (60% softer than at first); a clip from Chacko's couch when anyone attacks him. The jingle stops a second and a half before its file ends
+  rage (60% softer than at first, then half that again); a clip from Chacko's couch when anyone attacks him. The jingle stops a second and a half before its file ends
   (white noise sets in after that). The machete's slash into someone is a quarter as loud as it was at first (halved
-  twice); the Half-Life metal clanks are 40% softer than at first.
+  twice), and an NPC's punch on a player (Plasma's, Njaaron's fist) makes that same sound at the same volume; the
+  Half-Life metal clanks are 40% softer than at first.
   Sounds can start part way into their file, decay over time, fall away at the end or be cut short
   (`SoundBank.Cue`'s Start, DecayTime and DecayTo, TailFade, CutEnd).
 - **Zach and golden pumps**: he can pick up any golden pump lying on the map (or one a survivor dropped): twelve shots
