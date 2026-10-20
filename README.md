@@ -487,8 +487,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
     second, about 44 HP in all), is slowed 20% and has every ability silenced (items, JARVIS, Zach's whole kit).
   - **Sound.** NewJeans' "OMG" plays the whole time, loud, heard 3000 units off. The strike lasts exactly as long as the
     track (8.725 s), its last 1.5 s falling away by an inverse square. Under it, quieter than the music, the laser
-    itself (a reconstruction of Helldivers 2's orbital laser), started a second before the beam lands so that its
-    impact, a second into the file, lands with it. Both are the user's own local files
+    itself, started 1.86 s before the beam lands: its start-up plays through the countdown as the laser initialises,
+    and its impact, 1.86 s into the file, lands with the beam. It lasts no longer than the beam does (stopped as it
+    ends), its last 1.5 s falling away by an inverse square. Both are the user's own local files
     (`Resources/Audio/Fx/local_kpop_strike.mp3`, `local_orbital_laser.mp3`, kept out of git); without them it's silent.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground

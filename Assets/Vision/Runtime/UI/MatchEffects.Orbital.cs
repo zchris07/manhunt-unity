@@ -9,9 +9,9 @@ namespace Vision.UI
 {
     /// <summary>
     /// The K-pop orbital strike (<see cref="OrbitalStrike"/>), seen by everyone, light or dark. Counting down: a pink target
-    /// ring closing in on the locked player again and again and a thin guide line from the sky (and, a second before it
-    /// lands, the laser's own sound under the music). Then the beam, a column of plasma three times Zach's width: at its
-    /// centre a cylinder of pure white energy as wide as Zach himself, going pink further out to its soft edges; pulsing
+    /// ring closing in on the locked player again and again and a thin guide line from the sky (and, 1.86 s before it
+    /// lands, the laser's own sound under the music, its start-up playing through the countdown). Then the beam, a column
+    /// of plasma three times Zach's width: at its centre a cylinder of pure white energy as wide as Zach himself, going pink further out to its soft edges; pulsing
     /// rings round it racing down to the ground, as the Hemp Beam's do; the air round it ionised, crackling arcs jumping
     /// off it and charged motes spiralling round it. Where it meets the ground, a blinding white-hot spot, shockwave rings,
     /// arcs crawling over the ground, sparks, molten droplets, pink plasma, vapour, embers and clods thrown up; anyone in
@@ -33,6 +33,8 @@ namespace Vision.UI
         readonly HashSet<int> laserCued = new HashSet<int>();
         /// <summary>How long the ground the beam touched burns bright before it's only char and smoke.</summary>
         public const float ScorchBurn = 1f;
+        /// <summary>How far into the laser's sound file its impact comes (s): it's started that long before the beam lands.</summary>
+        public const float LaserImpactAt = Balance.Items.Orbital.LaserImpactAt;
         GameObject scorchObject;
         MatchSim scorchSim;
         bool scorchDirty;
@@ -59,8 +61,8 @@ namespace Vision.UI
                 Vector3 g = Ground(st.Pos, 0.05f);
                 if (!st.Firing)
                 {
-                    // A second to go: the laser's sound starts (its impact a second in, landing with the beam).
-                    if (st.Countdown <= 1f && laserCued.Add(st.Id)) Audio.PlayCue("orbital_laser", Units(st.Pos));
+                    // The laser's sound starts as it powers up, its impact (LaserImpactAt s into the file) landing with the beam.
+                    if (st.Countdown <= LaserImpactAt && laserCued.Add(st.Id)) Audio.PlayCue("orbital_laser", Units(st.Pos));
                     // Locking on: rings closing in on them, a faint line down from the sky.
                     float k = 1f - st.Countdown / Balance.Items.Orbital.Countdown;
                     strikeEmit.TryGetValue(st.Id, out float ring);

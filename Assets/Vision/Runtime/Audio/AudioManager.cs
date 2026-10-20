@@ -261,6 +261,7 @@ namespace Vision.Audio
             if (cue.Warm) s.priority = 8;
             // (A cue cut short stops that long before the file's end.)
             float end = Mathf.Max(start + 0.05f, clip.length - Mathf.Max(0f, cue.CutEnd));
+            if (cue.MaxLength > 0f) end = Mathf.Max(start + 0.05f, Mathf.Min(end, start + cue.MaxLength));
             var tr = new Tracked { Source = s, At = at, Volume = volume, Near = near, Radius = radius, Started = Time.unscaledTime, Start = start, End = end, Cue = cue };
             tracked.Add(tr);
             UpdateTracked(tr);
@@ -282,7 +283,7 @@ namespace Vision.Audio
             }
             float t = tr.Source.isPlaying ? tr.Source.time - tr.Start : Time.unscaledTime - tr.Started;
             // A cut end comes down over its last 60 ms rather than clicking off.
-            float cut = tr.Cue.CutEnd > 0f ? Mathf.Clamp01((tr.End - tr.Start - t) / 0.06f) : 1f;
+            float cut = tr.Cue.Shortened ? Mathf.Clamp01((tr.End - tr.Start - t) / 0.06f) : 1f;
             return Mathf.Clamp01(tr.Volume * gain * Envelope(tr.Cue, t, tr.End - tr.Start) * cut);
         }
 
@@ -487,7 +488,7 @@ namespace Vision.Audio
             {
                 Tracked tr = tracked[i];
                 // Cut short: stopped at its end, before the file's.
-                if (tr.Source != null && tr.Source.isPlaying && tr.Cue != null && tr.Cue.CutEnd > 0f && tr.Source.time >= tr.End) tr.Source.Stop();
+                if (tr.Source != null && tr.Source.isPlaying && tr.Cue != null && tr.Cue.Shortened && tr.Source.time >= tr.End) tr.Source.Stop();
                 // (Gone once it's stopped playing: a moment's grace to start, longer while its file is still loading.)
                 bool loading = tr.Source != null && tr.Source.clip != null && tr.Source.clip.loadState == AudioDataLoadState.Loading;
                 if (tr.Source == null || (!tr.Source.isPlaying && now - tr.Started > (loading ? 5f : 0.2f)))

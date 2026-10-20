@@ -200,6 +200,8 @@ namespace Vision.Game
             public static class Orbital
             {
                 public const float Countdown = 3f, Duration = 8.725f, TickRate = Hunter.Beam.TickRate, Cooldown = 120f;
+                /// <summary>How far into the laser's sound file its impact comes (s): it's started that long before the beam lands.</summary>
+                public const float LaserImpactAt = 1.86f;
                 public const float TickDamage = Hunter.Beam.TickDamage * 0.5f, ZachTickDamage = Hunter.Beam.ZachTickDamage * 0.5f;
                 /// <summary>The beam's radius (units): three times Zach's width across.</summary>
                 public const float Radius = HunterWidth * 3f * 0.5f;

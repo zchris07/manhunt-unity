@@ -29,8 +29,12 @@ namespace Vision.Audio
             public float TailFade;
             /// <summary>Seconds cut off the end of the (local) file: it stops that long before its end (0: played to the end).</summary>
             public float CutEnd;
+            /// <summary>The longest it plays (s from its start; 0: no limit): stopped there, its TailFade ending with it.</summary>
+            public float MaxLength;
+            /// <summary>Whether it stops short of its file's end (cut, or held to a length).</summary>
+            public bool Shortened => CutEnd > 0f || MaxLength > 0f;
             /// <summary>Whether its volume follows the listener as it plays (a long sound from a fixed spot), rather than set once.</summary>
-            public bool Tracked => DecayTime > 0f || TailFade > 0f || CutEnd > 0f;
+            public bool Tracked => DecayTime > 0f || TailFade > 0f || Shortened;
             /// <summary>
             /// Decoded ahead, when the audio starts up (a long file that would otherwise take a moment to load the first
             /// time it plays, and start late).
@@ -80,9 +84,12 @@ namespace Vision.Audio
             ["orbital_strike"] = new Cue { Prefer = new[] { "local_kpop_strike" }, Files = new string[0], Volume = 1f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
                 Radius = Vision.Game.Balance.Items.Orbital.HearRadius, TailFade = 1.5f, Warm = true },
             // The laser itself under the music (a local file the user supplies; silent without it), quieter than the track:
-            // started a second before the beam lands, so its impact (a second into the file) lands with it.
+            // started 1.86 s before the beam lands, so its start-up plays through the countdown and its impact (1.86 s into
+            // the file) lands with the beam; it lasts no longer than the beam does, its last 1.5 s falling away by an
+            // inverse square to end with it.
             ["orbital_laser"] = new Cue { Prefer = new[] { "local_orbital_laser" }, Files = new string[0], Volume = 0.45f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
-                Radius = Vision.Game.Balance.Items.Orbital.HearRadius, Warm = true },
+                Radius = Vision.Game.Balance.Items.Orbital.HearRadius, Warm = true, TailFade = 1.5f,
+                MaxLength = Vision.Game.Balance.Items.Orbital.LaserImpactAt + Vision.Game.Balance.Items.Orbital.Duration },
             // A strike locked on: the tablet's confirm beep, at the target.
             ["strike_lock"] = new Cue { Files = new[] { "rpg_metalclick" }, Volume = 0.6f, PitchJitter = 0f, Radius = 1200f },
             // (60% softer than at first, then half that again, at the user's request.)
