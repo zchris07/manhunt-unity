@@ -38,6 +38,17 @@ namespace Vision.UI
 
         /// <summary>How far round the viewer (metres) JARVIS picks things out.</summary>
         public const float JarvisScanRange = 30f;
+        /// <summary>A figure's half width at the shoulders (metres, for one of the skeleton's own height).</summary>
+        public const float BodyRadius = 0.25f;
+
+        static readonly System.Collections.Generic.Dictionary<string, float> npcHeights = new System.Collections.Generic.Dictionary<string, float>();
+
+        /// <summary>An NPC's figure's height (its look's own).</summary>
+        static float NpcHeight(string name)
+        {
+            if (!npcHeights.TryGetValue(name, out float h)) npcHeights[name] = h = Vision.Characters.CharacterSpec.Npc(name).Height;
+            return h;
+        }
 
         /// <summary>
         /// What JARVIS picks out for <paramref name="me"/>: every other player (not a ghost: they're not seen) and NPC, the
@@ -49,12 +60,31 @@ namespace Vision.UI
             var list = new System.Collections.Generic.List<JarvisHud.Scan>();
             if (sim == null || me == null) return list;
             float H(Vector2 p) => world != null ? world.GroundHeight(p) : 0f;
-            void Add(int key, string name, string detail, JarvisHud.ScanKind kind, Vector2 at, float half, float height)
+            void AddAt(int key, string name, string detail, JarvisHud.ScanKind kind, Vector2 at, Vector3 foot, float radius, float height, GameObject model = null)
             {
                 float d = Vector2.Distance(at, me.Pos);
                 if (d > JarvisScanRange) return;
-                float y = H(at);
-                list.Add(new JarvisHud.Scan { Key = key, Name = name, Detail = detail, Kind = kind, Distance = d, Lo = new Vector3(at.x - half, y, at.y - half), Hi = new Vector3(at.x + half, y + height, at.y + half) });
+                list.Add(new JarvisHud.Scan { Key = key, Name = name, Detail = detail, Kind = kind, Distance = d, Base = foot, Radius = radius, Height = height, Model = model });
+            }
+            void Add(int key, string name, string detail, JarvisHud.ScanKind kind, Vector2 at, float radius, float height) =>
+                AddAt(key, name, detail, kind, at, new Vector3(at.x, H(at), at.y), radius, height);
+            // A thing as it's drawn: its renderers' bounds in the level's space (the box hugs the model itself).
+            bool Drawn(GameObject go, out Vector3 foot, out float radius, out float height)
+            {
+                foot = default;
+                radius = height = 0f;
+                if (world == null || go == null) return false;
+                Bounds? all = null;
+                foreach (MeshRenderer mr in go.GetComponentsInChildren<MeshRenderer>())
+                    if (mr.enabled) { if (all == null) all = mr.bounds; else { Bounds b2 = all.Value; b2.Encapsulate(mr.bounds); all = b2; } }
+                if (all == null) return false;
+                Transform w = world.transform;
+                float k = 1f / Mathf.Max(1e-4f, w.lossyScale.x);
+                Vector3 c = w.InverseTransformPoint(all.Value.center), e = all.Value.extents * k;
+                foot = new Vector3(c.x, c.y - e.y, c.z);
+                radius = Mathf.Max(e.x, e.z);
+                height = e.y * 2f;
+                return true;
             }
             // A steady "match" figure per subject, like face recognition's confidence.
             string Match(int id) => $"MATCH {92f + (id * 7919 % 79) / 10f:0.0}%";
@@ -62,11 +92,17 @@ namespace Vision.UI
             {
                 if (p.Id == me.Id || p.Ghost || p.Role == Role.Spectator || p.Health == Health.Eliminated || p.Health == Health.Escaped) continue;
                 bool zach = p.Role == Role.Hunter;
+                // The figure's own height (a reanimated ghost wears the body's), its shoulders' half width in proportion.
+                float h = PlayerController.SpecFor(p).Height;
                 Add(1_000_000 + p.Id, zach ? "ZACH" : p.Name.ToUpperInvariant(), zach ? "!! THREAT // HOSTILE" : $"{Match(p.Id)} // SURVIVOR",
-                    zach ? JarvisHud.ScanKind.Threat : JarvisHud.ScanKind.Person, p.Pos, zach ? 0.45f : 0.38f, zach ? 2.1f : 1.85f);
+                    zach ? JarvisHud.ScanKind.Threat : JarvisHud.ScanKind.Person, p.Pos, BodyRadius * h / Vision.Characters.HumanoidSkeleton.Height, h);
             }
             foreach (Npc n in sim.Npcs)
-                if (n.Alive) Add(2_000_000 + n.Id, n.Name.ToUpperInvariant(), $"{Match(n.Id)} // NPC", JarvisHud.ScanKind.Person, n.Pos, 0.38f, 1.85f);
+                if (n.Alive)
+                {
+                    float h = NpcHeight(n.Name);
+                    Add(2_000_000 + n.Id, n.Name.ToUpperInvariant(), $"{Match(n.Id)} // NPC", JarvisHud.ScanKind.Person, n.Pos, BodyRadius * h / Vision.Characters.HumanoidSkeleton.Height, h);
+                }
             JarvisHud.ScanKind KindOf(ItemType t) => t == ItemType.Shotgun || t == ItemType.Pistol || t == ItemType.Sniper || t == ItemType.HempBeam ? JarvisHud.ScanKind.Weapon : JarvisHud.ScanKind.Item;
             string What(ItemType t) => KindOf(t) == JarvisHud.ScanKind.Weapon ? "WEAPON" : "ITEM";
             if (world != null)
@@ -75,16 +111,30 @@ namespace Vision.UI
                     Pickup pk = world.Pickups[i];
                     if (pk == null || (i < sim.LootTaken.Length && sim.LootTaken[i])) continue;
                     Vector3 l = world.transform.InverseTransformPoint(pk.transform.position);
-                    Add(3_000_000 + i, Items.Name(pk.item, pk.golden).ToUpperInvariant(), $"SCAN // {What(pk.item)}", KindOf(pk.item), new Vector2(l.x, l.z), 0.22f, 0.3f);
+                    var at = new Vector2(l.x, l.z);
+                    string pn = Items.Name(pk.item, pk.golden).ToUpperInvariant(), pd = $"SCAN // {What(pk.item)}";
+                    if (Drawn(pk.gameObject, out Vector3 foot, out float pr, out float ph)) AddAt(3_000_000 + i, pn, pd, KindOf(pk.item), at, foot, pr, ph, pk.gameObject);
+                    else Add(3_000_000 + i, pn, pd, KindOf(pk.item), at, 0.16f, 0.12f);
                 }
             foreach (DropItem dr in sim.Drops)
-                Add(4_000_000 + dr.Id, Items.Name(dr.Item, dr.Golden).ToUpperInvariant(), $"SCAN // {What(dr.Item)} // DROPPED", KindOf(dr.Item), dr.Pos, 0.22f, 0.3f);
+                Add(4_000_000 + dr.Id, Items.Name(dr.Item, dr.Golden).ToUpperInvariant(), $"SCAN // {What(dr.Item)} // DROPPED", KindOf(dr.Item), dr.Pos, 0.16f, 0.12f);
             foreach (Trap tr in sim.Traps)
-                Add(5_000_000 + tr.Id, "GALAXY GAS TRAP", "SCAN // ARMED", JarvisHud.ScanKind.Weapon, tr.Pos, 0.2f, 0.4f);
+                Add(5_000_000 + tr.Id, "GALAXY GAS TRAP", "SCAN // ARMED", JarvisHud.ScanKind.Weapon, tr.Pos, 0.06f, 0.38f);
             for (int i = 0; i < sim.Map.Generators.Count && i < sim.Gens.Length; i++)
             {
                 GenState g = sim.Gens[i];
-                Add(6_000_000 + i, "GENERATOR", g.Repaired ? "STATUS // ONLINE" : $"STATUS // REPAIR {Mathf.RoundToInt(g.Progress * 100f)}%", JarvisHud.ScanKind.Generator, sim.Map.Generators[i], 0.65f, 1.1f);
+                Vector2 at = sim.Map.Generators[i];
+                string gd = g.Repaired ? "STATUS // ONLINE" : $"STATUS // REPAIR {Mathf.RoundToInt(g.Progress * 100f)}%";
+                GameObject model = null;
+                if (world != null)
+                    foreach (GeneratorObjective o in GeneratorObjective.All)
+                    {
+                        if (o == null) continue;
+                        Vector3 l = world.transform.InverseTransformPoint(o.transform.position);
+                        if ((new Vector2(l.x, l.z) - at).sqrMagnitude < 1f) { model = o.gameObject; break; }
+                    }
+                if (Drawn(model, out Vector3 foot, out float gr, out float gh)) AddAt(6_000_000 + i, "GENERATOR", gd, JarvisHud.ScanKind.Generator, at, foot, gr, gh, model);
+                else Add(6_000_000 + i, "GENERATOR", gd, JarvisHud.ScanKind.Generator, at, 0.5f, 0.9f);
             }
             return list;
         }

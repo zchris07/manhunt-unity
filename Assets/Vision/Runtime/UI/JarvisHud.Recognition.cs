@@ -18,17 +18,28 @@ namespace Vision.UI
         public enum ScanKind { Person, Threat, Weapon, Item, Generator }
 
         /// <summary>
-        /// Something JARVIS picks out: a key to follow it by, its name and readout, its kind, and its box in the level's own
-        /// space (metres, lower and upper corners).
+        /// Something JARVIS picks out: a key to follow it by, its name and readout, its kind, and its shape in the level's own
+        /// space (metres): an upright cylinder standing on <see cref="Base"/> as wide and as tall as the body or the thing
+        /// (its box on the screen hugs that, as a 3D box's corners never would under the tilted camera).
         /// </summary>
         public struct Scan
         {
             public int Key;
             public string Name, Detail;
             public ScanKind Kind;
-            public Vector3 Lo, Hi;
+            public Vector3 Base;
+            public float Radius, Height;
             public float Distance;
+            /// <summary>The thing's own model, if it has one: its box fits the model's outline exactly (else the cylinder).</summary>
+            public GameObject Model;
+
+            /// <summary>Its bounding corners (for checks).</summary>
+            public Vector3 Lo => Base - new Vector3(Radius, 0f, Radius);
+            public Vector3 Hi => Base + new Vector3(Radius, Height, Radius);
         }
+
+        /// <summary>The box's margin round what it frames (canvas units), and its least size.</summary>
+        public const float Margin = 3f, MinBox = 16f;
 
         /// <summary>The most boxes up at once (the nearest first).</summary>
         public const int MaxLocks = 16;
@@ -151,29 +162,73 @@ namespace Vision.UI
             foreach (Lock l in locks) if (l.Box.gameObject.activeSelf != l.Used) l.Box.gameObject.SetActive(l.Used);
         }
 
-        /// <summary>A scan's box on the screen (pixels), or false if it's behind the camera or off the screen.</summary>
-        static bool ScreenRect(Scan s, Camera cam, Transform space, out Rect r)
+        /// <summary>
+        /// A scan's box on the screen (pixels): its cylinder's outline (rings round its foot, its middle and its top),
+        /// or false if it's behind the camera or off the screen.
+        /// </summary>
+        public static bool ScreenRect(Scan s, Camera cam, Transform space, out Rect r)
         {
             r = default;
             Vector2 lo = new Vector2(float.MaxValue, float.MaxValue), hi = -lo;
-            for (int i = 0; i < 8; i++)
+            if (s.Model != null && ModelOutline(s.Model, cam, ref lo, ref hi))
             {
-                var p = new Vector3((i & 1) == 0 ? s.Lo.x : s.Hi.x, (i & 2) == 0 ? s.Lo.y : s.Hi.y, (i & 4) == 0 ? s.Lo.z : s.Hi.z);
-                Vector3 sp = cam.WorldToScreenPoint(space.TransformPoint(p));
-                if (sp.z <= 0f) return false;
-                lo = Vector2.Min(lo, sp);
-                hi = Vector2.Max(hi, sp);
+                if (hi.x < 0f || hi.y < 0f || lo.x > cam.pixelWidth || lo.y > cam.pixelHeight) return false;
+                r = Rect.MinMaxRect(lo.x, lo.y, hi.x, hi.y);
+                return true;
+            }
+            const int around = 12;
+            for (int ring = 0; ring < 3; ring++)
+            {
+                float y = s.Height * ring * 0.5f;
+                for (int i = 0; i < around; i++)
+                {
+                    float a = i * Mathf.PI * 2f / around;
+                    var p = s.Base + new Vector3(Mathf.Cos(a) * s.Radius, y, Mathf.Sin(a) * s.Radius);
+                    Vector3 sp = cam.WorldToScreenPoint(space.TransformPoint(p));
+                    if (sp.z <= 0f) return false;
+                    lo = Vector2.Min(lo, sp);
+                    hi = Vector2.Max(hi, sp);
+                }
             }
             if (hi.x < 0f || hi.y < 0f || lo.x > cam.pixelWidth || lo.y > cam.pixelHeight) return false;
             r = Rect.MinMaxRect(lo.x, lo.y, hi.x, hi.y);
             return true;
         }
 
+        static readonly Dictionary<Mesh, Vector3[]> meshPoints = new Dictionary<Mesh, Vector3[]>();
+
+        /// <summary>
+        /// A model's outline on the screen: every vertex of its drawn meshes projected (a big mesh sampled), or false if it
+        /// has none to read or any of it is behind the camera.
+        /// </summary>
+        static bool ModelOutline(GameObject model, Camera cam, ref Vector2 lo, ref Vector2 hi)
+        {
+            bool any = false;
+            foreach (MeshFilter mf in model.GetComponentsInChildren<MeshFilter>())
+            {
+                Mesh mesh = mf.sharedMesh;
+                var mr = mf.GetComponent<MeshRenderer>();
+                if (mesh == null || mr == null || !mr.enabled || !mesh.isReadable) continue;
+                if (!meshPoints.TryGetValue(mesh, out Vector3[] pts)) meshPoints[mesh] = pts = mesh.vertices;
+                Matrix4x4 m = mf.transform.localToWorldMatrix;
+                int step = Mathf.Max(1, pts.Length / 600);
+                for (int i = 0; i < pts.Length; i += step)
+                {
+                    Vector3 sp = cam.WorldToScreenPoint(m.MultiplyPoint3x4(pts[i]));
+                    if (sp.z <= 0f) return false;
+                    lo = Vector2.Min(lo, sp);
+                    hi = Vector2.Max(hi, sp);
+                    any = true;
+                }
+            }
+            return any;
+        }
+
         void Place(Lock l, Scan s, Rect screen, float now)
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen.min, null, out Vector2 a);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen.max, null, out Vector2 b);
-            Vector2 size = Vector2.Max(b - a, new Vector2(30f, 30f)) + new Vector2(12f, 12f);
+            Vector2 size = Vector2.Max(b - a + new Vector2(Margin, Margin) * 2f, new Vector2(MinBox, MinBox));
             float age = now - l.Since, k = Ease(age / LockTime);
             // Locking on: closing in from wide, brightening.
             l.Box.anchoredPosition = (a + b) * 0.5f;
