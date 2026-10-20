@@ -44,13 +44,15 @@ namespace Vision.World
         static readonly Color Lichen = new Color(0.63f, 0.63f, 0.46f), LichenOrange = new Color(0.66f, 0.47f, 0.22f), BrickChip = new Color(0.42f, 0.24f, 0.17f);
 
         /// <summary>What was laid (for checks).</summary>
-        public struct Laid { public int Stones, Kerbs, Cracked, Chipped, Missing, Sunk, Lichen, Stains, Chips, Thresholds, Chequer; }
+        public struct Laid { public int Stones, Kerbs, Cracked, Chipped, Missing, Sunk, Lichen, Stains, Chips, Thresholds, Chequer, Edge; }
 
         sealed class Mason
         {
             public LowPolyMeshBuilder B;
             public System.Random Rng;
             public float Ground;
+            /// <summary>The stone being laid sits on the dirt at the open edge: its sides reach down below it, and it's raised.</summary>
+            public float Skirt, EdgeLift;
             public int Seed;
             public readonly List<(Vector2 at, float r, Color c, float k)> Stains = new List<(Vector2, float, Color, float)>();
             public Laid Laid;
@@ -152,7 +154,7 @@ namespace Vision.World
             Vector2 c = Vector2.zero;
             foreach (Vector2 p in poly) c += p;
             c /= n;
-            float baseY = m.Ground + GroutTop + 0.001f, topY = m.Ground + StoneTop + lift;
+            float baseY = m.Ground + GroutTop + 0.001f - m.Skirt, topY = m.Ground + StoneTop + lift;
             var top = new Vector3[n];
             var foot = new Vector3[n];
             var col = new Color[n];
@@ -185,6 +187,26 @@ namespace Vision.World
         /// <summary>A stone of the field, with whatever's befallen it: gone, sunk, cracked, chipped, lichen on it.</summary>
         static void Field(Mason m, FloorZone z, Rect r, Color tone, bool kerb = false)
         {
+            bool edge = false;
+            if (z.Cut)
+            {
+                // Along the cut line a stone is kept or left off by where its centre falls against a wobbling line: the last
+                // row is a staircase of whole stones that runs along the diagonal, never quite straight.
+                Vector2 c = r.center, dir = (z.CutB - z.CutA).normalized;
+                float size = Mathf.Max(r.width, r.height), depth = z.Depth(c);
+                float wobble = (Noise(m.Seed, Vector2.Dot(c, dir) / 0.8f, 0f, 9) - 0.5f) * 0.4f;
+                if (depth + wobble + m.R(-0.4f, 0.4f) * size < 0f) return;
+                edge = depth < size * 1.2f + 0.3f;
+            }
+            m.Skirt = edge ? 0.035f : 0f;
+            m.EdgeLift = edge ? 0.008f : 0f;
+            if (edge) m.Laid.Edge++;
+            FieldBody(m, z, r, tone, kerb);
+            m.Skirt = m.EdgeLift = 0f;
+        }
+
+        static void FieldBody(Mason m, FloorZone z, Rect r, Color tone, bool kerb)
+        {
             r = Shrink(r, Joint * 0.5f);
             if (r.width < 0.05f || r.height < 0.05f) return;
             if (kerb) m.Laid.Kerbs++;
@@ -195,7 +217,7 @@ namespace Vision.World
                 m.Laid.Missing++;
                 return;
             }
-            float lift = m.R(-0.0015f, 0.0015f);
+            float lift = m.R(-0.0015f, 0.0015f) + m.EdgeLift;
             var tilt = new Vector2(m.R(-0.008f, 0.008f), m.R(-0.008f, 0.008f));
             if (m.Chance(0.05f))
             {
@@ -343,6 +365,7 @@ namespace Vision.World
                 case FloorLaying.Runner: Runner(m, z, field, tones); break;
                 default: Flags(m, z, field, tones); break;
             }
+            if (z.Cut) EdgeDirt(m, z, tones);
             // Grit and chips, most of them by the walls.
             int n = Mathf.RoundToInt(a.width * a.height * 0.5f);
             for (int i = 0; i < n; i++)
@@ -355,7 +378,37 @@ namespace Vision.World
                     if (dx < dy) p.x = p.x - a.xMin < a.xMax - p.x ? a.xMin + by : a.xMax - by;
                     else p.y = p.y - a.yMin < a.yMax - p.y ? a.yMin + by : a.yMax - by;
                 }
+                if (z.Cut && !z.Keeps(p, -0.05f)) continue;
                 Grit(m, p, m.Ground + StoneTop, m.Chance(0.45f) ? BrickChip : tones[m.Rng.Next(tones.Length)] * 0.9f);
+            }
+        }
+
+        /// <summary>
+        /// The open diagonal edge: soil crumbs, grit and pebbles on the dirt just outside the last row, and now and then a
+        /// stone knocked loose and lying out there on top of the ground. Nothing covers the stones' edges.
+        /// </summary>
+        static void EdgeDirt(Mason m, FloorZone z, Color[] tones)
+        {
+            Vector2 d = z.CutB - z.CutA;
+            float len = d.magnitude;
+            d /= len;
+            Vector2 n = new Vector2(-d.y, d.x);
+            if (Vector2.Dot(n, z.Keep - z.CutA) > 0f) n = -n;
+            Color soil = new Color(0.3f, 0.23f, 0.16f);
+            for (float t = 0.1f; t < len - 0.1f; t += m.R(0.12f, 0.3f))
+            {
+                Vector2 on = z.CutA + d * t;
+                Vector2 p = on + n * m.R(0.3f, 0.95f);
+                Grit(m, p, m.Ground + 0.002f, m.Chance(0.6f) ? soil : Worn * 0.6f);
+                if (m.Chance(0.12f))
+                {
+                    float s = m.R(0.16f, 0.3f), yaw = m.R(0f, 6.283f);
+                    Vector2 at = on + n * m.R(0.5f, 0.9f);
+                    Vector2 u = new Vector2(Mathf.Cos(yaw), Mathf.Sin(yaw)) * s * 0.5f, v = new Vector2(-u.y, u.x) * m.R(0.7f, 1f);
+                    m.Skirt = 0.035f;
+                    Stone(m, z, new List<Vector2> { at - u - v, at + u - v, at + u + v, at - u + v }, Tone(m, tones), 0.004f, new Vector2(m.R(-0.05f, 0.05f), m.R(-0.05f, 0.05f)));
+                    m.Skirt = 0f;
+                }
             }
         }
 
@@ -370,6 +423,13 @@ namespace Vision.World
             for (int j = 0; j < ny; j++)
                 for (int i = 0; i < nx; i++)
                 {
+                    // (Under a cut stretch, grout only where it's well inside: the dirt shows between the edge stones.)
+                    if (z.Cut)
+                    {
+                        float d0 = Mathf.Min(Mathf.Min(z.Depth(new Vector2(P(i, j).x, P(i, j).z)), z.Depth(new Vector2(P(i + 1, j).x, P(i + 1, j).z))),
+                            Mathf.Min(z.Depth(new Vector2(P(i, j + 1).x, P(i, j + 1).z)), z.Depth(new Vector2(P(i + 1, j + 1).x, P(i + 1, j + 1).z))));
+                        if (d0 < 0.3f) continue;
+                    }
                     m.B.AddTriangleShaded(P(i, j), P(i + 1, j), P(i + 1, j + 1), C(i, j), C(i + 1, j), C(i + 1, j + 1), below);
                     m.B.AddTriangleShaded(P(i, j), P(i + 1, j + 1), P(i, j + 1), C(i, j), C(i + 1, j + 1), C(i, j + 1), below);
                 }

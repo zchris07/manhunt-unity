@@ -138,6 +138,26 @@ namespace Vision.World
         public float Wear;
         /// <summary>Open to the weather (more moss, more damp).</summary>
         public bool Exposed;
+        /// <summary>
+        /// A diagonal cut through the stretch (the rectangle's half): only the side holding <see cref="Keep"/> is floored,
+        /// and its last row of stones runs raggedly along the line from <see cref="CutA"/> to <see cref="CutB"/>.
+        /// </summary>
+        public bool Cut;
+        public Vector2 CutA, CutB, Keep;
+
+        /// <summary>How far inside the kept side a point is, in metres (negative past the cut line); huge if there's no cut.</summary>
+        public float Depth(Vector2 p)
+        {
+            if (!Cut) return float.MaxValue;
+            Vector2 d = CutB - CutA, a = CutA;
+            float len = Mathf.Max(1e-4f, d.magnitude);
+            float Side(Vector2 q) => (d.x * (q.y - a.y) - d.y * (q.x - a.x)) / len;
+            return Side(p) * Mathf.Sign(Side(Keep));
+        }
+
+        /// <summary>Whether a point is on this stretch (within <paramref name="pad"/> of it, past its cut line too).</summary>
+        public bool Keeps(Vector2 p, float pad = 0f) =>
+            p.x >= Area.xMin - pad && p.x <= Area.xMax + pad && p.y >= Area.yMin - pad && p.y <= Area.yMax + pad && (!Cut || Depth(p) >= -pad);
     }
 
     /// <summary>
@@ -172,7 +192,7 @@ namespace Vision.World
         public bool OnFloor(Vector2 p, float pad = 0f)
         {
             foreach (FloorZone z in Floor)
-                if (p.x >= z.Area.xMin - pad && p.x <= z.Area.xMax + pad && p.y >= z.Area.yMin - pad && p.y <= z.Area.yMax + pad) return true;
+                if (z.Keeps(p, pad)) return true;
             return false;
         }
 
@@ -198,7 +218,7 @@ namespace Vision.World
             foreach (RuinRun r in Runs) { r.A = M(r.A); r.B = M(r.B); }
             for (int i = 0; i < Outline.Count; i++) Outline[i] = M(Outline[i]);
             for (int i = 0; i < Rooms.Count; i++) Rooms[i] = MR(Rooms[i]);
-            for (int i = 0; i < Floor.Count; i++) { FloorZone z = Floor[i]; z.Area = MR(z.Area); Floor[i] = z; }
+            for (int i = 0; i < Floor.Count; i++) { FloorZone z = Floor[i]; z.Area = MR(z.Area); z.CutA = M(z.CutA); z.CutB = M(z.CutB); z.Keep = M(z.Keep); Floor[i] = z; }
         }
 
         /// <summary>The plan's extent (its walls' centre lines, padded by half a wall).</summary>

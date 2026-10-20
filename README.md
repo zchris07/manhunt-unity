@@ -656,8 +656,11 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   - **A plain rectangle**, 5-7.6 m by 4-6 m, semi-enclosed: much of one side has fallen to the ground (its corners still
     stand), which is the way in. Often a doorway in another side, a window in the rest, sometimes another stretch
     fallen part way.
-  - **Half a rectangle's frame**, 6-9 m by 4-5.6 m: a back wall and both sides (a U, two corners) or a back wall and one
-    side (an L, one corner), the free ends broken away.
+  - **Half a rectangle, cut on the diagonal**, 6.4-9.2 m by 3.8-5.6 m: two walls meeting at its one corner (their free
+    ends broken away), the diagonal side open. Its floor fills the triangle and ends along the diagonal in a staggered
+    edge of whole tiles, stepping along the line but never quite straight. The edge tiles aren't buried or faded into
+    the soil: each stands on top of the dirt with its edges showing, the dirt visible between them, and loose stones,
+    soil crumbs and grit lie just beyond.
 
   Half the time there's also the shell of an older building, all of them sited with the map's layout on ground levelled
   for them (the paths go round, no trees inside): a **church** (a nave with tall arched windows down its

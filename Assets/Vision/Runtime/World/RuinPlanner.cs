@@ -502,9 +502,10 @@ namespace Vision.World
         }
 
         /// <summary>
-        /// Half a rectangle's frame, 6-9 m by 4-5.6 m: a back wall and both sides, two corners (a U), or a back wall and
-        /// one side, one corner (an L); the free ends broken away; windows along the back (an arched one perhaps), perhaps
-        /// an opening in a side. Its floor fills the rectangle the frame would close, open to the weather.
+        /// Half a rectangle, cut along its diagonal: a right triangle 6.4-9.2 m by 3.8-5.6 m, two walls meeting at the one
+        /// square corner (their free ends broken away), the diagonal side open; windows (an arched one perhaps) along the
+        /// long wall, perhaps an opening in the short one. Its floor fills the triangle, its last row of stones running
+        /// raggedly along the diagonal (<see cref="FloorZone.Cut"/>), open to the weather.
         /// </summary>
         static RuinPlan HalfFrame(System.Random rng)
         {
@@ -516,29 +517,24 @@ namespace Vision.World
             left.JoinEnd = back.JoinStart = true;
             left.BondEnd = 0;
             back.BondStart = 1;
-            if (Chance(rng, 0.7f)) BreakEnd(rng, left, true);
-            RuinRun right = null;
-            if (Chance(rng, 0.7f))
-            {
-                right = Run(plan, rng, new Vector2(hl, hs), new Vector2(hl, -hs), h + R(rng, -0.3f, 0.2f));
-                back.JoinEnd = right.JoinStart = true;
-                back.BondEnd = 0;
-                right.BondStart = 1;
-                if (Chance(rng, 0.7f)) BreakEnd(rng, right, false);
-            }
-            else if (Chance(rng, 0.7f)) BreakEnd(rng, back, false);
+            BreakEnd(rng, left, true);
+            BreakEnd(rng, back, false);
             int n = back.Length > 7f ? 2 : 1;
             for (int k = 0; k < n; k++)
             {
                 float at = back.Length * (k + 1f) / (n + 1f);
                 Open(back, Chance(rng, 0.35f) ? Arch(at, 1f, R(rng, 0.85f, 1f), R(rng, 1.5f, 1.7f)) : Window(at, 0.9f, R(rng, 0.8f, 0.95f), R(rng, 1.7f, 1.9f)));
             }
-            foreach (RuinRun side in new[] { left, right })
-                if (side != null && side.Length >= 3.4f && Chance(rng, 0.45f)) Open(side, AnyOpening(rng, side.Length * R(rng, 0.45f, 0.6f), side.Height));
+            if (left.Length >= 3.4f && Chance(rng, 0.45f)) Open(left, AnyOpening(rng, left.Length * R(rng, 0.45f, 0.6f), left.Height));
             MaybeBreach(rng, back, 0.3f);
             var area = Rect.MinMaxRect(-hl, -hs, hl, hs);
             plan.Rooms.Add(area);
-            plan.Floor.Add(new FloorZone { Area = area, Laying = (FloorLaying)rng.Next(3), Exposed = true, Wear = 0.2f });
+            plan.Floor.Add(new FloorZone
+            {
+                Area = area, Laying = (FloorLaying)rng.Next(3), Exposed = true, Wear = 0.2f,
+                Cut = true, CutA = new Vector2(-hl, -hs), CutB = new Vector2(hl, hs), Keep = new Vector2(-hl, hs),
+            });
+            if (Chance(rng, 0.5f)) plan.MirrorX();
             return plan;
         }
     }

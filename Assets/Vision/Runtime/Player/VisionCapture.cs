@@ -1524,7 +1524,8 @@ namespace Vision.Player
                             var (ePlan, eAt, eYaw) = Ruin(RuinArchetype.Enclosure);
                             var (hPlan, hAt, hYaw) = Ruin(RuinArchetype.HalfFrame);
                             foreach (var (at, name) in new[] { (cAt + Turn(hallZone.Area.center, cYaw), "193_ruin_floor_hall"), (cAt + Turn(runner.Area.center, cYaw), "194_ruin_floor_hallway"),
-                                (eAt + Turn(ePlan.Floor[0].Area.center, eYaw), "195_ruin_floor_enclosure"), (hAt + Turn(hPlan.Floor[0].Area.center, hYaw), "196_ruin_floor_half_frame") })
+                                (eAt + Turn(ePlan.Floor[0].Area.center, eYaw), "195_ruin_floor_enclosure"), (hAt + Turn(hPlan.Floor[0].Area.center, hYaw), "196_ruin_floor_half_frame"),
+                                (hAt + Turn((hPlan.Floor[0].CutA + hPlan.Floor[0].CutB) * 0.5f + (hPlan.Floor[0].Keep - (hPlan.Floor[0].CutA + hPlan.Floor[0].CutB) * 0.5f).normalized * 0.4f, hYaw) - view * 1.6f, "198_ruin_floor_diagonal_edge") })
                             {
                                 cameraRig.orthographicSize = ortho * 0.45f;
                                 yield return Stage(player, V(at + view * 1.6f), view, wanderer, away);

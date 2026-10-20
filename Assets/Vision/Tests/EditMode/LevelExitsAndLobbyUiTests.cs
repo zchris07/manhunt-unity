@@ -384,7 +384,9 @@ namespace Vision.Tests
                     for (float u = 0.1f; u < 1f; u += 0.2f)
                         for (float v = 0.1f; v < 1f; v += 0.2f)
                         {
-                            Vector2 p = r.at + RotatePlan(new Vector2(Mathf.Lerp(a.xMin, a.xMax, u), Mathf.Lerp(a.yMin, a.yMax, v)), r.yaw);
+                            Vector2 local = new Vector2(Mathf.Lerp(a.xMin, a.xMax, u), Mathf.Lerp(a.yMin, a.yMax, v));
+                            if (!z.Keeps(local, -0.6f)) continue;
+                            Vector2 p = r.at + RotatePlan(local, r.yaw);
                             Assert.IsTrue(world.OnRuinFloor(p), $"{kind}: on its floor");
                             Assert.Less(world.SurfaceHeight(p), top - 0.006f, $"{kind}: the ground stays under the floor");
                             Assert.AreEqual("step_concrete", Vision.Audio.Footsteps.Surface(world, p), "footsteps on stone");

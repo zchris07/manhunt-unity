@@ -77,27 +77,43 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void HalfAFrame_HasTwoCornersAtMost_AndItsFloorFillsTheRectangle()
+        public void HalfAFrame_IsARectangleCutOnTheDiagonal_OneCornerTwoWalls_AndItsFloorEdgeIsAStaggeredStaircase()
         {
-            bool sawU = false, sawL = false;
-            for (int seed = 1; seed <= 20; seed++)
+            for (int seed = 1; seed <= 12; seed++)
             {
                 RuinPlan p = Plan(RuinArchetype.HalfFrame, seed);
-                Assert.That(p.Corners, Is.InRange(1, 2), "two corners at most");
-                Assert.That(p.Runs.Count, Is.InRange(2, 3));
-                sawU |= p.Corners == 2;
-                sawL |= p.Corners == 1;
-                Assert.AreEqual(p.Runs.Count - 1, p.Corners, "an open frame: no wall closes it");
-                Rect b = p.Bounds, f = p.Floor[0].Area;
-                Assert.Greater(Mathf.Max(f.width, f.height), 6f, "bigger than a corner");
-                // The floor fills the rectangle the frame would close.
-                foreach (RuinRun r in p.Runs)
+                Assert.AreEqual(2, p.Runs.Count, "two walls");
+                Assert.AreEqual(1, p.Corners, "one corner: two at most");
+                Assert.AreEqual(1, p.Floor.Count);
+                FloorZone z = p.Floor[0];
+                Assert.IsTrue(z.Cut && z.Exposed);
+                Rect f = z.Area;
+                Assert.Greater(Mathf.Max(f.width, f.height), 6f);
+                // The cut runs corner to corner of the rectangle, away from the walls' meeting point.
+                Assert.AreEqual(Mathf.Sqrt(f.width * f.width + f.height * f.height), (z.CutB - z.CutA).magnitude, 1e-3f);
+                Assert.Greater(z.Depth(z.Keep), Mathf.Min(f.width, f.height) * 0.5f, "the corner is well inside");
+                Assert.IsTrue(p.OnFloor(z.Keep + (f.center - z.Keep) * 0.1f));
+                Assert.IsFalse(p.OnFloor(f.center * 2f - z.Keep - (f.center - z.Keep) * 0.2f), "nothing on the far side of the diagonal");
+
+                Mesh m = RuinFloors.Build(p, new System.Random(seed), 0f, out RuinFloors.Laid laid);
+                Assert.Greater(laid.Edge, 8, "a row of edge stones along the diagonal");
+                // The top faces: none well past the line (the loose stones and grit lie just outside it), the edge ragged.
+                Vector3[] vs = m.vertices, ns = m.normals;
+                var depths = new List<float>();
+                for (int k = 0; k < vs.Length; k++)
                 {
-                    Assert.IsTrue(Mathf.Approximately(r.A.x, f.xMin) || Mathf.Approximately(r.A.x, f.xMax) || Mathf.Approximately(r.A.y, f.yMin) || Mathf.Approximately(r.A.y, f.yMax), "its walls on the floor's edges");
+                    float dpt = z.Depth(new Vector2(vs[k].x, vs[k].z));
+                    Assert.Greater(dpt, -1.3f, "stones and soil within a metre of the line");
+                    if (ns[k].y > 0.95f && vs[k].y > RuinFloors.StoneTop && dpt < 0.2f && dpt > -0.7f) depths.Add(dpt);
                 }
-                Assert.AreEqual(f.width * f.height, (b.width - LowPolyModels.WallThickness) * (b.height - LowPolyModels.WallThickness), 0.6f);
+                Assert.Greater(depths.Count, 10, "stones lying on the line");
+                float mean = depths.Average(), sd = Mathf.Sqrt(depths.Average(x => (x - mean) * (x - mean)));
+                Assert.Greater(sd, 0.05f, "not perfectly straight");
+                // Whole stones sit on top of the ground at the edge: their sides reach below it and show above it.
+                Assert.Less(vs.Min(v => v.y), -0.01f, "edge stones' sides go down into the dirt");
+                Assert.Greater(vs.Where(v => z.Depth(new Vector2(v.x, v.z)) < 0.5f).Max(v => v.y), RuinFloors.StoneTop + 0.006f, "edge stones stand proud of it");
+                Object.DestroyImmediate(m);
             }
-            Assert.IsTrue(sawU && sawL, "U-shaped and L-shaped both");
         }
 
         [Test]
@@ -111,15 +127,15 @@ namespace Vision.Tests
                 int tris = m.triangles.Length / 3;
                 report.Append($"{kind}: {tris} tris, {laid.Stones} stones, {laid.Kerbs} kerbs, {laid.Cracked} cracked, {laid.Chipped} chipped, {laid.Missing} gone, {laid.Sunk} sunk, {laid.Lichen} lichen, {laid.Stains} stains, {laid.Chips} chips, {laid.Thresholds} sills, {laid.Chequer} chequer; ");
                 Assert.LessOrEqual(tris, kind == RuinArchetype.Complex ? 24000 : 8000, $"{kind}: within budget");
-                Assert.Greater(laid.Stones, p.Floor.Sum(z => z.Area.width * z.Area.height) * 2f, "stones a hand or two across");
+                Assert.Greater(laid.Stones, p.Floor.Sum(z => z.Area.width * z.Area.height * (z.Cut ? 0.5f : 1f)) * 2f, "stones a hand or two across");
                 Assert.Greater(laid.Kerbs, 10, "a kerb course");
                 Assert.Greater(laid.Stains, 0);
                 Assert.Greater(laid.Chips, 5, "grit about");
                 // Within its walls, a little proud of the ground and no more.
                 foreach (Vector3 v in m.vertices)
                 {
-                    Assert.IsTrue(p.OnFloor(new Vector2(v.x, v.z), LowPolyModels.WallThickness * 0.5f + 0.01f), $"{kind}: laid within the walls ({v})");
-                    Assert.That(v.y, Is.InRange(0.03f, 0.03f + 0.08f));
+                    Assert.IsTrue(p.OnFloor(new Vector2(v.x, v.z), kind == RuinArchetype.HalfFrame ? 1.3f : LowPolyModels.WallThickness * 0.5f + 0.01f), $"{kind}: laid within the walls ({v})");
+                    Assert.That(v.y, Is.InRange(0.03f - 0.045f, 0.03f + 0.08f));
                 }
                 // Discoloured: the stones' tops vary, and some carry the damp's green.
                 Vector3[] n = m.normals;
