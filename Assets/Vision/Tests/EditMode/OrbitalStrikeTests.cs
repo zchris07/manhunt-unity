@@ -52,6 +52,15 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheTrack_WhenItsThere_LastsExactlyAsLongAsTheStrike()
+        {
+            // (A local file the user supplies, kept out of git: checked only where it's present.)
+            AudioClip clip = Audio.SoundBank.Load("local_kpop_strike");
+            if (clip == null) Assert.Ignore("the track isn't on this machine");
+            Assert.AreEqual(Balance.Items.Orbital.Duration, clip.length, 0.06f, "the strike lasts exactly as long as the track");
+        }
+
+        [Test]
         public void ConfirmedOnATarget_ItsUsedUp_CountsDown_ThenFollowsAndBurnsThemForTheTracksLength()
         {
             var rig = new SimRig(2);
