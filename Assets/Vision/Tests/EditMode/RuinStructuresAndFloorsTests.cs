@@ -198,10 +198,116 @@ namespace Vision.Tests
             Assert.AreEqual(s0 * 0.9f, s1, 1e-4f);
             Assert.AreEqual(h0, h1, 1e-4f);
             Assert.AreEqual(v0, v1, 1e-4f);
-            // The same wall as before (0.57 on average then).
+            // Every brick's colour comes through the desaturation (none more saturated than its tone allows).
             var run = new RuinRun { A = Vector2.zero, B = new Vector2(20f, 0f), Height = 2.4f, Seed = 77 };
             float sat = RuinBricks.Lay(run).Bricks.Average(b => { Color.RGBToHSV(b.Color, out _, out float s, out _); return s; });
-            Assert.AreEqual(0.57f * 0.9f, sat, 0.01f, "10% less saturated than they were");
+            Debug.Log($"[Ruins] average brick saturation {sat:0.000}");
+            Assert.Less(sat, 0.57f * 0.9f + 0.005f, "no more saturated than before the palette was drawn together");
+        }
+
+        [Test]
+        public void TheBrickPalette_IsDrawnTwentyPercentToward9f6059_BeforeEachBricksOwnShifts()
+        {
+            Assert.AreEqual(0.2f, RuinBricks.UnifyBy, 1e-6f);
+            Assert.AreEqual(new Color(159f / 255f, 96f / 255f, 89f / 255f), RuinBricks.Unify);
+            var original = new[] { new Color(0.47f, 0.22f, 0.15f), new Color(0.40f, 0.20f, 0.14f), new Color(0.30f, 0.15f, 0.11f), new Color(0.58f, 0.31f, 0.20f), new Color(0.50f, 0.32f, 0.22f) };
+            Color[] now = RuinBricks.Palette;
+            Assert.AreEqual(original.Length, now.Length);
+            float spreadBefore = 0f, spreadNow = 0f;
+            for (int i = 0; i < now.Length; i++)
+            {
+                Color want = Color.Lerp(original[i], RuinBricks.Unify, 0.2f);
+                Assert.AreEqual(want.r, now[i].r, 1e-5f);
+                Assert.AreEqual(want.g, now[i].g, 1e-5f);
+                Assert.AreEqual(want.b, now[i].b, 1e-5f);
+                for (int j = 0; j < now.Length; j++)
+                {
+                    spreadBefore += Vector3.Distance((Vector4)original[i], (Vector4)original[j]);
+                    spreadNow += Vector3.Distance((Vector4)now[i], (Vector4)now[j]);
+                }
+            }
+            Assert.AreEqual(spreadBefore * 0.8f, spreadNow, spreadBefore * 0.01f, "the spread narrowed by a fifth");
+        }
+
+        [Test]
+        public void EveryWalledShell_HasAStoneFloor_WithinItsWalls()
+        {
+            foreach (RuinArchetype kind in new[] { RuinArchetype.Church, RuinArchetype.Warehouse, RuinArchetype.Residential, RuinArchetype.Complex, RuinArchetype.Enclosure })
+                for (int seed = 1; seed <= 6; seed++)
+                {
+                    RuinPlan p = Plan(kind, seed);
+                    Assert.IsTrue(p.Floored, $"{kind} {seed}: floored");
+                    Mesh m = RuinFloors.Build(p, new System.Random(seed), 0f, out RuinFloors.Laid laid);
+                    Assert.Greater(laid.Stones, 60, $"{kind} {seed}");
+                    foreach (Vector3 v in m.vertices)
+                        Assert.IsTrue(p.OnFloor(new Vector2(v.x, v.z), LowPolyModels.WallThickness * 0.5f + 0.01f), $"{kind} {seed}: within its walls ({v})");
+                    if (kind == RuinArchetype.Church)
+                    {
+                        // The apse's floor follows its angled walls: stones in it, none past its walls.
+                        FloorZone apse = p.Floor.First(z => z.Clip != null);
+                        Vector2 inApse = new Vector2(apse.Area.center.x, apse.Area.yMin + apse.Area.height * 0.4f);
+                        Assert.IsTrue(p.OnFloor(inApse));
+                        Assert.IsFalse(p.OnFloor(new Vector2(apse.Area.xMax - 0.05f, apse.Area.yMax - 0.05f), 0.1f), "the apse's outside corner bare");
+                    }
+                    Object.DestroyImmediate(m);
+                }
+        }
+
+        [Test]
+        public void ABrickRuinsWindow_IsVaulted_ItsColliderAlittleWiderThanTheHole_SightUnchanged()
+        {
+            var run = new RuinRun { A = Vector2.zero, B = new Vector2(6f, 0f), Height = 2.4f, Seed = 12 };
+            var win = new RuinOpening { Kind = RuinOpeningKind.Window, Center = 3f, Width = 0.9f, Sill = 0.9f, Top = 1.8f };
+            run.Openings.Add(win);
+            RuinSolid Window(List<RuinSolid> l) => l.Single(s => s.SeeThrough);
+            RuinSolid sight = Window(RuinSolids.Of(run)), body = Window(RuinSolids.Of(run, RuinSolids.WindowVaultPad));
+            Assert.AreEqual(win.Width, sight.X1 - sight.X0, 0.06f, "sight: just the hole");
+            Assert.AreEqual(win.Width + 2f * RuinSolids.WindowVaultPad, body.X1 - body.X0, 0.06f, "the vault: past it either side");
+            Assert.Greater(body.X1 - body.X0, 0.6f + 0.3f, "a body (0.6 m across) fits through");
+            // The bricks themselves are laid just as before.
+            Assert.IsFalse(RuinBricks.Lay(run).Bricks.Any(b => RuinRun.Covers(win, (b.X0 + b.X1) * 0.5f, (b.Y0 + b.Y1) * 0.5f, -0.02f)));
+        }
+
+        [Test]
+        public void CabinBoards_AreThirtyPercentSmaller_EachTheirOwn_WornInPlaces_NotAllOver()
+        {
+            Assert.AreEqual(0.16f * 0.7f, LowPolyModels.PlankWidthMin, 1e-5f);
+            Assert.AreEqual(0.22f * 0.7f, LowPolyModels.PlankWidthMax, 1e-5f);
+            Assert.AreEqual(1.2f * 0.7f, LowPolyModels.PlankLengthMin, 1e-5f);
+            Assert.AreEqual(2.4f * 0.7f, LowPolyModels.PlankLengthMax, 1e-5f);
+            var all = new LowPolyModels.PlankTally();
+            for (int seed = 1; seed <= 3; seed++)
+            {
+                Mesh m = LowPolyModels.BoardFloor(new System.Random(seed), 8.4f, 6f);
+                LowPolyModels.PlankTally t = LowPolyModels.LastPlanks;
+                // About one plank to every 0.17 m2 (it was one to 0.33).
+                Assert.That(t.Count, Is.InRange(8.4f * 6f / 0.24f, 8.4f * 6f / 0.12f), "the plank count up with their size down");
+                Assert.Less(t.Rotten, t.Count * 0.4f, "rot in places, not all over");
+                Assert.LessOrEqual(t.Mossy, t.Rotten, "moss only where it's damp");
+                Assert.Less(t.Missing, t.Count * 0.1f);
+                Assert.Greater(t.Nails, t.Count, "nail heads");
+                Assert.Less(m.triangles.Length / 3, 20000, "within budget");
+                Bounds bd = m.bounds;
+                Assert.AreEqual(8.4f, bd.size.x, 0.05f, "laid along x");
+                Assert.AreEqual(6f, bd.size.z, 0.05f);
+                all.Knots += t.Knots; all.Cracks += t.Cracks; all.Holes += t.Holes; all.Missing += t.Missing; all.Rotten += t.Rotten; all.Mossy += t.Mossy;
+                Object.DestroyImmediate(m);
+            }
+            Assert.Greater(all.Knots, 20, "knots");
+            Assert.Greater(all.Cracks, 15, "splits");
+            Assert.Greater(all.Holes, 0, "knot-holes");
+            Assert.Greater(all.Missing, 0, "the odd piece broken out");
+            Assert.Greater(all.Rotten, 0, "rot where it's damp");
+            Assert.Greater(all.Mossy, 0, "a little moss in the wettest spots");
+            Debug.Log($"[Ruins] boards: knots {all.Knots}, splits {all.Cracks}, holes {all.Holes}, missing {all.Missing}, rotten {all.Rotten}, mossy {all.Mossy}");
+        }
+
+        [Test]
+        public void TheHalo_IsSmallerAndHalfAsBright()
+        {
+            Assert.Less(Vision.Player.Halo.Radius, 0.15f * 0.8f, "smaller");
+            Assert.Less(Vision.Player.Halo.Thickness, 0.022f * 0.8f);
+            Assert.LessOrEqual(Vision.Player.Halo.Glow, 1.6f * 0.5f, "half as bright");
         }
 
         static List<GameEvent> Fly(SimRig rig, int ticks)
@@ -220,6 +326,12 @@ namespace Vision.Tests
         public void ABottleBreakingOnSomeone_SoundsLikeAWindowsGlass_AtSixtyPercent()
         {
             Assert.AreEqual(0.6f, Audio.SoundBank.BottleOnBodyVolume, 1e-6f);
+            // The STUN (BOTTLE) testing effect plays it as a real bottle does, for Zach too.
+            {
+                var t = new SimRig(1, 1, true);
+                t.Sim.PlayTestFx(1, TestFx.Stun);
+                Assert.IsTrue(t.Sim.Events.Any(e => e.Kind == EventKind.Noise && e.Text == "glass_body" && (e.To == null || e.To.Contains(1))), "Zach hears it");
+            }
             var rig = new SimRig(2, 1);
             SimPlayer zach = rig.P(1), thrower = rig.P(2), other = rig.P(3);
             rig.Place(thrower, 0f, 0f);

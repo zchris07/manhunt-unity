@@ -11,8 +11,9 @@ namespace Vision.UI
     /// The bodies lying about (<see cref="MatchSim.Bodies"/>): a sacrificed survivor's or a slain NPC's, each in its own look,
     /// on its back where it fell. Dropped (a death, a ghost knocked out of it) it topples over backwards. Taken by a ghost, it
     /// levitates: it rises off the ground and swings upright into an A pose (arms held a little out from its sides), turned
-    /// to face the ghost, who floats up level with it in the same pose; a pale glow grows about it and wisps of light spiral
-    /// into it while the ghost drifts slowly into it, until they're one and settle to the ground together; then it's the
+    /// round with its back to the ghost, who floats up level with it in the same pose (and the body's own shape), facing the
+    /// same way; a pale glow grows about it and wisps of light spiral into it while the ghost drifts slowly in from behind,
+    /// until the two figures lie exactly over each other and settle to the ground together; then it's the
     /// player's own figure that walks on in its look. Like any entity it shows only in the viewer's light (its glow lights it
     /// up as it rises).
     /// </summary>
@@ -37,7 +38,7 @@ namespace Vision.UI
             public ActionLayer Layer;
             /// <summary>Rising (in its A pose), which way it's turned (degrees), and the wisps owed.</summary>
             public bool Rising;
-            public float Yaw = float.NaN, Wisps;
+            public float Yaw = float.NaN, LieYaw = float.NaN, Wisps;
         }
 
         readonly Dictionary<int, View> views = new Dictionary<int, View>();
@@ -164,7 +165,15 @@ namespace Vision.UI
         public static float PossessLift(float m) => 0.5f * Smooth(0f, 0.33f, m) * (1f - Smooth(0.86f, 1f, m));
 
         /// <summary>How far (0-1) the ghost has drifted from where it stood into the body, <paramref name="m"/> of the way through.</summary>
-        public static float PossessGlide(float m) => Smooth(0.3f, 0.88f, m);
+        public static float PossessGlide(float m)
+        {
+            // (Smootherstep: a slow start and a long, slow last stretch as it sinks into the body.)
+            float t = Mathf.Clamp01(Mathf.InverseLerp(0.28f, 0.88f, m));
+            return t * t * t * (t * (t * 6f - 15f) + 10f);
+        }
+
+        /// <summary>The way a body faces (degrees about the vertical) from the match's angle.</summary>
+        public static float YawOf(float facing) => Mathf.Atan2(Mathf.Cos(facing), Mathf.Sin(facing)) * Mathf.Rad2Deg;
 
         void Drive(View v, Body b, MatchSim sim, float dt)
         {
@@ -191,18 +200,21 @@ namespace Vision.UI
                 else v.Layer.Stop();
             }
             if (!shown) return;
-            // Turned as it fell; rising, round to face the ghost coming to it.
-            float yaw = Mathf.Atan2(Mathf.Cos(b.Facing), Mathf.Sin(b.Facing)) * Mathf.Rad2Deg;
+            // Turned as it fell; rising, round with its back to the ghost coming in behind it (taking it set its facing to the
+            // ghost's own: from the ghost to it), so the two figures end up exactly over each other.
+            float yaw = YawOf(b.Facing);
             if (b.Ghost != 0)
             {
-                SimPlayer g = sim.Get(b.Ghost);
-                Vector2 to = g != null ? g.Pos - b.Pos : Vector2.zero;
-                if (float.IsNaN(v.Yaw)) v.Yaw = yaw;
-                if (to.sqrMagnitude > 0.04f) v.Yaw = Mathf.MoveTowardsAngle(v.Yaw, Mathf.Atan2(to.x, to.y) * Mathf.Rad2Deg, 120f * dt);
+                if (float.IsNaN(v.Yaw)) v.Yaw = float.IsNaN(v.LieYaw) ? yaw : v.LieYaw;
+                v.Yaw = Mathf.MoveTowardsAngle(v.Yaw, yaw, 180f * dt);
                 yaw = v.Yaw;
                 Wisps(v, b, over, lift, dt);
             }
-            else v.Yaw = float.NaN;
+            else
+            {
+                v.Yaw = float.NaN;
+                v.LieYaw = yaw;
+            }
             Vector3 at = new Vector3(b.Pos.x, world.GroundHeight(b.Pos), b.Pos.y);
             // The pose stepped upright where it stands...
             v.Pivot.transform.localPosition = at;

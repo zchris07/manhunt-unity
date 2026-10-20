@@ -51,6 +51,8 @@ namespace Vision.Game
                     Emit(p.Id, new GameEvent { Kind = EventKind.WazSlain });
                     break;
                 case TestFx.Stun:
+                    // (A bottle broken on them: its glass heard too, as a real one is.)
+                    Noise(p.Pos, 900f, "glass_body");
                     if (zach) StunHunter(p, Balance.Items.Bottle.Stun, "bottle");
                     else
                     {

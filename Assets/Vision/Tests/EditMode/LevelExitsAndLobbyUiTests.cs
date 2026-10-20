@@ -340,6 +340,12 @@ namespace Vision.Tests
             var all = root.GetComponentsInChildren<Transform>(true);
             int floors = all.Count(t => t.name == "Stone Floor" || t.name == "Board Floor");
             Assert.AreEqual(L.Cabins.Count, floors);
+            Assert.AreEqual(L.Cabins.Count, all.Count(t => t.name == "Board Floor"), "boards in every one");
+            Assert.IsFalse(world.CabinStoneFloors.Any(x => x));
+            Assert.AreSame(world.WoodMaterial, all.First(t => t.name == "Board Floor").GetComponent<MeshRenderer>().sharedMaterial, "the wood's grain");
+            // Nothing solid in the way through a window or the door: the stretch in front of each, inside.
+            string[] solid = { "Stove", "Shelf", "Crate", "Barrel", "Chair", "Wardrobe", "Bed", "Table" };
+            var pieces = all.Where(t => solid.Contains(t.name)).Select(t => t.GetComponentInChildren<Renderer>()).Where(r => r != null).ToList();
             string[] fittings = { "Stove", "Shelf", "Crate", "Barrel", "Rug", "Chair", "Papers", "Bottles", "Debris", "Blood", "Wall Stain", "Wallpaper", "Poster", "Mirror", "Clock", "Cobweb" };
             for (int i = 0; i < L.Cabins.Count; i++)
             {
@@ -355,6 +361,22 @@ namespace Vision.Tests
                 Vector2 door = c.Area.center - inward * (c.DoorSide % 2 == 0 ? c.Area.height : c.Area.width) * 0.5f;
                 foreach (BoxCollider box in root.GetComponentsInChildren<BoxCollider>(true).Where(b => fittings.Contains(b.name)))
                     Assert.Greater((Plane(world, box) - (door + inward * 0.8f)).magnitude, 0.8f, $"{box.name} clear of the doorway");
+                Rect r = c.Area;
+                var openings = new[] { (new Vector2(r.center.x, r.yMax), Vector2.down), (new Vector2(r.xMax, r.center.y), Vector2.left), (new Vector2(r.center.x, r.yMin), Vector2.up), (new Vector2(r.xMin, r.center.y), Vector2.right) };
+                foreach (var (mid, n) in openings)
+                {
+                    Vector2 u = new Vector2(n.y, -n.x);
+                    foreach (Renderer rend in pieces)
+                    {
+                        Vector3 lo = world.transform.InverseTransformPoint(rend.bounds.min), hi = world.transform.InverseTransformPoint(rend.bounds.max);
+                        var box = Rect.MinMaxRect(Mathf.Min(lo.x, hi.x), Mathf.Min(lo.z, hi.z), Mathf.Max(lo.x, hi.x), Mathf.Max(lo.z, hi.z));
+                        if (!c.Area.Overlaps(box)) continue;
+                        // The stretch in front of the opening: 1.3 m along the wall (its width), 0.8 m in.
+                        Vector2 a = mid - u * 0.65f, z = mid + u * 0.65f + n * 0.8f;
+                        var front = Rect.MinMaxRect(Mathf.Min(a.x, z.x), Mathf.Min(a.y, z.y), Mathf.Max(a.x, z.x), Mathf.Max(a.y, z.y));
+                        Assert.IsFalse(front.Overlaps(box), $"cabin {i}: {rend.name} ({rend.transform.parent.name}) {box} in front of the opening at {mid}, door side {c.DoorSide}, area {c.Area}");
+                    }
+                }
             }
         }
 
@@ -394,6 +416,23 @@ namespace Vision.Tests
                 }
             }
             Assert.IsFalse(world.OnRuinFloor(L.Spawn), "nowhere else");
+            // Every walled shell floored too.
+            foreach (var r in world.Ruins.Where(x => x.plan.Outline.Count > 2))
+                Assert.IsTrue(r.plan.Floored && r.root.GetComponentsInChildren<MeshFilter>(true).Any(m => m.name == "Stone Floor Ruin"), $"{r.kind}: a stone floor");
+            // No fallen tree lies into a ruin.
+            Assert.Greater(world.FallenTrunks.Count, 0);
+            foreach (var (a, b, half) in world.FallenTrunks) Assert.IsFalse(world.CrossesRuin(a, b, half), "a fallen tree clear of the ruins");
+            // Windows: vaulted (low, like a log), their colliders a little wider than their holes.
+            var vaults = root.GetComponentsInChildren<BoxCollider>(true).Where(b => b.name == "Brick Wall Ruin Vault").ToList();
+            Assert.Greater(vaults.Count, 0, "windows in the ruins");
+            foreach (BoxCollider v in vaults)
+            {
+                Assert.AreEqual(SandboxWorld.LowLayer, v.gameObject.layer, "vaulted");
+                Assert.IsNull(v.GetComponent<Vision.Visibility.Occluder>(), "seen through");
+                Vector2 at = Plane(world, v);
+                Vector3 cw = world.transform.InverseTransformPoint(v.transform.TransformPoint(v.center));
+                Assert.IsTrue(world.Lows.Any(o => SimMap.SegmentDistance(new Vector2(cw.x, cw.z), o.A, o.B) < o.Half + 0.05f), "a vault the body knows of");
+            }
             var chunks = new List<Transform>();
             foreach (var r in world.Ruins)
             {

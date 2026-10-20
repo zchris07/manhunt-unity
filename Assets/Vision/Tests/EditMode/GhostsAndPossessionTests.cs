@@ -424,6 +424,32 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TakingABody_ItRisesWithItsBackToTheGhost_WhoComesInFromBehind_TheTwoFiguresExactlyOverEachOther()
+        {
+            SimRig rig = Rig(2);
+            SimPlayer zach = rig.P(1), g = rig.P(2);
+            rig.Place(zach, 1500f, -1500f);
+            rig.Place(rig.P(3), -600f, 600f);
+            Body b = Sacrifice(rig, g, zach);
+            // The ghost to one side of it (up and to the right).
+            rig.Sim.Teleport(g.Id, b.Pos + SimRig.U(30f, 30f));
+            rig.Run(2);
+            Vector2 from = g.Pos;
+            rig.Tap(g.Id, Btn.Interact);
+            float away = Mathf.Atan2(b.Pos.y - from.y, b.Pos.x - from.x);
+            Assert.AreEqual(0f, Mathf.DeltaAngle(b.Facing * Mathf.Rad2Deg, away * Mathf.Rad2Deg), 0.5f, "it faces away from the ghost: its back to them");
+            rig.Run(Secs(1f));
+            Assert.AreEqual(0f, Mathf.DeltaAngle(g.Facing * Mathf.Rad2Deg, b.Facing * Mathf.Rad2Deg), 0.5f, "the ghost faces the same way, coming in behind it");
+            // The ghost's figure is the body's own (so neither sticks out of the other once they're one).
+            Assert.AreEqual(b.Look, PlayerController.SpecFor(g).Name);
+            // Its drift in: slow to start, slow to finish, done before they settle.
+            Assert.Less(UI.CorpseViews.PossessGlide(0.35f), 0.05f);
+            Assert.Greater(UI.CorpseViews.PossessGlide(0.85f), 0.98f);
+            Assert.AreEqual(1f, UI.CorpseViews.PossessGlide(0.88f), 1e-4f);
+            Assert.AreEqual(UI.CorpseViews.YawOf(g.Facing), UI.CorpseViews.YawOf(b.Facing), 0.5f, "drawn turned alike");
+        }
+
+        [Test]
         public void TestingMode_AStakedSurvivorDiesOnTheStake_LeavingTheirBody()
         {
             var rig = Rig(1, true);

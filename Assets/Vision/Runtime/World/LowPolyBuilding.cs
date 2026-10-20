@@ -32,6 +32,8 @@ namespace Vision.World
             public static readonly Color Red = new Color(0.55f, 0.12f, 0.10f);
             public static readonly Color Galvanised = new Color(0.42f, 0.44f, 0.44f);
             public static readonly Color[] Fabric = { new Color(0.35f, 0.22f, 0.18f), new Color(0.22f, 0.28f, 0.33f), new Color(0.32f, 0.31f, 0.22f) };
+            /// <summary>Old books' spines: dull, faded, dusty.</summary>
+            public static readonly Color[] Spines = { new Color(0.33f, 0.21f, 0.18f), new Color(0.21f, 0.23f, 0.27f), new Color(0.37f, 0.34f, 0.26f), new Color(0.16f, 0.15f, 0.14f), new Color(0.24f, 0.27f, 0.23f), new Color(0.31f, 0.27f, 0.23f) };
             public static readonly Color[] Print = { new Color(0.55f, 0.15f, 0.12f), new Color(0.15f, 0.20f, 0.35f), new Color(0.60f, 0.52f, 0.25f), new Color(0.12f, 0.12f, 0.12f), new Color(0.25f, 0.40f, 0.30f) };
         }
 
@@ -349,7 +351,7 @@ namespace Vision.World
                         {
                             if (b.Next() < 0.25f) { x += 0.12f; continue; }
                             float bh = b.Range(0.2f, 0.32f);
-                            b.AddBox(new Vector3(x, y + 0.03f, -hd + 0.04f), new Vector3(0.045f, bh, d * 0.7f), b.Jitter(Pick(b.Rng, Bldg.Print), 0.2f), 0.05f);
+                            b.AddBox(new Vector3(x, y + 0.03f, -hd + 0.04f), new Vector3(0.045f, bh, d * 0.7f), b.Jitter(Pick(b.Rng, Bldg.Spines), 0.1f), 0.04f);
                         }
                     }
                     break;

@@ -255,14 +255,30 @@ namespace Vision.World
 
         // ------------------------------------------------------------------ colour
 
-        static readonly (Color c, float w)[] Tones =
+        /// <summary>
+        /// Every tone in the palette is blended this far toward <see cref="Unify"/> (#9f6059) before each brick's own shifts,
+        /// narrowing the spread without changing those shifts.
+        /// </summary>
+        public const float UnifyBy = 0.2f;
+        public static readonly Color Unify = new Color(0x9f / 255f, 0x60 / 255f, 0x59 / 255f);
+
+        /// <summary>The palette's tones as used (after the blend).</summary>
+        public static Color[] Palette => System.Array.ConvertAll(Tones, t => t.c);
+
+        static (Color c, float w)[] Unified((Color c, float w)[] tones)
+        {
+            for (int i = 0; i < tones.Length; i++) tones[i].c = Color.Lerp(tones[i].c, Unify, UnifyBy);
+            return tones;
+        }
+
+        static readonly (Color c, float w)[] Tones = Unified(new[]
         {
             (new Color(0.47f, 0.22f, 0.15f), 0.34f),   // rust
             (new Color(0.40f, 0.20f, 0.14f), 0.24f),   // brown-red
             (new Color(0.30f, 0.15f, 0.11f), 0.14f),   // dark clinker
             (new Color(0.58f, 0.31f, 0.20f), 0.16f),   // salmon-orange
             (new Color(0.50f, 0.32f, 0.22f), 0.12f),   // brown-tan
-        };
+        });
         static readonly Color Weathered = new Color(0.50f, 0.48f, 0.45f);
 
         /// <summary>Every brick's colour saturation, against the tones above (10% less, at the user's request).</summary>

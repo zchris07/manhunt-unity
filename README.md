@@ -484,8 +484,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   (the original's animation, quickened), and the Hemp Battery's zoom out and back in takes half a second too. Every attack item but galaxy
   gas breaks windows: a thrown bottle, book or jar smashes the glass and drops there, rounds go through it, and anyone
   can climb through the empty frame. Drinks, bites, throws, glass, books, splashes, traps and pick-ups have their
-  sounds. A bottle breaking on a player or an NPC plays the window's glass breaking at 60% volume (its own smash where
-  it lands on nothing).
+  sounds. A bottle breaking on a player or an NPC plays the window's glass breaking at 60% volume for everyone within
+  hearing (the one hit too, Zach included; the STUN (BOTTLE) testing effect plays it as well), its own smash where it
+  lands on nothing.
 - **Sound polish**: footsteps on every character's footfalls (concrete in the building, boards in the cabins, grass
   outside; louder running, softer crouched, heavier for Zach). You hear your own, and others only up close, since the
   original has none. Doors creak open and bang shut whoever moves them (NPCs too), shotguns take a shell before the
@@ -619,10 +620,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   inventory was, says **find a body, help your team**, and their map shows where the bodies lie.
 - **Possession**: a ghost by a body (a sacrificed survivor's, or a slain NPC's; those who blew apart leave none) takes
   it with **E**, over 3.6 s: the body rises off the ground and swings upright into an A pose (arms a little out from its
-  sides), turned to face the ghost, who floats up level with it in the same pose (never walking); a pale glow grows round
-  it and wisps of light spiral into it while the ghost drifts slowly into it, until they're one and settle to the ground
-  together; then everyone sees "**X has been reanimated**" across their screen (X whoever the body was). They wear a
-  small golden halo over the head and walk about exactly as its owner looked (in Daphne's body, as Daphne, with none of her abilities), moving and
+  sides), turned with its back to the ghost. The ghost floats up level with it in the same pose (never walking), facing
+  the same way and taking on the body's own shape, glowing white. A pale glow grows round the body and wisps of light
+  spiral into it while the ghost drifts slowly in from behind, easing in and easing to a stop, until the two figures lie
+  exactly over each other (nothing of one sticking out of the other) and settle to the ground together. Then everyone
+  sees "**X has been reanimated**" across their screen (X whoever the body was). They wear a
+  small golden halo over the head (smaller and half as bright as at first) and walk about exactly as its owner looked (in Daphne's body, as Daphne, with none of her abilities), moving and
   sprinting as a survivor does, with a survivor's sight, no inventory and no health bar, seen by everyone. They're told
   **you cannot use items or fight, but you can help your team repair generators**: they can't pick anything up, talk
   to an NPC, use an item or a weapon or hurt anyone; the Soundcloud Burst and Penjamin's or 50 Nic's gas still reach
@@ -672,16 +675,22 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   or a work site). All upright walls on one flat base: no stairs or ramps. Every wall is laid brick by brick
   the way brick generators lay them: bricks 0.2 x 0.088 x 0.144 m (60% smaller than before), two to the wall's depth
   (0.288 m) back to back, in running bond (each course half a brick along, the back layer a further quarter), each a
-  little uneven in length, rust-brown in five tones (every brick 10% less saturated than at first) with small shifts of hue and value, grey weathered patches spread
+  little uneven in length, rust-brown in five tones (each drawn 20% toward #9f6059 before a brick's own shifts, so
+  they sit closer together; every brick 10% less saturated than at first) with small shifts of hue and value, grey weathered patches spread
   across the face and the odd grey brick, on grey mortar set back from the faces; whole courses laid, then the holes cut
   out of them (start full, then subtract): windows with stone sills and lintels, doors with stone lintels, arches with
   a ring of radial bricks (an odd number, one at the crown) round their heads. Their tops are broken brick by brick
   along a rough profile (stepped where the bond shows), falling away to stubs at free ends and where a stretch has
   fallen; corners interlock course by course and stand tallest. Fallen bricks heap at the foot of the breaks and lie
   strewn along the walls, and one or two teeter on top. Play: the walls stop you and block sight, you walk through the
-  doorways and arches and see (not walk) through the windows, and a stretch fallen to knee height is climbed and seen
-  over like a log; the machete throws red brick chips and dust off them. Only the faces that can be seen are drawn
-  (in pieces of at most 12,000 triangles; a building's shell 40,000 at most, the big building 90,000).
+  doorways and arches, see through the windows and vault through them like a log (at the climbing pace; never an
+  NPC), the vault reaching 0.2 m past the hole either side so a body fits through (the bricks, the hole and what blocks
+  sight are unchanged), and a stretch fallen to knee height is climbed and seen over like a log; the machete throws red brick chips and dust off them. Only the faces that can be seen are drawn
+  (in pieces of at most 12,000 triangles; a building's shell 40,000 at most, the big building 90,000). Every walled
+  shell has a stone floor: the church flags down its nave, worn down the middle, a chequer in its apse following the
+  apse's angled walls, tiles in the tower's stub; the warehouse big square flags, flags in its lean-to; the house flags
+  in its main rooms and tiles in its wing. No fallen tree ever lies into a ruin: its trunk and roots are kept clear of
+  every brick wall and floor.
   - **The stone floors** (`RuinFloors`) are laid within the three structures' walls stretch by stretch, the way a
     mason lays one. Each room gets a kerb course of narrow stones round its edge (a hallway, down both sides). Inside
     that, depending on the room: flagstones of mixed lengths in staggered courses, square tiles in a grid, a chequer
@@ -729,8 +738,20 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   widths and tones (a few missing out at the end, greened by the water there, one or two broken) on three stringers
   and pairs of posts, dark and wet up to the waterline, braced crosswise underneath; a ladder runs down into the water
   at the end, beside a pair of cleats and a coil of rope.
-- **The cabins** have floors of weathered boards or of stone flags (nothing grows, lies or pokes up through them;
-  footsteps sound by the floor) and are furnished beyond the wardrobe, bed, table and chair, never crowding the doorway:
+- **The cabins** have floors of weathered boards (nothing grows, lies or pokes up through them; footsteps sound like
+  wood). The boards are 30% smaller than at first, 0.11-0.15 m wide and 0.85-1.7 m long:
+  - **Each plank its own:** honey-gold oak, a mid brown, silvered grey with weather, now and then a dark one. Each is
+    shaded along its length, slightly cupped, and the material adds wood grain running along the boards.
+  - **Detail:** some have a ringed knot, some a split running in from an end, a few a knot-hole, and the odd one has a
+    piece broken out (the dark under the floor showing). Nail heads sit at the ends.
+  - **Wear:** only where the floor stays damp (a few patches, mostly by the walls) are boards rotten, darkened and
+    water-stained, with a little moss in the wettest spots and in the splits and knots there. Most of the floor is just
+    old boards.
+
+  Bookshelves hold dull, faded books. Nothing solid ever stands in a doorway or in front of a window: the bed lies in a
+  back corner along whichever wall keeps it clear of that wall's window, the table and chair sit short of the side
+  window, and every other piece keeps clear of the doorway and of the way through each window. The cabins are furnished
+  beyond the wardrobe, bed, table and chair:
   an iron stove with its flue against the back wall, a shelf, a crate or a barrel in a corner, a rug under the table,
   papers, bottles and debris on the floor, sometimes a chair knocked over; torn, peeling striped wallpaper in some
   (strips gone or torn short, grimy along the floor), water and grime stains on the walls, a poster, a mirror or a clock,

@@ -8,7 +8,8 @@
 // laser and rounds (Vision/FxOverGround) know where the ground is the nearest thing on screen.
 // With _VISION_STONE (a ruin's stone floor) a stone's grain is laid over the vertex colours, in the mesh's own metres:
 // soft mottling a hand's width across and smaller, a fine grain, and the odd dark pit or pale fleck, each fading out
-// where it would be finer than a pixel or two (so it never shimmers).
+// where it would be finer than a pixel or two (so it never shimmers). With _VISION_WOOD (a cabin's boards, laid along x)
+// the wood's grain instead: fine wavering lines along the boards, a broader figure, the odd pore.
 Shader "Vision/LowPoly"
 {
     Properties
@@ -77,6 +78,22 @@ Shader "Vision/LowPoly"
             k *= speck > 0.965 ? lerp(1.0, 0.7, keep) : (speck < 0.02 ? lerp(1.0, 1.14, keep) : 1.0);
             return k;
         }
+
+        // Wood's grain along a board laid along x (metres): fine wavering lines the length of it, a broader figure, and the
+        // odd dark pore, the fine parts fading out where they'd be finer than a pixel or two.
+        half WoodGrain(float3 positionOS)
+        {
+            float2 p = positionOS.xz;
+            float waver = StoneNoise(float2(p.x * 1.4, p.y * 7.0)) + StoneNoise(float2(p.x * 3.1 + 7.0, p.y * 11.0)) * 0.5;
+            float lines = StoneNoise(float2(p.x * 2.4, p.y * 150.0 + waver * 9.0));
+            float figure = StoneNoise(float2(p.x * 0.9 + 5.0, p.y * 24.0 + waver * 2.0));
+            half keepLines = saturate(1.5 - fwidth(p.y * 150.0) * 1.2);
+            half keepPores = saturate(1.5 - max(fwidth(p.x * 60.0), fwidth(p.y * 300.0)) * 1.2);
+            half k = 1.0 + 0.16 * (figure - 0.5);
+            k += 0.22 * (lines - 0.5) * keepLines;
+            k *= StoneHash(floor(float2(p.x * 60.0, p.y * 300.0))) > 0.985 ? lerp(1.0, 0.65, keepPores) : 1.0;
+            return k;
+        }
         ENDHLSL
 
         Pass
@@ -90,7 +107,7 @@ Shader "Vision/LowPoly"
             #pragma vertex vert
             #pragma fragment frag
             #pragma shader_feature_local _VISION_ENTITY
-            #pragma multi_compile_local _ _VISION_STONE
+            #pragma multi_compile_local _ _VISION_STONE _VISION_WOOD
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes
@@ -106,7 +123,7 @@ Shader "Vision/LowPoly"
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
                 half4 color : COLOR;
-                #if defined(_VISION_STONE)
+                #if defined(_VISION_STONE) || defined(_VISION_WOOD)
                 float3 positionOS : TEXCOORD2;
                 #endif
             };
@@ -119,7 +136,7 @@ Shader "Vision/LowPoly"
                 o.positionWS = p.positionWS;
                 o.normalWS = TransformObjectToWorldNormal(i.normalOS);
                 o.color = i.color;
-                #if defined(_VISION_STONE)
+                #if defined(_VISION_STONE) || defined(_VISION_WOOD)
                 o.positionOS = i.positionOS.xyz;
                 #endif
                 return o;
@@ -135,6 +152,8 @@ Shader "Vision/LowPoly"
                 half3 albedo = lerp(i.color.rgb, 1.0, _Whiten) * _Tint.rgb;
                 #if defined(_VISION_STONE)
                 albedo *= StoneGrain(i.positionOS);
+                #elif defined(_VISION_WOOD)
+                albedo *= WoodGrain(i.positionOS);
                 #endif
                 // Sky light falls off on steeper faces, so slopes and hollows read through the facet shading.
                 half sky = 0.62 + 0.38 * saturate(n.y);

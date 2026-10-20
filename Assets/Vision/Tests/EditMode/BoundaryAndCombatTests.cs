@@ -339,8 +339,8 @@ namespace Vision.Tests
                             Assert.GreaterOrEqual(m.Reach(Vector2.Lerp(o.A, o.B, k / 40f), 0f), 0.98f, "no vault strip runs into a mound");
                 }
                 Assert.Greater(fallen, 0, "the map has fallen trees");
-                int ruinLows = world.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Brick Wall Ruin Low");
-                Assert.AreEqual(world.Layout.Logs.Count + fallen + ruinLows, world.Lows.Count(o => !o.Fence), "every log, fallen tree and knee-high stretch of ruin is a low obstacle");
+                int ruinLows = world.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Brick Wall Ruin Low" || t.name == "Brick Wall Ruin Vault");
+                Assert.AreEqual(world.Layout.Logs.Count + fallen + ruinLows, world.Lows.Count(o => !o.Fence), "every log, fallen tree, knee-high stretch of ruin and ruin window is a low obstacle");
 
                 // Every split-rail fence is vaulted: on the vault layer (players pass through, NPCs don't), with a vault
                 // strip. The graveyard's spiked iron fence, 20% taller, no one climbs, Zach included: on its own layer,

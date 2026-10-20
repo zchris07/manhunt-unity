@@ -5,8 +5,8 @@ using BF = Vision.World.BuildingPlan.Furn;
 namespace Vision.World
 {
     /// <summary>
-    /// The cabins' insides, lived in once and left: a floor of boards or of stone flags (nothing grows up through it), and
-    /// about a dozen things beyond the wardrobe, bed, table and chair, never crowding the doorway or each other: an iron
+    /// The cabins' insides, lived in once and left: a floor of weathered boards (nothing grows up through it), and about a
+    /// dozen things beyond the wardrobe, bed, table and chair, never crowding the doorway, a window or each other: an iron
     /// stove against the back wall, a shelf, a crate or a barrel in a corner, a rug under the table, papers, bottles and
     /// debris on the floor, sometimes a chair knocked over; wallpaper torn and peeling in some, water and grime stains on
     /// the walls, a poster, a mirror or a clock, cobwebs up in a corner, and in some, blood: a pool dragged across the
@@ -46,6 +46,9 @@ namespace Vision.World
                 if (Mathf.Abs(l.x) > hf - edge || Mathf.Abs(l.y) > hs - edge) return false;
                 // The way in from the door kept clear.
                 if (Mathf.Abs(l.y) < 0.9f + rad && l.x < -hf + 1.6f + rad) return false;
+                // And the way through every window (the middle of the back wall and of each side wall).
+                if (l.x > 0f && hf - l.x < rad + 1f && Mathf.Abs(l.y) < 0.7f + rad + 0.15f) return false;
+                if (hs - Mathf.Abs(l.y) < rad + 1f && Mathf.Abs(l.x) < 0.7f + rad + 0.15f) return false;
                 foreach (var (at, tr) in taken) if ((at - p).magnitude < rad + tr + 0.12f) return false;
                 return true;
             }
@@ -64,10 +67,10 @@ namespace Vision.World
                 return null;
             }
 
-            // The floor: boards or flags, the whole cabin (under its walls and across its doorway).
-            bool stone = Chance(0.4f);
-            CabinStoneFloors.Add(stone);
-            Piece(stone ? "Stone Floor" : "Board Floor", LowPolyModels.CabinFloor(cr, r.width, r.height, stone), parent, V(c), 0f);
+            // The floor: weathered boards, the whole cabin (under its walls and across its doorway), laid the long way (the
+            // mesh runs along its own x, the wood's grain with it).
+            CabinStoneFloors.Add(false);
+            Piece("Board Floor", LowPolyModels.BoardFloor(cr, Mathf.Max(r.width, r.height), Mathf.Min(r.width, r.height)), parent, V(c), r.width >= r.height ? 0f : 90f, WoodMaterial);
 
             // The walls' inner faces, between the corners and the door or window in each side.
             var walls = new List<(Vector2 a, Vector2 b, Vector2 n)>();
@@ -166,10 +169,11 @@ namespace Vision.World
                 Piece("Rug", LowPolyModels.Rug(cr, R(1.8f, 2.2f), R(1.3f, 1.6f)), parent, V(table, LowPolyModels.CabinFloorTop), YawTo(perp));
             }
             // A chair knocked over.
-            if (Chance(0.4f) && Spot(0.45f) is Vector2 fallen)
+            // (On its side it sprawls well past where it stands: kept a good way from windows and the door.)
+            if (Chance(0.4f) && Spot(0.75f) is Vector2 fallen)
             {
                 Piece("Chair", LowPolyModels.Chair(cr, true), parent, V(fallen, LowPolyModels.CabinFloorTop), R(0f, 360f));
-                Take(fallen, 0.45f, false);
+                Take(fallen, 0.75f, false);
             }
             // Things dropped on the floor.
             void Loose(BF kind, float size, int variant)

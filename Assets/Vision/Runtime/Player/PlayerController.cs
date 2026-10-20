@@ -187,12 +187,13 @@ namespace Vision.Player
         static readonly System.Collections.Generic.Dictionary<string, CharacterSpec> specs = new System.Collections.Generic.Dictionary<string, CharacterSpec>();
 
         /// <summary>
-        /// The model a player shows: Zach's, a survivor's, or for a ghost in a body (once it's merged with it) the look of
-        /// whoever it was: a survivor's, or the NPC's own.
+        /// The model a player shows: Zach's, a survivor's, or for a ghost taking a body (merging with it, and in it) the look
+        /// of whoever it was, a survivor's or the NPC's own (so the ghost's figure fits the body's exactly as they merge).
         /// </summary>
         public static CharacterSpec SpecFor(SimPlayer p)
         {
-            string look = p.Role == Role.Hunter ? "Zach" : p.Reanimated && p.PossessT <= 0f && !string.IsNullOrEmpty(p.BodyLook) ? p.BodyLook : "Survivor";
+            bool taking = p.Reanimated || (p.Ghost && p.Body != 0);
+            string look = p.Role == Role.Hunter ? "Zach" : taking && !string.IsNullOrEmpty(p.BodyLook) ? p.BodyLook : "Survivor";
             if (!specs.TryGetValue(look, out CharacterSpec s))
             {
                 s = look == "Zach" ? CharacterSpec.Zach() : look == "Survivor" ? CharacterSpec.Survivor() : CharacterSpec.Npc(look);
@@ -371,7 +372,8 @@ namespace Vision.Player
                 Body b = p.PossessT > 0f ? h.Sim.BodyOf(p) : null;
                 if (b != null)
                 {
-                    // Floating face to face with it, then drifting slowly into it (run on smoothly between the match's ticks).
+                    // Floating behind it, facing the way it does, then drifting slowly into it (run on smoothly between the
+                    // match's ticks).
                     if (mergingInto != b.Id)
                     {
                         mergingInto = b.Id;
@@ -381,7 +383,7 @@ namespace Vision.Player
                     float mSim = Vision.UI.CorpseViews.PossessProgress(p.PossessT);
                     mergeM = Mathf.Clamp(mergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f);
                     at = Vector2.Lerp(mergeFrom, b.Pos, Vision.UI.CorpseViews.PossessGlide(mergeM));
-                    if ((b.Pos - at).sqrMagnitude > 1e-4f) p.Facing = Mathf.Atan2(b.Pos.y - at.y, b.Pos.x - at.x);
+                    p.Facing = b.Facing;
                 }
                 else mergingInto = 0;
                 // (Kept to the playable circle, as the match keeps it.)

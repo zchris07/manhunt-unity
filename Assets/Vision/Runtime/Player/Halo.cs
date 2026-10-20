@@ -11,7 +11,9 @@ namespace Vision.Player
         // (Not "Halo": the player already carries one of those, Zach's little light at the edge of the woods.)
         const string Name = "Golden Halo";
         /// <summary>The ring's radius and thickness (metres), and how far over the top of the head it floats.</summary>
-        public const float Radius = 0.15f, Thickness = 0.022f, Above = 0.16f;
+        public const float Radius = 0.11f, Thickness = 0.016f, Above = 0.15f;
+        /// <summary>Its glow (half what it was, at the user's request).</summary>
+        public const float Glow = 0.7f;
 
         static Mesh mesh;
         static Material material;
@@ -50,7 +52,7 @@ namespace Vision.Player
             {
                 // The body's own material (so it shows only where the body does), glowing gold.
                 material = new Material(entity) { name = "Halo", hideFlags = HideFlags.HideAndDontSave };
-                if (material.HasProperty("_Emission")) material.SetFloat("_Emission", 1.6f);
+                if (material.HasProperty("_Emission")) material.SetFloat("_Emission", Glow);
                 if (material.HasProperty("_Tint")) material.SetColor("_Tint", Color.white);
             }
             var r = go.AddComponent<MeshRenderer>();

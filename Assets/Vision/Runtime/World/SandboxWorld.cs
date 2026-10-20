@@ -44,6 +44,22 @@ namespace Vision.World
         Material groundMaterial;
         Material stoneMaterial;
 
+        Material woodMaterial;
+
+        /// <summary>The cabins' board floors': the low-poly material with wood's grain laid over it, along the boards (made once, from it).</summary>
+        public Material WoodMaterial
+        {
+            get
+            {
+                if (woodMaterial == null && lowPolyMaterial != null)
+                {
+                    woodMaterial = new Material(lowPolyMaterial) { name = "LowPoly Wood" };
+                    woodMaterial.EnableKeyword("_VISION_WOOD");
+                }
+                return woodMaterial != null ? woodMaterial : lowPolyMaterial;
+            }
+        }
+
         /// <summary>The ruins' stone floors': the low-poly material with a stone's grain laid over it (made once, from it).</summary>
         public Material StoneMaterial
         {
@@ -1160,7 +1176,8 @@ namespace Vision.World
 
         /// <summary>
         /// The three cabins: plank walls, a door on one side and a window in the middle of each other side, a wardrobe
-        /// against the wall facing the door, a bed in a corner and a bare bulb.
+        /// against the door's wall beside it, a bed in a back corner along whichever wall keeps it clear of that wall's window,
+        /// a table and chair clear of the windows, and a bare bulb.
         /// </summary>
         void BuildCabins()
         {
@@ -1189,15 +1206,25 @@ namespace Vision.World
                 float wYaw = Mathf.Atan2(inward.x, inward.y) * Mathf.Rad2Deg;
                 GameObject w = Piece("Wardrobe", LowPolyModels.Wardrobe(rng), staticRoot, new Vector3(wardrobe.x, y, wardrobe.y), wYaw);
                 AddBox(w, new Vector3(0f, 0.95f, 0f), new Vector3(1f, 1.9f, 0.55f));
-                Vector2 bedAt = new Vector2(r.center.x + (inward.x >= 0f ? -1f : 1f) * (r.width * 0.5f - 0.7f), r.center.y + (inward.y >= 0f ? -1f : 1f) * (r.height * 0.5f - 1.15f));
-                GameObject bed = Piece("Bed", LowPolyModels.Bed(rng), staticRoot, new Vector3(bedAt.x, y, bedAt.y), 0f);
+                // (The cabin's own frame: f in from the door, s across; every window is in the middle of its wall.)
+                Vector2 across = new Vector2(inward.y, -inward.x);
+                bool deep = cabin.DoorSide % 2 == 0;
+                float hf = (deep ? r.height : r.width) * 0.5f, hs = (deep ? r.width : r.height) * 0.5f;
+                Vector2 At(float f, float s) => r.center + inward * f + across * s;
+                float YawAlong(Vector2 d) => Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
+                // The bed in a back corner, its length along the longer wall there, so it never stands under a window.
+                bool alongSide = hf >= hs;
+                Vector2 bedAt = alongSide ? At(hf - 1.1f, hs - 0.6f) : At(hf - 0.6f, hs - 1.1f);
+                GameObject bed = Piece("Bed", LowPolyModels.Bed(rng), staticRoot, new Vector3(bedAt.x, y, bedAt.y), YawAlong(alongSide ? inward : across));
                 AddBox(bed, new Vector3(0f, 0.3f, 0f), new Vector3(1f, 0.6f, 2f));
-                Vector2 tableAt = r.center + new Vector2(inward.y, -inward.x) * -1.2f;
+                // The table and chair over the other side, short of that side's window.
+                Vector2 tableAt = At(-0.2f, -Mathf.Min(1.3f, hs - 1.9f));
+                Vector2 chairAt = tableAt + inward * 0.7f;
                 Piece("Table", LowPolyModels.Table(rng), staticRoot, new Vector3(tableAt.x, y, tableAt.y), Range(-10f, 10f));
-                Piece("Chair", LowPolyModels.Chair(rng, rng.NextDouble() < 0.4), staticRoot, new Vector3(tableAt.x + 0.7f, y, tableAt.y), Range(0f, 360f));
+                Piece("Chair", LowPolyModels.Chair(rng, rng.NextDouble() < 0.4), staticRoot, new Vector3(chairAt.x, y, chairAt.y), Range(0f, 360f));
                 Lamp(new Vector3(r.center.x, y, r.center.y), 2.4f);
                 blocked.Add(r.center);
-                var taken = new List<(Vector2, float)> { (wardrobe, 0.6f), (bedAt, 1.15f), (tableAt, 0.75f), (tableAt + new Vector2(0.7f, 0f), 0.35f) };
+                var taken = new List<(Vector2, float)> { (wardrobe, 0.6f), (bedAt, 1.15f), (tableAt, 0.75f), (chairAt, 0.35f) };
                 FurnishCabin(cabin, y, inward, new System.Random(fittings.Next()), taken);
             }
         }
@@ -1794,9 +1821,26 @@ namespace Vision.World
         /// <summary>Trees per square metre of open ground (as the 80 m map had), about 2,900 on the 180 m map.</summary>
         public const float TreeDensity = 0.09f;
 
+        /// <summary>A fallen tree's trunk on the level's plane from its vault box: its two ends (the box's long way) and half its girth.</summary>
+        bool TrunkOf(Transform t, BoxCollider box, out Vector2 a, out Vector2 b, out float half)
+        {
+            a = b = default;
+            half = 0f;
+            if (box == null) return false;
+            Vector3 c = box.center, sz = box.size;
+            bool alongX = sz.x >= sz.z;
+            Vector3 e = alongX ? new Vector3(sz.x * 0.5f, 0f, 0f) : new Vector3(0f, 0f, sz.z * 0.5f);
+            Vector3 a3 = transform.InverseTransformPoint(t.TransformPoint(c - e)), b3 = transform.InverseTransformPoint(t.TransformPoint(c + e));
+            a = new Vector2(a3.x, a3.z);
+            b = new Vector2(b3.x, b3.z);
+            half = (alongX ? sz.z : sz.x) * 0.5f * t.lossyScale.x / Mathf.Max(1e-4f, transform.lossyScale.x);
+            return true;
+        }
+
         /// <summary>Trees: denser where the land is wooded, dead or evergreen by <see cref="Deadness"/>.</summary>
         void BuildTrees()
         {
+            FallenTrunks.Clear();
             // The woods fill the world's circle, on into the dark past the playable ring.
             int target = Mathf.RoundToInt(TreeDensity * Mathf.PI * WorldRadius * WorldRadius);
             int placed = 0;
@@ -1844,6 +1888,14 @@ namespace Vision.World
                 if (fallen)
                 {
                     Conform(go.transform, p, 1.5f, Range(0f, 360f), 0.9f, 0.05f);
+                    // Never lying into a brick ruin (its walls or its floor), roots and all.
+                    if (TrunkOf(go.transform, go.GetComponent<BoxCollider>(), out Vector2 ta, out Vector2 tb, out float th) && CrossesRuin(ta - (tb - ta).normalized * 0.8f, tb, th + 0.3f))
+                    {
+                        if (Application.isPlaying) Destroy(go);
+                        else DestroyImmediate(go);
+                        continue;
+                    }
+                    if (TrunkOf(go.transform, go.GetComponent<BoxCollider>(), out ta, out tb, out th)) FallenTrunks.Add((ta, tb, th));
                     MakeLow(go, go.GetComponent<BoxCollider>());
                     RootMound(go, LowPolyModels.DeadTreeSizes[Mathf.Clamp(fallenSize, 0, LowPolyModels.DeadTreeSizes.Length - 1)]);
                 }

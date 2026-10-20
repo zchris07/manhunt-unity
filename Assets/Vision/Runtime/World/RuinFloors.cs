@@ -28,6 +28,8 @@ namespace Vision.World
         public const float WallInset = LowPolyModels.WallThickness * 0.5f - 0.02f;
         /// <summary>The kerb course's width.</summary>
         public const float Kerb = 0.2f;
+        /// <summary>How far past a clipping outline's line (under its wall) a stone may reach.</summary>
+        public const float ClipReach = LowPolyModels.WallThickness * 0.5f - 0.015f;
 
         /// <summary>Stone tones, one set to a stretch: grey limestone, warm sandstone, blue-grey slate.</summary>
         static readonly Color[][] Palettes =
@@ -207,6 +209,10 @@ namespace Vision.World
 
         static void FieldBody(Mason m, FloorZone z, Rect r, Color tone, bool kerb)
         {
+            // (Clipped to an outline: a stone laid only if it's within it, at most tucked under its walls.)
+            if (z.Clip != null)
+                foreach (Vector2 corner in Corners(r))
+                    if (!z.InClip(corner, ClipReach)) return;
             r = Shrink(r, Joint * 0.5f);
             if (r.width < 0.05f || r.height < 0.05f) return;
             if (kerb) m.Laid.Kerbs++;
@@ -378,7 +384,7 @@ namespace Vision.World
                     if (dx < dy) p.x = p.x - a.xMin < a.xMax - p.x ? a.xMin + by : a.xMax - by;
                     else p.y = p.y - a.yMin < a.yMax - p.y ? a.yMin + by : a.yMax - by;
                 }
-                if (z.Cut && !z.Keeps(p, -0.05f)) continue;
+                if (!z.Keeps(p, -0.05f)) continue;
                 Grit(m, p, m.Ground + StoneTop, m.Chance(0.45f) ? BrickChip : tones[m.Rng.Next(tones.Length)] * 0.9f);
             }
         }
@@ -424,6 +430,8 @@ namespace Vision.World
                 for (int i = 0; i < nx; i++)
                 {
                     // (Under a cut stretch, grout only where it's well inside: the dirt shows between the edge stones.)
+                    if (z.Clip != null && !(z.InClip(new Vector2(P(i, j).x, P(i, j).z), ClipReach) && z.InClip(new Vector2(P(i + 1, j).x, P(i + 1, j).z), ClipReach)
+                        && z.InClip(new Vector2(P(i, j + 1).x, P(i, j + 1).z), ClipReach) && z.InClip(new Vector2(P(i + 1, j + 1).x, P(i + 1, j + 1).z), ClipReach))) continue;
                     if (z.Cut)
                     {
                         float d0 = Mathf.Min(Mathf.Min(z.Depth(new Vector2(P(i, j).x, P(i, j).z)), z.Depth(new Vector2(P(i + 1, j).x, P(i + 1, j).z))),

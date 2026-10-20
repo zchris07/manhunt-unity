@@ -25,11 +25,19 @@ namespace Vision.World
         public const float LowHeight = 0.9f, Gone = 0.25f;
         /// <summary>The colliders stand no taller than this (play is on the plane; it only has to stop a body).</summary>
         public const float MaxHeight = 2.3f;
+        /// <summary>
+        /// How far a window's vault reaches past the hole on either side (its collider only: the bricks, the hole and sight
+        /// stay as they are), so a body fits through it.
+        /// </summary>
+        public const float WindowVaultPad = 0.2f;
 
         enum Kind { Gap, Low, Full, Window }
 
-        /// <summary>The wall's stretches, from start to end: solid ones (windows split out, for sight) and low ones.</summary>
-        public static List<RuinSolid> Of(RuinRun run)
+        /// <summary>
+        /// The wall's stretches, from start to end: solid ones (windows split out, for sight) and low ones; with
+        /// <paramref name="windowPad"/>, each window's stretch reaching that far past its hole either side (for the colliders).
+        /// </summary>
+        public static List<RuinSolid> Of(RuinRun run, float windowPad = 0f)
         {
             const float step = 0.05f;
             float len = run.Length;
@@ -38,7 +46,7 @@ namespace Vision.World
                 float top = run.TopAt(x);
                 if (top < Gone) return Kind.Gap;
                 foreach (RuinOpening o in run.Openings)
-                    if (Mathf.Abs(x - o.Center) < o.Half)
+                    if (Mathf.Abs(x - o.Center) < o.Half + (o.Passage ? 0f : windowPad))
                     {
                         // A doorway or an arch from the ground: a way through, whatever's left above it.
                         if (o.Passage) return Kind.Gap;
@@ -130,6 +138,30 @@ namespace Vision.World
             }
             return false;
         }
+
+        /// <summary>
+        /// Whether something lying along a to b (a fallen tree's trunk and its roots) would run into a ruin: within
+        /// <paramref name="clear"/> of any of its walls, or over any of its floors.
+        /// </summary>
+        public bool CrossesRuin(Vector2 a, Vector2 b, float clear)
+        {
+            int n = Mathf.Max(2, Mathf.CeilToInt((b - a).magnitude / 0.3f));
+            for (int i = 0; i <= n; i++)
+            {
+                Vector2 p = Vector2.Lerp(a, b, i / (float)n);
+                if (OnRuinFloor(p, clear)) return true;
+                foreach (var (wa, wb) in MapRuins)
+                {
+                    Vector2 ab = wb - wa;
+                    float k = Mathf.Clamp01(Vector2.Dot(p - wa, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude));
+                    if ((wa + ab * k - p).magnitude < clear + RuinThickness * 0.5f) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The fallen trees' trunks as they lie (base, tip, half their girth), for checks.</summary>
+        public readonly List<(Vector2 a, Vector2 b, float half)> FallenTrunks = new List<(Vector2, Vector2, float)>();
 
         /// <summary>The shells sited for a layout (testing: whether every map gets its three), without building anything.</summary>
         public List<RuinArchetype> SitedRuinKinds(MapLayout layout)
@@ -319,9 +351,11 @@ namespace Vision.World
             {
                 Vector2 d = run.Dir;
                 Quaternion rot = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
-                foreach (RuinSolid s in RuinSolids.Of(run))
+                // The colliders: a window's a vault (like a log's: climbed through at the climbing pace, never by an NPC),
+                // reaching a little past its hole so a body fits through.
+                foreach (RuinSolid s in RuinSolids.Of(run, RuinSolids.WindowVaultPad))
                 {
-                    var go = new GameObject(s.Low ? "Brick Wall Ruin Low" : "Brick Wall Ruin Collider");
+                    var go = new GameObject(s.SeeThrough ? "Brick Wall Ruin Vault" : s.Low ? "Brick Wall Ruin Low" : "Brick Wall Ruin Collider");
                     go.transform.SetParent(root.transform, false);
                     go.transform.SetLocalPositionAndRotation(new Vector3(run.A.x, 0f, run.A.y), rot);
                     go.isStatic = true;
@@ -329,14 +363,22 @@ namespace Vision.World
                     var box = go.AddComponent<BoxCollider>();
                     box.center = new Vector3(xm, s.Height * 0.5f, 0f);
                     box.size = new Vector3(l, s.Height, t);
-                    if (!s.SeeThrough)
-                    {
-                        var occ = go.AddComponent<Occluder>();
-                        occ.shape = Occluder.Shape.Box;
-                        occ.size = new Vector2(l, t);
-                        occ.offset = new Vector2(xm, 0f);
-                    }
-                    if (s.Low) lows.Add((go, box));
+                    if (s.Low || s.SeeThrough) lows.Add((go, box));
+                }
+                // Sight: stopped by exactly the bricks laid (over a low stretch, seen over), never past a window's hole.
+                foreach (RuinSolid s in RuinSolids.Of(run))
+                {
+                    if (s.SeeThrough) continue;
+                    var go = new GameObject(s.Low ? "Brick Wall Ruin Sight Low" : "Brick Wall Ruin Sight");
+                    go.transform.SetParent(root.transform, false);
+                    go.transform.SetLocalPositionAndRotation(new Vector3(run.A.x, 0f, run.A.y), rot);
+                    go.isStatic = true;
+                    float xm = (s.X0 + s.X1) * 0.5f, l = s.X1 - s.X0;
+                    var occ = go.AddComponent<Occluder>();
+                    occ.shape = Occluder.Shape.Box;
+                    occ.size = new Vector2(l, t);
+                    occ.offset = new Vector2(xm, 0f);
+                    occ.low = s.Low;
                 }
                 if (register)
                 {
@@ -347,7 +389,7 @@ namespace Vision.World
                 }
             }
             root.SetActive(true);
-            // Knee-high stretches: climbed over and seen over, like a fallen log.
+            // Knee-high stretches and windows: climbed over (or through) like a fallen log.
             foreach (var (go, box) in lows) MakeLow(go, box);
             if (register)
             {

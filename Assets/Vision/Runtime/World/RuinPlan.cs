@@ -144,6 +144,31 @@ namespace Vision.World
         /// </summary>
         public bool Cut;
         public Vector2 CutA, CutB, Keep;
+        /// <summary>
+        /// An outline the stretch is clipped to (wall centre lines: a church's apse), or null: only stones within it (or under
+        /// its walls) are laid.
+        /// </summary>
+        public Vector2[] Clip;
+
+        /// <summary>
+        /// Whether a point is inside <see cref="Clip"/> (or within <paramref name="pad"/> of it; a negative pad: at least
+        /// that far inside). Always, with no clip.
+        /// </summary>
+        public bool InClip(Vector2 p, float pad = 0f)
+        {
+            if (Clip == null || Clip.Length < 3) return true;
+            bool inside = false;
+            float d = float.MaxValue;
+            for (int i = 0, j = Clip.Length - 1; i < Clip.Length; j = i++)
+            {
+                Vector2 a = Clip[i], b = Clip[j];
+                if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+                Vector2 ab = b - a;
+                float k = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude));
+                d = Mathf.Min(d, (a + ab * k - p).magnitude);
+            }
+            return pad >= 0f ? inside || d <= pad : inside && d >= -pad;
+        }
 
         /// <summary>How far inside the kept side a point is, in metres (negative past the cut line); huge if there's no cut.</summary>
         public float Depth(Vector2 p)
@@ -157,7 +182,7 @@ namespace Vision.World
 
         /// <summary>Whether a point is on this stretch (within <paramref name="pad"/> of it, past its cut line too).</summary>
         public bool Keeps(Vector2 p, float pad = 0f) =>
-            p.x >= Area.xMin - pad && p.x <= Area.xMax + pad && p.y >= Area.yMin - pad && p.y <= Area.yMax + pad && (!Cut || Depth(p) >= -pad);
+            p.x >= Area.xMin - pad && p.x <= Area.xMax + pad && p.y >= Area.yMin - pad && p.y <= Area.yMax + pad && (!Cut || Depth(p) >= -pad) && InClip(p, pad);
     }
 
     /// <summary>
@@ -218,7 +243,7 @@ namespace Vision.World
             foreach (RuinRun r in Runs) { r.A = M(r.A); r.B = M(r.B); }
             for (int i = 0; i < Outline.Count; i++) Outline[i] = M(Outline[i]);
             for (int i = 0; i < Rooms.Count; i++) Rooms[i] = MR(Rooms[i]);
-            for (int i = 0; i < Floor.Count; i++) { FloorZone z = Floor[i]; z.Area = MR(z.Area); z.CutA = M(z.CutA); z.CutB = M(z.CutB); z.Keep = M(z.Keep); Floor[i] = z; }
+            for (int i = 0; i < Floor.Count; i++) { FloorZone z = Floor[i]; z.Area = MR(z.Area); z.CutA = M(z.CutA); z.CutB = M(z.CutB); z.Keep = M(z.Keep); if (z.Clip != null) z.Clip = System.Array.ConvertAll(z.Clip, M); Floor[i] = z; }
         }
 
         /// <summary>The plan's extent (its walls' centre lines, padded by half a wall).</summary>

@@ -104,9 +104,9 @@ namespace Vision.Game
                     continue;
                 }
                 if (p.PossessT <= 0f) continue;
-                // Face to face with the body as they merge.
+                // Facing the way the body does (its back to them) as they come into it from behind.
                 Body taking = BodyOf(p);
-                if (taking != null && (taking.Pos - p.Pos).sqrMagnitude > 1e-3f) p.Facing = Mathf.Atan2(taking.Pos.y - p.Pos.y, taking.Pos.x - p.Pos.x);
+                if (taking != null) p.Facing = taking.Facing;
                 p.PossessT = Mathf.Max(0f, p.PossessT - dt);
                 if (p.PossessT <= 0f) Reanimate(p);
             }
@@ -172,6 +172,9 @@ namespace Vision.Game
             p.Move.KbT = 0f;
             b.Ghost = p.Id;
             b.Since = Time;
+            // It rises turned with its back to the ghost (facing the way from them to it), the ghost facing the same way.
+            if ((b.Pos - p.Pos).sqrMagnitude > 1e-6f) b.Facing = Mathf.Atan2(b.Pos.y - p.Pos.y, b.Pos.x - p.Pos.x);
+            p.Facing = b.Facing;
             Emit(Near(b.Pos, Balance.Net.MaxSensingRadius), new GameEvent { Kind = EventKind.Talk, A = p.Id, B = b.Id, Text = "possess", Pos = b.Pos });
             return true;
         }

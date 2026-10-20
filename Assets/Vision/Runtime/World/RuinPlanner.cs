@@ -17,7 +17,8 @@ namespace Vision.World
     /// map, each with a stone floor laid inside its walls: a big building (<see cref="RuinArchetype.Complex"/>: a long
     /// hallway from its front door, a cross hallway out to a side door, four rooms off them, a great hall at the end,
     /// nooks), a plain rectangle with part of one side fallen open (<see cref="RuinArchetype.Enclosure"/>), and half a
-    /// rectangle's frame, a U or an L (<see cref="RuinArchetype.HalfFrame"/>: two corners at most).
+    /// rectangle cut on its diagonal (<see cref="RuinArchetype.HalfFrame"/>). Every walled shell (a church, a warehouse, a
+    /// house too) has a stone floor.
     /// </summary>
     public static class RuinPlanner
     {
@@ -218,7 +219,11 @@ namespace Vision.World
                 t2.BondEnd = 0;
                 t3.BondStart = 1;
                 Open(t2, Arch(ts * 0.5f, 0.9f, 0f, 1.5f));
+                plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(t0.x - ts, t0.y, t0.x, t0.y + ts), Laying = FloorLaying.Grid });
             }
+            // Its floor: flags down the nave (worn down its middle), a chequer in the apse.
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(-hw, -hl, hw, hl), Laying = FloorLaying.Flags, Wear = 0.4f });
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(-hw, hl, hw, hl + hw), Laying = FloorLaying.Checker, Clip = pts.ToArray() });
             return plan;
         }
 
@@ -268,7 +273,10 @@ namespace Vision.World
                 l2.BondEnd = 0;
                 l3.BondStart = 1;
                 Open(l2, Door(l2.Length * 0.5f, 1.2f, 2f));
+                plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(-hw - lw, la, -hw, lb), Laying = FloorLaying.Flags });
             }
+            // Its floor: big square flags the length of the shed.
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(-hw, -hl, hw, hl), Laying = FloorLaying.Grid, Wear = 0.25f });
             return plan;
         }
 
@@ -342,6 +350,9 @@ namespace Vision.World
                 for (int k = 0; k < n; k++) Open(r, Window(r.Length * (k + 1f) / (n + 1f), 0.9f, R(rng, 0.8f, 0.95f), R(rng, 1.7f, 1.9f)), keep[r]);
             }
             foreach (RuinRun r in runs) MaybeBreach(rng, r, 0.3f);
+            // Its floor: flags in the main rooms, tiles in the wing.
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(-hw, -hd, hw, hd), Laying = FloorLaying.Flags });
+            plan.Floor.Add(new FloorZone { Area = tee ? Rect.MinMaxRect(-ww * 0.5f, hd, ww * 0.5f, hd + wd) : Rect.MinMaxRect(-hw, hd, -hw + ww, hd + wd), Laying = FloorLaying.Grid });
             return plan;
         }
 
