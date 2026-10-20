@@ -261,6 +261,14 @@ namespace Vision.Player
             Fog.Apply();
         }
 
+        /// <summary>JARVIS: the whole map shown to the survivor running it (in any match, not just testing).</summary>
+        public void RevealForJarvis()
+        {
+            if (Fog == null) return;
+            Fog.RevealAll();
+            Fog.Apply();
+        }
+
         (RectTransform mini, RectTransform full, Text name) NpcDot(int i)
         {
             while (npcDots.Count <= i)

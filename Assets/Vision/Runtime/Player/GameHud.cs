@@ -379,8 +379,8 @@ namespace Vision.Player
                     if (host != null && e.A == host.LocalId) flash = 1f;
                     break;
                 case EventKind.Jarvis:
-                    // JARVIS shows every survivor the whole map.
-                    if (host != null && host.Local != null && host.Local.Role == Role.Survivor && host.Local.JarvisT > 0f) map.RevealAll();
+                    // JARVIS shows the whole map to the survivor who set it going, and no one else.
+                    if (host != null && host.Local != null && e.A == host.LocalId && host.Local.JarvisT > 0f) map.RevealForJarvis();
                     break;
                 case EventKind.Talk:
                     // A ghost is one with a body: whose it was, across everyone's screen.

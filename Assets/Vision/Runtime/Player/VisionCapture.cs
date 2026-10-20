@@ -722,6 +722,15 @@ namespace Vision.Player
                     yield return Shot("119b_jarvis_boot");
                     yield return new WaitForSeconds(1.8f);
                     yield return Shot("119c_jarvis_running");
+                    // Its recognition: a survivor and a Zach in front of them, boxed and named as it locks on to each.
+                    {
+                        SimPlayer sd = host.SpawnDummy(Role.Survivor), zd = host.SpawnDummy(Role.Hunter);
+                        host.Sim.Teleport(sd.Id, meJ.Pos + new Vector2(-1.6f, 1.4f));
+                        host.Sim.Teleport(zd.Id, meJ.Pos + new Vector2(1.7f, 1.8f));
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot("119d_jarvis_recognition");
+                        host.ClearDummies();
+                    }
                     meJ.JarvisT = 0f;
                     host.Sim.RevealT = 0f;
                     meJ.Jarvis = 0;

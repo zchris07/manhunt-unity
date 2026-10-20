@@ -557,7 +557,13 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   ripple out from them, close about the body first and sinking to the ground, then ring after ring spreading out over
   the ground, pulsing; the light spreads out from them over the whole screen in 0.8 s, and the view zooms out 30% over
   half a second. Its reticle follows the mouse in place of the pointer, except over a menu, the full map (Tab) or the
-  inventory editor, where the pointer stays. For as long as it runs: a blue wash, a vignette and scanlines, corner brackets, panels of ticking
+  inventory editor, where the pointer stays. Its **recognition**, like face recognition software's overlay: everyone
+  and everything on the screen within 30 m (players, NPCs, weapons, items, traps, generators; never a ghost) gets a box
+  with bright brackets at its corners and a faint outline between them, a name plate under it (the name typing out as
+  the box locks on, closing in from wide while a scan line sweeps down it) and a readout over it: a match percentage
+  for people, "!! THREAT // HOSTILE" for Zach (in red), WEAPON or ITEM (and DROPPED) for things, a generator's repair
+  progress. People are cyan, weapons orange, items green, generators amber; the nearest 16 at once. The whole map is
+  shown only to the survivor who set JARVIS going (everyone else gets its screen, not the map). For as long as it runs: a blue wash, a vignette and scanlines, corner brackets, panels of ticking
   stats and metrics (uplink, satellite fix, core temperature, power, scan progress, the session counting down, the
   threat), turning range rings, a scrolling hex dump and a bank of meters; the cursor becomes a square target reticle
   with a cross in the middle (an airstrike marker); and everything on screen is outlined in blue, scanned (wherever the

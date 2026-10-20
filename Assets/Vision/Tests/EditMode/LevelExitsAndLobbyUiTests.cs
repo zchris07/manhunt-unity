@@ -292,6 +292,35 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void Jarvis_ShowsTheWholeMap_OnlyToTheSurvivorWhoSetItGoing()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.Refresh();
+            hud.SyncMap();
+            MatchHost host = MatchHost.For(world);
+            host.Begin();
+            hud.Refresh();
+            SimPlayer me = host.Local;
+            Assert.AreEqual(Role.Survivor, me.Role);
+            SimPlayer other = host.Sim.AddPlayer(77, "Other", Role.Survivor);
+            host.Sim.Place(other, me.Pos + new Vector2(3f, 0f));
+            // Someone else's JARVIS: its screen for me too, but not the map.
+            other.Jarvis = 1;
+            Assert.IsTrue(host.Sim.TryJarvis(other));
+            host.Tick(1);
+            Assert.Greater(me.JarvisT, 0f, "its screen for every survivor");
+            Assert.IsFalse(hud.Map.Fog.AllRevealed, "the whole map only for the one who set it going");
+            // My own: the whole map.
+            host.Sim.JarvisRunT = 0f;
+            me.Jarvis = 1;
+            Assert.IsTrue(host.Sim.TryJarvis(me));
+            host.Tick(1);
+            Assert.IsTrue(hud.Map.Fog.AllRevealed, "the whole map for its user");
+        }
+
+        [Test]
         public void ZachSoakedInPiss_DripsIt_AndLeavesTinyPuddlesWhereHeWalks()
         {
             SandboxWorld world = NewWorld();

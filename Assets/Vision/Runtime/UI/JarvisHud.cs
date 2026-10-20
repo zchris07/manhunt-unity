@@ -11,9 +11,10 @@ namespace Vision.UI
     /// a segmented bar fills, and it all breaks up in a glitch. Then, for as long as JARVIS runs: a blue wash and vignette
     /// with scanlines, corner brackets, panels of ticking stats and metrics (uplink, power, core temperature, scan progress,
     /// the session counting down), a pair of rotating range rings, a scrolling hex dump and a bank of meters; and the mouse
-    /// becomes a square target reticle with a cross in the middle, like marking an airstrike. All of it fades out at the end.
+    /// becomes a square target reticle with a cross in the middle, like marking an airstrike; and everyone and everything
+    /// on the screen is picked out in a recognition box (JarvisHud.Recognition). All of it fades out at the end.
     /// </summary>
-    public sealed class JarvisHud : MonoBehaviour
+    public sealed partial class JarvisHud : MonoBehaviour
     {
         public const float BootTime = 2f, FadeOut = 0.5f;
         static readonly Color Blue = new Color(0.35f, 0.8f, 1f, 1f), Bright = new Color(0.8f, 0.96f, 1f, 1f), Deep = new Color(0.02f, 0.12f, 0.24f, 1f);

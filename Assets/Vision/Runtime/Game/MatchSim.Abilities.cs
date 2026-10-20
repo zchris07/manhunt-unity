@@ -107,8 +107,9 @@ namespace Vision.Game
         }
 
         /// <summary>
-        /// JARVIS (Q, survivors with Sexton's tablet): for 20 s every survivor in the match gets all of it (its boot, its
-        /// screen, the map, everything on their screen lit and Zach shown); the tablet's ready again 90 s after it ends.
+        /// JARVIS (Q, survivors with Sexton's tablet): for 20 s every survivor in the match gets its boot, its screen (with
+        /// its recognition boxes), everything on their screen lit and Zach shown; the whole map only to the one who set it
+        /// going. The tablet's ready again 90 s after it ends.
         /// </summary>
         public bool TryJarvis(SimPlayer p)
         {

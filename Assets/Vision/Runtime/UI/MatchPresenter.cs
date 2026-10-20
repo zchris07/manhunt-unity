@@ -36,6 +36,59 @@ namespace Vision.UI
         /// <summary>JARVIS widens the view by this much for the survivor running it (eased over half a second).</summary>
         public const float JarvisZoom = 1.3f;
 
+        /// <summary>How far round the viewer (metres) JARVIS picks things out.</summary>
+        public const float JarvisScanRange = 30f;
+
+        /// <summary>
+        /// What JARVIS picks out for <paramref name="me"/>: every other player (not a ghost: they're not seen) and NPC, the
+        /// weapons and items lying about (the map's supplies, dropped ones, planted traps) and the generators, within
+        /// <see cref="JarvisScanRange"/>, each with its name, a readout and its box in the level's space.
+        /// </summary>
+        public static System.Collections.Generic.List<JarvisHud.Scan> JarvisScans(MatchSim sim, SandboxWorld world, SimPlayer me)
+        {
+            var list = new System.Collections.Generic.List<JarvisHud.Scan>();
+            if (sim == null || me == null) return list;
+            float H(Vector2 p) => world != null ? world.GroundHeight(p) : 0f;
+            void Add(int key, string name, string detail, JarvisHud.ScanKind kind, Vector2 at, float half, float height)
+            {
+                float d = Vector2.Distance(at, me.Pos);
+                if (d > JarvisScanRange) return;
+                float y = H(at);
+                list.Add(new JarvisHud.Scan { Key = key, Name = name, Detail = detail, Kind = kind, Distance = d, Lo = new Vector3(at.x - half, y, at.y - half), Hi = new Vector3(at.x + half, y + height, at.y + half) });
+            }
+            // A steady "match" figure per subject, like face recognition's confidence.
+            string Match(int id) => $"MATCH {92f + (id * 7919 % 79) / 10f:0.0}%";
+            foreach (SimPlayer p in sim.Order)
+            {
+                if (p.Id == me.Id || p.Ghost || p.Role == Role.Spectator || p.Health == Health.Eliminated || p.Health == Health.Escaped) continue;
+                bool zach = p.Role == Role.Hunter;
+                Add(1_000_000 + p.Id, zach ? "ZACH" : p.Name.ToUpperInvariant(), zach ? "!! THREAT // HOSTILE" : $"{Match(p.Id)} // SURVIVOR",
+                    zach ? JarvisHud.ScanKind.Threat : JarvisHud.ScanKind.Person, p.Pos, zach ? 0.45f : 0.38f, zach ? 2.1f : 1.85f);
+            }
+            foreach (Npc n in sim.Npcs)
+                if (n.Alive) Add(2_000_000 + n.Id, n.Name.ToUpperInvariant(), $"{Match(n.Id)} // NPC", JarvisHud.ScanKind.Person, n.Pos, 0.38f, 1.85f);
+            JarvisHud.ScanKind KindOf(ItemType t) => t == ItemType.Shotgun || t == ItemType.Pistol || t == ItemType.Sniper || t == ItemType.HempBeam ? JarvisHud.ScanKind.Weapon : JarvisHud.ScanKind.Item;
+            string What(ItemType t) => KindOf(t) == JarvisHud.ScanKind.Weapon ? "WEAPON" : "ITEM";
+            if (world != null)
+                for (int i = 0; i < world.Pickups.Count; i++)
+                {
+                    Pickup pk = world.Pickups[i];
+                    if (pk == null || (i < sim.LootTaken.Length && sim.LootTaken[i])) continue;
+                    Vector3 l = world.transform.InverseTransformPoint(pk.transform.position);
+                    Add(3_000_000 + i, Items.Name(pk.item, pk.golden).ToUpperInvariant(), $"SCAN // {What(pk.item)}", KindOf(pk.item), new Vector2(l.x, l.z), 0.22f, 0.3f);
+                }
+            foreach (DropItem dr in sim.Drops)
+                Add(4_000_000 + dr.Id, Items.Name(dr.Item, dr.Golden).ToUpperInvariant(), $"SCAN // {What(dr.Item)} // DROPPED", KindOf(dr.Item), dr.Pos, 0.22f, 0.3f);
+            foreach (Trap tr in sim.Traps)
+                Add(5_000_000 + tr.Id, "GALAXY GAS TRAP", "SCAN // ARMED", JarvisHud.ScanKind.Weapon, tr.Pos, 0.2f, 0.4f);
+            for (int i = 0; i < sim.Map.Generators.Count && i < sim.Gens.Length; i++)
+            {
+                GenState g = sim.Gens[i];
+                Add(6_000_000 + i, "GENERATOR", g.Repaired ? "STATUS // ONLINE" : $"STATUS // REPAIR {Mathf.RoundToInt(g.Progress * 100f)}%", JarvisHud.ScanKind.Generator, sim.Map.Generators[i], 0.65f, 1.1f);
+            }
+            return list;
+        }
+
         /// <summary>Who the camera follows while you are out of the match (escaped, sacrificed or spectating), or 0.</summary>
         public int Spectating { get; private set; }
 
@@ -53,6 +106,9 @@ namespace Vision.UI
             bool rebooting = jarvisBootedRun == host.Sim.JarvisUses;
             // (The pointer stays up over a menu, the full map and the inventory editor: JARVIS's reticle only over the game.)
             jarvisHud.Run(jarvisOn ? me.JarvisT : 0f, Balance.Sexton.JarvisUserSec, GameHud.PointerWanted, rebooting);
+            // Its recognition: everyone and everything on the screen boxed and named (never over a menu or the full map).
+            Camera view = cameraRig != null ? cameraRig.GetComponent<Camera>() : Camera.main;
+            jarvisHud.Recognise(jarvisOn && !GameHud.PointerWanted ? JarvisScans(host.Sim, world, me) : null, view, world != null ? world.transform : null);
             if (jarvisOn) jarvisBootedRun = host.Sim.JarvisUses;
             // Hear from where you are.
             Audio.Listener = Scale.ToUnits(1f) * me.Pos;
