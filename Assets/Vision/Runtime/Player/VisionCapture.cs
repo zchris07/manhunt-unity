@@ -563,12 +563,21 @@ namespace Vision.Player
                     float o = cameraRig.orthographicSize;
                     cameraRig.orthographicSize = o * 0.38f;
                     player.AimOverride = new Vector2(1f, 0.25f).normalized;
-                    foreach (var (item, name) in new[] { (ItemType.Shotgun, "111_hold_shotgun"), (ItemType.Pistol, "112_hold_pistol"), (ItemType.Sniper, "113_hold_sniper") })
+                    foreach (var (item, name) in new[] { (ItemType.Shotgun, "111_hold_shotgun"), (ItemType.Pistol, "112_hold_pistol"), (ItemType.Sniper, "113_hold_sniper"), (ItemType.Trap, "113b_hold_gas_canister") })
                     {
                         player.SelectedSlot = meG.Inv.FirstSlotOf(item);
                         yield return new WaitForSeconds(0.7f);
                         gameHud.Refresh();
                         yield return Shot(name);
+                    }
+                    // A galaxy gas trap standing on the ground beside them (armed, Zach nowhere near it).
+                    {
+                        var shown = new Trap { Id = host.Sim.AllocEntityId(), Pos = meG.Pos + new Vector2(Scale.D(26f), Scale.D(-8f)), Owner = meG.Id, ArmT = 0f };
+                        host.Sim.Traps.Add(shown);
+                        player.SelectedSlot = -1;
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot("113c_gas_canister_planted");
+                        host.Sim.Traps.Remove(shown);
                     }
                     // A pistol round flying out: the short bright streak and its thin dim trail.
                     player.SelectedSlot = meG.Inv.FirstSlotOf(ItemType.Pistol);
@@ -1178,6 +1187,17 @@ namespace Vision.Player
                         gameHud.PlayTestFx(TestFx.Piss);
                         yield return new WaitForSeconds(2.3f);
                         yield return Shot("171_zach_pissed_on");
+                        // Walking on with it on him: a trail of tiny puddles behind him.
+                        {
+                            Vector2 from = host.Local.Pos;
+                            for (int i = 1; i <= 14; i++)
+                            {
+                                host.Sim.Teleport(host.Local.Id, from + new Vector2(Scale.D(9f) * i, Scale.D(3f) * i));
+                                yield return new WaitForSeconds(0.08f);
+                            }
+                            yield return new WaitForSeconds(0.3f);
+                            yield return Shot("171b_zach_piss_puddles");
+                        }
                         host.Local.PissStacks = new float[0];
                         yield return Stage(player, V(L.Spawn + new Vector2(0f, 4f)), Vector2.up, wanderer, away);
                         if (target != null) host.Sim.Teleport(target.Id, z.Pos + new Vector2(0f, 3.2f));

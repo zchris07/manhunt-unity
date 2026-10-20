@@ -744,6 +744,8 @@ namespace Vision.Game
                 {
                     if (h.Role != Role.Hunter || Vector2.Distance(h.Pos, g.Pos) > r) continue;
                     h.Gassed = true;
+                    // None of his abilities while he's in it (his lunge, the Burst, Penjamin, the Hemp Battery and Beam).
+                    h.AbilityLockT = Mathf.Max(h.AbilityLockT, Balance.Items.Trap.AbilityLock);
                     h.Move.SlowT = Mathf.Max(h.Move.SlowT, 0.2f);
                     h.Move.SlowMul = Mathf.Min(h.Move.SlowMul, Balance.Items.Trap.SlowMul);
                     HurtHunter(h, Balance.Items.Trap.ZachDps * dt, null, "gas");

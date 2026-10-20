@@ -179,8 +179,9 @@ namespace Vision.Tests
         public void TheGeneratorsSound_Starts_WithTheVictoryJingle_30PercentLouder()
         {
             SoundBank.Cue gen = SoundBank.Cues["generator_done"];
-            Assert.AreEqual(0.55f * 1.3f, gen.Volume, 1e-4f, "30% louder");
-            Assert.AreEqual(0.2f, gen.DecayTo, 1e-4f, "falling off to a fifth of that (so its end is 30% louder too)");
+            Assert.AreEqual(0.55f * 1.3f * 1.2f, gen.Volume, 1e-4f, "30% and then 20% louder");
+            Assert.AreEqual(0f, gen.DecayTime, "no fading away over time: an even volume to the end of the file");
+            Assert.AreEqual(0f, gen.CutEnd, "the whole file played"); 
             Assert.Greater(gen.Start, 2f, "from the engine catching, past the file's silence and faint crank");
             Assert.IsTrue(gen.Warm, "decoded ahead, so it never waits on loading");
             Assert.IsTrue(SoundBank.Cues["victory_royale"].Warm);

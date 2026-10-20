@@ -33,7 +33,7 @@ namespace Vision.Tests
             Assert.Greater(Balance.SkillCheck.Speed, Balance.Graveyard.PickSpeeds[Balance.Graveyard.PickSpeeds.Length - 1], "still faster than the lock pick's");
             Assert.AreEqual(2.1f * 0.5f, Balance.Items.Shotgun.Stun, 1e-5f, "the shotgun stuns half as long");
             Assert.AreEqual(1100f * 0.75f, Balance.Items.Sniper.KbPeak, 1e-3f, "the 0.50 cal shoves a quarter less far");
-            Assert.AreEqual(2f, Balance.Items.Piss.BlurTime);
+            Assert.AreEqual(2f + 1f, Balance.Items.Piss.BlurTime, "a second longer than it was");
             Assert.AreEqual(Balance.Hunter.Vape.HalfAngleDeg * 1.2f, MatchSim.VapeHalfAngle(true), 1e-5f, "50 Nic's cone 20% wider");
             Assert.AreEqual(Balance.Hunter.Vape.HalfAngleDeg, MatchSim.VapeHalfAngle(false), 1e-5f, "Penjamin's as it was");
             Assert.AreEqual(1.1f, Balance.Chacko.NicRangeMul, 1e-5f, "and only 10% further");
@@ -84,7 +84,8 @@ namespace Vision.Tests
             SimPlayer zach = rig.P(1);
             zach.PissBlurT = Balance.Items.Piss.BlurTime;
             rig.Run(Secs(1f));
-            Assert.AreEqual(1f, zach.PissBlurT, 0.05f, "the blur falls off over two seconds");
+            Assert.AreEqual(3f, Balance.Items.Piss.BlurTime, 1e-4f, "three seconds: a second longer than at first");
+            Assert.AreEqual(Balance.Items.Piss.BlurTime - 1f, zach.PissBlurT, 0.05f, "the blur falls off over three seconds");
         }
 
         [Test]

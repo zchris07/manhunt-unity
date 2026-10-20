@@ -72,7 +72,8 @@ namespace Vision.Audio
             // last second and a half cut off: white noise sets in about 3.35 s into its 4.79).
             ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1.5f, Warm = true },
             // Plasma.TTV going into his gamer rage, from where he stands (a local file).
-            ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
+            // (60% softer than at first, at the user's request.)
+            ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f * 0.4f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // Anyone attacking Chacko, from the couch (a local file).
             ["chacko_attacked"] = new Cue { Prefer = new[] { "local_chacko_attacked" }, Files = new string[0], Volume = 0.9f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // A ghost taking a body (a deep, slow whoosh as it starts to rise), becoming one with it (the rush of it), and
@@ -117,13 +118,13 @@ namespace Vision.Audio
             // in it), the old hiss without it.
             ["gas"] = new Cue { Prefer = new[] { "local_gas_explosion" }, Files = new[] { "sfx100_noise_01", "sfx100_noise_02" }, Volume = 0.8f, Radius = 1600f, Start = 1.8f },
             ["stun"] = new Cue { Files = Range("impact_impactplate_heavy_", 0, 4), Volume = 0.8f, Radius = 900f },
-            // A generator started: a small diesel generator coming to life (a local file), played through once from where it
-            // stands, falling off linearly to a fifth of its volume over its first seven seconds; only those within ten feet
-            // of it hear it. It starts the moment the generator does, with the victory jingle: from the engine catching, 2.3 s
-            // into the file (past its silence and the faint crank), and decoded ahead so it never waits on loading. 30%
-            // louder than it was (its fall-off's end too). (The old machine whirr is gone.)
-            ["generator_done"] = new Cue { Prefer = new[] { "local_generator_start" }, Files = new string[0], Volume = 0.55f * 1.3f, PitchJitter = 0f, VolumeJitter = 0f,
-                Near = 30f, Radius = Vision.Game.Balance.Objectives.GeneratorHearRadius, DecayTime = 7f, DecayTo = 0.2f, Start = 2.3f, Warm = true },
+            // A generator started: a small diesel generator coming to life (a local file), played through once, all of it,
+            // from where it stands, at an even volume (no fading away over time); only those within ten feet of it hear it.
+            // It starts the moment the generator does, with the victory jingle: from the engine catching, 2.3 s into the
+            // file (past its silence and the faint crank), decoded ahead so it never waits on loading. 30% and then 20%
+            // louder than at first. (The old machine whirr is gone.)
+            ["generator_done"] = new Cue { Prefer = new[] { "local_generator_start" }, Files = new string[0], Volume = 0.55f * 1.3f * 1.2f, PitchJitter = 0f, VolumeJitter = 0f,
+                Near = 30f, Radius = Vision.Game.Balance.Objectives.GeneratorHearRadius, Start = 2.3f, Warm = true },
             ["gate"] = new Cue { Files = new[] { "sfx100_metal_03", "sfx100_metal_07" }, Volume = 1f, Radius = 3000f },
             ["note"] = new Cue { Files = new[] { "sfx100_paper_01", "sfx100_paper_02", "sfx100_paper_03" }, Volume = 0.8f, Radius = 300f },
             // The graveyard's lock and gates.

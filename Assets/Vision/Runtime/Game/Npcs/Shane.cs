@@ -7,8 +7,9 @@ namespace Vision.Game
     /// Shane Jeans (the original's shane.ts): a harmless, unkillable wanderer with a faint light. Survivors who crowd him
     /// or keep a flashlight on him alert him, and he tails that survivor as closely as he can, a beacon for Zach. He
     /// ignores Zach, can't open doors or break pallets, and gives up after a while; two bottles or a shotgun blast in one
-    /// chase shake him off, and galaxy gas makes him lose them. After anyone attacks Chacko he runs after them from wherever
-    /// he is and only gives up once he's shaken off like that (Zach shakes him off with his machete or a Soundcloud Burst).
+    /// chase shake him off, and galaxy gas makes him lose them. After a survivor attacks Chacko he runs after them from
+    /// wherever he is and only gives up once he's shaken off like that; Zach killing Chacko sets him on no one, as he's
+    /// always Zach's ally (Jaden, built on him, does go after Zach, and Zach's machete or a Soundcloud Burst shakes him off).
     /// </summary>
     public class Shane : Walker
     {
@@ -53,8 +54,8 @@ namespace Vision.Game
         {
             C = cfg;
             // No door opening: closed doors stop him.
-            // On a chase he climbs logs, fences and windows; Jaden knocks shut doors down too (his paths go through them).
-            Chaser = new Chaser(sim, cfg.Radius, BreaksDoors, true);
+            // Jaden knocks shut doors down on a chase (his paths go through them).
+            Chaser = new Chaser(sim, cfg.Radius, BreaksDoors);
             SpawnAnywhere(4f, 700f);
             State = Mode.Idle;
         }
@@ -75,7 +76,7 @@ namespace Vision.Game
         public override NpcFlags Flags => base.Flags | (State == Mode.Chase ? NpcFlags.Chasing : 0) | (State == Mode.Flee ? NpcFlags.Fleeing : 0);
         public override int GrudgeTarget => alive ? Grudge : 0;
         public override bool TripsTraps => State == Mode.Chase;
-        /// <summary>Chasing Zach for Chacko, his machete can throw Shane off.</summary>
+        /// <summary>Chasing Zach for Chacko (Jaden only), his machete can throw him off.</summary>
         public override bool Slashable => alive && State == Mode.Chase && ChasingZach;
         protected bool ChasingZach => Sim.Get(Target) is SimPlayer t && t.Role == Role.Hunter;
 
@@ -145,9 +146,14 @@ namespace Vision.Game
         public override void Avenge(MatchSim sim, SimPlayer p)
         {
             if (!alive || p == null) return;
+            // Shane is always Zach's ally: Zach killing Chacko sets him on no one (Jaden still goes after him).
+            if (p.Role == Role.Hunter && !AvengesOnZach) return;
             Grudge = p.Id;
             if (Eligible(p)) Pursue(p);
         }
+
+        /// <summary>Whether Zach himself is gone after for Chacko (Jaden; never Shane, who only ever chases survivors).</summary>
+        protected virtual bool AvengesOnZach => false;
 
         void Pursue(SimPlayer p)
         {
@@ -201,7 +207,7 @@ namespace Vision.Game
             return d > HitRadius + t.RadiusD + Scale.D(6f) ? C.Chase : 0f;
         }
 
-        /// <summary>Someone he'll follow: a survivor about (not hidden), or Zach himself when Chacko's attacker was Zach.</summary>
+        /// <summary>Someone he'll follow: a survivor about, or Zach himself when Chacko's attacker was Zach (Jaden only).</summary>
         protected virtual bool Eligible(SimPlayer p) =>
             (p.Role == Role.Survivor && !p.Ghost && (p.Health == Health.Healthy || p.Health == Health.Wounded || p.Health == Health.Downed))
             || (p.Role == Role.Hunter && p.Id == Grudge && p.Health != Health.Eliminated);
@@ -304,7 +310,6 @@ namespace Vision.Game
             Moving = speed > 0f;
             Gait = !Moving ? 0 : speed > C.Walk * 1.5f ? 2 : 1;
             if (!Moving) return;
-            Climbs = State == Mode.Chase;
             Step(speed, dt);
             // Jaden at a shut door on a chase: three punches and it's down.
             if (State == Mode.Chase && BreaksDoors && StuckT > 0f && PunchDoorAhead(dt)) return;

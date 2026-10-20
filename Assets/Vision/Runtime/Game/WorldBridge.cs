@@ -194,44 +194,15 @@ namespace Vision.Game
             return Physics.CheckCapsule(lo, hi, radius * scale, mask, QueryTriggerInteraction.Ignore);
         }
 
-        readonly Collider[] overlap = new Collider[24];
-        System.Collections.Generic.HashSet<Collider> windowParts;
-
-        /// <summary>A window's sill, glass or boards (a climbing body goes through them).</summary>
-        bool IsWindow(Collider c)
-        {
-            if (windowParts == null)
-            {
-                windowParts = new System.Collections.Generic.HashSet<Collider>();
-                foreach (WindowPiece w in world.Windows)
-                {
-                    if (w == null) continue;
-                    if (w.glass != null) windowParts.Add(w.glass);
-                    if (w.sill != null) windowParts.Add(w.sill);
-                    if (w.boards != null) foreach (Collider b in w.boards.GetComponentsInChildren<Collider>(true)) windowParts.Add(b);
-                }
-            }
-            return windowParts.Contains(c);
-        }
-
-        public bool BlockedClimbing(Vector2 p, float radius)
-        {
-            Vector3 lo = ToWorld(p, 0.4f), hi = ToWorld(p, 1.4f);
-            int climb = mask & ~((1 << SandboxWorld.LowLayer) | (1 << SandboxWorld.VaultLayer));
-            int n = Physics.OverlapCapsuleNonAlloc(lo, hi, radius * scale, overlap, climb, QueryTriggerInteraction.Ignore);
-            for (int i = 0; i < n; i++) if (!IsWindow(overlap[i])) return true;
-            return false;
-        }
-
-        readonly System.Collections.Generic.Dictionary<(int, bool, bool), NavGrid> navs = new System.Collections.Generic.Dictionary<(int, bool, bool), NavGrid>();
+        readonly System.Collections.Generic.Dictionary<(int, bool), NavGrid> navs = new System.Collections.Generic.Dictionary<(int, bool), NavGrid>();
 
         /// <summary>
         /// Built once per radius from the level's colliders (doors set open for the door-opening kind; logs, fences and
-        /// windows passable for the climbing kind), with physics in sync with the transforms.
+        /// windows, broken or not, stop every NPC), with physics in sync with the transforms.
         /// </summary>
-        public NavGrid Nav(float radiusUnits, bool doorsOpen = true, bool climbs = false)
+        public NavGrid Nav(float radiusUnits, bool doorsOpen = true)
         {
-            var key = (Mathf.RoundToInt(radiusUnits), doorsOpen, climbs);
+            var key = (Mathf.RoundToInt(radiusUnits), doorsOpen);
             if (navs.TryGetValue(key, out NavGrid n)) return n;
             var restore = new System.Collections.Generic.List<(Collider c, bool was)>();
             if (doorsOpen)
@@ -243,7 +214,7 @@ namespace Vision.Game
                     }
             Physics.SyncTransforms();
             float r = Scale.D(radiusUnits);
-            n = new NavGrid(world.halfExtent, Scale.D(25f), p => climbs ? BlockedClimbing(p, r) : Blocked(p, r));
+            n = new NavGrid(world.halfExtent, Scale.D(25f), p => Blocked(p, r));
             foreach (var (c, was) in restore) c.enabled = was;
             navs[key] = n;
             return n;

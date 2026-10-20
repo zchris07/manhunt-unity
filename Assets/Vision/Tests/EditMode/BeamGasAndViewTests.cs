@@ -77,7 +77,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void TheBeam_ShattersGlass_AndBlowsOpenADoor_TheMomentItTouchesThem()
+        public void TheBeam_ShattersGlass_AndBlowsOpenADoor_OnItsFifthTickOnEach()
         {
             var rig = new SimRig(1, 1, false, 1, m =>
             {
@@ -94,14 +94,24 @@ namespace Vision.Tests
             SimPlayer s = rig.P(2);
             rig.Place(s, 0f, 0f);
             rig.Place(rig.P(1), 0f, 2500f);
-            Beam(rig, s, 2f / Balance.Net.TickHz);
-            Assert.IsTrue(rig.Sim.WindowsBroken[0], "the glass goes at once");
-            Assert.IsTrue(rig.Sim.DoorBroken[0], "and the door the moment the beam touches it");
+            Assert.AreEqual(5, Balance.Hunter.Beam.BarrierTicks);
+            Beam(rig, s, 0.3f);
+            Assert.IsFalse(rig.Sim.WindowsBroken[0], "three ticks: the glass holds (and stops the beam)");
+            Assert.IsFalse(rig.Sim.DoorBroken[0], "the door behind it untouched");
+            Keep(rig, 0.25f);
+            Assert.IsTrue(rig.Sim.WindowsBroken[0], "the fifth tick: the glass goes");
+            Assert.IsFalse(rig.Sim.DoorBroken[0], "the door only just reached");
+            Keep(rig, 0.6f);
+            Assert.IsTrue(rig.Sim.DoorBroken[0], "and five ticks on the door: it goes");
             Assert.IsTrue(rig.Sim.Doors[0]);
         }
 
+        /// <summary>Keeps the beam going (aimed the same way) a while longer.</summary>
+        static void Keep(SimRig rig, float seconds) =>
+            rig.Run(Secs(seconds), p => new InputCmd { Aim = 0f, AimDist = 100f, Item = p.SelSlot + 1 });
+
         [Test]
-        public void TheBeam_DestroysADoorStandingOpen_AndAPallet_AtOnce_UnlockedGatesAfterAWholeCharge_NeverLockedOnes()
+        public void TheBeam_DestroysADoorStandingOpen_AndAPallet_InFiveTicks_UnlockedGatesAfterAWholeCharge_NeverLockedOnes()
         {
             // A door standing open, its panel swung out across the beam.
             var rig = new SimRig(1, 1, false, 1, m => m.Doors.Add(new SimMap.DoorDef { A = U(200, 10), B = U(200, 90), StartsOpen = true }));
@@ -109,15 +119,19 @@ namespace Vision.Tests
             rig.Place(s, 0f, 0f);
             rig.Place(rig.P(1), 0f, 2500f);
             Assert.IsTrue(rig.Sim.Doors[0], "standing open");
-            Beam(rig, s, 2f / Balance.Net.TickHz);
-            Assert.IsTrue(rig.Sim.DoorBroken[0], "the open door burned through at once");
+            Beam(rig, s, 0.25f);
+            Assert.IsFalse(rig.Sim.DoorBroken[0], "a couple of ticks: it holds");
+            Keep(rig, 0.4f);
+            Assert.IsTrue(rig.Sim.DoorBroken[0], "five: the open door burned through");
             // A pallet standing in the way.
             rig = new SimRig(1, 1, false, 1, m => m.Barricades.Add(new SimMap.BarricadeDef { A = U(250, -60), B = U(250, 60), Pos = U(250, 0) }));
             s = rig.P(2);
             rig.Place(s, 0f, 0f);
             rig.Place(rig.P(1), 0f, 2500f);
-            Beam(rig, s, 2f / Balance.Net.TickHz);
-            Assert.AreEqual(BarricadeState.Broken, rig.Sim.Barricades[0], "the pallet destroyed at once");
+            Beam(rig, s, 0.25f);
+            Assert.AreNotEqual(BarricadeState.Broken, rig.Sim.Barricades[0], "a couple of ticks: the pallet holds");
+            Keep(rig, 0.4f);
+            Assert.AreEqual(BarricadeState.Broken, rig.Sim.Barricades[0], "five: the pallet destroyed");
             // The graveyard's gates hold.
             rig = new SimRig(1, 1, false, 1, m => m.Doors.Add(new SimMap.DoorDef { A = U(300, -60), B = U(300, 60), Gate = true }));
             rig.Geo.Sight = (from, dir, max) => rig.Sim.Doors[0] ? max : Mathf.Min(max, MatchSim.RaySegment(from, dir, rig.Map.Doors[0].A, rig.Map.Doors[0].B));

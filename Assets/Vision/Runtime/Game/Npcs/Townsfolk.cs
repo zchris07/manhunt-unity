@@ -57,7 +57,7 @@ namespace Vision.Game
         public Njaaron(MatchSim sim) : base(sim, 201)
         {
             SpawnAnywhere(6f, 600f);
-            chaser = new Chaser(sim, Balance.Njaaron.Radius, true, true);
+            chaser = new Chaser(sim, Balance.Njaaron.Radius, true);
         }
 
         /// <summary>Races to <paramref name="t"/> across the map (along walkable paths, through doors) and punches them when close.</summary>
@@ -73,10 +73,8 @@ namespace Vision.Game
                 return;
             }
             Heading = chaser.Heading(Pos, t.Pos, dt, StuckT > 0.3f);
-            // On the hunt he climbs logs, fences and windows, and knocks a shut door down with three punches.
-            Climbs = true;
+            // On the hunt he knocks a shut door down with three punches.
             Step(Balance.Njaaron.Run, dt);
-            Climbs = false;
             Facing = Heading;
             Gait = 2;
             if (StuckT > 0f) PunchDoorAhead(dt);

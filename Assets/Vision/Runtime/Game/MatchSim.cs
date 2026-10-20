@@ -150,6 +150,9 @@ namespace Vision.Game
             WindowsBroken = new bool[map.Windows.Count];
             LootTaken = new bool[map.Loot.Count];
             Stakes = new int[map.Stakes.Count];
+            doorBeamTicks = new int[map.Doors.Count];
+            windowBeamTicks = new int[map.Windows.Count];
+            barricadeBeamTicks = new int[map.Barricades.Count];
             // Every generator on the map has to run (the lobby sets how many there are).
             if (Bal.RequiredGenerators != Gens.Length && Gens.Length > 0) Bal = WithGenerators(Bal, Gens.Length);
         }

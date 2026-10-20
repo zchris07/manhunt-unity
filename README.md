@@ -179,8 +179,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   escaped) or every hunter has left.
 - **Health and shield** over heads, as the original draws them: over every player you can see (yourself included) a
   health bar 5 units tall and 38 wide (46 for Zach, drawn at 60% against these slimmer models), with an ink border, a pale
-  trail draining behind fresh damage, ticks at the thirds and a green fill; a survivor with shield has a thin blue
-  shield bar above it, there only while they have shield (gone again once it's used up). A player's bars are opaque
+  trail draining behind fresh damage and a green fill, with no segment marks on it (survivors' and Zach's alike); a
+  survivor with shield has a thin blue shield bar above it (unmarked too), there only while they have shield (gone again once it's used up). A player's bars are opaque
   for five seconds after their health or shield last changed, then fade
   to 35%. NPCs your role can slay carry the same health bar (always opaque) over their heads, under their names.
   **Stamina** is the original's wide sprint bar centred above the inventory (SPRINT and the seconds left, cyan when
@@ -342,7 +342,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   then 40% and then 30% narrower again, then 50% wider (5.04 degrees either side of the aim; 50 Nic's 20% wider than that), 30% fainter to begin with, its edges
   ragged and wobbling (the cone's radius pushed in and out by a slow noise rolling with the gas); it acts where it's drawn, the cone plus the width the
   cloud has right from his mouth, so a survivor standing in it close up is still caught. It goes straight through a shield to the health bar. Galaxy gas narrows Zach's
-  light by 30% and blurs his view the same way, clearing three seconds after he's out of it. **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
+  light by 30% and blurs his view the same way, clearing three seconds after he's out of it, and while he's in it none
+  of his abilities work (the lunge, the Burst, Penjamin, the Hemp Battery and Beam; his status reads abilities off). **The gases** (Penjamin, 50 Nic, galaxy gas and the scent trail; `VolumetricGas`, the
   `Vision/Gas` shader) are volumetric smoke after Black Ops Cold War's smoke grenade: each cloud is a box over the scene
   through which the view ray is marched, gathering a participating medium whose density is the cloud's shape (a cone for
   Penjamin, a blob sitting on the ground for galaxy gas, and for the scent a thin tube from each point of the trail to
@@ -376,9 +377,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the scene, so a wall or a tree between it and the camera hides it, as it does the bullets), to the
   original's repulsor loop; the body turns with the beam and the legs keep walking while the player moves. Every
   beam, whoever fires it, takes 1 HP ten times a second from anyone it touches (Zach, or survivors, the beamer's own
-  side included; everyone has 100 HP) and gives NPCs a light hit every half second. Everything it can destroy goes the
-  moment it touches it: glass in its path shatters, a door (shut, or standing open with its panel swung across it) and
-  a pallet (standing or dropped) are destroyed; the graveyard's gates, once unlocked and shut again, give only to a whole
+  side included; everyone has 100 HP) and gives NPCs a light hit every half second. What it can destroy takes five of
+  those ticks (half a second held on it, counted up over as many beams as it takes): glass in its path stops the beam
+  until it shatters, and a door (shut, or standing open with its panel swung across it) and a pallet (standing or
+  dropped) are destroyed; the graveyard's gates, once unlocked and shut again, give only to a whole
   charge held on them (all of one beam's three seconds of firing); never locked gates or a shutter. A player's bullets and pellets only strike an NPC
   that isn't already roused (alert, armed, angry, chasing) within 1.1 times of what their own screen shows (each
   client tells the host the rectangle of ground its screen covers), so a stray round never sets off an NPC they can't
@@ -427,15 +429,20 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   shows them through the fog, as in the original.
 - **Item icons** (`ItemIcons`, `tools/icons`): every inventory slot and ability shows the original's own item art,
   rendered from its canvas drawing code: the bottle, the Grapes of Wrath, night vision goggles, the double-barrelled
-  shotgun (held in the hand as a pump-action) and golden pump, Doctor Pepper, galaxy gas as a whippit tank in a galaxy wrap, duck confit, the Mr Beast bar,
+  shotgun (held in the hand as a pump-action) and golden pump, Doctor Pepper, galaxy gas as a Galaxy Gas canister
+  (`tools/gas_icon.py`: watermelon pink over lemonade yellow with pink drips, a magenta band, the round logo and a slice
+  of watermelon, under a white dome and spout), duck confit, the Mr Beast bar,
   the mini shield as Fortnite's little flask of blue liquid, the P250, the 0.50 cal, the jar, JARVIS's tablet, the Hemp
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
   and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
-  jar passes over it, the thrown item landing there, though now only close to it: its trigger is 80% smaller than it
-  was); galaxy gas billows purple, pink and blue with twinkling stars (its cloud, and the area it works over, 15% smaller and then 15% smaller again, and 30% less opaque than it was); dropped items lie where they
+  jar passes over it, the thrown item landing there, though only close to it: its trigger is 80% smaller than it
+  was at first, then half as wide again); the trap itself is a Galaxy Gas canister standing on the ground (and held in
+  the hand), its label pink over yellow with a magenta band and pink drips, the round logo on its front, a white dome and
+  spout; galaxy gas billows purple, pink and blue with twinkling stars (its cloud, and the area it works over, 15%
+  smaller and then 15% smaller again, then 10% wider, and 30% less opaque than it was); dropped items lie where they
   fell (with models for the P250, the 0.50 cal, the jar of piss and the legendary pump). G drops the item in hand;
   holding **Tab** opens the full map and the inventory editor: drag an item onto another slot to swap them, or off the
   bar to drop its whole stack; clicking a slot takes it in hand. Empty slots are perfect squares; an item widens its
@@ -459,11 +466,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   takes it in hand they're told "Hold right click to aim". The shotgun stuns Zach half as long as at first (1.05 s). A jar
   of piss in Zach's face also runs over his view like liquid over a lens (wavering rivulets running down it, drops
   sliding down and magnifying what's under them, everything bending) and blurs it under a yellow filter, all of it
-  falling off linearly over two seconds; and soaks
+  falling off linearly over three seconds; and soaks
   him: +50% damage taken, falling off linearly to nothing over fifteen seconds, every jar adding another +50% on top
   of what's left of the others, without limit (his status shows the total and how many). He's tinted yellow all over
   (whatever he holds too) as strongly as the piss on him is fresh (a fresh splash 30% short of the full yellow), fading
-  with it. Zach's
+  with it. While it's on him small drops of it fall off him and he leaves tiny puddles of it wherever he walks (more
+  drops, and the puddles closer together, the fresher it is; the oldest dry up once there are many). Zach's
   machete throws debris off every solid thing its swing meets (up to five in a swing, each where it was struck),
   by what it's made of (read from what was struck):
   wood throws long splinters, bark chips and sawdust (and cracks: local sounds cut from five wood breaks); stone grey
@@ -527,9 +535,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   from the couch for everyone near. Only Jaden Nguyen, Plasma.TTV, Njaaron and Shane Jeans are set off by his death,
   whoever killed him; no other NPC is touched by it in any way. Njaaron, Jaden and Plasma race after them from
   wherever they are on the map with no time limit, each until he's dealt them a third of their health himself, or
-  they're down (by anything), or he's slain, not giving up for time, distance or anyone else attacking them; Shane runs
-  after them until he's stunned and driven off (two bottles, a shotgun blast or galaxy gas; Zach shakes him off with his
-  machete or a Soundcloud Burst), tailing them even while they're down. Every
+  they're down (by anything), or he's slain, not giving up for time, distance or anyone else attacking them (Zach shakes
+  Jaden off with his machete or a Soundcloud Burst); Shane runs after a survivor who killed him until he's stunned and
+  driven off (two bottles, a shotgun blast or galaxy gas), tailing them even while they're down, but never after Zach:
+  he's always Zach's ally. Every
   NPC carries a faint light, as in the original. Their looks: Sexton a white man with blond hair; Thomas white with
   grey hair; Plasma a tall white man with light brown hair (the beast stays purple); Waz a tall Indian man with curly
   hair and a short goatee; Soham a tall Indian man with a bowl cut; Njaaron a slightly muscular Asian man; Jaden an
@@ -565,7 +574,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   model) whose paper glows faintly, with a soft glint pulsing over each in your light every couple of seconds; once
   seen, the minimap and full map show each by its own icon (a sheet of old paper with a photo pinned to it,
   `tools/note_icon.py`). Zach's map shows every stake
-  in play.
+  in play; a survivor's shows each once they've found it.
 - **Miga Sushi and the Diddy Chamber** (`SandboxWorld.Places`): two buildings out on the edge of the playable map,
   far apart, each on flattened ground with its doorway facing in toward the middle, walled (blocking movement, sight
   and shots) and lit inside; nothing grows or lies about inside them (no grass, plants, stones, rocks or trees). Miga
@@ -662,9 +671,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   they never show who's in them (players only ever see who's in their own light).
 - **Name tags and bars** over NPCs and other players show only while the player can actually see them (in their own
   light, as the vision mask shows entities), testing mode included.
-- **NPCs on a chase** (Shane, Jaden, Plasma in his rage, Njaaron on the hunt) climb over fallen logs and fences and
-  through windows, smashing any glass, at a survivor's climbing pace, and path over them. Jaden, Njaaron and Plasma
-  knock a shut door down when it's in their way: three punches and it's down for good.
+- **NPCs never climb**: a fallen log, a fence or a window, broken or not, stops every one of them, on a chase or not,
+  and they path around. Jaden, Njaaron and Plasma on a chase knock a shut door down when it's in their way: three
+  punches and it's down for good.
 - **Testing mode**: a staked survivor (a dummy too) dies when the stake's time runs out, leaving their body.
 - **Night vision** widens the beam as it comes on, never snapping to it: the angle opens out as the see-through light
   lengthens, all the way by the time the light passes the side of the screen.
@@ -698,10 +707,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Sounds** (local files, kept out of git): a jingle for everyone when a generator starts or someone escapes; and, in
   place of the old machine whirr, a small diesel generator coming to life where it stands, starting the moment the
   generator does, with the jingle (from the engine catching, past its file's silence and faint crank, and decoded
-  ahead so it never waits on loading), 30% louder than at first, played through once, falling off linearly to a fifth
-  of that over its first seven seconds and heard only within ten feet of it; the
+  ahead so it never waits on loading), 30% louder than at first and then 20% louder again, played right through to the
+  end of its file at that volume, never falling off, and heard only within ten feet of it; the
   gas explosion (from 1.8 s into its file) when a galaxy gas trap goes off; the gamer smash as Plasma.TTV goes into his
-  rage; a clip from Chacko's couch when anyone attacks him. The jingle stops a second and a half before its file ends
+  rage (60% softer than at first); a clip from Chacko's couch when anyone attacks him. The jingle stops a second and a half before its file ends
   (white noise sets in after that). The machete's slash into someone is a quarter as loud as it was at first (halved
   twice); the Half-Life metal clanks are 40% softer than at first.
   Sounds can start part way into their file, decay over time, fall away at the end or be cut short
@@ -868,7 +877,7 @@ ditches and packed dirt on the paths.
 - **Props** (`PropModels`): separate meshes of at most 130 triangles (machete, pump-action shotgun, golden pump (both
   pumps' forends their own pieces, sliding back and forward as the pump is worked),
   P250, 0.50 cal, flashlight, magnifier, tablet, controller, bottle, book, jar, can, bar, the mini shield's flask, the
-  galaxy gas tank, night vision goggles) held on hand sockets, or worn on the face; guns sit in the fist as in a real
+  Galaxy Gas canister, night vision goggles) held on hand sockets, or worn on the face; guns sit in the fist as in a real
   hand, the barrel along the forearm.
 - **Facing**: the body faces the cursor at once. The legs walk the way the player moves (backwards when that is behind
   the aim) and the spine and chest take the whole turn toward the aim, the legs dragged round when the aim swings past

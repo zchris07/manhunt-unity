@@ -450,12 +450,10 @@ namespace Vision.Tests
             chacko.Slash(rig.Sim, zach, 1);
             Assert.IsFalse(chacko.Alive);
             Assert.IsTrue(rig.Sim.Events.Any(e => e.Kind == EventKind.Talk && e.Text == "chacko_attacked"), "the clip for anyone near");
-            foreach (Npc n in new Npc[] { njaaron, jaden, shane })
+            foreach (Npc n in new Npc[] { njaaron, jaden })
                 Assert.AreEqual(zach.Id, n.GrudgeTarget, $"{n.Name} goes after Zach for it");
-            Assert.IsTrue(shane.Chasing && shane.Target == zach.Id, "Shane runs to him");
-            shane.Slash(rig.Sim, zach, 1);
-            Assert.IsFalse(shane.Chasing, "Zach's machete throws Shane off");
-            Assert.AreEqual(0, shane.GrudgeTarget);
+            Assert.AreEqual(0, shane.GrudgeTarget, "never Shane: he's always Zach's ally");
+            Assert.IsFalse(shane.Chasing && shane.Target == zach.Id);
         }
 
         [Test]
@@ -540,7 +538,9 @@ namespace Vision.Tests
             var chacko = new Chacko(rig.Sim);
             rig.Sim.Npcs.Add(chacko);
             rig.Sim.Teleport(zach.Id, chacko.Pos + SimRig.U(40f, 0f));
-            var four = new List<Npc> { Add(rig, new Njaaron(rig.Sim), 1500f, 1500f), Add(rig, new Jaden(rig.Sim), -1500f, 1500f), Add(rig, new Plasma(rig.Sim), 1500f, -900f), Add(rig, new Shane(rig.Sim), 1200f, 0f) };
+            var four = new List<Npc> { Add(rig, new Njaaron(rig.Sim), 1500f, 1500f), Add(rig, new Jaden(rig.Sim), -1500f, 1500f), Add(rig, new Plasma(rig.Sim), 1500f, -900f) };
+            // (Shane, always Zach's ally, goes after a survivor who kills Chacko, never Zach.)
+            var shane = Add(rig, new Shane(rig.Sim), 1200f, 0f);
             var others = new List<Npc>
             {
                 Add(rig, new Marc(rig.Sim), 900f, 900f), Add(rig, new Waz(rig.Sim), -900f, 900f), Add(rig, new Thomas(rig.Sim), 900f, -900f),
@@ -553,6 +553,8 @@ namespace Vision.Tests
             chacko.Slash(rig.Sim, zach, 1);
             Assert.IsFalse(chacko.Alive);
             foreach (Npc n in four) Assert.AreEqual(zach.Id, n.GrudgeTarget, $"{n.Name} goes after Zach");
+            Assert.AreEqual(0, shane.GrudgeTarget, "Shane never goes after Zach");
+            Assert.IsFalse(shane.Chasing);
             foreach (Npc n in others)
             {
                 Assert.AreEqual(0, n.GrudgeTarget, $"{n.Name} isn't after anyone");
@@ -655,9 +657,8 @@ namespace Vision.Tests
             CollectionAssert.AreEqual(new[] { "local_generator_start" }, gen.Prefer, "the diesel generator in place of the old whirr");
             Assert.AreEqual(0, gen.Files.Length, "nothing else");
             Assert.AreEqual(1f, Audio.AudioManager.Envelope(gen, 0f, 60f), 1e-4f);
-            Assert.AreEqual(0.6f, Audio.AudioManager.Envelope(gen, 3.5f, 60f), 1e-3f, "falling off linearly");
-            Assert.AreEqual(0.2f, Audio.AudioManager.Envelope(gen, 7f, 60f), 1e-4f, "to a fifth over seven seconds");
-            Assert.AreEqual(0.2f, Audio.AudioManager.Envelope(gen, 40f, 60f), 1e-4f, "then held to the end");
+            Assert.AreEqual(1f, Audio.AudioManager.Envelope(gen, 3.5f, 60f), 1e-4f, "no falling off");
+            Assert.AreEqual(1f, Audio.AudioManager.Envelope(gen, 40f, 60f), 1e-4f, "full to the end of the clip");
             Assert.AreEqual(3.048f / 0.03f, gen.Radius, 0.01f, "heard within ten feet");
             var voice = Audio.SoundBank.Cues["jarvis_voice"];
             Assert.AreEqual(1f, Audio.AudioManager.Envelope(voice, 5f, 10f), 1e-4f);

@@ -257,6 +257,8 @@ namespace Vision.Audio
             s.loop = false;
             s.pitch = pitch;
             s.time = start;
+            // A long file played through (the generator starting up) is never the voice dropped when too many play at once.
+            if (cue.Warm) s.priority = 8;
             // (A cue cut short stops that long before the file's end.)
             float end = Mathf.Max(start + 0.05f, clip.length - Mathf.Max(0f, cue.CutEnd));
             var tr = new Tracked { Source = s, At = at, Volume = volume, Near = near, Radius = radius, Started = Time.unscaledTime, Start = start, End = end, Cue = cue };
@@ -486,7 +488,9 @@ namespace Vision.Audio
                 Tracked tr = tracked[i];
                 // Cut short: stopped at its end, before the file's.
                 if (tr.Source != null && tr.Source.isPlaying && tr.Cue != null && tr.Cue.CutEnd > 0f && tr.Source.time >= tr.End) tr.Source.Stop();
-                if (tr.Source == null || (!tr.Source.isPlaying && now - tr.Started > 0.2f))
+                // (Gone once it's stopped playing: a moment's grace to start, longer while its file is still loading.)
+                bool loading = tr.Source != null && tr.Source.clip != null && tr.Source.clip.loadState == AudioDataLoadState.Loading;
+                if (tr.Source == null || (!tr.Source.isPlaying && now - tr.Started > (loading ? 5f : 0.2f)))
                 {
                     if (tr.Source != null) Destroy(tr.Source.gameObject);
                     tracked.RemoveAt(i);

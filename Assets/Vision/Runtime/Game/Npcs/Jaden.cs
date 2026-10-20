@@ -88,6 +88,9 @@ namespace Vision.Game
             base.Avenge(sim, p);
         }
 
+        /// <summary>(Jaden goes after Zach too, if Zach killed Chacko; Shane never does.)</summary>
+        protected override bool AvengesOnZach => true;
+
         /// <summary>(A Soundcloud Burst stuns him when he's aggressive, as before; it doesn't throw him off as it does Shane.)</summary>
         public override void BurstHit(MatchSim sim, SimPlayer by) { }
 

@@ -57,7 +57,7 @@ namespace Vision.Game
 
         public Plasma(MatchSim sim) : base(sim, 104)
         {
-            chaser = new Chaser(sim, Balance.Plasma.Radius, true, true);
+            chaser = new Chaser(sim, Balance.Plasma.Radius, true);
             SpawnAnywhere(Balance.Plasma.BeastRadius - Balance.Plasma.Radius + 6f, 700f);
         }
 
@@ -305,8 +305,7 @@ namespace Vision.Game
             Moving = speed > 0f;
             Gait = !Moving ? 0 : State == Mode.Rage ? 2 : 1;
             if (!Moving) return;
-            // In his rage (a chase) he climbs logs, fences and windows, and knocks a shut door down with three punches.
-            Climbs = State == Mode.Rage;
+            // In his rage (a chase) he knocks a shut door down with three punches.
             Step(speed, dt);
             if (State != Mode.Rage || GasT > 0f) Facing = Heading;
             if (StuckT > 0f && State == Mode.Rage && PunchDoorAhead(dt)) return;

@@ -27,40 +27,29 @@ namespace Vision.Tests
         static Vector2 U(float x, float y) => SimRig.U(x, y);
 
         [Test]
-        public void OnAChase_ShaneClimbsAFenceAndAWindow_SmashingItsGlass_ButNotWhenHesOnlyWalking()
+        public void NoNpc_GoesOverAFence_OrThroughABrokenWindow_EvenOnAChase()
         {
-            // A long fence (climbable) between Shane and a survivor, a window in it.
-            var rig = new SimRig(1, 1, false, 1, m => m.Windows.Add(new SimMap.WindowDef { A = U(0f, -40f), B = U(0f, 40f) }));
-            rig.Geo.Climbables.Add((U(0f, -3000f), U(0f, 3000f), Scale.D(6f)));
-            SimPlayer s = rig.P(2);
-            rig.Place(rig.P(1), -2500f, 2500f);
-            rig.Place(s, 320f, 0f);
-            var shane = new Shane(rig.Sim) { Pos = U(-320f, 0f) };
-            rig.Sim.Npcs.Add(shane);
-            Assert.IsTrue(rig.Geo.Blocked(U(0f, 0f), Scale.D(10f)) && !rig.Geo.BlockedClimbing(U(0f, 0f), Scale.D(10f)), "the fence stops a body that doesn't climb");
-            shane.Avenge(rig.Sim, s);
-            Assert.IsTrue(shane.Chasing);
-            bool climbed = false;
-            for (int i = 0; i < Secs(6f) && shane.Pos.x < U(60f, 0f).x; i++)
+            // A long fence between them, a window in it already smashed (its sill still stands, as a fence does).
+            foreach (bool chasing in new[] { true, false })
             {
-                rig.Run(1);
-                climbed |= (shane.Flags & NpcFlags.Climbing) != 0;
-            }
-            Assert.Greater(shane.Pos.x, 0f, "over it, after them");
-            Assert.IsTrue(climbed, "climbing as he goes over");
-            Assert.IsTrue(rig.Sim.WindowsBroken[0], "the window's glass smashed as he went through");
-
-            // Walking (no chase), the fence stops him.
-            var rig2 = new SimRig(1, 1);
-            rig2.Geo.Climbables.Add((U(0f, -3000f), U(0f, 3000f), Scale.D(6f)));
-            rig2.Place(rig2.P(1), -2500f, 2500f);
-            rig2.Place(rig2.P(2), 2500f, 2500f);
-            var walker = new Shane(rig2.Sim) { Pos = U(-40f, 0f) };
-            rig2.Sim.Npcs.Add(walker);
-            for (int i = 0; i < Secs(20f); i++)
-            {
-                rig2.Run(1);
-                Assert.Less(walker.Pos.x, 0f, "a fence he only climbs on a chase");
+                var rig = new SimRig(1, 1, false, 1, m => m.Windows.Add(new SimMap.WindowDef { A = U(0f, -40f), B = U(0f, 40f) }));
+                rig.Geo.Walls.Add((U(0f, -3000f), U(0f, 3000f), Scale.D(6f)));
+                rig.Sim.BreakWindow(0);
+                SimPlayer s = rig.P(2);
+                rig.Place(rig.P(1), -2500f, 2500f);
+                rig.Place(s, 320f, 0f);
+                var shane = new Shane(rig.Sim) { Pos = U(-60f, 0f) };
+                rig.Sim.Npcs.Add(shane);
+                if (chasing)
+                {
+                    shane.Avenge(rig.Sim, s);
+                    Assert.IsTrue(shane.Chasing);
+                }
+                for (int i = 0; i < Secs(10f); i++)
+                {
+                    rig.Run(1);
+                    Assert.Less(shane.Pos.x, 0f, chasing ? "never over it or through the window, however hard he chases" : "never over it, walking");
+                }
             }
         }
 

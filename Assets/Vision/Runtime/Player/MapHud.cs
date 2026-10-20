@@ -64,6 +64,13 @@ namespace Vision.Player
 
         public FogOfWar Fog { get; private set; }
         public bool FullOpen => full.activeSelf;
+
+        /// <summary>Whether something (a stake, a supply, a note...) is marked on the map now (tests).</summary>
+        public bool Marks(Object key) => icons.ContainsKey(key);
+        /// <summary>Brings the map's marks up to date at once (tests).</summary>
+        public void RefreshIcons() => UpdateIcons(MiniPx / MiniSpan, FullPx / (2f * world.MapExtent));
+        /// <summary>Who knows every stake from the start (Zach); everyone else marks each one once they've found it.</summary>
+        public static bool StakesAlwaysKnown(Vision.Game.Role role) => role == Vision.Game.Role.Hunter;
         public RectTransform FullMapRect => fullMap;
 
         public MapHud(Transform root, Font font)
@@ -468,15 +475,18 @@ namespace Vision.Player
             // The hatch, once it's open (black ringed with blue), shut by Zach (dark grey).
             if (world.Hatch != null && (world.Hatch.Open || world.Hatch.Closed))
                 Show(world.Hatch, world.Layout.Hatch, world.Hatch.Open ? new Color(0.45f, 0.75f, 1f) : new Color(0.3f, 0.3f, 0.32f), new Vector2(11f, 11f), false, true);
-            // Zach knows where every stake in play stands.
+            // Zach knows where every stake in play stands; survivors mark each one once they've found it.
             Vision.Game.MatchHost host = Vision.Game.MatchHost.For(world);
-            if (host != null && host.Local != null && host.Local.Role == Vision.Game.Role.Hunter)
+            if (host != null && host.Local != null)
+            {
+                bool zach = StakesAlwaysKnown(host.Local.Role);
                 foreach (Transform t in world.Stakes)
                 {
                     if (t == null || !t.gameObject.activeSelf) continue;
                     Vector3 lp = world.transform.InverseTransformPoint(t.position);
-                    Show(t, new Vector2(lp.x, lp.z), new Color(1f, 0.23f, 0.35f), new Vector2(8f, 8f), false, true);
+                    Show(t, new Vector2(lp.x, lp.z), new Color(1f, 0.23f, 0.35f), new Vector2(8f, 8f), false, zach);
                 }
+            }
             // A ghost that can still take a body sees where the bodies lie (pale discs).
             var corpses = world.GetComponent<Vision.UI.CorpseViews>();
             if (host != null && host.Sim != null && host.Local != null && host.Local.FreeGhost && !host.Local.Spent && corpses != null)

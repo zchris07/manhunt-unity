@@ -298,6 +298,7 @@ namespace Vision.UI
                 LungeLines(p);
             }
             BladeTrails(sim);
+            PissDrips(sim);
             DrawRipples(sim);
             DrawWaves(sim);
             DrawVapes(sim);

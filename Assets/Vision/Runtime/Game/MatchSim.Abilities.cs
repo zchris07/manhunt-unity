@@ -381,6 +381,17 @@ namespace Vision.Game
 
         static bool BeamUsable(SimPlayer h) => h.Role == Role.Hunter ? AbilitiesOn(h) : h.Role == Role.Survivor && h.CanAct;
 
+        /// <summary>The beam's ticks each door, window and pallet has taken (it gives at <see cref="Balance.Hunter.Beam.BarrierTicks"/>).</summary>
+        int[] doorBeamTicks, windowBeamTicks, barricadeBeamTicks;
+
+        /// <summary>Adds this frame's ticks to what a barrier has taken; true once that's enough to break it.</summary>
+        bool BeamWears(int[] taken, int i, int ticks)
+        {
+            if (i < 0 || i >= taken.Length) return true;
+            taken[i] += ticks;
+            return taken[i] >= Balance.Hunter.Beam.BarrierTicks;
+        }
+
         /// <summary>Hemp Beam (R): Sexton's own beam along the aim, swinging slowly; single-use charges with a short cooldown.</summary>
         void TryBeam(SimPlayer h, float aim)
         {
@@ -453,10 +464,11 @@ namespace Vision.Game
 
         /// <summary>
         /// The beam runs until it meets something solid or a person, and hurts whoever it touches: Zach or a survivor, the
-        /// beamer's own side too (1 HP ten times a second). What it can destroy goes the moment it touches it (the user's
-        /// rule): glass shatters and it carries on through the empty frame; a door (shut or standing open) and a pallet
-        /// (standing or dropped) are destroyed. The graveyard's gates, unlocked and shut again, take a whole charge: held on
-        /// them for all of one beam's firing, they give (locked, they hold; shutters never give).
+        /// beamer's own side too (1 HP ten times a second). What it can destroy gives to the fifth of its ticks on it (half
+        /// a second, the user's rule): a window's glass (which stops it till then; then it carries on through the empty
+        /// frame), a door (shut or standing open), a pallet (standing or dropped). The graveyard's gates, unlocked and shut
+        /// again, take a whole charge: held on them for all of one beam's firing, they give (locked, they hold; shutters
+        /// never give).
         /// </summary>
         void FireBeam(SimPlayer h, int ticks, float dt)
         {
@@ -464,17 +476,22 @@ namespace Vision.Game
             Vector2 s = h.Pos + d * (h.RadiusD + R(2f));
             float range = R(Balance.Sexton.Defense.BeamRange);
             float wall = Mathf.Min(Geo.CastSight(s, d, range), range);
+            float len = wall;
             for (int guard = 0; guard < 8; guard++)
             {
                 float t = WindowHit(s, d, wall, out int win);
                 if (win < 0) break;
+                if (!BeamWears(windowBeamTicks, win, ticks))
+                {
+                    len = Mathf.Min(len, t);
+                    break;
+                }
                 BreakWindow(win);
                 Noise(s + d * t, 800f, "glass");
             }
-            float len = wall;
-            // What it can destroy goes the moment it touches it: a shut door at its end, a door standing open (its panel
-            // swung out from the hinge), a pallet (standing or dropped) it crosses; the graveyard's gates, unlocked and shut
-            // again, only after a whole charge on them; never a locked gate or a shutter.
+            // What it can destroy gives to its fifth tick: a shut door at its end, a door standing open (its panel swung out
+            // from the hinge), a pallet (standing or dropped) it crosses; the graveyard's gates, unlocked and shut again,
+            // only after a whole charge on them; never a locked gate or a shutter.
             int onGate = -1;
             for (int i = 0; i < Map.Doors.Count; i++)
             {
@@ -503,6 +520,7 @@ namespace Vision.Game
                     onGate = i;
                     continue;
                 }
+                if (!BeamWears(doorBeamTicks, i, ticks)) continue;
                 SetDoor(i, true);
                 DoorBroken[i] = true;
                 Noise(s + d * Mathf.Min(hitT, len), 900f, "door_smash");
@@ -531,6 +549,7 @@ namespace Vision.Game
                 if (Barricades[i] == BarricadeState.Broken) continue;
                 float t = RaySegment(s, d, Map.Barricades[i].A, Map.Barricades[i].B);
                 if (t > len + R(6f)) continue;
+                if (!BeamWears(barricadeBeamTicks, i, ticks)) continue;
                 SetBarricade(i, BarricadeState.Broken);
                 Noise(s + d * Mathf.Min(t, len), 700f, "smash");
             }

@@ -158,8 +158,10 @@ namespace Vision.Game
                 /// <summary>(Five charges, the original's three and two more, at the user's request.)</summary>
                 public const int Charges = 5;
                 // Every beam, whoever fires it, takes 1 HP of anyone it touches ten times a second (the user's rule; the
-                // original's Zach beam took 3% of a survivor's health a tick). Anything it can destroy goes the moment it touches it.
+                // original's Zach beam took 3% of a survivor's health a tick).
                 public const float Cooldown = 2f, Windup = 1f, ZachTickDamage = 0.01f, NpcHitEvery = 0.5f, TickRate = 10f, TickDamage = 0.01f;
+                /// <summary>A door, a window or a pallet gives to the fifth of the beam's ticks on it (half a second).</summary>
+                public const int BarrierTicks = 5;
                 public const float AudioRadius = 1400f, AudioNear = 200f, AudioCurve = 1.5f, AudioVolume = 1f;
             }
 
@@ -212,7 +214,7 @@ namespace Vision.Game
             /// A splash on Zach: +50% damage taken, falling off linearly to nothing over fifteen seconds; every splash adds
             /// another on top of what's left of the others, without limit.
             /// </summary>
-            public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 15f, BlurTime = 2f; }
+            public static class Piss { public const float Speed = 760f, HitRadius = 10f, Mul = 1.5f, Time = 15f, BlurTime = 2f + 1f; }
 
             public const float AnywhereShare = 0.3f;
             public const float UseSlow = 0.5f, UseSlowTime = 0.8f;
@@ -245,8 +247,10 @@ namespace Vision.Game
 
             public static class Trap
             {
-                // The trigger 80% smaller than it was; the cloud 15% smaller.
-                public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f * 0.2f, GasRadius = HunterWidth * 10f * 0.65f * 0.85f * 0.85f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
+                // The trigger 80% smaller than it was, then half as wide again; the cloud 15% smaller, then 10% wider.
+                public const float PlantTime = 2f, TriggerRadius = HunterWidth * 5f * 0.2f * 1.5f, GasRadius = HunterWidth * 10f * 0.65f * 0.85f * 0.85f * 1.1f, ArmTime = 1f, GasTime = 7f, SpreadTime = 0.5f, SlowMul = 0.5f, ZachDps = 2f;
+                /// <summary>Zach in the gas can use none of his abilities (the lock lingers this long after he's out of it).</summary>
+                public const float AbilityLock = 0.25f;
                 /// <summary>Zach's vision cone in the gas is this much narrower (the user's rule); the blur that follows clears over BlurAfter s (3: a second longer than at first).</summary>
                 public const float ZachConeCut = 0.3f, BlurAfter = 2f + 1f;
                 /// <summary>An armed trap a shot or a thrown item passes over (within the trap's own size) bursts.</summary>
@@ -306,7 +310,7 @@ namespace Vision.Game
         /// survivor's climbing pace; Jaden, Njaaron and Plasma knock a shut door down with <see cref="DoorPunches"/> punches,
         /// one every <see cref="DoorPunchEvery"/> s.
         /// </summary>
-        public static class NpcChase { public const int DoorPunches = 3; public const float DoorPunchEvery = 0.6f, ClimbMul = Survivor.WindowClimbMul; }
+        public static class NpcChase { public const int DoorPunches = 3; public const float DoorPunchEvery = 0.6f; }
 
         public static class Ghost { public const float RespawnDelay = 4f, PossessTime = 3.6f, FallTime = 0.6f, Reach = 70f, HelpShare = 2f / 3f; }
 

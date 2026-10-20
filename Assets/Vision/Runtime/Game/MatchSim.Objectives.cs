@@ -211,8 +211,8 @@ namespace Vision.Game
         /// <summary>
         /// Someone attacked Chacko (a survivor, or Zach killing him): Njaaron, Jaden and Plasma race after them from wherever
         /// they are, with no time limit, and keep at them until each has dealt them a third of their health himself, or he's
-        /// slain, or they're down (by anything); Shane runs after them until he's stunned and driven off (two bottles, a
-        /// shotgun blast or galaxy gas; Zach's machete or Soundcloud Burst). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
+        /// slain, or they're down (by anything); Shane runs after them (a survivor only: he's always Zach's ally) until he's
+        /// stunned and driven off (two bottles, a shotgun blast or galaxy gas). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
         /// Those four only (the user's rule): no other NPC is touched by it.
         /// </summary>
         public void Avenge(SimPlayer target)

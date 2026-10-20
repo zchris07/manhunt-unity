@@ -269,6 +269,69 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void Survivors_MarkTheStakesTheyFind_OnTheMap_AndTheHeadBarsHaveNoSegmentMarks()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.StartTesting(false);
+            MatchHost host = MatchHost.For(world);
+            if (host.Local.Role == Role.Hunter) host.CycleRole();
+            Assert.AreEqual(Role.Survivor, host.Local.Role);
+            hud.Refresh();
+            hud.SyncMap();
+            hud.Map.RefreshIcons();
+            // (Testing mode shows the whole map: every stake found.)
+            var stakes = world.Stakes.Where(t => t != null && t.gameObject.activeSelf).ToList();
+            Assert.Greater(stakes.Count, 0);
+            foreach (Transform t in stakes) Assert.IsTrue(hud.Map.Marks(t), "a stake found: marked on the survivor's map");
+            Assert.IsFalse(MapHud.StakesAlwaysKnown(Role.Survivor), "a survivor marks each only once it's found");
+            Assert.IsTrue(MapHud.StakesAlwaysKnown(Role.Hunter), "Zach knows them all from the start");
+            // The bars over heads: no segment marks on health or shield.
+            Assert.AreEqual(0, hudGo.GetComponentsInChildren<Transform>(true).Count(t => t.name == "Tick" && t.parent != null && t.parent.name == "Track"));
+        }
+
+        [Test]
+        public void ZachSoakedInPiss_DripsIt_AndLeavesTinyPuddlesWhereHeWalks()
+        {
+            SandboxWorld world = NewWorld();
+            var hud = hudGo.AddComponent<GameHud>();
+            hud.world = world;
+            hud.StartTesting(false);
+            MatchHost host = MatchHost.For(world);
+            if (host.Local.Role != Role.Hunter) host.SwitchRole();
+            SimPlayer zach = host.Local;
+            Assert.AreEqual(Role.Hunter, zach.Role);
+            var fxGo = new GameObject("Effects");
+            var effects = fxGo.AddComponent<MatchEffects>();
+            effects.world = world;
+            try
+            {
+                effects.Draw();
+                Assert.AreEqual(0, effects.PissPuddles, "dry: nothing left behind");
+                host.Sim.SoakInPiss(zach);
+                Vector2 start = zach.Pos;
+                for (int i = 0; i < 8; i++)
+                {
+                    host.Sim.Teleport(zach.Id, start + new Vector2(0.6f * i, 0f));
+                    effects.Draw();
+                }
+                Assert.GreaterOrEqual(effects.PissPuddles, 6, "a tiny puddle every step or so");
+                Mesh mesh = effects.PissPuddleMesh;
+                Assert.NotNull(mesh);
+                Assert.Greater(mesh.triangles.Length / 3, 6 * 5, "a blot for each");
+                Assert.Less(mesh.bounds.size.z, 0.6f, "tiny ones (strung out along his way, but no wider than a few centimetres across it)");
+                // Worn off: no more.
+                zach.PissStacks = new float[0];
+                int left = effects.PissPuddles;
+                host.Sim.Teleport(zach.Id, start + new Vector2(0f, 3f));
+                effects.Draw();
+                Assert.AreEqual(left, effects.PissPuddles, "dry again: no more puddles");
+            }
+            finally { Object.DestroyImmediate(fxGo); }
+        }
+
+        [Test]
         public void TheCabins_HaveFloorsOfBoardsOrStone_AndAreFurnished_WithoutCrowdingTheDoorway()
         {
             SandboxWorld world = NewWorld();

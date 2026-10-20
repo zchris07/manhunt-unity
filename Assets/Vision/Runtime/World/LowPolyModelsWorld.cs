@@ -490,18 +490,30 @@ namespace Vision.World
                     break;
                 case Vision.Player.ItemType.Trap:
                 {
-                    // Galaxy gas, as the original draws it: a stout whippit tank in a galaxy wrap (deep blue, violet, pink,
-                    // blue bands), a silver shoulder and neck, a black valve and a nozzle.
-                    Color navy = new Color(0.16f, 0.10f, 0.42f), violet = new Color(0.69f, 0.23f, 0.85f), pink = new Color(1f, 0.35f, 0.69f), blue = new Color(0.23f, 0.42f, 1f);
-                    Color silver = new Color(0.79f, 0.82f, 0.86f);
-                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.035f, 0f), 0.062f, 0.064f, 9, navy, 0.03f);
-                    b.AddFrustum(new Vector3(0f, 0.035f, 0f), new Vector3(0f, 0.07f, 0f), 0.064f, 0.064f, 9, violet, 0.03f);
-                    b.AddFrustum(new Vector3(0f, 0.07f, 0f), new Vector3(0f, 0.105f, 0f), 0.064f, 0.064f, 9, pink, 0.03f);
-                    b.AddFrustum(new Vector3(0f, 0.105f, 0f), new Vector3(0f, 0.14f, 0f), 0.064f, 0.064f, 9, blue, 0.03f);
-                    b.AddFrustum(new Vector3(0f, 0.14f, 0f), new Vector3(0f, 0.18f, 0f), 0.064f, 0.022f, 9, silver, 0.02f);
-                    b.AddFrustum(new Vector3(0f, 0.18f, 0f), new Vector3(0f, 0.205f, 0f), 0.02f, 0.02f, 7, silver * 0.85f, 0.02f);
-                    b.AddFrustum(new Vector3(0f, 0.205f, 0f), new Vector3(0f, 0.22f, 0f), 0.028f, 0.028f, 7, new Color(0.1f, 0.1f, 0.1f), 0.02f);
-                    b.AddBox(new Vector3(0.015f, 0.19f, -0.008f), new Vector3(0.045f, 0.016f, 0.016f), new Color(0.48f, 0.52f, 0.56f), 0.03f);
+                    // A Galaxy Gas canister (a litre tank): a white base ring, a tall label in watermelon pink over lemonade
+                    // yellow (a magenta band, the round logo on its front, a pink drip where the colours meet), a clear white
+                    // domed shoulder and a white spout tapering to its tip.
+                    float r = 0.042f;
+                    Color white = new Color(0.93f, 0.93f, 0.92f), cream = new Color(0.98f, 0.92f, 0.78f), yellow = new Color(1f, 0.82f, 0.32f);
+                    Color pink = new Color(1f, 0.6f, 0.68f), magenta = new Color(0.78f, 0.2f, 0.48f), dome = new Color(0.88f, 0.9f, 0.92f);
+                    b.AddFrustum(Vector3.zero, new Vector3(0f, 0.032f, 0f), r + 0.002f, r + 0.002f, 10, white, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.032f, 0f), new Vector3(0f, 0.11f, 0f), r, r, 10, yellow, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.11f, 0f), new Vector3(0f, 0.13f, 0f), r, r, 10, cream, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.13f, 0f), new Vector3(0f, 0.2f, 0f), r, r, 10, pink, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.2f, 0f), new Vector3(0f, 0.215f, 0f), r + 0.001f, r + 0.001f, 10, magenta, 0.03f);
+                    b.AddFrustum(new Vector3(0f, 0.215f, 0f), new Vector3(0f, 0.255f, 0f), r, r, 10, pink, 0.03f);
+                    // The round logo on the front, and the drips of pink running into the yellow.
+                    b.AddFrustum(new Vector3(0f, 0.17f, r - 0.002f), new Vector3(0f, 0.17f, r + 0.003f), 0.017f, 0.017f, 10, white, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.17f, r + 0.003f), new Vector3(0f, 0.17f, r + 0.005f), 0.011f, 0.011f, 10, magenta, 0.02f);
+                    foreach (float a in new[] { 0.6f, 2.1f, 3.4f, 4.9f })
+                    {
+                        var n = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
+                        b.AddBox(n * (r - 0.001f) + new Vector3(-0.005f, 0.112f, -0.005f), new Vector3(0.01f, 0.022f, 0.01f), pink, 0.03f);
+                    }
+                    b.AddFrustum(new Vector3(0f, 0.255f, 0f), new Vector3(0f, 0.285f, 0f), r, 0.026f, 10, dome, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.285f, 0f), new Vector3(0f, 0.3f, 0f), 0.026f, 0.012f, 10, dome * 0.97f, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.3f, 0f), new Vector3(0f, 0.31f, 0f), 0.014f, 0.014f, 8, white, 0.02f);
+                    b.AddFrustum(new Vector3(0f, 0.31f, 0f), new Vector3(0f, 0.36f, 0f), 0.012f, 0.003f, 8, white, 0.02f);
                     break;
                 }
                 case Vision.Player.ItemType.Confit:

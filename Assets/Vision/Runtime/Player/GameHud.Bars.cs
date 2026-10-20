@@ -8,9 +8,9 @@ namespace Vision.Player
 {
     /// <summary>
     /// Health over heads, after the original's (client EntityLayer HealthBar): over every player you can see (yourself
-    /// included), a 5-unit-tall bar 38 units wide (46 for Zach) with an ink border, a pale trail draining behind fresh damage,
-    /// ticks at the thirds, and a green fill; a survivor with shield has a thin blue shield bar above it, ticked at the
-    /// quarters, gone again once the shield is used up. A player's bars are opaque for five seconds after their health or shield last
+    /// included), a 5-unit-tall bar 38 units wide (46 for Zach) with an ink border, a pale trail draining behind fresh damage
+    /// and a green fill (no segment marks); a survivor with shield has a thin blue shield bar above it (no marks either),
+    /// gone again once the shield is used up. A player's bars are opaque for five seconds after their health or shield last
     /// changed, then fade to 35%. Over the NPCs the viewer's role can slay, the same health bar, always opaque. Sized from
     /// the world, so they keep their size against the models as the camera zooms.
     /// </summary>
@@ -48,18 +48,18 @@ namespace Vision.Player
             b.Group = b.Root.gameObject.AddComponent<CanvasGroup>();
             b.Group.blocksRaycasts = false;
             b.Group.interactable = false;
-            b.Health = Track(b.Root, "Health", 0f, 3, out b.Fill, out b.Trail, out b.FillImage);
+            b.Health = Track(b.Root, "Health", 0f, out b.Fill, out b.Trail, out b.FillImage);
             // Zach's bar worn down by his downs: the part of it gone for good, dark.
             b.Lost = UiKit.Fill("Lost", b.Fill.parent as RectTransform);
             UiKit.Box(b.Lost, new Color(0.05f, 0.02f, 0.02f, 0.95f));
             b.Lost.gameObject.SetActive(false);
-            b.Shield = Track(b.Root, "Shield", 1f, 4, out b.ShieldFill, out _, out Image shieldImage);
+            b.Shield = Track(b.Root, "Shield", 1f, out b.ShieldFill, out _, out Image shieldImage);
             shieldImage.color = BarShield;
             return b;
         }
 
-        /// <summary>One bar of a head bar: an ink border round a dark track, a pale trail, the fill, and tick marks.</summary>
-        RectTransform Track(RectTransform parent, string name, float anchorY, int ticks, out RectTransform fill, out RectTransform trail, out Image fillImage)
+        /// <summary>One bar of a head bar: an ink border round a dark track, a pale trail and the fill (no segment marks).</summary>
+        RectTransform Track(RectTransform parent, string name, float anchorY, out RectTransform fill, out RectTransform trail, out Image fillImage)
         {
             RectTransform border = Node(name, parent, new Vector2(0.5f, anchorY), new Vector2(0.5f, anchorY), Vector2.zero, new Vector2(48f, 7f));
             UiKit.Box(border, BarInk);
@@ -69,12 +69,6 @@ namespace Vision.Player
             UiKit.Box(trail, BarTrail);
             fill = UiKit.Fill("Fill", back);
             fillImage = UiKit.Box(fill, BarHealth);
-            for (int i = 1; i < ticks; i++)
-            {
-                RectTransform tick = Node("Tick", back, new Vector2(i / (float)ticks, 0f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(1f, 0f));
-                tick.anchorMax = new Vector2(i / (float)ticks, 1f);
-                UiKit.Box(tick, new Color(0f, 0f, 0f, 0.55f));
-            }
             return border;
         }
 

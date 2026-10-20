@@ -84,34 +84,15 @@ namespace Vision.Game
             return p.CanAct;
         }
 
-        /// <summary>
-        /// On a chase: climbing over logs and fences and through windows (set by the NPC each step it chases), and whether
-        /// it's climbing over one right now (the view plays the climb).
-        /// </summary>
-        protected bool Climbs;
-        bool climbing;
-
         /// <summary>One step along the heading, sliding on walls; it notes when it is stuck.</summary>
         protected void Step(float speedUnits, float dt)
         {
             float speed = Scale.Speed(speedUnits);
             if (VapeSlowT > 0f) speed *= 1f - VapeSlow;
             if (Sim.Geo.InWater(Pos)) speed *= Balance.WadeMul;
-            // Over a log or a fence, or through a window (its glass smashed as it goes): at a survivor's climbing pace.
-            climbing = false;
-            if (Climbs)
-            {
-                int win = Sim.WindowAt(Pos, MoveRadius);
-                if (win >= 0 && !Sim.WindowsBroken[win])
-                {
-                    Sim.BreakWindow(win);
-                    Sim.Noise((Sim.Map.Windows[win].A + Sim.Map.Windows[win].B) * 0.5f, 800f, "glass");
-                }
-                climbing = win >= 0 || Sim.Geo.Vault(Pos, MoveRadius * 0.5f, false) > 0f;
-                if (climbing) speed *= Balance.NpcChase.ClimbMul;
-            }
+            // (No NPC climbs: a log, a fence, a window, broken or not, stops every one of them.)
             Vector2 before = Pos;
-            Pos = Sim.MoveCircle(Pos, MoveRadius, new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * speed * dt, Climbs);
+            Pos = Sim.MoveCircle(Pos, MoveRadius, new Vector2(Mathf.Cos(Heading), Mathf.Sin(Heading)) * speed * dt);
             Moving = true;
             StuckT = Vector2.Distance(Pos, before) < speed * dt * 0.35f ? StuckT + dt : 0f;
         }
@@ -246,6 +227,6 @@ namespace Vision.Game
         }
 
         public override NpcFlags Flags => base.Flags | (FleeT > 0f ? NpcFlags.Fleeing : 0) | (TalkT > 0f ? NpcFlags.Talking : 0)
-            | (Sim.Time - doorPunchAt < 0.3f ? NpcFlags.Punching : 0) | (climbing && Moving ? NpcFlags.Climbing : 0);
+            | (Sim.Time - doorPunchAt < 0.3f ? NpcFlags.Punching : 0);
     }
 }

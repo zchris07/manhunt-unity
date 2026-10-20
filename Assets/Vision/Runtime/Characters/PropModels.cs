@@ -319,11 +319,12 @@ namespace Vision.Characters
                 }
                 case PropKind.Tank:
                 {
-                    // Galaxy gas: a stout whippit tank wrapped in a galaxy label, a silver shoulder, a valve and a nozzle.
-                    Color navy = H(0x2a1a6a), purple = H(0xb03ad8), pink = H(0xff5ab0), blue = H(0x3a6aff), silver = H(0xc9d2dc), valve = H(0x1a1a1a);
-                    b.Lathe(Vector3.zero, new[] { (-0.06f, 0.036f), (-0.055f, 0.042f), (-0.02f, 0.042f), (0.01f, 0.042f), (0.04f, 0.042f), (0.07f, 0.042f), (0.095f, 0.03f), (0.105f, 0.012f), (0.125f, 0.012f) },
-                        new[] { navy, navy, purple, pink, blue, silver, silver, valve }, 6, Mathf.PI / 6f);
-                    b.Box(new Vector3(0.022f, 0f, 0.115f), new Vector3(0.016f, 0.006f, 0.006f), H(0x7a8490));
+                    // A Galaxy Gas canister in hand: a white base ring, the label in watermelon pink over lemonade yellow
+                    // with a magenta band, a clear white domed shoulder and a white spout tapering to its tip.
+                    // (Seven sides, to keep to the props' triangle budget.)
+                    Color white = H(0xeeeeec), yellow = H(0xffd052), pink = H(0xff9aae), magenta = H(0xc8337a), dome = H(0xe0e6ea);
+                    b.Lathe(Vector3.zero, new[] { (-0.08f, 0.032f), (-0.07f, 0.032f), (-0.012f, 0.03f), (0.035f, 0.03f), (0.045f, 0.031f), (0.07f, 0.03f), (0.09f, 0.02f), (0.1f, 0.009f), (0.135f, 0.002f) },
+                        new[] { white, yellow, pink, magenta, pink, dome, dome, white }, 7, Mathf.PI / 7f);
                     break;
                 }
                 case PropKind.Goggles:
