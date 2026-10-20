@@ -32,7 +32,7 @@ namespace Vision.Player
         /// <summary>The full map (Tab) is open, with the inventory editor under it: the mouse drags items there.</summary>
         public static bool FullMapOpen { get; private set; }
         /// <summary>Whether the pointer should show: a menu, the full map or the inventory editor is open.</summary>
-        public static bool PointerWanted => MenuOpen || FullMapOpen || EditorOpen;
+        public static bool PointerWanted => MenuOpen || FullMapOpen || EditorOpen || TabletOpen;
         static bool escOpen, modalOpen;
 
         /// <summary>The original's kicker line and blurb.</summary>
@@ -401,6 +401,7 @@ namespace Vision.Player
             Keyboard kb = Keyboard.current;
             SyncMap();
             FullMapOpen = map != null && map.FullOpen;
+            UpdateTablet(player != null ? player.Me : null);
             bool esc = (kb != null && kb.escapeKey.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame);
             if (esc && Overlays != null && Overlays.NoteShowing) Overlays.HideNote();
             else if (esc && modalOpen) CloseModal();

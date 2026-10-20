@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Vision.Characters
 {
-    public enum PropKind { None, Machete, Shotgun, GoldenPump, Pistol, Sniper, Flashlight, Magnifier, Tablet, Controller, Bottle, Book, Jar, Can, Bar, Flask, Tank, Goggles }
+    public enum PropKind { None, Machete, Shotgun, GoldenPump, Pistol, Sniper, Flashlight, Magnifier, Tablet, Controller, Bottle, Book, Jar, Can, Bar, Flask, Tank, Goggles, RuggedTablet }
 
     /// <summary>
     /// Held props: separate flat-shaded, vertex-coloured meshes of at most <see cref="MaxTriangles"/> triangles, built
@@ -285,6 +285,19 @@ namespace Vision.Characters
                     b.Box(new Vector3(0f, 0.08f, 0.04f), new Vector3(0.006f, 0.1f, 0.07f), black, Quaternion.Euler(0f, 0f, 0f));
                     b.Box(new Vector3(0.0062f, 0.08f, 0.04f), new Vector3(0.0005f, 0.088f, 0.06f), H(0x3ac0ff));
                     break;
+                case PropKind.RuggedTablet:
+                {
+                    // The orbital strike's tablet: a rugged work tablet, a thick rubberised dark body with orange bumpers at
+                    // its corners, a grip strap's buttons down one side, its screen glowing the red map.
+                    Color body = H(0x232528), bumper = H(0xd2691e), screen = H(0x8c1c1c);
+                    b.Box(new Vector3(0f, 0.09f, 0.04f), new Vector3(0.011f, 0.115f, 0.085f), body);
+                    foreach (float y in new[] { 0.09f - 0.1f, 0.09f + 0.1f })
+                        foreach (float z in new[] { 0.04f - 0.07f, 0.04f + 0.07f })
+                            b.Box(new Vector3(0f, y, z), new Vector3(0.014f, 0.024f, 0.02f), bumper);
+                    b.Box(new Vector3(0.0115f, 0.09f, 0.04f), new Vector3(0.0006f, 0.088f, 0.062f), screen);
+                    b.Box(new Vector3(-0.012f, 0.09f, 0.04f + 0.087f), new Vector3(0.005f, 0.04f, 0.004f), H(0x3a3d42));
+                    break;
+                }
                 case PropKind.Controller:
                     b.Box(new Vector3(0f, 0.02f, 0.04f), new Vector3(0.07f, 0.016f, 0.035f), H(0x2a2a30));
                     b.Box(new Vector3(-0.055f, 0.012f, 0.0f), new Vector3(0.022f, 0.014f, 0.04f), H(0x2a2a30), Quaternion.Euler(0f, -15f, 0f));
@@ -362,6 +375,7 @@ namespace Vision.Characters
             Vision.Player.ItemType.MiniShield => PropKind.Flask,
             Vision.Player.ItemType.Trap => PropKind.Tank,
             Vision.Player.ItemType.Goggles => PropKind.Goggles,
+            Vision.Player.ItemType.OrbitalStrike => PropKind.RuggedTablet,
             _ => PropKind.None,
         };
     }

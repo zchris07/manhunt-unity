@@ -92,6 +92,8 @@ namespace Vision.Game
         public int StakeBuff;
         public float BookT;
         public float AbilityLockT;
+        /// <summary>Under an orbital strike: every ability silenced (items, JARVIS, Zach's kit) while this runs.</summary>
+        public float SilencedT;
         /// <summary>Soaked in piss (Zach): the seconds left on the freshest splash.</summary>
         public float PissT;
         /// <summary>Every splash still on him, by its seconds left (each +50% damage taken, falling off linearly with it).</summary>

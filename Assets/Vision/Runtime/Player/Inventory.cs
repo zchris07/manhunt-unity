@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Vision.Player
 {
     /// <summary>The original's items (a golden shotgun is Plasma's golden pump: a <see cref="Shotgun"/> slot marked golden).</summary>
-    public enum ItemType { Bottle, Book, Goggles, Shotgun, DoctorPepper, Trap, Confit, MrBeastBar, MiniShield, Pistol, Sniper, Piss, HempBeam }
+    public enum ItemType { Bottle, Book, Goggles, Shotgun, DoctorPepper, Trap, Confit, MrBeastBar, MiniShield, Pistol, Sniper, Piss, HempBeam, OrbitalStrike }
 
     public readonly struct ItemInfo
     {
@@ -53,6 +53,8 @@ namespace Vision.Player
             // Sexton's Hemp Beam as an item (from Thomas, from Sexton when he falls, at Miga Sushi): a slot of its own
             // whose amount is its charges left, kept when it's dropped and picked up again.
             ItemType.HempBeam => new ItemInfo("Hemp Beam", Hex(0x6adf6a), true, MapCount(ItemType.HempBeam)),
+            // Daphne's gift: a rugged tablet that calls down the K-pop orbital strike, once.
+            ItemType.OrbitalStrike => new ItemInfo("Orbital strike", Hex(0xff5cb4), false, MapCount(ItemType.OrbitalStrike)),
             _ => new ItemInfo("Jar of piss", Hex(0xe6c820), false, MapCount(ItemType.Piss)),
         };
 

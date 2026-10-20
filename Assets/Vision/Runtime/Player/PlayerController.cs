@@ -328,16 +328,23 @@ namespace Vision.Player
             if (Held(yes)) b |= Btn.Yes;
             if (Held(no)) b |= Btn.No;
             if (Held(special)) b |= p.Role == Role.Hunter ? Btn.Vape : Btn.Space;
+            // The orbital strike's tablet up: its clicks, E and the wheel are the tablet's; walking but no sprinting, and no
+            // moving at all while it rises or lowers.
+            if (GameHud.TabletOpen)
+            {
+                b &= ~(Btn.Run | Btn.Primary | Btn.Interact | Btn.Secondary | Btn.Ability | Btn.Lunge | Btn.Drop | Btn.Beam | Btn.Space | Btn.Vape);
+                if (GameHud.TabletMoveLocked) cmd.Move = Vector2.zero;
+            }
             cmd.Buttons = b;
 
             // Survivors pick a slot with 1-8 (1-12 in testing mode) or the wheel; empty slots are skipped. (A ghost has none.)
             if (p.Role == Role.Survivor && !p.Ghost)
             {
                 int lim = p.Inv.Limit;
-                for (int i = 0; i < lim; i++) if (Pressed(slotKeys[i])) SelectedSlot = SelectedSlot == i && p.Inv.CountAt(i) == 0 ? -1 : i;
+                for (int i = 0; i < lim && !GameHud.TabletOpen; i++) if (Pressed(slotKeys[i])) SelectedSlot = SelectedSlot == i && p.Inv.CountAt(i) == 0 ? -1 : i;
                 // In testing mode the wheel zooms the view instead.
                 // Holding Tab, the wheel zooms the full map instead.
-                float wheel = slotScroll != null && !GameSession.TestingMode && !MapHud.AnyFullOpen ? slotScroll.ReadValue<float>() : 0f;
+                float wheel = slotScroll != null && !GameSession.TestingMode && !MapHud.AnyFullOpen && !GameHud.TabletOpen ? slotScroll.ReadValue<float>() : 0f;
                 int dir = wheel > 0.1f || Pressed(slotPrev) ? -1 : wheel < -0.1f || Pressed(slotNext) ? 1 : 0;
                 if (dir != 0) SelectedSlot = NextFilled(p, dir);
                 if (SelectedSlot >= lim) SelectedSlot = -1;

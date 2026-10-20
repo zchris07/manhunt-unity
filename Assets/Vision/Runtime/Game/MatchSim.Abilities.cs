@@ -114,6 +114,7 @@ namespace Vision.Game
         public bool TryJarvis(SimPlayer p)
         {
             if (p.Jarvis != 1 && p.Jarvis != 3) return false;
+            if (p.SilencedT > 0f) return false;
             if (p.Ghost || p.Health == Health.Eliminated || p.Health == Health.Escaped) return false;
             // No vision aids past the second ring; one at a time; the tablet cools down after each.
             if (p.Zone >= 2 || JarvisRunT > 0f || (p.JarvisCd > 0f && p.Jarvis != 3)) return false;

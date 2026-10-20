@@ -132,7 +132,7 @@ namespace Vision.Game
         bool UseItemAt(SimPlayer p, InputCmd cmd, int slot)
         {
             Inventory.Slot s = p.Inv.SlotAt(slot);
-            if (s == null || s.Empty || p.Action != ActionKind.None || !p.CanAct) return false;
+            if (s == null || s.Empty || p.Action != ActionKind.None || !p.CanAct || p.SilencedT > 0f) return false;
             switch (s.item)
             {
                 case ItemType.Bottle:

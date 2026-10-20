@@ -606,8 +606,9 @@ namespace Vision.Game
             Face(p.Pos);
             TalkT = 1.5f;
             Speak("Here. Take this, you'll need it.");
-            Sim.AddItem(p, ItemType.Pistol);
-            Sim.Tell(p, "Got a P250");
+            // An orbital strike (once each), in place of the P250 she gave at first.
+            Sim.AddItem(p, ItemType.OrbitalStrike);
+            Sim.Tell(p, "Got an orbital strike: left click to raise the tablet");
         }
 
         void Attacked(SimPlayer by)

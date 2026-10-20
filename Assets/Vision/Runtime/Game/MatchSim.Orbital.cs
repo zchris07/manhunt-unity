@@ -1,0 +1,113 @@
+using System.Collections.Generic;
+using UnityEngine;
+using Vision.Player;
+
+namespace Vision.Game
+{
+    /// <summary>
+    /// A K-pop orbital strike called down from Daphne's tablet: locked on one player (anyone playable, Zach or a survivor),
+    /// a countdown, then a pink beam straight down onto them from overhead for <see cref="Balance.Items.Orbital.Duration"/>.
+    /// </summary>
+    public sealed class OrbitalStrike
+    {
+        public int Id;
+        /// <summary>Who called it, and who it's locked on.</summary>
+        public int Owner, Target;
+        /// <summary>Where the beam comes down (design units), following the target.</summary>
+        public Vector2 Pos;
+        /// <summary>Seconds of the countdown left (the beam's on once it's done), and how long the beam's been on.</summary>
+        public float Countdown, T;
+        public float TickAcc;
+        /// <summary>Whether it's come down yet.</summary>
+        public bool Firing => Countdown <= 0f;
+    }
+
+    /// <summary>
+    /// The orbital strike (the user's rules): confirmed on the tablet against a player in an explored part of the map, it
+    /// uses up the item and is locked on them from then, wherever they go. After a 3 s countdown a beam three times Zach's
+    /// width comes straight down from overhead, through anything solid, and follows them with a lag: whoever keeps moving
+    /// can keep partly out of it but never gets clear. Anyone it's on (players only, never an NPC) takes half the Hemp
+    /// Beam's tick ten times a second (about 44 HP over its 8.725 s), is slowed 20% and has every ability silenced. Its
+    /// track (NewJeans' OMG) plays the whole time; it ends with it.
+    /// </summary>
+    public sealed partial class MatchSim
+    {
+        public readonly List<OrbitalStrike> Strikes = new List<OrbitalStrike>();
+
+        /// <summary>Whether a player can be locked on: anyone playable, still in the match and in a body.</summary>
+        public static bool Strikeable(SimPlayer q) => q != null && (q.Role == Role.Hunter || q.Role == Role.Survivor) && !q.Ghost
+            && q.Health != Health.Eliminated && q.Health != Health.Escaped;
+
+        /// <summary>
+        /// Calls the strike down on <paramref name="targetId"/> for <paramref name="ownerId"/> (confirmed on their tablet):
+        /// uses up their item; false if they've none, can't use one, or the target can't be struck.
+        /// </summary>
+        public bool CallStrike(int ownerId, int targetId)
+        {
+            SimPlayer p = Get(ownerId), q = Get(targetId);
+            if (p == null || p.Role != Role.Survivor || !p.CanAct || p.SilencedT > 0f || !Strikeable(q)) return false;
+            int slot = p.Inv.FirstSlotOf(ItemType.OrbitalStrike);
+            if (slot < 0) return false;
+            Consume(p, slot);
+            var s = new OrbitalStrike { Id = AllocEntityId(), Owner = p.Id, Target = q.Id, Pos = q.Pos, Countdown = Balance.Items.Orbital.Countdown };
+            Strikes.Add(s);
+            Emit(null, new GameEvent { Kind = EventKind.Talk, A = p.Id, B = q.Id, Text = "strike_call", Pos = q.Pos });
+            Feed($"{p.Name} called an orbital strike on {q.Name}");
+            return true;
+        }
+
+        void UpdateStrikes(float dt)
+        {
+            foreach (SimPlayer p in Order) if (p.SilencedT > 0f) p.SilencedT = Mathf.Max(0f, p.SilencedT - dt);
+            float r = R(Balance.Items.Orbital.Radius);
+            for (int k = Strikes.Count - 1; k >= 0; k--)
+            {
+                OrbitalStrike s = Strikes[k];
+                SimPlayer target = Get(s.Target);
+                // Following the target with a lag, never left further behind than most of its own width.
+                if (target != null && Strikeable(target))
+                {
+                    s.Pos = Vector2.Lerp(s.Pos, target.Pos, 1f - Mathf.Exp(-Balance.Items.Orbital.Follow * dt));
+                    Vector2 off = s.Pos - target.Pos;
+                    float max = r * Balance.Items.Orbital.MaxLag;
+                    if (off.magnitude > max) s.Pos = target.Pos + off.normalized * max;
+                }
+                if (s.Countdown > 0f)
+                {
+                    s.Countdown -= dt;
+                    if (s.Countdown <= 0f)
+                    {
+                        s.Countdown = 0f;
+                        // Down it comes: its track starts with it.
+                        Emit(Near(s.Pos, Balance.Items.Orbital.HearRadius), new GameEvent { Kind = EventKind.Talk, A = s.Owner, B = s.Target, Text = "strike", Pos = s.Pos });
+                    }
+                    continue;
+                }
+                s.T += dt;
+                s.TickAcc += dt * Balance.Items.Orbital.TickRate;
+                int ticks = 0;
+                while (s.TickAcc >= 1f) { s.TickAcc -= 1f; ticks++; }
+                SimPlayer owner = Get(s.Owner);
+                foreach (SimPlayer q in Order)
+                {
+                    if (!Strikeable(q) || Vector2.Distance(q.Pos, s.Pos) > r + q.RadiusD) continue;
+                    // Slowed and silenced while it's on them.
+                    q.SilencedT = Mathf.Max(q.SilencedT, Balance.Items.Orbital.Silence);
+                    q.Move.SlowT = Mathf.Max(q.Move.SlowT, 0.2f);
+                    q.Move.SlowMul = Mathf.Min(q.Move.SlowMul > 0f ? q.Move.SlowMul : 1f, Balance.Items.Orbital.SlowMul);
+                    if (q.Role == Role.Hunter)
+                    {
+                        q.AbilityLockT = Mathf.Max(q.AbilityLockT, Balance.Items.Orbital.Silence);
+                        if (q.HempOn) q.HempOn = false;
+                    }
+                    for (int i = 0; i < ticks; i++)
+                    {
+                        if (q.Role == Role.Hunter) HurtHunter(q, Balance.Items.Orbital.ZachTickDamage * Balance.Hunter.Health.Max, owner, "orbital");
+                        else HurtSurvivor(q, Balance.Items.Orbital.TickDamage, owner, "orbital");
+                    }
+                }
+                if (s.T >= Balance.Items.Orbital.Duration) Strikes.RemoveAt(k);
+            }
+        }
+    }
+}

@@ -75,6 +75,12 @@ namespace Vision.Audio
             // last second and a half cut off: white noise sets in about 3.35 s into its 4.79).
             ["victory_royale"] = new Cue { Prefer = new[] { "local_victory_royale" }, Files = new string[0], Volume = 0.75f, PitchJitter = 0f, VolumeJitter = 0f, CutEnd = 1.5f, Warm = true },
             // Plasma.TTV going into his gamer rage, from where he stands (a local file).
+            // The K-pop orbital strike: NewJeans' OMG (a local file the user supplies; silent without it), loud, heard 3000
+            // units off; the strike lasts exactly as long as it, its last 1.5 s falling away by an inverse square.
+            ["orbital_strike"] = new Cue { Prefer = new[] { "local_kpop_strike" }, Files = new string[0], Volume = 1f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
+                Radius = Vision.Game.Balance.Items.Orbital.HearRadius, TailFade = 1.5f, Warm = true },
+            // A strike locked on: the tablet's confirm beep, at the target.
+            ["strike_lock"] = new Cue { Files = new[] { "rpg_metalclick" }, Volume = 0.6f, PitchJitter = 0f, Radius = 1200f },
             // (60% softer than at first, then half that again, at the user's request.)
             ["gamer_smash"] = new Cue { Prefer = new[] { "local_gamer_smash" }, Files = new string[0], Volume = 0.9f * 0.4f * 0.5f, PitchJitter = 0f, VolumeJitter = 0f, Near = 250f, Radius = 2200f },
             // Anyone attacking Chacko, from the couch (a local file).

@@ -435,6 +435,32 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the mini shield as Fortnite's little flask of blue liquid, the P250, the 0.50 cal, the jar, JARVIS's tablet, the Hemp
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
+- **The K-pop orbital strike** (`MatchSim.Orbital`, `GameHud.Tablet`, `MatchEffects.Orbital`): Daphne's gift, used once
+  (testing mode's kit has it in place of the P250).
+  - **The tablet.** Its icon and held prop are a rugged work tablet. Left click with it in hand raises it to the face like
+    a Modern Warfare killstreak tablet: it swings up from below and settles square, with the world going on round it. The
+    tablet is painted to look real: dark rubberised body, orange corner bumpers, screws, hard keys, scuffs
+    (`tools/strike_tablet.py`).
+  - **Its screen** is the Tab map, red-tinted under a grid and scanlines, with the same fog of war (only what you've
+    explored shows). It opens zoomed in on you, and the wheel zooms it about the pointer. Every playable character (Zach
+    or a survivor, teammates too, never yourself or a ghost) standing in explored ground has a marker, where they are
+    now; with nobody in explored ground there's nothing to select.
+  - **Targeting.** Hovering a marker draws a lock box with bright corner brackets. Clicking confirms it: the item is used
+    up, the target is locked wherever they go from then, and a 3 s countdown and start-up run on the screen (TARGET
+    LOCKED, UPLINK ESTABLISHED, CALIBRATING EMITTER ARRAY, CHARGING, DISPATCH AUTHORISED; DISPATCHING), then it lowers
+    as the strike comes down. EXIT (top left) or E lowers it smoothly before then, keeping the item. You can walk with it
+    up but not sprint, and you can't move at all while it rises or lowers.
+  - **The strike.** A pink beam three times Zach's width comes straight down from the sky onto the target, through
+    anything solid, and follows them with a lag: whoever keeps moving can stay partly out of it but never gets clear.
+    It drops in, a wide glow round a hot pink body and a white-pink core with plasma threads twisting down it, and lights
+    everything round it. Where it meets the ground: a blinding hot spot, shockwave rings, sparks spraying and falling,
+    pink plasma, boiling vapour and embers, and a burn on whoever it's on. It leaves a charred trail, smoking for a while,
+    that stays for the match.
+  - **Damage.** Anyone it's on (players only, never an NPC) takes half the Hemp Beam's tick ten times a second (5 HP a
+    second, about 44 HP in all), is slowed 20% and has every ability silenced (items, JARVIS, Zach's whole kit).
+  - **Sound.** NewJeans' "OMG" plays the whole time, loud, heard 3000 units off. The strike lasts exactly as long as the
+    track (8.725 s), its last 1.5 s falling away by an inverse square. The track is the user's own local file
+    (`Resources/Audio/Fx/local_kpop_strike.mp3`, kept out of git); without it the strike is silent.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
   and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
@@ -513,7 +539,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   A survivor's **Hemp Beam is an item** (from Thomas, from Sexton when he falls, or at Miga Sushi): a slot of its own,
   fired with a left click, its charges left kept on it, so dropped (G) and picked up by someone else it has the charges
   it had; Zach can pick one up too, its charges going into his own beam (R), up to a full set. **Daphne Cheng** (a young
-  woman with long dark-brown hair) hands a P250 to each survivor who talks to her (once each); nobody can slay her, and
+  woman with long dark-brown hair) hands an **orbital strike** to each survivor who talks to her (once each; she gave a P250
+  at first); nobody can slay her, and
   slashed by Zach, or hit by a survivor's item or round, she stands her ground and blasts them with her shotgun (a
   survivor's shotgun with endless shells, its pump worked after every blast) for ten seconds or five blasts at most,
   then puts it away, every new attack starting her again, turning to keep them in her sights but never chasing them,

@@ -128,6 +128,9 @@ namespace Vision.UI
                 case EventKind.Talk:
                     if (by == null) break;
                     if (e.Text == "burst") waves.Add(new Wave { At = e.Pos, Angle = e.F, Born = Now });
+                    // The orbital strike: its lock-on beep for everyone near; its track as it comes down, for everyone in earshot.
+                    else if (e.Text == "strike_call") Audio.PlayCue("strike_lock", Units(e.Pos));
+                    else if (e.Text == "strike") Audio.PlayCue("orbital_strike", Units(e.Pos));
                     else if (e.Text == "possess")
                     {
                         // A ghost takes a body: a deep whoosh and a pale ring spreading from it as it starts to rise.
@@ -318,6 +321,7 @@ namespace Vision.UI
                 LungeLines(p);
             }
             BladeTrails(sim);
+            OrbitalStrikes(sim);
             PissDrips(sim);
             DrawRipples(sim);
             DrawWaves(sim);

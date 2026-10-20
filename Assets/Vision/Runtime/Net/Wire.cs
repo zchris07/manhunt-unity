@@ -17,13 +17,13 @@ namespace Vision.Net
     }
 
     /// <summary>The testing and match commands a client asks the host for.</summary>
-    public enum Command : byte { MoveSlot = 1, Spectate = 2, ViewReach = 3, SwitchRole = 4, TestFx = 5, Teleport = 6, RespawnNpcs = 7, SpawnDummy = 8, ClearDummies = 9, DropSlot = 10, ViewRect = 11 }
+    public enum Command : byte { MoveSlot = 1, Spectate = 2, ViewReach = 3, SwitchRole = 4, TestFx = 5, Teleport = 6, RespawnNpcs = 7, SpawnDummy = 8, ClearDummies = 9, DropSlot = 10, ViewRect = 11, OrbitalStrike = 12 }
 
     /// <summary>Helpers for the binary wire format: strings, vectors, and frames of [length][type][payload].</summary>
     public static class Wire
     {
         /// <summary>Bumped whenever the wire format or the rules change: a client must match its host.</summary>
-        public const int Version = 6;
+        public const int Version = 7;
         /// <summary>The port a lobby listens on unless told otherwise.</summary>
         public const int DefaultPort = 7777;
         /// <summary>No frame may be larger (guards against garbage on the socket).</summary>

@@ -510,6 +510,7 @@ namespace Vision.Net
                 case Net.Command.RespawnNpcs: if (sim.TestMode) sim.RespawnNpcs(); break;
                 case Net.Command.SpawnDummy: if (sim.TestMode) sim.AddDummy((Role)a, v); break;
                 case Net.Command.ClearDummies: if (sim.TestMode) sim.ClearDummies(); break;
+                case Net.Command.OrbitalStrike: sim.CallStrike(id, a); break;
             }
         }
 

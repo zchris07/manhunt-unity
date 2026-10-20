@@ -38,12 +38,12 @@ namespace Vision.Net
         {
             ("Drops", typeof(DropItem), false), ("Thrown", typeof(ThrownItem), false), ("Traps", typeof(Trap), false), ("Gases", typeof(GasCloud), false),
             ("Bursts", typeof(BurstWave), false), ("Vapes", typeof(VapeCloud), false), ("Snipes", typeof(Bullet), false), ("Trails", typeof(TrailPoint), true),
-            ("Bodies", typeof(Body), false),
+            ("Bodies", typeof(Body), false), ("Strikes", typeof(OrbitalStrike), false),
         };
 
         public static IList ListOf(MatchSim sim, int i) => i switch
         {
-            0 => sim.Drops, 1 => sim.Thrown, 2 => sim.Traps, 3 => sim.Gases, 4 => sim.Bursts, 5 => sim.Vapes, 6 => sim.Snipes, 7 => sim.Trails, _ => sim.Bodies,
+            0 => sim.Drops, 1 => sim.Thrown, 2 => sim.Traps, 3 => sim.Gases, 4 => sim.Bursts, 5 => sim.Vapes, 6 => sim.Snipes, 7 => sim.Trails, 8 => sim.Bodies, _ => sim.Strikes,
         };
 
         static readonly string[] PlayerSkip = { "IsLocal", "PrevButtons", "LastTickPos" };

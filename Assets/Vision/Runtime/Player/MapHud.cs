@@ -72,6 +72,9 @@ namespace Vision.Player
         /// <summary>Who knows every stake from the start (Zach); everyone else marks each one once they've found it.</summary>
         public static bool StakesAlwaysKnown(Vision.Game.Role role) => role == Vision.Game.Role.Hunter;
         public RectTransform FullMapRect => fullMap;
+        /// <summary>The full map's painted art (the orbital strike's tablet shows it too), and the level's half extent.</summary>
+        public Texture ArtTexture => fullArt.texture;
+        public float Extent => world != null ? world.MapExtent : 90f;
 
         public MapHud(Transform root, Font font)
         {

@@ -140,7 +140,8 @@ namespace Vision.Tests
             Assert.AreEqual(Prompt.TalkDaphne, s.Prompt);
             s.Inv.Clear();
             rig.Tap(s.Id, Btn.Interact);
-            Assert.GreaterOrEqual(s.Inv.FirstSlotOf(ItemType.Pistol), 0, "a P250");
+            Assert.GreaterOrEqual(s.Inv.FirstSlotOf(ItemType.OrbitalStrike), 0, "an orbital strike, in place of the P250 she gave at first");
+            Assert.Less(s.Inv.FirstSlotOf(ItemType.Pistol), 0);
             Assert.IsNull(daphne.HealthFor(Role.Hunter), "nobody can slay her: no health bar");
             Assert.IsNull(daphne.HealthFor(Role.Survivor));
 

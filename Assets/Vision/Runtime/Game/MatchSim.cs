@@ -226,7 +226,8 @@ namespace Vision.Game
                 p.Inv.Clear();
                 p.Inv.Add(ItemType.Shotgun);
                 p.Inv.Add(ItemType.Shotgun, 1, null, true);
-                foreach (ItemType k in new[] { ItemType.Pistol, ItemType.Sniper, ItemType.Bottle, ItemType.Piss, ItemType.Book, ItemType.Goggles, ItemType.MiniShield, ItemType.MrBeastBar, ItemType.Trap, ItemType.DoctorPepper })
+                // (The orbital strike in place of the P250, as Daphne gives it now; P250s still lie about the map.)
+                foreach (ItemType k in new[] { ItemType.OrbitalStrike, ItemType.Sniper, ItemType.Bottle, ItemType.Piss, ItemType.Book, ItemType.Goggles, ItemType.MiniShield, ItemType.MrBeastBar, ItemType.Trap, ItemType.DoctorPepper })
                     p.Inv.Add(k);
                 for (int i = 0; i < Inventory.TestingSlots; i++)
                 {
@@ -394,6 +395,7 @@ namespace Vision.Game
             UpdateInteractions(dt);
             UpdateCombat(dt);
             UpdateItems(dt);
+            UpdateStrikes(dt);
             UpdateAbilities(dt);
             UpdateGhosts(dt);
             UpdateBoundary(dt);

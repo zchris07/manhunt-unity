@@ -191,6 +191,23 @@ namespace Vision.Game
             public const float ShieldDrinkTime = 2f, ShieldAmount = 0.25f, ShieldMax = 1f;
             public const float FlashTime = 0.8f, FlashFade = 0.3f;
 
+            /// <summary>
+            /// The K-pop orbital strike (Daphne's tablet, used once): a countdown once a target's confirmed, then a pink beam
+            /// straight down on them for exactly as long as its track runs (NewJeans' OMG, 8.725 s), following them with a lag
+            /// that never lets them get clear of it; half the Hemp Beam's tick (5 HP a second), a 20% slow and every ability
+            /// silenced while it's on them. Its beam is three times Zach's width across; its track is heard 3000 units off.
+            /// </summary>
+            public static class Orbital
+            {
+                public const float Countdown = 3f, Duration = 8.725f, TickRate = Hunter.Beam.TickRate;
+                public const float TickDamage = Hunter.Beam.TickDamage * 0.5f, ZachTickDamage = Hunter.Beam.ZachTickDamage * 0.5f;
+                /// <summary>The beam's radius (units): three times Zach's width across.</summary>
+                public const float Radius = HunterWidth * 3f * 0.5f;
+                /// <summary>How quickly it closes on its target (per second), and how far behind it may ever be (of its radius).</summary>
+                public const float Follow = 2.4f, MaxLag = 0.7f;
+                public const float SlowMul = 0.8f, Silence = 0.25f, HearRadius = 3000f;
+            }
+
             public static class Bottle { public const float Speed = 760f, Stun = 1.4f, HitRadius = 10f, Damage = 0.2f, ZachDamage = 5f; }
             public static class Book { public const float Speed = 700f, Stun = 2.5f, HitRadius = 12f, Damage = 0.2f, ZachDamage = 5f; public const int Images = 4; }
             public static class Goggles { public const float Meter = 15f, ConeMul = 1.2f; }

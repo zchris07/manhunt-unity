@@ -735,6 +735,35 @@ namespace Vision.Player
                     host.Sim.RevealT = 0f;
                     meJ.Jarvis = 0;
                     yield return new WaitForSeconds(0.8f);
+                    // The orbital strike: the tablet up (its map, the targets in explored ground), a target locked and
+                    // counting down, then the beam coming down on them, and the charred trail it leaves.
+                    {
+                        SimPlayer zs = host.SpawnDummy(Role.Hunter);
+                        host.Sim.Teleport(zs.Id, meJ.Pos + new Vector2(1.4f, 2.2f));
+                        if (meJ.Inv.FirstSlotOf(ItemType.OrbitalStrike) < 0) meJ.Inv.Add(ItemType.OrbitalStrike);
+                        player.SelectedSlot = meJ.Inv.FirstSlotOf(ItemType.OrbitalStrike);
+                        float o0 = cameraRig.orthographicSize;
+                        gameHud.TabletUpNow();
+                        yield return new WaitForSeconds(0.5f);
+                        yield return Shot("199_strike_tablet");
+                        gameHud.ConfirmStrike(zs.Id);
+                        yield return new WaitForSeconds(1.4f);
+                        yield return Shot("199b_strike_locked");
+                        yield return new WaitForSeconds(Balance.Items.Orbital.Countdown - 1.4f + 1.6f);
+                        cameraRig.orthographicSize = o0 * 1.15f;
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot("199c_strike_beam");
+                        for (int k = 0; k < 20; k++)
+                        {
+                            host.Sim.Teleport(zs.Id, zs.Pos + new Vector2(0.18f, -0.05f));
+                            yield return new WaitForSeconds(0.1f);
+                        }
+                        yield return Shot("199d_strike_trail");
+                        yield return new WaitForSeconds(Balance.Items.Orbital.Duration);
+                        cameraRig.orthographicSize = o0;
+                        player.SelectedSlot = -1;
+                        host.ClearDummies();
+                    }
                 }
                 // The view turned 45 degrees at the building (its doors and windows on every side show), an office door up
                 // close, a vault over a fallen log, JARVIS lighting the whole screen, and the blur of Penjamin's gas.

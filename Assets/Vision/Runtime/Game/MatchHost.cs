@@ -193,6 +193,17 @@ namespace Vision.Game
             else Sim?.MoveSlot(LocalId, from, to);
         }
 
+        /// <summary>Calls the orbital strike down on a player (confirmed on the tablet): it uses up the item.</summary>
+        public bool CallStrike(int target)
+        {
+            if (Remote)
+            {
+                SendCommand?.Invoke(Vision.Net.Command.OrbitalStrike, target, 0, default);
+                return true;
+            }
+            return Sim != null && Sim.CallStrike(LocalId, target);
+        }
+
         /// <summary>Drops a whole slot's stack on the ground (dragged off the inventory bar).</summary>
         public void DropSlot(int slot)
         {
