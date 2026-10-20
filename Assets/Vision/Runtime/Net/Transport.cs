@@ -19,6 +19,8 @@ namespace Vision.Net
         readonly BlockingCollection<byte[]> outbox = new BlockingCollection<byte[]>(new ConcurrentQueue<byte[]>());
         public readonly ConcurrentQueue<byte[]> Inbox = new ConcurrentQueue<byte[]>();
         volatile bool closed;
+        /// <summary>Messages queued or still being written (a flush waits for them all to be on the wire).</summary>
+        int unsent;
         public string Remote { get; }
         public bool Closed => closed;
         /// <summary>Why it closed (a read error, the other end leaving), for the player.</summary>
@@ -40,8 +42,9 @@ namespace Vision.Net
         public void Send(byte[] message)
         {
             if (closed) return;
+            Interlocked.Increment(ref unsent);
             try { outbox.Add(message); }
-            catch (InvalidOperationException) { }
+            catch (InvalidOperationException) { Interlocked.Decrement(ref unsent); }
         }
 
         void ReadLoop()
@@ -89,6 +92,7 @@ namespace Vision.Net
                     stream.Write(BitConverter.GetBytes(m.Length), 0, 4);
                     stream.Write(m, 0, m.Length);
                     Interlocked.Add(ref BytesOut, m.Length + 4);
+                    Interlocked.Decrement(ref unsent);
                 }
             }
             catch (Exception)
@@ -107,11 +111,14 @@ namespace Vision.Net
             try { tcp.Close(); } catch (Exception) { }
         }
 
-        /// <summary>Sends what is queued, then closes (a last message before leaving).</summary>
+        /// <summary>
+        /// Waits until what is queued has been written (a last message before leaving): not just taken off the queue, which
+        /// the writer does before it writes, so a close straight after could cut it off.
+        /// </summary>
         public void Flush(int timeoutMs = 300)
         {
             int waited = 0;
-            while (outbox.Count > 0 && !closed && waited < timeoutMs)
+            while (Volatile.Read(ref unsent) > 0 && !closed && waited < timeoutMs)
             {
                 Thread.Sleep(10);
                 waited += 10;

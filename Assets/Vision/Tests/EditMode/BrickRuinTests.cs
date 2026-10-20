@@ -127,7 +127,9 @@ namespace Vision.Tests
                     int tris = chunks.Triangles;
                     worst = Mathf.Max(worst, tris);
                     foreach (LowPolyMeshBuilder c in chunks.Builders) Assert.LessOrEqual(c.TriangleCount, RuinBricks.Chunks.Cap, "each chunk within its cap");
-                    Assert.LessOrEqual(tris, plan.Structure ? 40000 : kind == RuinArchetype.Corner ? 10000 : 6000, $"{kind} seed {seed}: {tris} triangles");
+                    // (The big building, one to a map, has more wall than any other.)
+                    int budget = kind == RuinArchetype.Complex ? 90000 : plan.Structure ? 40000 : kind == RuinArchetype.Corner ? 10000 : 6000;
+                    Assert.LessOrEqual(tris, budget, $"{kind} seed {seed}: {tris} triangles");
                     // The same seed, the same ruin.
                     RuinBricks.Chunks again = RuinBricks.Build(Plan(kind, seed), new System.Random(seed));
                     Assert.AreEqual(Hash(chunks), Hash(again), $"{kind} seed {seed}: the same every time");

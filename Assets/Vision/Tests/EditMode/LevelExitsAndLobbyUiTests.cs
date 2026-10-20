@@ -368,6 +368,30 @@ namespace Vision.Tests
             Debug.Log("[Ruins] placed: " + string.Join(", ", world.Ruins.Select(r => r.kind)) + "; " + world.RuinReport);
             Assert.IsTrue(world.Ruins.Any(r => r.plan.Structure), "the shell of a building among them");
             Assert.IsTrue(world.Ruins.Any(r => !r.plan.Structure), "and broken walls and corners");
+            // The three every map has, each with its stone floor: laid on level ground (nothing poking through), nothing
+            // growing on it, footsteps on stone.
+            foreach (RuinArchetype kind in SandboxWorld.RequiredRuins)
+            {
+                var r = world.Ruins.First(x => x.kind == kind);
+                MeshFilter floor = r.root.GetComponentsInChildren<MeshFilter>(true).FirstOrDefault(m => m.name == "Stone Floor Ruin");
+                Assert.NotNull(floor, $"{kind}: its stone floor");
+                Assert.Greater(floor.sharedMesh.triangles.Length / 3, 300);
+                Assert.AreSame(world.StoneMaterial, floor.GetComponent<MeshRenderer>().sharedMaterial, "the stone material");
+                float top = world.Terrain.Height(r.at.x, r.at.y) + RuinFloors.StoneTop;
+                foreach (FloorZone z in r.plan.Floor)
+                {
+                    Rect a = RuinFloors.Inset(z.Area);
+                    for (float u = 0.1f; u < 1f; u += 0.2f)
+                        for (float v = 0.1f; v < 1f; v += 0.2f)
+                        {
+                            Vector2 p = r.at + RotatePlan(new Vector2(Mathf.Lerp(a.xMin, a.xMax, u), Mathf.Lerp(a.yMin, a.yMax, v)), r.yaw);
+                            Assert.IsTrue(world.OnRuinFloor(p), $"{kind}: on its floor");
+                            Assert.Less(world.SurfaceHeight(p), top - 0.006f, $"{kind}: the ground stays under the floor");
+                            Assert.AreEqual("step_concrete", Vision.Audio.Footsteps.Surface(world, p), "footsteps on stone");
+                        }
+                }
+            }
+            Assert.IsFalse(world.OnRuinFloor(L.Spawn), "nowhere else");
             var chunks = new List<Transform>();
             foreach (var r in world.Ruins)
             {

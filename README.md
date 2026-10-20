@@ -105,7 +105,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   (the button beside Reset to defaults): while locked only the host moves them, everyone else seeing them greyed out,
   until the host unlocks them.
 - **The night**: everyone builds the host's map from its seed (its fingerprint is checked, so different versions can't
-  mix), and plays at the host's pace. The host runs the rules for everyone; each player moves their own avatar and sends
+  mix, and a player turned away always gets the reason before the connection closes), and plays at the host's pace. The host runs the rules for everyone; each player moves their own avatar and sends
   their input and position 30 times a second; the host sends each player only what changed (20 snapshots a second,
   about 15 KB/s each), with the events meant for them. Spectators and the
   eliminated watch the others (left click or the arrow keys). Someone joining while a match is under way isn't turned
@@ -484,7 +484,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   (the original's animation, quickened), and the Hemp Battery's zoom out and back in takes half a second too. Every attack item but galaxy
   gas breaks windows: a thrown bottle, book or jar smashes the glass and drops there, rounds go through it, and anyone
   can climb through the empty frame. Drinks, bites, throws, glass, books, splashes, traps and pick-ups have their
-  sounds.
+  sounds. A bottle breaking on a player or an NPC plays the window's glass breaking at 60% volume (its own smash where
+  it lands on nothing).
 - **Sound polish**: footsteps on every character's footfalls (concrete in the building, boards in the cabins, grass
   outside; louder running, softer crouched, heavier for Zach). You hear your own, and others only up close, since the
   original has none. Doors creak open and bang shut whoever moves them (NPCs too), shotguns take a shell before the
@@ -643,18 +644,32 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   it strikes generators, gravestones and anything else no higher than the hip, throwing off dust and debris; a
   generator clanks (the Half-Life metal clank), while stone (a rock, a boulder, a gravestone, the ruined brick walls)
   breaks with one of three stone-breaking sounds.
-- **Brick ruins** (`RuinPlanner`, `RuinBricks`, `SandboxWorld.Ruins`): a dozen about the map, somewhere new each match
-  (the same for every player in it). About a fifth are the shells of buildings, sited with the map's layout on ground
-  levelled for them (the paths go round, no trees inside): a **church** (a nave with tall arched windows down its
+- **Brick ruins** (`RuinPlanner`, `RuinBricks`, `RuinFloors`, `SandboxWorld.Ruins`): a dozen about the map, somewhere
+  new each match (the same for every player in it). Every map has three brick structures, each with a stone floor
+  inside its walls:
+  - **A big building**, 14-16 m by 11-12 m. A front door in one end opens into a 1.8 m hallway, which leads through a
+    wide arch into a great hall across the far end. Off the hallway, two rooms on one side; on the other, a room either
+    side of a 1.6 m cross hallway that runs out to a side door. Every room has a 1.3 m doorway off the hallway, the two
+    rooms side by side have a doorway between them, and the last room opens into the hall. Nooks: one off a room's back
+    wall, one off the hall's end wall, sometimes one more. Windows all round, tall arched ones in the hall; sometimes
+    mirrored.
+  - **A plain rectangle**, 5-7.6 m by 4-6 m, semi-enclosed: much of one side has fallen to the ground (its corners still
+    stand), which is the way in. Often a doorway in another side, a window in the rest, sometimes another stretch
+    fallen part way.
+  - **Half a rectangle's frame**, 6-9 m by 4-5.6 m: a back wall and both sides (a U, two corners) or a back wall and one
+    side (an L, one corner), the free ends broken away.
+
+  Half the time there's also the shell of an older building, all of them sited with the map's layout on ground levelled
+  for them (the paths go round, no trees inside): a **church** (a nave with tall arched windows down its
   sides, a gable end with a big arched door and an arched window over it, a three- or five-sided apse, sometimes a
   tower's stub), a **warehouse** (a long shed with gable ends, a 3 m door in one side, a big arched door in an end, a
   row of high little windows, sometimes a lean-to) or a **house** (an L or a T: a front door into a 1.2 m hallway
   between two walls, a doorway through to the room beyond, a nook against the back wall, windows round the outside).
   The rest are lone broken walls and corners, out in the woods and the open (never on a path, in the lake, at a site
-  or a work site). All upright walls on one flat base: no stairs, ramps or floors. Every wall is laid brick by brick
+  or a work site). All upright walls on one flat base: no stairs or ramps. Every wall is laid brick by brick
   the way brick generators lay them: bricks 0.2 x 0.088 x 0.144 m (60% smaller than before), two to the wall's depth
   (0.288 m) back to back, in running bond (each course half a brick along, the back layer a further quarter), each a
-  little uneven in length, rust-brown in five tones with small shifts of hue and value, grey weathered patches spread
+  little uneven in length, rust-brown in five tones (every brick 10% less saturated than at first) with small shifts of hue and value, grey weathered patches spread
   across the face and the odd grey brick, on grey mortar set back from the faces; whole courses laid, then the holes cut
   out of them (start full, then subtract): windows with stone sills and lintels, doors with stone lintels, arches with
   a ring of radial bricks (an odd number, one at the crown) round their heads. Their tops are broken brick by brick
@@ -663,7 +678,26 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   strewn along the walls, and one or two teeter on top. Play: the walls stop you and block sight, you walk through the
   doorways and arches and see (not walk) through the windows, and a stretch fallen to knee height is climbed and seen
   over like a log; the machete throws red brick chips and dust off them. Only the faces that can be seen are drawn
-  (in pieces of at most 12,000 triangles; a building's shell 40,000 at most).
+  (in pieces of at most 12,000 triangles; a building's shell 40,000 at most, the big building 90,000).
+  - **The stone floors** (`RuinFloors`) are laid within the three structures' walls stretch by stretch, the way a
+    mason lays one. Each room gets a kerb course of narrow stones round its edge (a hallway, down both sides). Inside
+    that, depending on the room: flagstones of mixed lengths in staggered courses, square tiles in a grid, a chequer
+    of pale and dark tiles framed by a dark band (the big building's hall), or a hallway runner of slabs laid across
+    it. Each room keeps to one stone (grey limestone, warm sandstone or blue-grey slate), with the odd stone from
+    another quarry; every doorway has a worn threshold stone.
+  - **Detail and wear:** every stone stands a little proud of the grout with a chamfered edge and sits a little
+    unevenly. Some are sunk and tipped, some cracked in two, some chipped at a corner, and the odd one is gone (bare
+    earth and grit in its place).
+  - **Discolouring**, shaded across each stone: a brownish grime wash; patchy damp, darker toward the walls; white
+    salts along the walls' feet; moss and algae creeping in from the walls (more where it's open to the sky); worn paler
+    down the middle of a hallway; the odd stone stained right through; and stains of rust, a fire's soot, old blood or
+    a water mark fading out raggedly. Lichen spots some stones, and grit and chips of stone and brick lie about, mostly
+    by the walls.
+  - **Texture:** the floor's material (`Vision/LowPoly` with `_VISION_STONE`) adds each stone's own grain (soft
+    mottling, a fine grain, dark pits and pale flecks), fading out wherever it would be finer than a pixel or two, so it
+    never shimmers.
+  - **On the floors:** nothing grows through them, the ground stays level under them, fallen bricks lie on them, and
+    footsteps on them sound like stone.
 - **The building's lights**: each of the building's generators lights its own half of the building (every room by the
   generator nearest it; a long hallway split light by light), a lone one all of it (testing mode too). Lit rooms and
   halls look as night vision's see-through light does, the same whether the player can see there or not (behind walls,

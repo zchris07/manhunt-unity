@@ -6,6 +6,9 @@
 // (mask channel B below _VisionEntityThreshold) are discarded, so it is invisible in the dark.
 // Each surface writes _StencilRef where it's drawn: 1 for the ground (and fallen logs), 0 for everything else, so the
 // laser and rounds (Vision/FxOverGround) know where the ground is the nearest thing on screen.
+// With _VISION_STONE (a ruin's stone floor) a stone's grain is laid over the vertex colours, in the mesh's own metres:
+// soft mottling a hand's width across and smaller, a fine grain, and the odd dark pit or pale fleck, each fading out
+// where it would be finer than a pixel or two (so it never shimmers).
 Shader "Vision/LowPoly"
 {
     Properties
@@ -39,6 +42,41 @@ Shader "Vision/LowPoly"
             clip(SampleVisionMask(positionWS.xz).b - _VisionEntityThreshold);
             #endif
         }
+
+        float StoneHash(float2 p)
+        {
+            p = frac(p * float2(123.34, 456.21));
+            p += dot(p, p + 45.32);
+            return frac(p.x * p.y);
+        }
+
+        float StoneNoise(float2 p)
+        {
+            float2 i = floor(p), f = frac(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return lerp(lerp(StoneHash(i), StoneHash(i + float2(1, 0)), f.x), lerp(StoneHash(i + float2(0, 1)), StoneHash(i + 1.0), f.x), f.y);
+        }
+
+        // How much of a pattern of this many cells a metre to keep: all of it while a cell spans a few pixels, none once finer.
+        half StoneKeep(float2 p, float cells)
+        {
+            float2 w = fwidth(p * cells);
+            return saturate(1.5 - max(w.x, w.y) * 1.2);
+        }
+
+        // A stone's grain at a point (metres): a brightness factor about 1.
+        half StoneGrain(float3 positionOS)
+        {
+            float2 p = positionOS.xz;
+            float mottle = StoneNoise(p * 3.1 + 17.0) * 0.6 + StoneNoise(p * 7.3 + 3.0) * 0.4;
+            float grain = StoneNoise(p * 38.0);
+            float speck = StoneHash(floor(p * 90.0));
+            half k = 1.0 + 0.2 * (mottle - 0.5);
+            k += 0.09 * (grain - 0.5) * StoneKeep(p, 38.0);
+            half keep = StoneKeep(p, 90.0);
+            k *= speck > 0.965 ? lerp(1.0, 0.7, keep) : (speck < 0.02 ? lerp(1.0, 1.14, keep) : 1.0);
+            return k;
+        }
         ENDHLSL
 
         Pass
@@ -52,6 +90,7 @@ Shader "Vision/LowPoly"
             #pragma vertex vert
             #pragma fragment frag
             #pragma shader_feature_local _VISION_ENTITY
+            #pragma multi_compile_local _ _VISION_STONE
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes
@@ -67,6 +106,9 @@ Shader "Vision/LowPoly"
                 float3 positionWS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
                 half4 color : COLOR;
+                #if defined(_VISION_STONE)
+                float3 positionOS : TEXCOORD2;
+                #endif
             };
 
             Varyings vert(Attributes i)
@@ -77,6 +119,9 @@ Shader "Vision/LowPoly"
                 o.positionWS = p.positionWS;
                 o.normalWS = TransformObjectToWorldNormal(i.normalOS);
                 o.color = i.color;
+                #if defined(_VISION_STONE)
+                o.positionOS = i.positionOS.xyz;
+                #endif
                 return o;
             }
 
@@ -88,6 +133,9 @@ Shader "Vision/LowPoly"
                 half ndl = saturate(dot(n, light.direction));
                 if (_RampSteps >= 1.0) ndl = floor(ndl * _RampSteps + 0.5) / _RampSteps;
                 half3 albedo = lerp(i.color.rgb, 1.0, _Whiten) * _Tint.rgb;
+                #if defined(_VISION_STONE)
+                albedo *= StoneGrain(i.positionOS);
+                #endif
                 // Sky light falls off on steeper faces, so slopes and hollows read through the facet shading.
                 half sky = 0.62 + 0.38 * saturate(n.y);
                 half3 c = albedo * (SampleSH(n) * sky + light.color * ndl) + albedo * _Emission;

@@ -77,6 +77,34 @@ namespace Vision.World
             else AddTriangle(a, b, c, color);
         }
 
+        /// <summary>
+        /// A triangle facing away from <paramref name="inside"/>, its colour shaded across it from one corner's to the next
+        /// (a stain or the damp fading over a stone); still one flat face.
+        /// </summary>
+        public void AddTriangleShaded(Vector3 a, Vector3 b, Vector3 c, Color ca, Color cb, Color cc, Vector3 inside)
+        {
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), (a + b + c) / 3f - inside) < 0f)
+            {
+                (b, c) = (c, b);
+                (cb, cc) = (cc, cb);
+            }
+            if (Transform.HasValue)
+            {
+                Matrix4x4 m = Transform.Value;
+                a = m.MultiplyPoint3x4(a);
+                b = m.MultiplyPoint3x4(b);
+                c = m.MultiplyPoint3x4(c);
+            }
+            Vector3 n = Vector3.Cross(b - a, c - a);
+            if (n.sqrMagnitude < 1e-12f) return;
+            n.Normalize();
+            int i = vertices.Count;
+            vertices.Add(a); vertices.Add(b); vertices.Add(c);
+            colors.Add(ca.linear); colors.Add(cb.linear); colors.Add(cc.linear);
+            for (int k = 0; k < 3; k++) normals.Add(n);
+            triangles.Add(i); triangles.Add(i + 1); triangles.Add(i + 2);
+        }
+
         /// <summary>A thin surface seen from both sides (leaves, fronds, blades): the same triangle both ways, the back a shade darker.</summary>
         public void AddDoubleSided(Vector3 a, Vector3 b, Vector3 c, Color color)
         {

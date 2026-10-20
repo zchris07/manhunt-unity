@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System;
 using System.Collections;
+using System.Linq;
 using System.IO;
 using UnityEngine;
 using Vision.Characters;
@@ -1506,12 +1507,38 @@ namespace Vision.Player
                                 yield return Stage(player, V(where + view * 1.2f), view, wanderer, away);
                                 yield return Shot(name);
                             }
-                        foreach (var (kind, name) in new[] { (RuinArchetype.Church, "178_ruin_church"), (RuinArchetype.Warehouse, "179_ruin_warehouse"), (RuinArchetype.Residential, "180_ruin_house") })
+                        foreach (var (kind, name) in new[] { (RuinArchetype.Church, "178_ruin_church"), (RuinArchetype.Warehouse, "179_ruin_warehouse"), (RuinArchetype.Residential, "180_ruin_house"),
+                            (RuinArchetype.Complex, "190_ruin_complex"), (RuinArchetype.Enclosure, "191_ruin_enclosure"), (RuinArchetype.HalfFrame, "192_ruin_half_frame") })
                         {
                             var (rPlan, rAt, rYaw) = Ruin(kind);
-                            cameraRig.orthographicSize = ortho * 1.9f;
+                            cameraRig.orthographicSize = ortho * (kind == RuinArchetype.Complex ? 2.5f : 1.9f);
                             yield return Stage(player, V(rAt), view, wanderer, away);
                             yield return Shot(name);
+                        }
+                        // The stone floors close up: the big building's hall (its chequer), its hallway (the runner), the
+                        // plain rectangle's floor and the half frame's.
+                        {
+                            var (cPlan, cAt, cYaw) = Ruin(RuinArchetype.Complex);
+                            FloorZone hallZone = cPlan.Floor.First(z => z.Laying == FloorLaying.Checker);
+                            FloorZone runner = cPlan.Floor.Where(z => z.Laying == FloorLaying.Runner).OrderByDescending(z => z.Area.width * z.Area.height).First();
+                            var (ePlan, eAt, eYaw) = Ruin(RuinArchetype.Enclosure);
+                            var (hPlan, hAt, hYaw) = Ruin(RuinArchetype.HalfFrame);
+                            foreach (var (at, name) in new[] { (cAt + Turn(hallZone.Area.center, cYaw), "193_ruin_floor_hall"), (cAt + Turn(runner.Area.center, cYaw), "194_ruin_floor_hallway"),
+                                (eAt + Turn(ePlan.Floor[0].Area.center, eYaw), "195_ruin_floor_enclosure"), (hAt + Turn(hPlan.Floor[0].Area.center, hYaw), "196_ruin_floor_half_frame") })
+                            {
+                                cameraRig.orthographicSize = ortho * 0.45f;
+                                yield return Stage(player, V(at + view * 1.6f), view, wanderer, away);
+                                yield return Shot(name);
+                            }
+                            // Inside the big building in the player's own light.
+                            composite.debugView = VisionComposite.DebugView.Final;
+                            gameHud.visible = hudWas;
+                            cameraRig.orthographicSize = ortho;
+                            yield return Stage(player, V(cAt + Turn(runner.Area.center, cYaw)), view, wanderer, away);
+                            yield return new WaitForSeconds(0.4f);
+                            yield return Shot("197_ruin_complex_inside");
+                            composite.debugView = VisionComposite.DebugView.SceneOnly;
+                            gameHud.visible = false;
                         }
                         // From inside a house's shell, in the player's own light.
                         {

@@ -13,7 +13,11 @@ namespace Vision.World
     /// down its sides, a gable end with an arched door, a many-sided apse and perhaps a tower), a warehouse (a long
     /// shed with a wide door, an arched door in a gable end, a row of high little windows, perhaps a lean-to) or a house
     /// (an L or a T, a front door into a short hallway, rooms with doorways between them, a nook, windows). Every wall
-    /// is broken along its top, a few have fallen in places, and the corners stand longest.
+    /// is broken along its top, a few have fallen in places, and the corners stand longest. Three more stand on every
+    /// map, each with a stone floor laid inside its walls: a big building (<see cref="RuinArchetype.Complex"/>: a long
+    /// hallway from its front door, a cross hallway out to a side door, four rooms off them, a great hall at the end,
+    /// nooks), a plain rectangle with part of one side fallen open (<see cref="RuinArchetype.Enclosure"/>), and half a
+    /// rectangle's frame, a U or an L (<see cref="RuinArchetype.HalfFrame"/>: two corners at most).
     /// </summary>
     public static class RuinPlanner
     {
@@ -25,6 +29,8 @@ namespace Vision.World
         public const float HallWidth = 1.2f, HallMaxLength = 3.5f;
         /// <summary>Passages between rooms.</summary>
         public const float PassageMin = 0.9f, PassageMax = 1.5f;
+        /// <summary>A big building's main hallway and its cross hallway (wall line to wall line), and its doorways.</summary>
+        public const float ComplexHallWidth = 1.8f, ComplexCrossWidth = 1.6f, ComplexDoor = 1.3f;
 
         public static RuinPlan Generate(System.Random rng, RuinTier tier) => tier switch
         {
@@ -39,6 +45,9 @@ namespace Vision.World
             RuinArchetype.Corner => Corner(rng),
             RuinArchetype.Church => Church(rng),
             RuinArchetype.Warehouse => Warehouse(rng),
+            RuinArchetype.Complex => Complex(rng),
+            RuinArchetype.Enclosure => Enclosure(rng),
+            RuinArchetype.HalfFrame => HalfFrame(rng),
             _ => Residential(rng),
         };
 
@@ -333,6 +342,203 @@ namespace Vision.World
                 for (int k = 0; k < n; k++) Open(r, Window(r.Length * (k + 1f) / (n + 1f), 0.9f, R(rng, 0.8f, 0.95f), R(rng, 1.7f, 1.9f)), keep[r]);
             }
             foreach (RuinRun r in runs) MaybeBreach(rng, r, 0.3f);
+            return plan;
+        }
+
+        /// <summary>How far along a wall a plan point is.</summary>
+        static float Along(RuinRun r, Vector2 p) => Vector2.Dot(p - r.A, r.Dir);
+
+        /// <summary>A nook: two short walls out from a wall into the room (its mouth <paramref name="width"/> across).</summary>
+        static void Nook(RuinPlan plan, System.Random rng, RuinRun wall, float along, float width, float depth, Vector2 inward, List<float> keep)
+        {
+            Vector2 p0 = wall.A + wall.Dir * along, p1 = wall.A + wall.Dir * (along + width);
+            RuinRun n0 = Run(plan, rng, p0, p0 + inward * depth, R(rng, 1.3f, 1.9f), false);
+            RuinRun n1 = Run(plan, rng, p1, p1 + inward * depth, R(rng, 1.3f, 1.9f), false);
+            n0.JoinStart = n1.JoinStart = true;
+            keep?.Add(along);
+            keep?.Add(along + width);
+            plan.Nooks.Add(new Vector2(width, depth));
+        }
+
+        /// <summary>
+        /// A big building's shell, 14-16 m by 11-12 m: a front door in one end into a long hallway, which opens through a
+        /// wide arch into a great hall across the far end; off the hallway, two rooms on one side and, on the other, a room
+        /// either side of a cross hallway running out to a side door; doorways from each room into the hallway, between the
+        /// two rooms beside each other and from the last room into the hall; nooks off a room, off the hall and perhaps off
+        /// another room; windows all round (arched ones in the hall). Its floor: runners down the hallways, flags or tiles
+        /// in the rooms, a chequer in the hall.
+        /// </summary>
+        static RuinPlan Complex(System.Random rng)
+        {
+            var plan = new RuinPlan { Archetype = RuinArchetype.Complex };
+            float w = Snap(R(rng, 14.4f, 16.4f)), d = Snap(R(rng, 10.8f, 12.4f)), hw = w * 0.5f, hd = d * 0.5f;
+            var pts = new[] { new Vector2(-hw, -hd), new Vector2(hw, -hd), new Vector2(hw, hd), new Vector2(-hw, hd) };
+            float outer = R(rng, 2f, 2.4f);
+            List<RuinRun> runs = Loop(plan, rng, pts, i => outer + R(rng, -0.2f, 0.2f));
+            RuinRun south = runs[0], east = runs[1], north = runs[2], west = runs[3];
+            var keep = new Dictionary<RuinRun, List<float>>();
+            List<float> Keep(RuinRun r) => keep.TryGetValue(r, out List<float> k) ? k : keep[r] = new List<float>();
+            float Inner() => R(rng, 1.6f, 2.1f);
+
+            // The great hall across the east end, and the hallway from the front door in the west end to it.
+            float hall = Snap(R(rng, 4.4f, 5.4f)), xh = hw - hall;
+            float yc = Snap(R(rng, -0.6f, 0.6f)), ch = ComplexHallWidth * 0.5f, ys = yc - ch, yn = yc + ch;
+            Open(west, Door(Along(west, new Vector2(-hw, yc)), ComplexDoor + 0.1f, R(rng, 2f, 2.2f)));
+            RuinRun gh = Run(plan, rng, new Vector2(xh, -hd), new Vector2(xh, hd), Inner(), false);
+            gh.JoinStart = gh.JoinEnd = true;
+            Keep(south).Add(Along(south, new Vector2(xh, -hd)));
+            Keep(north).Add(Along(north, new Vector2(xh, hd)));
+            Open(gh, Arch(Along(gh, new Vector2(xh, yc)), 1.4f, 0f, R(rng, 1.6f, 1.8f)));
+            RuinRun cs = Run(plan, rng, new Vector2(-hw, ys), new Vector2(xh, ys), Inner(), false);
+            RuinRun cn = Run(plan, rng, new Vector2(-hw, yn), new Vector2(xh, yn), Inner(), false);
+            cs.JoinStart = cs.JoinEnd = cn.JoinStart = cn.JoinEnd = true;
+            Keep(west).Add(Along(west, new Vector2(-hw, ys)));
+            Keep(west).Add(Along(west, new Vector2(-hw, yn)));
+            Keep(gh).Add(Along(gh, new Vector2(xh, ys)));
+            Keep(gh).Add(Along(gh, new Vector2(xh, yn)));
+            float span = xh + hw;
+            plan.Hallways.Add(new Vector2(ComplexHallWidth, span));
+
+            // South of the hallway: a room either side of a cross hallway out to a side door.
+            float xc = Snap(-hw + span * R(rng, 0.42f, 0.58f)), cw = ComplexCrossWidth * 0.5f;
+            RuinRun xa = Run(plan, rng, new Vector2(xc - cw, -hd), new Vector2(xc - cw, ys), Inner(), false);
+            RuinRun xb = Run(plan, rng, new Vector2(xc + cw, -hd), new Vector2(xc + cw, ys), Inner(), false);
+            xa.JoinStart = xa.JoinEnd = xb.JoinStart = xb.JoinEnd = true;
+            Open(south, Door(Along(south, new Vector2(xc, -hd)), ComplexDoor, R(rng, 2f, 2.2f)));
+            Open(cs, Door(Along(cs, new Vector2(xc, ys)), ComplexDoor, 2.1f));
+            foreach (float x in new[] { xc - cw, xc + cw })
+            {
+                Keep(south).Add(Along(south, new Vector2(x, -hd)));
+                Keep(cs).Add(Along(cs, new Vector2(x, ys)));
+            }
+            plan.Hallways.Add(new Vector2(ComplexCrossWidth, ys + hd));
+            var s1 = Rect.MinMaxRect(-hw, -hd, xc - cw, ys);
+            var s2 = Rect.MinMaxRect(xc + cw, -hd, xh, ys);
+
+            // North of it: two rooms, a doorway between them.
+            float xn = Snap(-hw + span * R(rng, 0.4f, 0.6f));
+            RuinRun np = Run(plan, rng, new Vector2(xn, yn), new Vector2(xn, hd), Inner(), false);
+            np.JoinStart = np.JoinEnd = true;
+            Keep(cn).Add(Along(cn, new Vector2(xn, yn)));
+            Keep(north).Add(Along(north, new Vector2(xn, hd)));
+            if (Open(np, Door(np.Length * R(rng, 0.45f, 0.6f), ComplexDoor, 2f))) plan.Passages.Add(ComplexDoor);
+            var n1 = Rect.MinMaxRect(-hw, yn, xn, hd);
+            var n2 = Rect.MinMaxRect(xn, yn, xh, hd);
+
+            // Each room's door off the hallway; the last room's into the hall too.
+            foreach (Rect room in new[] { s1, s2 })
+                Open(cs, Door(Along(cs, new Vector2(room.center.x, ys)), ComplexDoor, R(rng, 2f, 2.1f)), Keep(cs));
+            foreach (Rect room in new[] { n1, n2 })
+                Open(cn, Door(Along(cn, new Vector2(room.center.x, yn)), ComplexDoor, R(rng, 2f, 2.1f)), Keep(cn));
+            if (Open(gh, Door(Along(gh, new Vector2(xh, (s2.yMin + s2.yMax) * 0.5f)), ComplexDoor, 2f), Keep(gh))) plan.Passages.Add(ComplexDoor);
+            plan.Rooms.AddRange(new[] { s1, s2, n1, n2, Rect.MinMaxRect(xh, -hd, hw, hd) });
+
+            // Nooks: off the north-west room's back wall, off the hall's end wall, and perhaps off the south-west room.
+            {
+                float nw = Snap(R(rng, 1.2f, 1.6f)), nd = Snap(R(rng, 0.9f, 1.3f));
+                float x0 = Snap(R(rng, -hw + 0.9f, Mathf.Max(-hw + 0.9f, xn - 0.9f - nw)));
+                Nook(plan, rng, north, Along(north, new Vector2(x0 + nw, hd)), nw, nd, Vector2.down, Keep(north));
+            }
+            {
+                float nw = Snap(R(rng, 1.4f, 1.8f)), nd = Snap(R(rng, 1f, 1.4f));
+                float y0 = Snap(R(rng, -hd + 1f, hd - 1f - nw));
+                Nook(plan, rng, east, Along(east, new Vector2(hw, y0)), nw, nd, Vector2.left, Keep(east));
+            }
+            if (s1.height >= 3.6f && Chance(rng, 0.6f))
+            {
+                float nw = Snap(R(rng, 1.1f, 1.4f)), nd = Snap(R(rng, 0.8f, 1.1f));
+                float y0 = Snap(R(rng, -hd + 0.8f, ys - 0.8f - nw));
+                Nook(plan, rng, west, Along(west, new Vector2(-hw, y0 + nw)), nw, nd, Vector2.right, Keep(west));
+            }
+
+            // Windows round the outside: plain ones in the rooms, tall arched ones in the hall.
+            foreach (RuinRun r in runs)
+                for (float x = 1.4f; x < r.Length - 1.2f; x += R(rng, 2.4f, 3f))
+                {
+                    Vector2 at = r.A + r.Dir * x;
+                    bool inHall = at.x > xh + 0.3f;
+                    Open(r, inHall ? Arch(x, 0.9f, R(rng, 0.85f, 1f), R(rng, 1.55f, 1.7f)) : Window(x, 0.9f, R(rng, 0.8f, 0.95f), R(rng, 1.7f, 1.9f)), Keep(r));
+                }
+            foreach (RuinRun r in runs) MaybeBreach(rng, r, 0.25f);
+
+            // The floor: runners down the hallways, flags or tiles in the rooms, a chequer in the hall.
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(-hw, ys, xh, yn), Laying = FloorLaying.Runner, Wear = 1f });
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(xc - cw, -hd, xc + cw, ys), Laying = FloorLaying.Runner, Wear = 0.8f });
+            plan.Floor.Add(new FloorZone { Area = s1, Laying = FloorLaying.Flags });
+            plan.Floor.Add(new FloorZone { Area = s2, Laying = Chance(rng, 0.5f) ? FloorLaying.Grid : FloorLaying.Flags });
+            plan.Floor.Add(new FloorZone { Area = n1, Laying = Chance(rng, 0.5f) ? FloorLaying.Grid : FloorLaying.Flags });
+            plan.Floor.Add(new FloorZone { Area = n2, Laying = FloorLaying.Flags });
+            plan.Floor.Add(new FloorZone { Area = Rect.MinMaxRect(xh, -hd, hw, hd), Laying = FloorLaying.Checker, Wear = 0.3f });
+            if (Chance(rng, 0.5f)) plan.MirrorX();
+            return plan;
+        }
+
+        /// <summary>
+        /// A plain rectangle of four walls, 5-7.6 m by 4-6 m, semi-enclosed: much of one side fallen to the ground (the
+        /// corners still standing), the way in; often a doorway in another side, a window in the rest, perhaps another
+        /// stretch fallen part way. Its floor is one stretch of stone, open to the weather.
+        /// </summary>
+        static RuinPlan Enclosure(System.Random rng)
+        {
+            var plan = new RuinPlan { Archetype = RuinArchetype.Enclosure };
+            float w = Snap(R(rng, 5.4f, 7.6f)), d = Snap(R(rng, 4.2f, 5.8f)), hw = w * 0.5f, hd = d * 0.5f;
+            var pts = new[] { new Vector2(-hw, -hd), new Vector2(hw, -hd), new Vector2(hw, hd), new Vector2(-hw, hd) };
+            float h = R(rng, 1.8f, 2.4f);
+            List<RuinRun> runs = Loop(plan, rng, pts, i => h + R(rng, -0.25f, 0.25f));
+            int open = rng.Next(4);
+            RuinRun o = runs[open];
+            float bw = Mathf.Min(o.Length * R(rng, 0.62f, 0.8f), o.Length - 0.9f);
+            o.Breaches.Add(new Vector3(o.Length * R(rng, 0.45f, 0.55f), bw, 0f));
+            RuinRun door = runs[(open + (Chance(rng, 0.6f) ? 2 : 1)) % 4];
+            if (Chance(rng, 0.65f)) Open(door, Door(door.Length * R(rng, 0.35f, 0.65f), Snap(R(rng, 1.1f, 1.3f)), R(rng, 1.9f, 2.1f)));
+            foreach (RuinRun r in runs)
+                if (r != o && r.Length >= 3f) Open(r, Window(r.Length * R(rng, 0.3f, 0.7f), 0.9f, R(rng, 0.8f, 0.95f), R(rng, 1.65f, 1.85f)));
+            RuinRun other = runs[(open + 1 + rng.Next(3)) % 4];
+            if (other.Length >= 4f && Chance(rng, 0.35f)) other.Breaches.Add(new Vector3(other.Length * R(rng, 0.35f, 0.65f), R(rng, 1f, 1.6f), R(rng, 0.45f, 0.9f)));
+            var area = Rect.MinMaxRect(-hw, -hd, hw, hd);
+            plan.Rooms.Add(area);
+            plan.Floor.Add(new FloorZone { Area = area, Laying = (FloorLaying)rng.Next(3), Exposed = true, Wear = 0.3f });
+            return plan;
+        }
+
+        /// <summary>
+        /// Half a rectangle's frame, 6-9 m by 4-5.6 m: a back wall and both sides, two corners (a U), or a back wall and
+        /// one side, one corner (an L); the free ends broken away; windows along the back (an arched one perhaps), perhaps
+        /// an opening in a side. Its floor fills the rectangle the frame would close, open to the weather.
+        /// </summary>
+        static RuinPlan HalfFrame(System.Random rng)
+        {
+            var plan = new RuinPlan { Archetype = RuinArchetype.HalfFrame };
+            float l = Snap(R(rng, 6.4f, 9.2f)), s = Snap(R(rng, 3.8f, 5.6f)), hl = l * 0.5f, hs = s * 0.5f;
+            float h = R(rng, 1.9f, 2.5f);
+            RuinRun left = Run(plan, rng, new Vector2(-hl, -hs), new Vector2(-hl, hs), h + R(rng, -0.3f, 0.2f));
+            RuinRun back = Run(plan, rng, new Vector2(-hl, hs), new Vector2(hl, hs), h + R(rng, -0.1f, 0.3f));
+            left.JoinEnd = back.JoinStart = true;
+            left.BondEnd = 0;
+            back.BondStart = 1;
+            if (Chance(rng, 0.7f)) BreakEnd(rng, left, true);
+            RuinRun right = null;
+            if (Chance(rng, 0.7f))
+            {
+                right = Run(plan, rng, new Vector2(hl, hs), new Vector2(hl, -hs), h + R(rng, -0.3f, 0.2f));
+                back.JoinEnd = right.JoinStart = true;
+                back.BondEnd = 0;
+                right.BondStart = 1;
+                if (Chance(rng, 0.7f)) BreakEnd(rng, right, false);
+            }
+            else if (Chance(rng, 0.7f)) BreakEnd(rng, back, false);
+            int n = back.Length > 7f ? 2 : 1;
+            for (int k = 0; k < n; k++)
+            {
+                float at = back.Length * (k + 1f) / (n + 1f);
+                Open(back, Chance(rng, 0.35f) ? Arch(at, 1f, R(rng, 0.85f, 1f), R(rng, 1.5f, 1.7f)) : Window(at, 0.9f, R(rng, 0.8f, 0.95f), R(rng, 1.7f, 1.9f)));
+            }
+            foreach (RuinRun side in new[] { left, right })
+                if (side != null && side.Length >= 3.4f && Chance(rng, 0.45f)) Open(side, AnyOpening(rng, side.Length * R(rng, 0.45f, 0.6f), side.Height));
+            MaybeBreach(rng, back, 0.3f);
+            var area = Rect.MinMaxRect(-hl, -hs, hl, hs);
+            plan.Rooms.Add(area);
+            plan.Floor.Add(new FloorZone { Area = area, Laying = (FloorLaying)rng.Next(3), Exposed = true, Wear = 0.2f });
             return plan;
         }
     }

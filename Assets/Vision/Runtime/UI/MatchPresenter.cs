@@ -284,6 +284,7 @@ namespace Vision.UI
                     fx.Burst(Ground(e.Pos, 0.7f), 40, 3.5f * S, 0.7f, new Color(1f, 0.85f, 0.4f, 1f), 0.05f * S, true, Vfx.Blend.Additive, 5f * S, 2f, 0.6f, new Color(1f, 0.55f, 0.2f, 1f));
                     break;
                 case "glass":
+                case "glass_body":
                     fx.Burst(Ground(e.Pos, 1.2f), 22, 2.4f * S, 0.45f, new Color(0.72f, 0.78f, 0.78f, 0.9f), 0.045f * S, true, Vfx.Blend.Alpha, 7f * S, 1.5f, 0.3f);
                     break;
                 case "smash":

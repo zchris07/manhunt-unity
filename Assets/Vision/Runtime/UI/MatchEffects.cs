@@ -156,6 +156,8 @@ namespace Vision.UI
                     switch (e.Text)
                     {
                         case "glass": Audio.PlayCue(e.F >= 900f ? "bottle_break" : "glass", Units(e.Pos)); break;
+                        // A bottle broken on someone: the window's glass breaking, softer.
+                        case "glass_body": Audio.PlayCue("glass", Units(e.Pos), SoundBank.BottleOnBodyVolume); break;
                         case "book": Audio.PlayCue("book_hit", Units(e.Pos)); break;
                         case "piss": Audio.PlayCue("splash", Units(e.Pos)); break;
                         case "smash": Audio.PlayCue("splinter", Units(e.Pos)); break;

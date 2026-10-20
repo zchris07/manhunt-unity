@@ -521,6 +521,7 @@ namespace Vision.UI
             Vector3 V(float spread, float up, float lo, float hi) => (spray + Random.insideUnitSphere * spread + Vector3.up * up).normalized * Random.Range(lo, hi) * s;
             void Chip(Color a, Color b, float lo, float hi, float size, float life, bool streak = false, float g = 12f) =>
                 Fx.Emit(at, V(0.8f, 0.6f, lo, hi), Random.Range(life * 0.6f, life), Color.Lerp(a, b, Random.value), Random.Range(size * 0.6f, size) * s, g * s, 0.6f, streak, false, 1f, false, false, Vfx.Blend.Alpha, true);
+            Color BrickChip(float r, float g, float b) => Vision.World.RuinBricks.Desaturate(new Color(r, g, b, 1f), Vision.World.RuinBricks.Saturation);
             void Dust(Color c, float size, float life, float grow) =>
                 Fx.Emit(at + Random.insideUnitSphere * 0.08f * s, (spray * Random.Range(0.4f, 1.2f) + Random.insideUnitSphere * 0.5f) * s, Random.Range(life * 0.6f, life), c, Random.Range(size * 0.6f, size) * s, 0f, 2.4f, false, false, grow, false, false, Vfx.Blend.Alpha, true);
             void Spark(int n)
@@ -537,10 +538,10 @@ namespace Vision.UI
                     for (int i = 0; i < N(6); i++) Dust(new Color(0.72f, 0.6f, 0.42f, 0.45f), 0.16f, 1.1f, 2.4f);
                     break;
                 case Surface.Brick:
-                    // Red brick chips and crumbs, grey mortar grit, a cloud of brick dust.
-                    for (int i = 0; i < N(10); i++) Chip(new Color(0.42f, 0.2f, 0.14f, 1f), new Color(0.62f, 0.36f, 0.26f, 1f), 2f, 5.5f, 0.05f, 0.8f);
+                    // Red brick chips and crumbs (as saturated as the bricks themselves), grey mortar grit, a cloud of brick dust.
+                    for (int i = 0; i < N(10); i++) Chip(BrickChip(0.42f, 0.2f, 0.14f), BrickChip(0.62f, 0.36f, 0.26f), 2f, 5.5f, 0.05f, 0.8f);
                     for (int i = 0; i < N(6); i++) Chip(new Color(0.5f, 0.48f, 0.44f, 1f), new Color(0.64f, 0.62f, 0.57f, 1f), 1f, 3f, 0.025f, 0.6f);
-                    for (int i = 0; i < N(7); i++) Dust(new Color(0.58f, 0.42f, 0.34f, 0.42f), 0.2f, 1.4f, 2.8f);
+                    for (int i = 0; i < N(7); i++) Dust(Vision.World.RuinBricks.Desaturate(new Color(0.58f, 0.42f, 0.34f, 0.42f), Vision.World.RuinBricks.Saturation), 0.2f, 1.4f, 2.8f);
                     Spark(N(2));
                     break;
                 case Surface.Stone:

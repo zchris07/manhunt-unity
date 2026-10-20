@@ -672,6 +672,8 @@ namespace Vision.Game
                 float adv = hitP != null || hitN != null ? Mathf.Min(move, best) : move;
                 SimPlayer owner = Get(b.Owner);
                 string sound = book ? "book" : piss ? "piss" : "glass";
+                // A bottle breaking on someone (a player or an NPC): a window's glass breaking, softer (MatchEffects).
+                string onBody = book || piss ? sound : "glass_body";
                 float onTrap = HitTraps(b.Pos, b.Dir, adv, owner?.Name ?? "Someone");
                 if (onTrap <= adv)
                 {
@@ -684,14 +686,14 @@ namespace Vision.Game
                 b.Travelled += adv;
                 if (hitN != null)
                 {
-                    Noise(b.Pos, 900f, sound);
+                    Noise(b.Pos, 900f, onBody);
                     if (owner != null) hitN.ItemHit(this, owner, "bottle");
                     Thrown.RemoveAt(k);
                     continue;
                 }
                 if (hitP != null && hitP.Role == Role.Hunter)
                 {
-                    Noise(b.Pos, 900f, sound);
+                    Noise(b.Pos, 900f, onBody);
                     if (book) BookHit(hitP, owner);
                     else if (piss)
                     {
@@ -705,7 +707,7 @@ namespace Vision.Game
                 }
                 if (hitP != null)
                 {
-                    Noise(b.Pos, 900f, sound);
+                    Noise(b.Pos, 900f, onBody);
                     if (damage > 0f) HurtSurvivor(hitP, damage, owner, "bottle");
                     else Emit(null, new GameEvent { Kind = EventKind.Hit, A = hitP.Id, B = owner?.Id ?? 0, Pos = hitP.Pos, F = 0f, Text = "bottle" });
                     Thrown.RemoveAt(k);

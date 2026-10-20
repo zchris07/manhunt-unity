@@ -73,8 +73,10 @@ namespace Vision.World
 
     /// <summary>
     /// Brick ruins dotted about the map, somewhere new each match: a dozen or so, from lone broken walls and corners to
-    /// the shells of a church, a warehouse or a house (<see cref="RuinPlanner"/>), laid brick by brick
-    /// (<see cref="RuinBricks"/>). Out on the open ground and in the woods (never on a path, in the lake, at a site or a
+    /// the shells of buildings (<see cref="RuinPlanner"/>), laid brick by brick (<see cref="RuinBricks"/>). Every map has
+    /// a big building of hallways, rooms and nooks, a plain rectangle part fallen open and half a rectangle's frame, each
+    /// with a stone floor laid inside its walls (<see cref="RuinFloors"/>; nothing grows through it), and perhaps a
+    /// church's, a warehouse's or a house's shell besides. Out on the open ground and in the woods (never on a path, in the lake, at a site or a
     /// generator's work site, or crowding anything already standing; the trees grow round them), each on ground level
     /// enough for it to stand on one flat base. Their walls stop you and block sight, but you walk through their doors
     /// and arches, see through their windows, and climb and see over a stretch fallen to knee height; the machete
@@ -111,21 +113,48 @@ namespace Vision.World
         struct RuinSite { public RuinPlan Plan; public int Seed; public Vector2 At; public float Yaw, Radius; }
         readonly List<RuinSite> ruinSites = new List<RuinSite>();
 
+        /// <summary>The shells every map has (sited first, the biggest first), each with a stone floor.</summary>
+        public static readonly RuinArchetype[] RequiredRuins = { RuinArchetype.Complex, RuinArchetype.Enclosure, RuinArchetype.HalfFrame };
+
+        /// <summary>Each floored ruin: where it stands, its yaw, its plan and its reach (for what grows, and footsteps).</summary>
+        readonly List<(Vector2 at, float yaw, RuinPlan plan, float radius)> ruinFloors = new List<(Vector2, float, RuinPlan, float)>();
+
+        /// <summary>Whether a point is on a ruin's stone floor (within <paramref name="pad"/> of it).</summary>
+        public bool OnRuinFloor(Vector2 p, float pad = 0f)
+        {
+            foreach (var (at, yaw, plan, radius) in ruinFloors)
+            {
+                Vector2 d = p - at;
+                if (d.sqrMagnitude > (radius + pad) * (radius + pad)) continue;
+                if (plan.OnFloor(Turn(d, -yaw), pad)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>The shells sited for a layout (testing: whether every map gets its three), without building anything.</summary>
+        public List<RuinArchetype> SitedRuinKinds(MapLayout layout)
+        {
+            SiteRuins(layout);
+            return ruinSites.Select(s => s.Plan.Archetype).ToList();
+        }
+
         int RuinTarget => Mathf.Max(1, Mathf.RoundToInt(RuinCount * halfExtent * halfExtent / (90f * 90f)));
 
         /// <summary>
         /// Sites the buildings' shells with the layout, before the ground is shaped (ground level enough for a whole building
-        /// is rare in these hills): about a fifth of the ruins (one to a quarter of them), each well clear of everything the
-        /// layout holds (sites, the lake, fences, logs, power poles, the spawn, the generators, each other). The ground is
-        /// levelled under each, the paths go round them, and nothing else is placed on them.
+        /// is rare in these hills): the three every map has (<see cref="RequiredRuins"/>), biggest first, and half the time
+        /// a church's, a warehouse's or a house's besides, each well clear of everything the layout holds (sites, the lake,
+        /// fences, logs, power poles, the spawn, the generators, each other; the spacing eased off as the tries run on, so
+        /// the three always find somewhere). The ground is levelled under each, the paths go round them, and nothing else
+        /// is placed on them.
         /// </summary>
         void SiteRuins(MapLayout layout)
         {
             ruinSites.Clear();
             System.Random r = FeatureRng(44);
             float R(float lo, float hi) => lo + (float)r.NextDouble() * (hi - lo);
-            int target = RuinTarget;
-            int want = Mathf.Clamp(Mathf.RoundToInt(target * 0.2f) + r.Next(-1, 2), 1, Mathf.Max(1, target / 4));
+            var kinds = RequiredRuins.Select(k => (RuinArchetype?)k).ToList();
+            if (r.NextDouble() < 0.5) kinds.Add(null);
             float lim = halfExtent - 8f;
             float SegDist(Vector2 p, Vector2 a, Vector2 b)
             {
@@ -133,39 +162,44 @@ namespace Vision.World
                 float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude));
                 return (a + ab * t - p).magnitude;
             }
-            for (int attempt = 0; attempt < 600 && ruinSites.Count < want; attempt++)
-            {
-                var at = new Vector2(R(-lim, lim), R(-lim, lim));
-                float yaw = R(0f, Mathf.PI * 2f);
-                int planSeed = r.Next();
-                RuinPlan plan = RuinPlanner.Generate(new System.Random(planSeed), RuinTier.Structure);
-                Rect b = plan.Bounds;
-                float radius = 0f;
-                foreach (Vector2 c in new[] { new Vector2(b.xMin, b.yMin), new Vector2(b.xMax, b.yMin), new Vector2(b.xMax, b.yMax), new Vector2(b.xMin, b.yMax) })
-                    radius = Mathf.Max(radius, c.magnitude);
-                radius += 0.8f;
-                bool ok = at.magnitude + radius < lim && (at - layout.Spawn).magnitude > radius + 10f;
-                foreach (Vector2 g in layout.WoodsGenerators) ok &= (at - g).magnitude > radius + 12f;
-                foreach (Vector2 pole in layout.PowerPoles) ok &= (at - pole).magnitude > radius + 2.5f;
-                foreach (MapLayout.Segment f in layout.Fences) ok &= SegDist(at, f.A, f.B) > radius + 2.5f;
-                foreach (MapLayout.Segment l in layout.Logs) ok &= SegDist(at, l.A, l.B) > radius + 2.5f;
-                foreach (RuinSite s in ruinSites) ok &= (at - s.At).magnitude > radius + s.Radius + 4f;
-                for (float a = 0f; ok && a < Mathf.PI * 2f; a += Mathf.PI / 8f)
-                    for (float k = 0f; ok && k <= 1.001f; k += 0.25f)
-                    {
-                        Vector2 p = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (radius + 1.5f) * k;
-                        if (layout.Blocked(p) || layout.LakeDepth(p) > -3f) ok = false;
-                    }
-                if (!ok) continue;
-                ruinSites.Add(new RuinSite { Plan = plan, Seed = planSeed, At = at, Yaw = yaw, Radius = radius });
-                layout.KeepCircles.Add((at, radius + 1f));
-            }
+            foreach (RuinArchetype? kind in kinds)
+                for (int attempt = 0; attempt < 900; attempt++)
+                {
+                    // (Easing off the spacing as the tries run on.)
+                    float ease = attempt < 300 ? 1f : attempt < 600 ? 0.65f : 0.35f;
+                    var at = new Vector2(R(-lim, lim), R(-lim, lim));
+                    float yaw = R(0f, Mathf.PI * 2f);
+                    int planSeed = r.Next();
+                    RuinPlan plan = kind.HasValue ? RuinPlanner.Generate(new System.Random(planSeed), kind.Value) : RuinPlanner.Generate(new System.Random(planSeed), RuinTier.Structure);
+                    Rect b = plan.Bounds;
+                    float radius = 0f;
+                    foreach (Vector2 c in new[] { new Vector2(b.xMin, b.yMin), new Vector2(b.xMax, b.yMin), new Vector2(b.xMax, b.yMax), new Vector2(b.xMin, b.yMax) })
+                        radius = Mathf.Max(radius, c.magnitude);
+                    radius += 0.8f;
+                    bool ok = at.magnitude + radius < lim && (at - layout.Spawn).magnitude > radius + 10f * ease;
+                    foreach (Vector2 g in layout.WoodsGenerators) ok &= (at - g).magnitude > radius + 12f * ease;
+                    foreach (Vector2 pole in layout.PowerPoles) ok &= (at - pole).magnitude > radius + 2.5f;
+                    foreach (MapLayout.Segment f in layout.Fences) ok &= SegDist(at, f.A, f.B) > radius + 1f + 1.5f * ease;
+                    foreach (MapLayout.Segment l in layout.Logs) ok &= SegDist(at, l.A, l.B) > radius + 1f + 1.5f * ease;
+                    foreach (RuinSite s in ruinSites) ok &= (at - s.At).magnitude > radius + s.Radius + 1.5f + 2.5f * ease;
+                    for (float a = 0f; ok && a < Mathf.PI * 2f; a += Mathf.PI / 8f)
+                        for (float k = 0f; ok && k <= 1.001f; k += 0.25f)
+                        {
+                            Vector2 p = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (radius + 0.5f + 1f * ease) * k;
+                            if (layout.Blocked(p) || layout.LakeDepth(p) > -3f) ok = false;
+                        }
+                    if (!ok) continue;
+                    ruinSites.Add(new RuinSite { Plan = plan, Seed = planSeed, At = at, Yaw = yaw, Radius = radius });
+                    layout.KeepCircles.Add((at, radius + 1f));
+                    break;
+                }
         }
 
         void BuildRuins()
         {
             MapRuins.Clear();
             Ruins.Clear();
+            ruinFloors.Clear();
             ruinRejects.Clear();
             int structureTries = ruinSites.Count;
             Transform parent = Group("Brick Ruins");
@@ -258,7 +292,9 @@ namespace Vision.World
             root.transform.SetLocalPositionAndRotation(new Vector3(at.x, baseY, at.y), Quaternion.Euler(0f, -yaw * Mathf.Rad2Deg, 0f));
             root.isStatic = true;
 
-            RuinBricks.Chunks chunks = RuinBricks.Build(plan, new System.Random(seed + 1));
+            // The stone floor's top over the base (the ground there is level, the base a little under it).
+            float floorTop = plan.Floored ? H(at) - baseY + RuinFloors.StoneTop : 0f;
+            RuinBricks.Chunks chunks = RuinBricks.Build(plan, new System.Random(seed + 1), floorTop);
             foreach (LowPolyMeshBuilder b in chunks.Builders)
             {
                 if (b.TriangleCount == 0) continue;
@@ -267,6 +303,14 @@ namespace Vision.World
                 go.isStatic = true;
                 go.AddComponent<MeshFilter>().sharedMesh = b.ToMesh("Brick Wall Ruin");
                 PropFactory.NoShadows(go.AddComponent<MeshRenderer>()).sharedMaterial = lowPolyMaterial;
+            }
+            if (plan.Floored)
+            {
+                var floor = new GameObject("Stone Floor Ruin");
+                floor.transform.SetParent(root.transform, false);
+                floor.isStatic = true;
+                floor.AddComponent<MeshFilter>().sharedMesh = RuinFloors.Build(plan, new System.Random(seed + 2), H(at) - baseY, out _);
+                PropFactory.NoShadows(floor.AddComponent<MeshRenderer>()).sharedMaterial = StoneMaterial;
             }
 
             float t = RuinThickness;
@@ -305,7 +349,16 @@ namespace Vision.World
             root.SetActive(true);
             // Knee-high stretches: climbed over and seen over, like a fallen log.
             foreach (var (go, box) in lows) MakeLow(go, box);
-            if (register) Ruins.Add((plan.Archetype, at, yaw, plan, root));
+            if (register)
+            {
+                Ruins.Add((plan.Archetype, at, yaw, plan, root));
+                if (plan.Floored)
+                {
+                    Rect b = plan.Bounds;
+                    float reach = Mathf.Max(Mathf.Max(new Vector2(b.xMin, b.yMin).magnitude, new Vector2(b.xMax, b.yMin).magnitude), Mathf.Max(new Vector2(b.xMax, b.yMax).magnitude, new Vector2(b.xMin, b.yMax).magnitude));
+                    ruinFloors.Add((at, yaw, plan, reach));
+                }
+            }
             return root;
         }
     }

@@ -109,8 +109,36 @@ namespace Vision.World
         }
     }
 
-    /// <summary>The kinds of ruin, from a lone broken wall up to the shell of a building.</summary>
-    public enum RuinArchetype { Fragment, Corner, Church, Warehouse, Residential }
+    /// <summary>
+    /// The kinds of ruin, from a lone broken wall up to the shell of a building: the three last stand on every map, each
+    /// with a stone floor (a big building of hallways, rooms and nooks; a plain rectangle, part of it fallen open; and half
+    /// a rectangle's frame, an L or a U).
+    /// </summary>
+    public enum RuinArchetype { Fragment, Corner, Church, Warehouse, Residential, Complex, Enclosure, HalfFrame }
+
+    /// <summary>How a stretch of a ruin's stone floor is laid.</summary>
+    public enum FloorLaying
+    {
+        /// <summary>Flagstones of mixed lengths in courses (ashlar), the joints staggered.</summary>
+        Flags,
+        /// <summary>Square tiles in a grid.</summary>
+        Grid,
+        /// <summary>Square tiles, pale and dark in a chequer, inside a border of plain ones.</summary>
+        Checker,
+        /// <summary>A hallway's runner: slabs laid across it, staggered, between kerbs down both sides.</summary>
+        Runner,
+    }
+
+    /// <summary>One stretch of a ruin's floor (a room, a hallway, a hall), on the plan, and how it's laid.</summary>
+    public struct FloorZone
+    {
+        public Rect Area;
+        public FloorLaying Laying;
+        /// <summary>Worn paler down its middle by feet (0 none, 1 a hallway's).</summary>
+        public float Wear;
+        /// <summary>Open to the weather (more moss, more damp).</summary>
+        public bool Exposed;
+    }
 
     /// <summary>
     /// A ruin laid out on its own plan (metres, centred near the origin), placed on the map with a yaw: its walls (all
@@ -127,8 +155,51 @@ namespace Vision.World
         public readonly List<Vector2> Hallways = new List<Vector2>();
         /// <summary>Gaps left as passages between rooms (their widths).</summary>
         public readonly List<float> Passages = new List<float>();
+        /// <summary>The rooms walled off inside (for checks).</summary>
+        public readonly List<Rect> Rooms = new List<Rect>();
+        /// <summary>Nooks: little bays off a room (their mouths' widths and depths).</summary>
+        public readonly List<Vector2> Nooks = new List<Vector2>();
+        /// <summary>The stone floor, stretch by stretch (they tile the area inside the walls); none for most ruins.</summary>
+        public readonly List<FloorZone> Floor = new List<FloorZone>();
 
-        public bool Structure => Archetype == RuinArchetype.Church || Archetype == RuinArchetype.Warehouse || Archetype == RuinArchetype.Residential;
+        public bool Structure => Archetype == RuinArchetype.Church || Archetype == RuinArchetype.Warehouse || Archetype == RuinArchetype.Residential
+            || Archetype == RuinArchetype.Complex || Archetype == RuinArchetype.Enclosure || Archetype == RuinArchetype.HalfFrame;
+
+        /// <summary>Whether it has a stone floor laid inside its walls.</summary>
+        public bool Floored => Floor.Count > 0;
+
+        /// <summary>Whether a plan point is on its floor.</summary>
+        public bool OnFloor(Vector2 p, float pad = 0f)
+        {
+            foreach (FloorZone z in Floor)
+                if (p.x >= z.Area.xMin - pad && p.x <= z.Area.xMax + pad && p.y >= z.Area.yMin - pad && p.y <= z.Area.yMax + pad) return true;
+            return false;
+        }
+
+        /// <summary>Square corners where two of its walls meet, bonded.</summary>
+        public int Corners
+        {
+            get
+            {
+                int n = 0;
+                foreach (RuinRun r in Runs) n += (r.BondStart >= 0 ? 1 : 0) + (r.BondEnd >= 0 ? 1 : 0);
+                return n / 2;
+            }
+        }
+
+        /// <summary>
+        /// Mirrors the whole plan across its x = 0 line (walls, outline, rooms, floor), for variety: every wall still runs
+        /// from its start to its end, so its openings, breaks and bonds stay where they were along it.
+        /// </summary>
+        public void MirrorX()
+        {
+            Vector2 M(Vector2 p) => new Vector2(-p.x, p.y);
+            Rect MR(Rect r) => Rect.MinMaxRect(-r.xMax, r.yMin, -r.xMin, r.yMax);
+            foreach (RuinRun r in Runs) { r.A = M(r.A); r.B = M(r.B); }
+            for (int i = 0; i < Outline.Count; i++) Outline[i] = M(Outline[i]);
+            for (int i = 0; i < Rooms.Count; i++) Rooms[i] = MR(Rooms[i]);
+            for (int i = 0; i < Floor.Count; i++) { FloorZone z = Floor[i]; z.Area = MR(z.Area); Floor[i] = z; }
+        }
 
         /// <summary>The plan's extent (its walls' centre lines, padded by half a wall).</summary>
         public Rect Bounds

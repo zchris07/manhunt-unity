@@ -41,6 +41,8 @@ namespace Vision.Audio
             if (w.OnDock(at, out _)) return "step_wood";
             // A cabin's floor: stone flags or boards.
             foreach (MapLayout.Cabin c in w.Layout.Cabins) if (c.Area.Contains(at)) return w.OnStoneFloor(at) ? "step_concrete" : "step_wood";
+            // A ruin's stone floor.
+            if (w.OnRuinFloor(at)) return "step_concrete";
             return "step_grass";
         }
 

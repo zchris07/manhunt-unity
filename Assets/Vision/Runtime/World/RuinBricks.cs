@@ -265,11 +265,27 @@ namespace Vision.World
         };
         static readonly Color Weathered = new Color(0.50f, 0.48f, 0.45f);
 
+        /// <summary>Every brick's colour saturation, against the tones above (10% less, at the user's request).</summary>
+        public const float Saturation = 0.9f;
+
+        /// <summary>A colour with its saturation scaled (its hue and value kept).</summary>
+        public static Color Desaturate(Color c, float by)
+        {
+            Color.RGBToHSV(c, out float h, out float s, out float v);
+            Color o = Color.HSVToRGB(h, s * by, v);
+            o.a = c.a;
+            return o;
+        }
+
         /// <summary>
         /// A brick's colour: one of the rust-brown tones (weighted), shifted a little in hue, saturation and value; greyed
-        /// where a weathered patch spreads over the wall (slow noise over its face), and now and then a grey brick outright.
+        /// where a weathered patch spreads over the wall (slow noise over its face), and now and then a grey brick outright;
+        /// all of it at <see cref="Saturation"/>.
         /// </summary>
-        public static Color BrickColor(int seed, int course, int wythe, int key, float x, float y, out bool gray)
+        public static Color BrickColor(int seed, int course, int wythe, int key, float x, float y, out bool gray) =>
+            Desaturate(BrickTone(seed, course, wythe, key, x, y, out gray), Saturation);
+
+        static Color BrickTone(int seed, int course, int wythe, int key, float x, float y, out bool gray)
         {
             float pick = RuinHash.Value(seed, 41, course * 2 + wythe, key);
             Color c = Tones[Tones.Length - 1].c;
@@ -384,9 +400,12 @@ namespace Vision.World
         /// Bricks fallen from a wall: heaped at the foot of a broken end and of a fallen stretch, a few strewn along it,
         /// and one or two left teetering on the broken top. Whole boxes, tipped every way.
         /// </summary>
-        public static void Rubble(Chunks chunks, RuinRun run, Wall w, System.Random rng)
+        public static void Rubble(Chunks chunks, RuinRun run, Wall w, System.Random rng, RuinPlan plan = null, float floorTop = 0f)
         {
             float len = run.Length, h = Half;
+            Vector2 dir = run.Dir, across = new Vector2(-dir.y, dir.x);
+            // (On a stone floor, a fallen brick lies on it.)
+            float Rest(Vector3 p) => plan != null && plan.Floored && plan.OnFloor(run.A + dir * p.x + across * p.z, -RuinFloors.WallInset) ? floorTop : 0f;
             float R(float lo, float hi) => lo + (float)rng.NextDouble() * (hi - lo);
             void Loose(Vector3 at, float yaw, float tilt, Color c)
             {
@@ -404,6 +423,7 @@ namespace Vision.World
                 {
                     float side = rng.NextDouble() < 0.5 ? -1f : 1f, dist = Mathf.Abs(R(-1f, 1f) * R(0.2f, 1f));
                     var p = new Vector3(Mathf.Clamp(at + R(-spread, spread), -0.3f, len + 0.3f), Course * 0.4f + (dist < 0.25f && i % 3 == 0 ? Course * 0.8f : 0f), side * (h + 0.05f + dist * 0.8f));
+                    p.y += Rest(p);
                     Loose(p, R(0f, 360f), R(-25f, 25f), Any());
                 }
             }
@@ -422,8 +442,11 @@ namespace Vision.World
             }
         }
 
-        /// <summary>A whole ruin into its chunks: every wall in its frame, its bricks and its rubble.</summary>
-        public static Chunks Build(RuinPlan plan, System.Random rng)
+        /// <summary>
+        /// A whole ruin into its chunks: every wall in its frame, its bricks and its rubble (lying on its stone floor, whose
+        /// top is <paramref name="floorTop"/> over the base, if it has one).
+        /// </summary>
+        public static Chunks Build(RuinPlan plan, System.Random rng, float floorTop = 0f)
         {
             var chunks = new Chunks(rng);
             foreach (RuinRun run in plan.Runs)
@@ -432,7 +455,7 @@ namespace Vision.World
                 chunks.Frame = Matrix4x4.TRS(new Vector3(run.A.x, 0f, run.A.y), Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f), Vector3.one);
                 Wall w = Lay(run);
                 Draw(chunks, w);
-                Rubble(chunks, run, w, rng);
+                Rubble(chunks, run, w, rng, plan, floorTop);
             }
             chunks.Frame = null;
             return chunks;

@@ -42,6 +42,21 @@ namespace Vision.World
         public Material glowMaterial;
 
         Material groundMaterial;
+        Material stoneMaterial;
+
+        /// <summary>The ruins' stone floors': the low-poly material with a stone's grain laid over it (made once, from it).</summary>
+        public Material StoneMaterial
+        {
+            get
+            {
+                if (stoneMaterial == null && lowPolyMaterial != null)
+                {
+                    stoneMaterial = new Material(lowPolyMaterial) { name = "LowPoly Stone" };
+                    stoneMaterial.EnableKeyword("_VISION_STONE");
+                }
+                return stoneMaterial != null ? stoneMaterial : lowPolyMaterial;
+            }
+        }
 
         /// <summary>
         /// The ground's material (and the fallen logs'): the low-poly one, marking its pixels as the ground (stencil 1),
@@ -718,7 +733,8 @@ namespace Vision.World
             {
                 if (buildingZone.Contains(p) || yardZone.Contains(p)) return true;
                 foreach (Rect r in cabinZones) if (r.Contains(p)) return true;
-                return false;
+                // (Under a ruin's stone floor too: the ground stays level under it, never poking through.)
+                return OnRuinFloor(p, 0.6f);
             }
 
             // Cell size from the shared polygon budget (the player's facet size, relaxed for the ground).

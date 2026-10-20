@@ -45,6 +45,9 @@ namespace Vision.Audio
             return list.ToArray();
         }
 
+        /// <summary>A thrown bottle breaking on a player or an NPC plays the window's glass breaking (<c>glass</c>) at this much of its volume.</summary>
+        public const float BottleOnBodyVolume = 0.6f;
+
         public static readonly Dictionary<string, Cue> Cues = new Dictionary<string, Cue>
         {
             // Zach.
