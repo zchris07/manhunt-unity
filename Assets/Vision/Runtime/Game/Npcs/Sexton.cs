@@ -378,7 +378,7 @@ namespace Vision.Game
             return first ?? (pool.Count > 0 ? pool[0] : null);
         }
 
-        /// <summary>The beam runs until it meets something that blocks sight, or a survivor (one hit each per beam).</summary>
+        /// <summary>The beam runs until it meets something that blocks sight, a shut graveyard gate, or a survivor (one hit each per beam).</summary>
         void FireBeam()
         {
             var dir = new Vector2(Mathf.Cos(BeamAng), Mathf.Sin(BeamAng));
@@ -390,6 +390,10 @@ namespace Vision.Game
                 if (Sim.WindowsBroken[i]) continue;
                 len = Mathf.Min(len, MatchSim.RaySegment(s, dir, Sim.Map.Windows[i].A, Sim.Map.Windows[i].B));
             }
+            // A shut graveyard gate stops it like a wall.
+            for (int i = 0; i < Sim.Map.Doors.Count; i++)
+                if (Sim.Map.Doors[i].Gate && !Sim.DoorBroken[i] && !Sim.Doors[i])
+                    len = Mathf.Min(len, MatchSim.RaySegment(s, dir, Sim.Map.Doors[i].A, Sim.Map.Doors[i].B));
             SimPlayer victim = null;
             float vt = len;
             float halfW = Scale.D(Balance.Sexton.Defense.BeamWidth) * 0.5f;

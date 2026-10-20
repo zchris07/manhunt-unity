@@ -106,7 +106,7 @@ namespace Vision.Game
 
         /// <summary>
         /// Someone killed him (Zach, or a survivor): a bloody explosion on the spot that takes half of his killer's health,
-        /// the clip from the couch, and the NPCs after his killer.
+        /// the clip from the couch, and the NPCs after his killer (called off at once if the explosion downs them).
         /// </summary>
         void Slay(SimPlayer by)
         {
@@ -120,6 +120,9 @@ namespace Vision.Game
             Attacked(by);
             if (by.Role == Role.Hunter) sim.HurtHunter(by, Balance.Hunter.Health.Max * Balance.Chacko.Explosion, null, "blast");
             else sim.HurtSurvivor(by, Balance.Chacko.Explosion, null, "blast");
+            // Downed by it: Njaaron, Jaden and Plasma are satisfied there and then.
+            bool down = by.Role == Role.Hunter ? by.KnockT > 0f || by.Health == Health.Eliminated : by.Health != Health.Healthy && by.Health != Health.Wounded;
+            if (down) sim.CallOffVengeance();
         }
 
         public override void Update(MatchSim s, float dt)

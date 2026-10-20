@@ -237,6 +237,7 @@ MonoBehaviour:
   Prone: 0
   Lift: 0
   Crouch: 0
+  SquareToAim: 0
 --- !u!114 &2081168116453899635
 MonoBehaviour:
   m_ObjectHideFlags: 0

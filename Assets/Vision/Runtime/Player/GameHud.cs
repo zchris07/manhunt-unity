@@ -476,6 +476,10 @@ namespace Vision.Player
                 // A gun (and the Hemp Beam) shows its rounds left out of its capacity: 5/5, 4/5...
                 string rounds = inv.RoundsAt(i);
                 slotCounts[i].text = !item.HasValue ? "" : inv.Infinite ? "∞" : rounds ?? (count > 1 ? count.ToString() : "");
+                // The K.P.O.S. recharging: dimmed, counting down m:ss.
+                bool recharging = item == ItemType.OrbitalStrike && me.StrikeCd > 0f;
+                if (recharging) slotCounts[i].text = CooldownText(me.StrikeCd);
+                slotIcons[i].color = recharging ? new Color(1f, 1f, 1f, 0.3f) : Color.white;
                 slotNames[i].text = item.HasValue ? (golden ? "LEGENDARY PUMP" : Items.Short(item.Value).ToUpperInvariant()) : "";
             }
             LayoutSlots(inv, limit);

@@ -96,6 +96,10 @@ namespace Vision.Game
         public virtual void Avenge(MatchSim sim, SimPlayer target) { }
         /// <summary>The player this NPC is still after for Chacko (0: none).</summary>
         public virtual int GrudgeTarget => 0;
+        /// <summary>A player fired a gun somewhere (Shane: within his alert radius, he's alerted outright).</summary>
+        public virtual void Gunfire(MatchSim sim, SimPlayer shooter) { }
+        /// <summary>Chacko's killer went down in his explosion: the grudge for him is over at once (Njaaron, Jaden, Plasma).</summary>
+        public virtual void CallOffGrudge() { }
         /// <summary>A door closed on it: move clear.</summary>
         public virtual void Unstick(MatchSim sim) { }
 

@@ -14,7 +14,7 @@ namespace Vision.Tests
     /// The lobby's balance sliders (their defaults, ranges and what each one changes in a match), the new numbers, the
     /// 0.50 cal's rounds count, Zach's bar worn down by downs and grown by stakes, the two exit gates, the end game and the
     /// hatch, no time limit, and the NPC changes (Plasma's one pump a side, the clips for his rage and for attacks on
-    /// Chacko, only Chacko's four avengers set off by his death, each taking a third, Jaden alerted only up close, Chris
+    /// Chacko, only Chacko's four avengers set off by his death, each taking half, Jaden alerted only up close, Chris
     /// Zelley). Ghosts have their own tests (GhostsAndPossessionTests).
     /// </summary>
     public class SlidersGhostsAndExitsTests
@@ -457,7 +457,7 @@ namespace Vision.Tests
         }
 
         [Test]
-        public void Njaaron_RacesAfterChackosAttacker_FromAnywhere_AndStopsOnceHesTakenAThird()
+        public void Njaaron_RacesAfterChackosAttacker_FromAnywhere_AndStopsOnceHesTakenHalf()
         {
             var rig = new SimRig(2, 1);
             SimPlayer s = rig.P(2);
@@ -469,13 +469,43 @@ namespace Vision.Tests
             var njaaron = Add(rig, new Njaaron(rig.Sim), 1600f, 1600f);
             chacko.ItemHit(rig.Sim, s, "bottle");
             Assert.IsFalse(chacko.Alive, "a survivor can slay him now");
+            // (Healed back up after the blast, so half their health can come off without downing them.)
+            s.Hp = 1f;
             float afterBlast = s.Hp;
             Assert.AreEqual(s.Id, njaaron.GrudgeTarget);
             for (int t = 0; t < Secs(60f) && njaaron.GrudgeTarget != 0; t++) rig.Run(1);
             Assert.AreEqual(0, njaaron.GrudgeTarget, "done with them");
-            Assert.GreaterOrEqual(afterBlast - s.Hp, 1f / 3f - 1e-3f, "a third of their health taken");
-            Assert.Less(afterBlast - s.Hp, 1f / 3f + Balance.Njaaron.SurvivorPunch, "and no more");
+            Assert.GreaterOrEqual(afterBlast - s.Hp, 0.5f - 1e-3f, "half their health taken");
+            Assert.Less(afterBlast - s.Hp, 0.5f + Balance.Njaaron.SurvivorPunch, "and no more");
             Assert.AreNotEqual(Health.Downed, s.Health);
+        }
+
+        [Test]
+        public void ChackosAvengers_EachTakeHalf_AndAreDoneAtOnceIfHisExplosionDownsTheKiller()
+        {
+            Assert.AreEqual(0.5f, Njaaron.GrudgeShare, 1e-6f);
+            Assert.AreEqual(0.5f, Jaden.GrudgeShare, 1e-6f);
+            Assert.AreEqual(0.5f, Plasma.GrudgeShare, 1e-6f);
+            var rig = new SimRig(2, 1);
+            SimPlayer s = rig.P(2);
+            rig.Place(rig.P(1), 1500f, -1500f);
+            rig.Place(rig.P(3), -1500f, -1500f);
+            var chacko = new Chacko(rig.Sim);
+            rig.Sim.Npcs.Add(chacko);
+            rig.Sim.Teleport(s.Id, chacko.Pos + SimRig.U(80f, 0f));
+            var njaaron = Add(rig, new Njaaron(rig.Sim), 1600f, 1600f);
+            var jaden = Add(rig, new Jaden(rig.Sim), -1600f, 1600f);
+            var plasma = Add(rig, new Plasma(rig.Sim), 1600f, 0f);
+            // Already hurt: the blast downs them.
+            rig.Sim.HurtSurvivor(s, 0.5f, null, "punch");
+            rig.Run(1);
+            s.ImmuneT = 0f;
+            chacko.ItemHit(rig.Sim, s, "bottle");
+            Assert.AreEqual(Health.Downed, s.Health, "downed by his explosion");
+            rig.Run(2);
+            foreach (Npc n in new Npc[] { njaaron, jaden, plasma })
+                Assert.AreEqual(0, n.GrudgeTarget, $"{n.Name} is done with them at once");
+            Assert.AreEqual(0, rig.Sim.Vengeance);
         }
 
         [Test]

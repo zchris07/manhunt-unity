@@ -388,7 +388,7 @@ namespace Vision.Player
                         mergeM = 0f;
                     }
                     float mSim = Vision.UI.CorpseViews.PossessProgress(p.PossessT);
-                    mergeM = Mathf.Clamp(mergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f);
+                    mergeM = Vision.UI.CorpseViews.MergeOf(b.Id, Mathf.Clamp(mergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f));
                     at = Vector2.Lerp(mergeFrom, b.Pos, Vision.UI.CorpseViews.PossessGlide(mergeM));
                     p.Facing = b.Facing;
                 }
@@ -702,6 +702,8 @@ namespace Vision.Player
                 bool merging = p.Ghost && p.Body != 0 && p.PossessT > 0f && mergingInto != 0;
                 if (merging) moved = Vector3.zero;
                 animator.Drive(new Vector3(moved.x, 0f, moved.z), new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
+                // (Merging, square to the way the body faces, legs and all, as the body stands: no twist at the waist.)
+                animator.SquareToAim = merging;
                 animator.Lift = merging ? Vision.UI.CorpseViews.PossessLift(mergeM) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y)
                     : p.Move.Climbing ? world.VaultLift(p.Pos, p.RadiusD, Host != null ? Host.Sim.WindowsBroken : null) * world.transform.lossyScale.y / Mathf.Max(1e-4f, transform.lossyScale.y) : 0f;
             }

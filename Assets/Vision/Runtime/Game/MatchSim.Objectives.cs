@@ -210,7 +210,7 @@ namespace Vision.Game
 
         /// <summary>
         /// Someone attacked Chacko (a survivor, or Zach killing him): Njaaron, Jaden and Plasma race after them from wherever
-        /// they are, with no time limit, and keep at them until each has dealt them a third of their health himself, or he's
+        /// they are, with no time limit, and keep at them until each has dealt them half their health himself, or he's
         /// slain, or they're down (by anything); Shane runs after them (a survivor only: he's always Zach's ally) until he's
         /// stunned and driven off (two bottles, a shotgun blast or galaxy gas). Each keeps his own grudge (<see cref="Npc.GrudgeTarget"/>).
         /// Those four only (the user's rule): no other NPC is touched by it.
@@ -219,6 +219,12 @@ namespace Vision.Game
         {
             Vengeance = target.Id;
             foreach (Npc n in Npcs) n.Avenge(this, target);
+        }
+
+        /// <summary>Chacko's killer went down in his own explosion: Njaaron, Jaden and Plasma are done with them at once.</summary>
+        public void CallOffVengeance()
+        {
+            foreach (Npc n in Npcs) n.CallOffGrudge();
         }
 
         void UpdateVengeance(float dt)

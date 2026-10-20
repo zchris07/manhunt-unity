@@ -150,6 +150,29 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void TheBeam_StopsDeadOnAShutGraveyardGate_LockedOrNot_EvenThroughItsBars()
+        {
+            // Bars the eye sees through (sight passes the gate): the beam still stops on them.
+            var rig = new SimRig(1, 1, false, 1, m => m.Doors.Add(new SimMap.DoorDef { A = U(300, -60), B = U(300, 60), Gate = true }));
+            SimPlayer s = rig.P(2), zach = rig.P(1);
+            rig.Place(s, 0f, 0f);
+            rig.Place(zach, 500f, 0f);
+            float hp = zach.Hp;
+            Beam(rig, s, 1.2f);
+            Assert.AreEqual(0, s.BeamGate, "burning into the gate");
+            Assert.AreEqual(300f, Scale.ToUnits(s.BeamLen), 12f, "it ends on the bars");
+            Assert.AreEqual(hp, zach.Hp, 1e-6f, "nobody behind the gate is touched");
+            Assert.IsFalse(rig.Sim.DoorBroken[0]);
+            // Open, it passes.
+            rig.Run(Secs(Balance.Sexton.Defense.BeamTime + Balance.Hunter.Beam.Cooldown + 1f));
+            rig.Sim.DoorLocked[0] = false;
+            rig.Sim.SetDoor(0, true);
+            Beam(rig, s, 1.2f);
+            Assert.AreEqual(-1, s.BeamGate);
+            Assert.Less(zach.Hp, hp, "through the open gateway");
+        }
+
+        [Test]
         public void Penjamin_GoesStraightThroughTheShield_AndReaches20PercentFurtherThanItWas()
         {
             var rig = new SimRig(1, 1);

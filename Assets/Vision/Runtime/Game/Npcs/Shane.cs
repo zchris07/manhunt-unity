@@ -215,6 +215,21 @@ namespace Vision.Game
         /// <summary>Whether a flashlight kept on him alerts him too (Shane), or only standing close does (Jaden).</summary>
         protected virtual bool AlertedByBeam => true;
 
+        /// <summary>Whether a gun fired within his alert radius alerts him outright (Shane; not Jaden).</summary>
+        protected virtual bool AlertedByGunfire => true;
+
+        /// <summary>
+        /// A survivor fired a gun inside the radius where standing near him builds his alert (in sight of him or not): his
+        /// meter goes straight to full and he's on them (unless he's already chasing, or been driven off and is cooling).
+        /// </summary>
+        public override void Gunfire(MatchSim sim, SimPlayer shooter)
+        {
+            if (!alive || !AlertedByGunfire || shooter == null || shooter.Role != Role.Survivor || !Eligible(shooter)) return;
+            if (CooldownT > 0f || State == Mode.Chase || State == Mode.Flee) return;
+            if (Vector2.Distance(shooter.Pos, Pos) > Scale.D(C.AlertRadius) + shooter.RadiusD) return;
+            Alert(shooter);
+        }
+
         /// <summary>
         /// Standing close to him (faster the closer) or keeping a flashlight on him builds a survivor's alert meter;
         /// otherwise it drains. Full, he's alerted.

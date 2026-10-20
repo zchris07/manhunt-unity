@@ -11,7 +11,7 @@ namespace Vision.Game
     /// hurts or touches him. Yes from a survivor and he comes with them and takes on Zach when Zach comes close or hurts
     /// them; no, and he fights whoever said it. Zach's hits make him fight back; four kill him, as do three stunning survivor items or
     /// one shot. However he dies, he explodes. Whoever attacks Chacko, he races after from wherever he is and punches until
-    /// he's taken a third of their health himself, or they're down, or he's slain (Zach's friend never turns on Zach).
+    /// he's taken half their health himself, or they're down, or he's slain (Zach's friend never turns on Zach).
     /// </summary>
     public sealed class Njaaron : Walker
     {
@@ -21,9 +21,15 @@ namespace Vision.Game
         int hp = Balance.Njaaron.Hp, stunHits, askWho, followId, targetId, allyId, huntId, grudgeId;
         float huntT, grudgeDealt;
         /// <summary>A grudge for Chacko is over once he's taken this much of their health himself.</summary>
-        public const float GrudgeShare = 1f / 3f;
+        public const float GrudgeShare = 0.5f;
         Mode beforeGrudge = Mode.Wander;
         public override int GrudgeTarget => alive && State == Mode.Avenge ? grudgeId : 0;
+
+        /// <summary>(As if he'd taken his half: the grudge ends where it would.)</summary>
+        public override void CallOffGrudge()
+        {
+            if (State == Mode.Avenge) grudgeDealt = GrudgeShare;
+        }
         /// <summary>Zach takes four points; survivors three stunning hits (or one shot).</summary>
         public override float? HealthFor(Role viewer) => !alive ? (float?)null
             : viewer == Role.Hunter ? hp / (float)Balance.Njaaron.Hp : 1f - stunHits / (float)Balance.Njaaron.StunHits;
@@ -608,7 +614,7 @@ namespace Vision.Game
             Speak("Here. Take this, you'll need it.");
             // An orbital strike (once each), in place of the P250 she gave at first.
             Sim.AddItem(p, ItemType.OrbitalStrike);
-            Sim.Tell(p, "Got a K.P.O.S. (K-pop orbital strike): left click to raise the tablet");
+            Sim.Tell(p, "Got a K.P.O.S. (K-pop orbital strike): left click to raise the tablet; it recharges for two minutes after each strike");
         }
 
         void Attacked(SimPlayer by)

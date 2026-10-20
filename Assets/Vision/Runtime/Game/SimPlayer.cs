@@ -94,6 +94,8 @@ namespace Vision.Game
         public float AbilityLockT;
         /// <summary>Under an orbital strike: every ability silenced (items, JARVIS, Zach's kit) while this runs.</summary>
         public float SilencedT;
+        /// <summary>Seconds until this player's K.P.O.S. can be called again (it stays in their inventory: two minutes a strike).</summary>
+        public float StrikeCd;
         /// <summary>Soaked in piss (Zach): the seconds left on the freshest splash.</summary>
         public float PissT;
         /// <summary>Every splash still on him, by its seconds left (each +50% damage taken, falling off linearly with it).</summary>
@@ -200,7 +202,10 @@ namespace Vision.Game
         public int BeamCharges;
         public float BeamCd, BeamT, BeamAng, BeamLen, BeamTick, BeamFlinch;
         public int BeamId;
-        /// <summary>The graveyard gate the beam is burning into (-1: none), and for how long it's been on it: one beam's whole firing breaks it.</summary>
+        /// <summary>
+        /// The graveyard gate the beam is burning into (-1: none; it stops there, locked or not), and for how long it's been
+        /// on it: one beam's whole firing breaks an unlocked one.
+        /// </summary>
         public int BeamGate = -1;
         public float BeamGateT;
         public readonly Dictionary<string, float> BeamHit = new Dictionary<string, float>();

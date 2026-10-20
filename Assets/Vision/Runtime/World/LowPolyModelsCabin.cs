@@ -118,7 +118,7 @@ namespace Vision.World
             // The dark under the boards (seen only where a piece is broken out).
             FlatQuad(b, new Vector3(-hl, top - 0.008f, -ha), new Vector3(hl, top - 0.008f, -ha), new Vector3(hl, top - 0.008f, ha), new Vector3(-hl, top - 0.008f, ha),
                 new Color(0.08f, 0.06f, 0.05f), Vector3.up);
-            Color grime = new Color(0.27f, 0.21f, 0.15f), rot = new Color(0.24f, 0.21f, 0.17f), moss = new Color(0.25f, 0.34f, 0.15f);
+            Color grime = new Color(0.27f, 0.21f, 0.15f), rot = new Color(0.24f, 0.21f, 0.17f), moss = new Color(0.26f, 0.3f, 0.17f);
             Color mould = new Color(0.12f, 0.13f, 0.1f), stain = new Color(0.2f, 0.15f, 0.1f), black = new Color(0.07f, 0.055f, 0.045f);
             float N(float x, float z, float scale, int ch) => PlankNoise(seed, x / scale, z / scale, ch);
             // How damp a point is: patches over the floor, wetter toward the walls.
@@ -144,7 +144,10 @@ namespace Vision.World
                 c = Color.Lerp(c, rot, Mathf.Clamp01((d - 0.5f) / 0.18f) * 0.6f);
                 c = Color.Lerp(c, stain, StainAt(x, z) * 0.6f);
                 c = Color.Lerp(c, mould, MouldAt(x, z) * (0.35f + 0.4f * N(x, z, 0.06f, 9)));
-                c = Color.Lerp(c, moss, MossAt(x, z) * 0.8f);
+                c = Color.Lerp(c, moss, MossAt(x, z) * 0.25f);
+                // The wood's colour 30% less saturated all over (the user's rule).
+                float grey = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+                c = Color.Lerp(new Color(grey, grey, grey), c, 0.7f);
                 c.a = 1f;
                 return c;
             }
@@ -205,8 +208,8 @@ namespace Vision.World
                     tally.Knots++;
                     var at = new Vector2(b.Range(x0 + 0.08f, x1 - 0.08f), cz + b.Range(-0.25f, 0.25f) * w);
                     float rz = b.Range(0.016f, 0.028f);
-                    Spot(at, rz * b.Range(1.4f, 1.9f), rz * 1.15f, yt, wet ? Color.Lerp(tone * 0.6f, moss, 0.5f) : Weather(tone * 0.72f, at.x, at.y));
-                    Spot(at, rz * 0.9f, rz * 0.6f, yt + 0.0004f, wet ? moss * 0.8f : new Color(0.2f, 0.13f, 0.08f));
+                    Spot(at, rz * b.Range(1.4f, 1.9f), rz * 1.15f, yt, Weather(wet ? Color.Lerp(tone * 0.6f, moss, 0.3f) : tone * 0.72f, at.x, at.y));
+                    Spot(at, rz * 0.9f, rz * 0.6f, yt + 0.0004f, wet ? new Color(0.17f, 0.16f, 0.1f) : new Color(0.17f, 0.13f, 0.1f));
                 }
                 if (b.Next() < 0.18f)
                 {
@@ -215,7 +218,7 @@ namespace Vision.World
                     float l = Mathf.Min(b.Range(0.12f, 0.45f), (x1 - x0) * 0.6f), zc = cz + b.Range(-0.3f, 0.3f) * w, hw = b.Range(0.002f, 0.004f);
                     float xs = fromStart ? x0 : x1, xe = fromStart ? x0 + l : x1 - l;
                     var below = new Vector3((xs + xe) * 0.5f, yt - 1f, zc);
-                    b.AddTriangleOutward(new Vector3(xs, yt, zc - hw), new Vector3(xs, yt, zc + hw), new Vector3(xe, yt, zc + b.Range(-0.004f, 0.004f)), wet ? moss * 0.75f : black, below);
+                    b.AddTriangleOutward(new Vector3(xs, yt, zc - hw), new Vector3(xs, yt, zc + hw), new Vector3(xe, yt, zc + b.Range(-0.004f, 0.004f)), wet ? new Color(0.11f, 0.12f, 0.08f) : black, below);
                 }
                 if (b.Next() < 0.03f)
                 {
@@ -305,36 +308,41 @@ namespace Vision.World
             var b = new LowPolyMeshBuilder(rng);
             Vector3 P(float x, float y) => onWall ? new Vector3(x, y, 0.003f) : new Vector3(x, 0.003f, y);
             Vector3 n = onWall ? Vector3.forward : Vector3.up;
-            void One(Vector2 at, float r, float stretch, Color c, float angle)
+            // One even colour all over (no light and dark wedges: soaked in, not faceted), dried darker for blood.
+            Color c0 = blood ? new Color(color.r * 0.72f, color.g * 0.9f, color.b * 0.95f, 1f) : color;
+            c0.a = 1f;
+            // A soft irregular outline: the radius wanders smoothly round it (a few lobes), never a star or a polygon.
+            void One(Vector2 at, float r, float stretch, float angle, int k = 18)
             {
-                const int k = 10;
+                float p1 = b.Range(0f, 6.283f), p2 = b.Range(0f, 6.283f), a1 = b.Range(0.1f, 0.22f), a2 = b.Range(0.05f, 0.12f);
+                int lobes = b.Next() < 0.5f ? 2 : 3;
                 var pts = new Vector3[k];
                 for (int i = 0; i < k; i++)
                 {
-                    float a = i * Mathf.PI * 2f / k, rr = r * b.Range(0.6f, 1.1f);
+                    float a = i * Mathf.PI * 2f / k;
+                    float rr = r * (1f + a1 * Mathf.Sin(a * lobes + p1) + a2 * Mathf.Sin(a * (lobes + 3) + p2));
                     var v = new Vector2(Mathf.Cos(a) * rr * stretch, Mathf.Sin(a) * rr);
                     v = new Vector2(v.x * Mathf.Cos(angle) - v.y * Mathf.Sin(angle), v.x * Mathf.Sin(angle) + v.y * Mathf.Cos(angle));
                     pts[i] = P(at.x + v.x, at.y + v.y);
                 }
                 Vector3 centre = P(at.x, at.y);
-                Color dark = c * 0.85f;
-                dark.a = 1f;
-                for (int i = 0; i < k; i++) b.AddTriangleOutward(centre, pts[i], pts[(i + 1) % k], i % 2 == 0 ? c : dark, centre - n);
+                for (int i = 0; i < k; i++) b.AddTriangleOutward(centre, pts[i], pts[(i + 1) % k], c0, centre - n);
             }
-            One(Vector2.zero, radius, b.Range(1f, 1.5f), color, b.Range(0f, Mathf.PI));
+            One(Vector2.zero, radius, b.Range(1f, 1.4f), b.Range(0f, Mathf.PI));
             if (blood)
             {
-                for (int i = 0; i < 7; i++)
+                // A few drops flicked about it.
+                for (int i = 0; i < 6; i++)
                 {
-                    float a = b.Range(0f, Mathf.PI * 2f), r = radius * b.Range(1.1f, 2f);
-                    One(new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r, radius * b.Range(0.05f, 0.14f), 1f, color * 0.95f, 0f);
+                    float a = b.Range(0f, Mathf.PI * 2f), r = radius * b.Range(1.15f, 1.9f);
+                    One(new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r, radius * b.Range(0.04f, 0.09f), 1f, 0f, 8);
                 }
-                // Dragged off to one side.
+                // Smeared off to one side: a tapering trail of overlapping blots (one colour, so it reads as one smear).
                 float dir = b.Range(0f, Mathf.PI * 2f);
-                for (int i = 1; i <= 4; i++)
+                for (int i = 1; i <= 6; i++)
                 {
-                    var at = new Vector2(Mathf.Cos(dir), Mathf.Sin(dir)) * radius * (0.6f + i * 0.55f);
-                    One(at, radius * b.Range(0.18f, 0.28f) * (1f - i * 0.12f), 2.2f, color * (0.9f + i * 0.04f), dir);
+                    var at = new Vector2(Mathf.Cos(dir), Mathf.Sin(dir)) * radius * (0.55f + i * 0.32f);
+                    One(at, radius * 0.3f * (1f - i * 0.11f), 1.8f, dir, 12);
                 }
             }
             return b.ToMesh(blood ? "Blood" : "Stain");

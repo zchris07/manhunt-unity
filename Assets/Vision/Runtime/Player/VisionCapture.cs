@@ -887,6 +887,21 @@ namespace Vision.Player
                         yield return new WaitForSeconds(0.7f);
                         gameHud.Refresh();
                         yield return Shot("150_graveyard_gates_locked");
+                        // A Hemp Beam fired at the shut gates: it stops on the bars and burns into them.
+                        {
+                            SimPlayer meB = host.Local;
+                            if (meB.Inv.FirstSlotOf(ItemType.HempBeam) < 0) meB.Inv.Add(ItemType.HempBeam, 3);
+                            player.SelectedSlot = meB.Inv.FirstSlotOf(ItemType.HempBeam);
+                            yield return Wait(3);
+                            player.ExtraButtons = Btn.Primary;
+                            yield return Wait(2);
+                            player.ExtraButtons = Btn.None;
+                            yield return new WaitForSeconds(Balance.Hunter.Beam.Windup + 1.6f);
+                            Debug.Log($"[Vision] beam on the gate: gate {meB.BeamGate}, len {meB.BeamLen:0}");
+                            yield return Shot("150b_beam_on_gate");
+                            yield return new WaitForSeconds(Balance.Sexton.Defense.BeamTime);
+                            player.SelectedSlot = -1;
+                        }
                         // E until the picking starts (anything lying at the gateway is picked up first).
                         for (int tries = 0; tries < 4 && host.Local.Action != ActionKind.PickLock; tries++)
                         {
@@ -1402,7 +1417,17 @@ namespace Vision.Player
                         player.ExtraButtons = Btn.None;
                         yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.45f);
                         yield return Shot("164_body_rising");
-                        yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.55f + 0.5f);
+                        // Late in the merge, up close: the ghost and the body over each other.
+                        float oz = cameraRig.orthographicSize;
+                        cameraRig.orthographicSize = oz * 0.45f;
+                        yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.3f);
+                        LogMerge("164b", jb, player, world);
+                        yield return Shot("164b_merging_close");
+                        yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.17f);
+                        LogMerge("164c", jb, player, world);
+                        yield return Shot("164c_merged_close");
+                        cameraRig.orthographicSize = oz;
+                        yield return new WaitForSeconds(Balance.Ghost.PossessTime * 0.08f + 0.5f);
                         gameHud.Refresh();
                         Debug.Log($"[Vision] reanimated: {meG.Reanimated} as {meG.BodyName}, banner \"{gameHud.BannerText}\"");
                         yield return Shot("165_reanimated_as_jaden");
@@ -2351,6 +2376,23 @@ namespace Vision.Player
             yield return new WaitForSecondsRealtime(gameSeconds / 0.02f);
             yield return Shot(name);
             Time.timeScale = 1f;
+        }
+
+        /// <summary>How far apart (cm) the merging ghost's bones are from the rising body's (captures: they should coincide).</summary>
+        static void LogMerge(string at, Body b, PlayerController player, SandboxWorld world)
+        {
+            GameObject pivot = GameObject.Find("Body: " + b.Name);
+            ActionLayer bodyLayer = pivot != null ? pivot.GetComponentInChildren<ActionLayer>() : null;
+            ActionLayer ghostLayer = player != null && player.View != null ? player.View.GetComponent<ActionLayer>() : null;
+            if (bodyLayer == null || ghostLayer == null || bodyLayer.bones == null || ghostLayer.bones == null) { Debug.Log($"[Vision] merge {at}: no figures"); return; }
+            var sb = new System.Text.StringBuilder($"[Vision] merge {at}: ghost minus body (cm, world)");
+            foreach (Bone bone in new[] { Bone.Pelvis, Bone.Head, Bone.HandL, Bone.HandR, Bone.FootL, Bone.FootR })
+            {
+                Vector3 d = (ghostLayer.bones[(int)bone].position - bodyLayer.bones[(int)bone].position) / Mathf.Max(1e-4f, world.transform.lossyScale.x) * 100f;
+                sb.Append($" {bone} ({d.x:0},{d.y:0},{d.z:0})");
+            }
+            sb.Append($"; yaw ghost {player.View.transform.eulerAngles.y:0} body {pivot.transform.eulerAngles.y:0}");
+            Debug.Log(sb.ToString());
         }
 
         IEnumerator Shot(string name)

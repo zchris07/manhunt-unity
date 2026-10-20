@@ -79,6 +79,10 @@ namespace Vision.Audio
             // units off; the strike lasts exactly as long as it, its last 1.5 s falling away by an inverse square.
             ["orbital_strike"] = new Cue { Prefer = new[] { "local_kpop_strike" }, Files = new string[0], Volume = 1f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
                 Radius = Vision.Game.Balance.Items.Orbital.HearRadius, TailFade = 1.5f, Warm = true },
+            // The laser itself under the music (a local file the user supplies; silent without it), quieter than the track:
+            // started a second before the beam lands, so its impact (a second into the file) lands with it.
+            ["orbital_laser"] = new Cue { Prefer = new[] { "local_orbital_laser" }, Files = new string[0], Volume = 0.45f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
+                Radius = Vision.Game.Balance.Items.Orbital.HearRadius, Warm = true },
             // A strike locked on: the tablet's confirm beep, at the target.
             ["strike_lock"] = new Cue { Files = new[] { "rpg_metalclick" }, Volume = 0.6f, PitchJitter = 0f, Radius = 1200f },
             // (60% softer than at first, then half that again, at the user's request.)

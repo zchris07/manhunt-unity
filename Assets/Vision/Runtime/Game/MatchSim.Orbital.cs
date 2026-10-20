@@ -24,11 +24,13 @@ namespace Vision.Game
 
     /// <summary>
     /// The orbital strike (the user's rules): confirmed on the tablet against a player in an explored part of the map, it
-    /// uses up the item and is locked on them from then, wherever they go. After a 3 s countdown a beam three times Zach's
+    /// is locked on them from then, wherever they go; the tablet stays in the caller's inventory and recharges for two
+    /// minutes (dropped where they fall if they're slain). After a 3 s countdown a beam three times Zach's
     /// width comes straight down from overhead, through anything solid, and follows them with a lag: whoever keeps moving
     /// can keep partly out of it but never gets clear. Anyone it's on (players only, never an NPC) takes half the Hemp
-    /// Beam's tick ten times a second (about 44 HP over its 8.725 s), is slowed 20% and has every ability silenced. Its
-    /// track (NewJeans' OMG) plays the whole time; it ends with it.
+    /// Beam's tick ten times a second (about 44 HP over its 8.725 s), is slowed 20% and has every ability silenced; and
+    /// everything that can be destroyed (doors, windows, pallets, unlocked gates, gas traps) goes the instant it touches
+    /// it. Its track (NewJeans' OMG) plays the whole time; it ends with it.
     /// </summary>
     public sealed partial class MatchSim
     {
@@ -40,17 +42,57 @@ namespace Vision.Game
 
         /// <summary>
         /// Calls the strike down on <paramref name="targetId"/> for <paramref name="ownerId"/> (confirmed on their tablet):
-        /// uses up their item; false if they've none, can't use one, or the target can't be struck.
+        /// the tablet stays theirs and recharges for two minutes; false if they've none, it's recharging, they can't use
+        /// one, or the target can't be struck.
         /// </summary>
         public bool CallStrike(int ownerId, int targetId)
         {
             SimPlayer p = Get(ownerId), q = Get(targetId);
-            if (p == null || p.Role != Role.Survivor || !p.CanAct || p.SilencedT > 0f || !Strikeable(q)) return false;
-            int slot = p.Inv.FirstSlotOf(ItemType.OrbitalStrike);
-            if (slot < 0) return false;
-            Consume(p, slot);
+            if (p == null || p.Role != Role.Survivor || !p.CanAct || p.SilencedT > 0f || p.StrikeCd > 0f || !Strikeable(q)) return false;
+            if (p.Inv.FirstSlotOf(ItemType.OrbitalStrike) < 0) return false;
+            p.StrikeCd = Balance.Items.Orbital.Cooldown;
             LaunchStrike(p, q);
             return true;
+        }
+
+        /// <summary>A survivor slain (sacrificed, lost in the woods): their K.P.O.S. drops where they fell, for anyone to take.</summary>
+        void DropStrikeTablet(SimPlayer p)
+        {
+            int slot = p.Inv.FirstSlotOf(ItemType.OrbitalStrike);
+            if (slot < 0) return;
+            float amount = p.Inv.TakeOne(slot, out _, out _);
+            PlaceDrop(new DropItem { Id = AllocEntityId(), Pos = p.Pos, Item = ItemType.OrbitalStrike, Amount = amount }, p.Pos);
+            Feed($"{p.Name}'s K.P.O.S. lies where they fell");
+        }
+
+        /// <summary>
+        /// Everything that can be destroyed within the beam goes at once: doors (not shutters), windows, pallets, the
+        /// graveyard's gates once unlocked (locked, nothing breaks them), and gas traps (they burst).
+        /// </summary>
+        void StrikeDestroys(Vector2 at, float r, SimPlayer owner)
+        {
+            for (int i = 0; i < Map.Doors.Count; i++)
+            {
+                SimMap.DoorDef d = Map.Doors[i];
+                if (DoorBroken[i] || d.Shutter || DoorLocked[i] || SimMap.SegmentDistance(at, d.A, d.B) > r) continue;
+                SetDoor(i, true);
+                DoorBroken[i] = true;
+                Noise((d.A + d.B) * 0.5f, 900f, d.Gate ? "gate_smash" : "door_smash");
+            }
+            for (int i = 0; i < Map.Windows.Count; i++)
+            {
+                if (WindowsBroken[i] || SimMap.SegmentDistance(at, Map.Windows[i].A, Map.Windows[i].B) > r) continue;
+                BreakWindow(i);
+                Noise((Map.Windows[i].A + Map.Windows[i].B) * 0.5f, 800f, "glass");
+            }
+            for (int i = 0; i < Map.Barricades.Count; i++)
+            {
+                if (Barricades[i] == BarricadeState.Broken || SimMap.SegmentDistance(at, Map.Barricades[i].A, Map.Barricades[i].B) > r) continue;
+                SetBarricade(i, BarricadeState.Broken);
+                Noise(Map.Barricades[i].Pos, 700f, "smash");
+            }
+            for (int k = Traps.Count - 1; k >= 0; k--)
+                if (Vector2.Distance(Traps[k].Pos, at) <= r) BurstTrap(k, owner != null ? owner.Name : "The K.P.O.S.");
         }
 
         /// <summary>Starts a strike's countdown on <paramref name="q"/>, called by <paramref name="p"/> (yourself, in testing).</summary>
@@ -64,7 +106,11 @@ namespace Vision.Game
 
         void UpdateStrikes(float dt)
         {
-            foreach (SimPlayer p in Order) if (p.SilencedT > 0f) p.SilencedT = Mathf.Max(0f, p.SilencedT - dt);
+            foreach (SimPlayer p in Order)
+            {
+                if (p.SilencedT > 0f) p.SilencedT = Mathf.Max(0f, p.SilencedT - dt);
+                if (p.StrikeCd > 0f) p.StrikeCd = Mathf.Max(0f, p.StrikeCd - dt);
+            }
             float r = R(Balance.Items.Orbital.Radius);
             for (int k = Strikes.Count - 1; k >= 0; k--)
             {
@@ -94,6 +140,7 @@ namespace Vision.Game
                 int ticks = 0;
                 while (s.TickAcc >= 1f) { s.TickAcc -= 1f; ticks++; }
                 SimPlayer owner = Get(s.Owner);
+                StrikeDestroys(s.Pos, r, owner);
                 foreach (SimPlayer q in Order)
                 {
                     if (!Strikeable(q) || Vector2.Distance(q.Pos, s.Pos) > r + q.RadiusD) continue;

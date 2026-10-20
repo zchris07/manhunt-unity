@@ -37,6 +37,8 @@ namespace Vision.Characters
         public float Lift;
         [Tooltip("Crouching (0-1): the pelvis drops, the knees bend under it and the back leans forward.")]
         public float Crouch;
+        [Tooltip("Square to the aim: the legs face it exactly, no twist at the waist (a ghost merging with a body, posed as the body is).")]
+        public bool SquareToAim;
         float crouch;
 
         readonly GaitSolver solver = new GaitSolver();
@@ -92,6 +94,7 @@ namespace Vision.Characters
                 targetYaw = aimYaw;
             }
             legsYaw = Mathf.MoveTowardsAngle(legsYaw, targetYaw, turnSpeed * dt);
+            if (SquareToAim) legsYaw = aimYaw;
             // The upper body faces the aim at once: if the aim swings past what the waist can turn, the legs come with it.
             float lag = Mathf.DeltaAngle(legsYaw, aimYaw);
             if (Mathf.Abs(lag) > maxTwist) legsYaw = aimYaw - Mathf.Sign(lag) * maxTwist;

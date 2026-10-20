@@ -15,9 +15,11 @@ namespace Vision.Player
     /// is the Tab map, red-tinted, with the same fog (only what this player has explored shows), the wheel zooming it about
     /// the pointer and a drag panning it; a marker on every playable character standing in explored ground, where they are
     /// now. Hovering one draws a lock box round it (bright corner brackets, its name); a click (pressed and let go without
-    /// dragging) confirms the target: the item's used up, and a countdown and start-up sequence run on the screen (target
-    /// locked, uplink, calibrating, charging, dispatch) while the target stays locked wherever they go; the strike comes
-    /// down and the tablet lowers. Exit (top left), a click anywhere off the tablet, E, or taking another item in hand
+    /// dragging) confirms the target: the target stays locked wherever they go, and the screen plays the confirmation (a
+    /// white flash and TARGET CONFIRMED stamped across it, shaking; readings, each more ridiculous than the last, typed out
+    /// with their numbers scrambling before they settle; three bars charging; a countdown; DEPLOYED), then the tablet
+    /// lowers as the beam comes down. It stays in their inventory and recharges for two minutes (its slot counts it down;
+    /// raising it before then only says so). Exit (top left), a click anywhere off the tablet, E, or taking another item in hand
     /// lowers it before then, keeping the item. The full map and the menus draw over it. Walking is allowed with it up,
     /// sprinting isn't, and nothing moves while it rises or lowers.
     /// </summary>
@@ -36,7 +38,10 @@ namespace Vision.Player
         public const float TabletMaxZoom = 4f;
 
         RectTransform tabletRoot, tabletBody, tabletScreen, tabletContentRect, tabletMap, tabletMarks, tabletReticle, tabletLock, tabletExit;
-        RectTransform tabletPower, tabletPowerLine;
+        RectTransform tabletPower, tabletPowerLine, tabletRoll;
+        RawImage tabletGrain;
+        /// <summary>How much stronger than the title screen's the noise on the tablet's screen is.</summary>
+        public const float TabletNoise = 1.3f;
         Image tabletPowerLineImg, tabletPowerGlow;
         Text tabletBootTitle, tabletBootLine;
         /// <summary>The screen's power-on: seconds since it was raised, and how long it takes to come on and settle.</summary>
@@ -45,6 +50,41 @@ namespace Vision.Player
         /// <summary>How far (pixels) the pointer can move with the button down before it's a drag (panning) and not a click.</summary>
         public const float DragThreshold = 7f;
         bool tabletPressing, tabletDragging, pressOnExit, pressOffTablet;
+        // The confirmation: its panel, the stamp, the readings, the bars, the countdown, DEPLOYED.
+        RectTransform tabletConfirm, tabletStamp;
+        CanvasGroup tabletConfirmGroup;
+        Image tabletFlash;
+        Text tabletStampText, tabletReadings, tabletCount, tabletDeployed;
+        readonly Image[] tabletBars = new Image[3];
+        readonly Text[] tabletBarText = new Text[3];
+        float cooldownNoticeAt = -9f;
+        /// <summary>When the confirmation's done and the tablet goes down (s after the click): before the beam lands.</summary>
+        public const float ConfirmTime = 2.55f;
+
+        /// <summary>The confirmation's readings (label, value), the sillier the further down.</summary>
+        public static readonly (string label, string value)[] StrikeReadings =
+        {
+            ("ORBITAL PLATFORM \"BIAS-1\"", "ONLINE"),
+            ("TARGET VIBE CHECK", "FAILED"),
+            ("AEGYO FLUX DENSITY", "9,001 kAe"),
+            ("FANCHANT RESONANCE", "104.7%"),
+            ("LIGHTSTICK ARRAY SYNC", "128/128"),
+            ("HYPE BOY COEFFICIENT", "MAXIMUM"),
+            ("COOKIE OVEN CORE TEMP", "4,700 K"),
+            ("DITTO-LOOP CAPACITORS", "CHARGED"),
+            ("BUBBLE GUM REFRACTION", "1.337"),
+            ("SUPER SHY STEALTH MODE", "DISABLED"),
+            ("CHOREO SYNC ERROR", "0.000 BEATS"),
+            ("STREAMING PARTY QUOTA", "EXCEEDED"),
+            ("BIAS WRECK PROBABILITY", "100%"),
+            ("WIND MACHINE (HAIR)", "CINEMATIC"),
+            ("COMEBACK STAGE PYRO", "ARMED"),
+            ("PHOTOCARD TRADE VALUE", "PRICELESS"),
+            ("COLLATERAL CUTENESS", "ACCEPTABLE"),
+            ("TRAINEE MORALE", "IRRELEVANT"),
+            ("LEGAL DEPARTMENT", "NOT NOTIFIED"),
+            ("SATELLITE MOOD", "SPARKLY"),
+        };
         Vector2 pressAt, lastPointer;
         RawImage tabletArt, tabletFog;
         Text tabletTitle, tabletTimer, tabletStatus, tabletDispatch, tabletLockName;
@@ -131,14 +171,14 @@ namespace Vision.Player
             tabletContent = content.gameObject.AddComponent<CanvasGroup>();
             tabletMap = UiKit.Node("Map", content, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ScreenH, ScreenH));
             tabletArt = UiKit.Fill("Art", tabletMap).gameObject.AddComponent<RawImage>();
-            tabletArt.color = new Color(1f, 0.38f, 0.34f, 1f);
+            tabletArt.color = new Color(0.8f, 0.9f, 1f, 1f);
             tabletFog = UiKit.Fill("Fog", tabletMap).gameObject.AddComponent<RawImage>();
             // The tint, a grid, scanlines.
-            UiKit.Box(UiKit.Fill("Tint", content), new Color(1f, 0.08f, 0.06f, 0.12f));
+            UiKit.Box(UiKit.Fill("Tint", content), new Color(0.3f, 0.55f, 1f, 0.1f));
             var grid = UiKit.Fill("Grid", content).gameObject.AddComponent<RawImage>();
             grid.texture = Lines(true);
             grid.uvRect = new Rect(0f, 0f, ScreenW / 64f / 2f, ScreenH / 64f / 2f);
-            grid.color = new Color(1f, 0.3f, 0.25f, 0.5f);
+            grid.color = new Color(0.5f, 0.75f, 1f, 0.42f);
             var scan = UiKit.Fill("Scan", content).gameObject.AddComponent<RawImage>();
             scan.texture = Lines(false);
             scan.uvRect = new Rect(0f, 0f, 1f, ScreenH / 64f);
@@ -148,41 +188,77 @@ namespace Vision.Player
             tabletLock = UiKit.Node("Lock", content, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(70f, 70f));
             foreach (Vector2 c in new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) })
             {
-                UiKit.Box(UiKit.Node("Bracket", tabletLock, c, c, Vector2.zero, new Vector2(20f, 4f)), new Color(1f, 0.92f, 0.9f, 1f));
-                UiKit.Box(UiKit.Node("Bracket", tabletLock, c, c, Vector2.zero, new Vector2(4f, 20f)), new Color(1f, 0.92f, 0.9f, 1f));
+                UiKit.Box(UiKit.Node("Bracket", tabletLock, c, c, Vector2.zero, new Vector2(20f, 4f)), new Color(0.92f, 0.96f, 1f, 1f));
+                UiKit.Box(UiKit.Node("Bracket", tabletLock, c, c, Vector2.zero, new Vector2(4f, 20f)), new Color(0.92f, 0.96f, 1f, 1f));
             }
-            tabletLockName = kit.Label(UiKit.Node("Name", tabletLock, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(320f, 26f)), "", 18, TextAnchor.UpperCenter, new Color(1f, 0.92f, 0.9f, 1f));
+            tabletLockName = kit.Label(UiKit.Node("Name", tabletLock, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(320f, 26f)), "", 18, TextAnchor.UpperCenter, new Color(0.92f, 0.96f, 1f, 1f));
             tabletLockName.horizontalOverflow = HorizontalWrapMode.Overflow;
             // The reticle: a ring and a crosshair.
             tabletReticle = UiKit.Node("Reticle", content, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(96f, 96f));
             var ring = UiKit.Fill("Ring", tabletReticle).gameObject.AddComponent<RawImage>();
             ring.texture = StrikeRing();
-            ring.color = new Color(1f, 0.32f, 0.28f, 0.9f);
+            ring.color = new Color(0.55f, 0.8f, 1f, 0.9f);
             foreach (var (pos, size) in new[] { (new Vector2(-38f, 0f), new Vector2(26f, 3f)), (new Vector2(38f, 0f), new Vector2(26f, 3f)), (new Vector2(0f, -38f), new Vector2(3f, 26f)), (new Vector2(0f, 38f), new Vector2(3f, 26f)) })
-                UiKit.Box(UiKit.Node("Cross", tabletReticle, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size), new Color(1f, 0.32f, 0.28f, 0.9f));
+                UiKit.Box(UiKit.Node("Cross", tabletReticle, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size), new Color(0.55f, 0.8f, 1f, 0.9f));
             // Along the top: Exit (top left), the title, the timer; along the bottom: the status and DISPATCH.
             RectTransform exit = tabletExit = UiKit.Node("Exit", content, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -14f), new Vector2(120f, 40f));
-            UiKit.Box(exit, new Color(0.25f, 0.03f, 0.03f, 0.9f));
-            var exitText = kit.Label(UiKit.Fill("Label", exit), "◄ EXIT", 20, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.82f, 1f));
+            UiKit.Box(exit, new Color(0.04f, 0.1f, 0.22f, 0.9f));
+            var exitText = kit.Label(UiKit.Fill("Label", exit), "◄ EXIT", 20, TextAnchor.MiddleCenter, new Color(0.85f, 0.93f, 1f, 1f));
             exitText.raycastTarget = false;
             tabletTitle = kit.Label(UiKit.Node("Title", content, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(150f, -18f), new Vector2(620f, 32f)),
-                "K-POP ORBITAL STRIKE  //  K.P.O.S.", 22, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.78f, 1f));
+                "K-POP ORBITAL STRIKE  //  K.P.O.S.", 22, TextAnchor.MiddleLeft, new Color(0.82f, 0.9f, 1f, 1f));
             tabletTimer = kit.Label(UiKit.Node("Timer", content, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-18f, -14f), new Vector2(320f, 40f)),
-                "STANDBY", 30, TextAnchor.MiddleRight, new Color(1f, 0.85f, 0.8f, 1f));
+                "STANDBY", 30, TextAnchor.MiddleRight, new Color(0.85f, 0.93f, 1f, 1f));
             tabletStatus = kit.Label(UiKit.Node("Status", content, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(18f, 16f), new Vector2(620f, 140f)),
-                "", 17, TextAnchor.LowerLeft, new Color(1f, 0.72f, 0.66f, 1f));
+                "", 17, TextAnchor.LowerLeft, new Color(0.68f, 0.82f, 1f, 1f));
             RectTransform dispatch = UiKit.Node("Dispatch", content, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-18f, 16f), new Vector2(240f, 56f));
-            tabletDispatchBg = UiKit.Box(dispatch, new Color(0.3f, 0.04f, 0.04f, 0.85f));
-            tabletDispatch = kit.Label(UiKit.Fill("Label", dispatch), "DISPATCH", 26, TextAnchor.MiddleCenter, new Color(1f, 0.6f, 0.55f, 1f));
+            tabletDispatchBg = UiKit.Box(dispatch, new Color(0.05f, 0.12f, 0.3f, 0.85f));
+            tabletDispatch = kit.Label(UiKit.Fill("Label", dispatch), "DISPATCH", 26, TextAnchor.MiddleCenter, new Color(0.6f, 0.8f, 1f, 1f));
+            // The title screen's noise over the picture, 30% stronger: grain moving on every frame, still scanlines, a band
+            // of light rolling down.
+            tabletGrain = UiKit.Fill("Grain", tabletScreen).gameObject.AddComponent<RawImage>();
+            tabletGrain.texture = UiKit.SoftGrain(TabletNoise);
+            var tabletLines = UiKit.Fill("Scanlines", tabletScreen).gameObject.AddComponent<RawImage>();
+            tabletLines.texture = UiKit.Scanlines(TabletNoise);
+            tabletLines.uvRect = new Rect(0f, 0f, 1f, ScreenH / 3f);
+            tabletRoll = UiKit.Node("Roll", tabletScreen, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(0f, 200f));
+            tabletRoll.gameObject.AddComponent<RawImage>().texture = UiKit.RollBand(TabletNoise);
+            // The confirmation over the picture (hidden till a target's confirmed).
+            tabletConfirm = UiKit.Fill("Confirm", tabletScreen);
+            tabletConfirmGroup = tabletConfirm.gameObject.AddComponent<CanvasGroup>();
+            UiKit.Box(UiKit.Fill("Shade", tabletConfirm), new Color(0.02f, 0.04f, 0.12f, 0.8f));
+            tabletFlash = UiKit.Box(UiKit.Fill("Flash", tabletConfirm), new Color(1f, 0.92f, 0.96f, 0f));
+            tabletReadings = kit.Label(UiKit.Node("Readings", tabletConfirm, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(26f, -182f), new Vector2(640f, 440f)),
+                "", 17, TextAnchor.UpperLeft, new Color(1f, 0.78f, 0.84f, 1f), UiKit.Face.Mono, 0f, false);
+            tabletReadings.verticalOverflow = VerticalWrapMode.Overflow;
+            string[] bars = { "CAPACITOR CHARGE", "FANDOM SYNC", "BIAS LOCK" };
+            for (int i = 0; i < 3; i++)
+            {
+                RectTransform bar = UiKit.Node("Bar", tabletConfirm, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-26f, -212f - i * 74f), new Vector2(380f, 18f));
+                UiKit.Box(bar, new Color(0.3f, 0.04f, 0.1f, 0.9f));
+                RectTransform fill = UiKit.Fill("Fill", bar);
+                fill.anchorMax = new Vector2(0f, 1f);
+                tabletBars[i] = UiKit.Box(fill, new Color(1f, 0.4f, 0.72f, 1f));
+                tabletBarText[i] = kit.Label(UiKit.Node("Label", bar, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, 34f), new Vector2(0f, 26f)),
+                    bars[i], 16, TextAnchor.LowerLeft, new Color(1f, 0.82f, 0.88f, 1f), UiKit.Face.Mono, 0f, false);
+            }
+            tabletCount = kit.Label(UiKit.Node("Count", tabletConfirm, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-26f, 96f), new Vector2(380f, 110f)),
+                "", 64, TextAnchor.LowerRight, new Color(1f, 0.9f, 0.95f, 1f), UiKit.Face.DisplayBold, 0.05f);
+            tabletDeployed = kit.Label(UiKit.Node("Deployed", tabletConfirm, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 30f), new Vector2(1000f, 50f)),
+                "", 30, TextAnchor.MiddleCenter, Color.white, UiKit.Face.DisplayBold, 0.12f);
+            tabletStamp = UiKit.Node("Stamp", tabletConfirm, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -78f), new Vector2(900f, 84f));
+            UiKit.Frame(tabletStamp, new Color(1f, 0.85f, 0.92f, 1f));
+            tabletStampText = kit.Label(UiKit.Fill("Text", tabletStamp), "TARGET CONFIRMED", 52, TextAnchor.MiddleCenter, new Color(1f, 0.9f, 0.95f, 1f), UiKit.Face.DisplayBold, 0.14f);
+            tabletConfirm.gameObject.SetActive(false);
             // The power-on over the picture: a glow, the line of light opening into it, the boot text.
             tabletPower = UiKit.Fill("Power", tabletScreen);
-            tabletPowerGlow = UiKit.Box(UiKit.Fill("Glow", tabletPower), new Color(1f, 0.55f, 0.6f, 0f));
+            tabletPowerGlow = UiKit.Box(UiKit.Fill("Glow", tabletPower), new Color(0.55f, 0.75f, 1f, 0f));
             tabletPowerLine = UiKit.Node("Line", tabletPower, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ScreenW, 4f));
             tabletPowerLineImg = UiKit.Box(tabletPowerLine, new Color(1f, 0.93f, 0.95f, 1f));
             tabletBootTitle = kit.Label(UiKit.Node("Boot", tabletPower, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 24f), new Vector2(900f, 60f)),
-                "K-POP ORBITAL STRIKE", 46, TextAnchor.MiddleCenter, new Color(1f, 0.86f, 0.9f, 1f));
+                "K-POP ORBITAL STRIKE", 46, TextAnchor.MiddleCenter, new Color(0.86f, 0.92f, 1f, 1f));
             tabletBootLine = kit.Label(UiKit.Node("Boot Line", tabletPower, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -26f), new Vector2(900f, 30f)),
-                "K.P.O.S.  //  SATELLITE UPLINK  //  INITIALISING", 18, TextAnchor.MiddleCenter, new Color(1f, 0.6f, 0.62f, 1f));
+                "K.P.O.S.  //  SATELLITE UPLINK  //  INITIALISING", 18, TextAnchor.MiddleCenter, new Color(0.6f, 0.75f, 1f, 1f));
             foreach (Graphic g in tabletScreen.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
             // The tablet itself over all of it (its screen window clear).
             var frame = UiKit.Fill("Frame", tabletBody).gameObject.AddComponent<RawImage>();
@@ -207,6 +283,7 @@ namespace Vision.Player
             tabletCentre = true;
             powerT = 0f;
             tabletPressing = tabletDragging = false;
+            tabletConfirm.gameObject.SetActive(false);
             tabletRoot.gameObject.SetActive(true);
         }
 
@@ -235,6 +312,67 @@ namespace Vision.Player
             lockedTarget = target;
             dispatchedAt = Time.unscaledTime;
             return true;
+        }
+
+        /// <summary>A cooldown as m:ss.</summary>
+        public static string CooldownText(float seconds)
+        {
+            int t = Mathf.CeilToInt(Mathf.Max(0f, seconds));
+            return $"{t / 60}:{t % 60:00}";
+        }
+
+        /// <summary>
+        /// The confirmation, <paramref name="since"/> s after the click: a white flash and the stamp slamming down, the screen
+        /// shaking; the readings typed out one after another (numbers scrambling a moment before they settle, the newest
+        /// lines scrolling up); three bars charging; the countdown to impact; DEPLOYED, flashing; then the tablet lowers.
+        /// </summary>
+        void AnimateConfirm(float since, float left, string targetName)
+        {
+            if (!tabletConfirm.gameObject.activeSelf) tabletConfirm.gameObject.SetActive(true);
+            tabletConfirmGroup.alpha = Mathf.Clamp01(since / 0.08f);
+            tabletFlash.color = new Color(1f, 0.92f, 0.96f, 0.85f * Mathf.Clamp01(1f - since / 0.3f));
+            // The stamp: slammed down big, settling, jittering now and then.
+            float slam = Mathf.Clamp01(since / 0.18f);
+            tabletStamp.localScale = Vector3.one * Mathf.Lerp(1.7f, 1f, 1f - (1f - slam) * (1f - slam));
+            bool glitch = Mathf.Repeat(since * 7.3f, 1f) < 0.08f;
+            tabletStamp.anchoredPosition = new Vector2(glitch ? Random.Range(-14f, 14f) : 0f, -78f);
+            tabletStampText.text = since < 1.2f ? "TARGET CONFIRMED" : $"LOCKED: {targetName}";
+            // The screen shakes as it slams down, a tremor after.
+            float shake = since < 0.35f ? 9f * (1f - since / 0.35f) : 1.2f;
+            tabletBody.anchoredPosition += new Vector2(Random.Range(-shake, shake), Random.Range(-shake, shake));
+            // The readings, a line every 0.11 s, the last twelve showing.
+            int shown = Mathf.Clamp(Mathf.FloorToInt((since - 0.15f) / 0.11f) + 1, 0, StrikeReadings.Length);
+            var sb = new System.Text.StringBuilder();
+            for (int i = Mathf.Max(0, shown - 12); i < shown; i++)
+            {
+                var (label, value) = StrikeReadings[i];
+                float age = since - 0.15f - i * 0.11f;
+                string v = age < 0.22f ? Scramble(value) : value;
+                string dots = new string('.', Mathf.Max(2, 27 - label.Length));
+                sb.Append(i == shown - 1 && age < 0.22f ? "<color=#ffffff>" : "<color=#ffc6d8>").Append("> ").Append(label).Append(' ').Append(dots).Append(' ').Append(v).Append("</color>\n");
+            }
+            tabletReadings.text = sb.ToString();
+            for (int i = 0; i < 3; i++)
+            {
+                float k = Smooth((since - 0.3f - i * 0.25f) / (1.4f - i * 0.15f));
+                // (Overshooting a little past 100%, as all the best readings do.)
+                float pct = k * (i == 0 ? 112f : i == 1 ? 104.7f : 100f);
+                tabletBars[i].rectTransform.anchorMax = new Vector2(Mathf.Clamp01(k), 1f);
+                tabletBars[i].color = k >= 1f && Mathf.Repeat(since * 6f, 1f) < 0.5f ? Color.white : new Color(1f, 0.4f, 0.72f, 1f);
+                string name = i == 0 ? "CAPACITOR CHARGE" : i == 1 ? "FANDOM SYNC" : "BIAS LOCK";
+                tabletBarText[i].text = $"{name}  {pct:0.0}%";
+            }
+            tabletCount.text = since > 0.9f ? $"T-{Mathf.Max(0f, left):0.00}" : "";
+            bool deployed = since > ConfirmTime - 0.45f;
+            tabletDeployed.text = deployed ? (Mathf.Repeat(since * 8f, 1f) < 0.6f ? "DEPLOYED  //  ENJOY THE SHOW" : "") : since > 1.6f ? "DEPLOYING..." : "";
+        }
+
+        static string Scramble(string value)
+        {
+            var c = value.ToCharArray();
+            for (int i = 0; i < c.Length; i++)
+                if (char.IsDigit(c[i]) || char.IsLetter(c[i])) c[i] = (char)(char.IsDigit(c[i]) ? '0' + Random.Range(0, 10) : 'A' + Random.Range(0, 26));
+            return new string(c);
         }
 
         static float Smooth(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
@@ -267,11 +405,11 @@ namespace Vision.Player
             tabletPowerLine.localScale = new Vector3(Mathf.Max(0.001f, across), 1f, 1f);
             tabletPowerLine.sizeDelta = new Vector2(ScreenW, Mathf.Lerp(4f, ScreenH, open));
             tabletPowerLineImg.color = new Color(1f, 0.93f, 0.95f, across * (1f - open) * (1f - open));
-            tabletPowerGlow.color = new Color(1f, 0.55f, 0.6f, 0.35f * open * Smooth(1f - (t - 0.46f) / 0.4f));
+            tabletPowerGlow.color = new Color(0.55f, 0.75f, 1f, 0.35f * open * Smooth(1f - (t - 0.46f) / 0.4f));
             // The boot text over the warming picture, fading as it settles.
             float boot = Tablet == TabletState.Lowering ? 0f : open * Smooth((PowerOnTime - 0.05f - t) / 0.3f);
-            tabletBootTitle.color = new Color(1f, 0.86f, 0.9f, boot);
-            tabletBootLine.color = new Color(1f, 0.6f, 0.62f, boot * (0.75f + 0.25f * Mathf.Sin(t * 30f)));
+            tabletBootTitle.color = new Color(0.86f, 0.92f, 1f, boot);
+            tabletBootLine.color = new Color(0.6f, 0.75f, 1f, boot * (0.75f + 0.25f * Mathf.Sin(t * 30f)));
         }
 
         static float EaseOutBack(float t) { t = Mathf.Clamp01(t) - 1f; return 1f + t * t * (2.2f * t + 1.2f); }
@@ -289,7 +427,17 @@ namespace Vision.Player
                 bool overUi = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
                 if (held != null && !held.Empty && held.item == ItemType.OrbitalStrike && me.CanAct && me.SilencedT <= 0f && !PointerWanted && !overUi
                     && mouse != null && mouse.leftButton.wasPressedThisFrame)
-                    RaiseTablet();
+                {
+                    if (me.StrikeCd > 0f)
+                    {
+                        if (Time.unscaledTime - cooldownNoticeAt > 1.5f)
+                        {
+                            cooldownNoticeAt = Time.unscaledTime;
+                            Notify($"K.P.O.S. recharging: {CooldownText(me.StrikeCd)}");
+                        }
+                    }
+                    else RaiseTablet();
+                }
                 return;
             }
             // The full map (Tab) and the menus (Esc) draw over it: hidden while they're open, its clicks set aside.
@@ -322,6 +470,9 @@ namespace Vision.Player
             tabletBody.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-11f, 0f, e));
             tabletBody.localScale = Vector3.one * TabletScale * Mathf.Lerp(0.86f, 1f, e);
             AnimatePower();
+            // The noise flickering over the screen.
+            tabletGrain.uvRect = new Rect(Random.value, Random.value, ScreenW / 384f, ScreenH / 384f);
+            tabletRoll.anchoredPosition = new Vector2(0f, Mathf.Lerp(200f, -ScreenH, Mathf.Repeat(Time.unscaledTime / 6f, 1f)));
             if (me == null || map == null || map.Fog == null) return;
             // Down, the tablet gone from their hands before it was used, or another item taken in hand: lowered.
             Inventory.Slot inHand = player != null ? me.Inv.SlotAt(player.SelectedSlot) : null;
@@ -417,7 +568,7 @@ namespace Vision.Player
                 node.anchoredPosition = at;
                 node.sizeDelta = new Vector2(16f, 16f);
                 bool zach = q.Role == Role.Hunter;
-                dot.color = q.Id == me.Id ? Color.white : zach ? new Color(1f, 0.15f, 0.12f, 1f) : new Color(1f, 0.75f, 0.7f, 1f);
+                dot.color = q.Id == me.Id ? Color.white : zach ? new Color(1f, 0.15f, 0.12f, 1f) : new Color(0.85f, 0.93f, 1f, 1f);
                 name.text = q.Id == me.Id ? "YOU" : zach ? "ZACH" : q.Name.ToUpperInvariant();
                 float d = (at - pointer).magnitude;
                 if (inside && !tabletDragging && lockedTarget == 0 && d < best) { best = d; hoveredTarget = q.Id; }
@@ -459,14 +610,17 @@ namespace Vision.Player
             if (lockedTarget == 0)
             {
                 tabletTimer.text = targets.Count > 0 ? "STANDBY" : "NO TARGETS";
-                tabletStatus.text = targets.Count > 0 ? "SELECT A TARGET IN EXPLORED GROUND\n<color=#ff8a80>WHEEL: ZOOM   DRAG: PAN   E: EXIT</color>" : "NO TARGETS IN EXPLORED GROUND";
+                tabletStatus.text = targets.Count > 0 ? "SELECT A TARGET IN EXPLORED GROUND\n<color=#8ab4ff>WHEEL: ZOOM   DRAG: PAN   E: EXIT</color>" : "NO TARGETS IN EXPLORED GROUND";
                 tabletDispatch.text = "DISPATCH";
-                tabletDispatchBg.color = hoveredTarget != 0 ? new Color(0.75f, 0.1f, 0.1f, 0.95f) : new Color(0.3f, 0.04f, 0.04f, 0.85f);
+                tabletDispatchBg.color = hoveredTarget != 0 ? new Color(0.15f, 0.35f, 0.85f, 0.95f) : new Color(0.05f, 0.12f, 0.3f, 0.85f);
                 return;
             }
             float since = Time.unscaledTime - dispatchedAt;
             float left = strike != null && !strike.Firing ? strike.Countdown : Mathf.Max(0f, Balance.Items.Orbital.Countdown - since);
             bool firing = strike != null && strike.Firing;
+            AnimateConfirm(since, left, locked != null ? (locked.Id == me.Id ? "YOU" : locked.Role == Role.Hunter ? "ZACH" : locked.Name.ToUpperInvariant()) : "TARGET");
+            // Done: put down, as the beam comes down.
+            if (since >= ConfirmTime) LowerTablet();
             tabletTimer.text = firing ? "STRIKE INBOUND" : $"00:{left:00.0}";
             string name2 = locked != null ? (locked.Id == me.Id ? "YOU" : locked.Role == Role.Hunter ? "ZACH" : locked.Name.ToUpperInvariant()) : "TARGET";
             var lines = new System.Text.StringBuilder();
@@ -475,9 +629,10 @@ namespace Vision.Player
             if (since > 0.9f) lines.Append("\nCALIBRATING EMITTER ARRAY");
             if (since > 1.4f) lines.Append($"\nCHARGING  {Mathf.Clamp01((since - 1.4f) / 1.2f) * 100f:0}%");
             if (since > 2.5f) lines.Append("\nDISPATCH AUTHORISED");
-            tabletStatus.text = lines.ToString();
+            // (The confirmation over the screen says it all now: the old start-up lines give way to it.)
+            tabletStatus.text = "";
             tabletDispatch.text = firing ? "DISPATCHED" : "DISPATCHING";
-            tabletDispatchBg.color = new Color(0.85f, 0.12f, 0.12f, 0.6f + 0.35f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 8f)));
+            tabletDispatchBg.color = new Color(0.2f, 0.45f, 1f, 0.6f + 0.35f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 8f)));
             // Down it comes: the tablet lowers after a moment.
             if (firing && inboundAt < 0f) inboundAt = Time.unscaledTime;
             if (inboundAt >= 0f && Time.unscaledTime - inboundAt > 1.1f) LowerTablet();

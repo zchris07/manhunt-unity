@@ -1257,8 +1257,9 @@ namespace Vision.World
         public System.Random FeatureRng(int feature) => new System.Random(unchecked(seed * 7919 + feature * 104729));
 
         /// <summary>
-        /// A bare bulb hanging from a ceiling <paramref name="ceiling"/> above <paramref name="floor"/>: a 9 m light, as the
-        /// original's lamps. The light sits on the floor (its polygon is cast from there), the bulb hangs above it.
+        /// A ceiling light <paramref name="ceiling"/> above <paramref name="floor"/>: a 9 m light, as the original's lamps.
+        /// The light sits on the floor (its polygon is cast from there). No bulb is drawn: the ceilings aren't (the view
+        /// looks down into the rooms), so one would dangle from nothing (the user's rule).
         /// </summary>
         GameObject Lamp(Vector3 floor, float ceiling, float intensity = 0.8f, float flicker = 0.1f)
         {
@@ -1266,7 +1267,8 @@ namespace Vision.World
             root.SetActive(false);
             root.transform.SetParent(staticRoot, false);
             root.transform.localPosition = floor;
-            Piece("Bulb", LowPolyModels.HangingBulb(rng), root.transform, Vector3.up * ceiling, 0f, glowMaterial);
+            // (The bulb's model is still made and thrown away, so the level's shared stream is drawn on as before.)
+            Object.DestroyImmediate(LowPolyModels.HangingBulb(rng));
             var light = root.AddComponent<VisionLight>();
             light.range = 300f * MapLayout.Unit;
             light.intensity = intensity;

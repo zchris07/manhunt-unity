@@ -97,7 +97,8 @@ namespace Vision.UI
             paperImg.raycastTarget = false;
             photoRt = UiKit.Node("Photo", paper, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.one);
             photo = photoRt.gameObject.AddComponent<RawImage>();
-            photo.color = new Color(1f, 1f, 1f, 0.95f);
+            // (Opaque: the yellowed paper never tints the black and white photo.)
+            photo.color = Color.white;
             photo.raycastTarget = false;
             burnRt = UiKit.Fill("Burn", paper);
             burn = burnRt.gameObject.AddComponent<RawImage>();

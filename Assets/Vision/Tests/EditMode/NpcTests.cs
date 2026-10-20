@@ -81,6 +81,31 @@ namespace Vision.Tests
         }
 
         [Test]
+        public void AGunFiredWithinShanesAlertRadius_AlertsHimOutright_FurtherOffItDoesnt()
+        {
+            var rig = new SimRig(1, 1);
+            SimPlayer s = rig.P(2), h = rig.P(1);
+            rig.Place(h, 3000, -3000);
+            rig.Place(s, 0, 0);
+            s.Facing = Mathf.PI;
+            var shane = Add(rig, new Shane(rig.Sim), Balance.Shane.AlertRadius * 0.9f, 0);
+            s.Inv.Add(ItemType.Pistol, 1);
+            int slot = s.Inv.FirstSlotOf(ItemType.Pistol) + 1;
+            // Out past it: a shot (aimed away from him) doesn't do it.
+            shane.Pos = SimRig.U(Balance.Shane.AlertRadius * 2.5f, 0);
+            rig.Tap(s.Id, Btn.Primary, Mathf.PI, slot);
+            Assert.IsFalse(shane.Chasing, "too far off");
+            // Within the radius, his back to them: one shot and he's on them.
+            rig.Run(SimRig.Secs(1.5f), p => p.Id == s.Id ? new InputCmd { Aim = Mathf.PI, AimDist = 100f, Item = slot } : (InputCmd?)null);
+            shane.Pos = SimRig.U(Balance.Shane.AlertRadius * 0.9f, 0);
+            rig.Run(1, p => p.Id == s.Id ? new InputCmd { Aim = Mathf.PI, AimDist = 100f, Item = slot } : (InputCmd?)null);
+            Assert.Less(shane.AlertLevel, 0.5f, "barely started on his meter");
+            rig.Tap(s.Id, Btn.Primary, Mathf.PI, slot);
+            Assert.IsTrue(shane.Chasing, "alerted outright by the shot");
+            Assert.AreEqual(s.Id, shane.Target);
+        }
+
+        [Test]
         public void ShaneIgnoresZachAndTwoBottlesShakeHimOff()
         {
             var rig = new SimRig(1, 1);

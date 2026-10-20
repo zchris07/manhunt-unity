@@ -468,9 +468,9 @@ namespace Vision.Game
         /// The beam runs until it meets something solid or a person, and hurts whoever it touches: Zach or a survivor, the
         /// beamer's own side too (1 HP ten times a second). What it can destroy gives to the fifth of its ticks on it (half
         /// a second, the user's rule): a window's glass (which stops it till then; then it carries on through the empty
-        /// frame), a door (shut or standing open), a pallet (standing or dropped). The graveyard's gates, unlocked and shut
-        /// again, take a whole charge: held on them for all of one beam's firing, they give (locked, they hold; shutters
-        /// never give).
+        /// frame), a door (shut or standing open), a pallet (standing or dropped). The graveyard's gates, shut, stop it dead
+        /// like a wall (it burns into the bars, never through them); unlocked and shut again, they take a whole charge: held
+        /// on them for all of one beam's firing, they give (locked, they hold; shutters never give).
         /// </summary>
         void FireBeam(SimPlayer h, int ticks, float dt)
         {
@@ -491,13 +491,22 @@ namespace Vision.Game
                 BreakWindow(win);
                 Noise(s + d * t, 800f, "glass");
             }
-            // What it can destroy gives to its fifth tick: a shut door at its end, a door standing open (its panel swung out
-            // from the hinge), a pallet (standing or dropped) it crosses; the graveyard's gates, unlocked and shut again,
-            // only after a whole charge on them; never a locked gate or a shutter.
+            // A shut graveyard gate (locked or not) stops it like a wall, the nearest it meets: it burns into the bars.
             int onGate = -1;
             for (int i = 0; i < Map.Doors.Count; i++)
             {
-                if (DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i] || (Map.Doors[i].Gate && Doors[i])) continue;
+                if (!Map.Doors[i].Gate || DoorBroken[i] || Doors[i]) continue;
+                float t = RaySegment(s, d, Map.Doors[i].A, Map.Doors[i].B);
+                if (t > len) continue;
+                len = t;
+                onGate = i;
+            }
+            // What it can destroy gives to its fifth tick: a shut door at its end, a door standing open (its panel swung out
+            // from the hinge), a pallet (standing or dropped) it crosses; the graveyard's gates, unlocked and shut again,
+            // only after a whole charge on them; never a locked gate or a shutter.
+            for (int i = 0; i < Map.Doors.Count; i++)
+            {
+                if (Map.Doors[i].Gate || DoorBroken[i] || Map.Doors[i].Shutter || DoorLocked[i]) continue;
                 Vector2 da = Map.Doors[i].A, db = Map.Doors[i].B;
                 float hitT = float.PositiveInfinity;
                 if (!Doors[i])
@@ -517,11 +526,6 @@ namespace Vision.Game
                     }
                 }
                 if (float.IsPositiveInfinity(hitT)) continue;
-                if (Map.Doors[i].Gate)
-                {
-                    onGate = i;
-                    continue;
-                }
                 if (!BeamWears(doorBeamTicks, i, ticks)) continue;
                 SetDoor(i, true);
                 DoorBroken[i] = true;
@@ -532,7 +536,7 @@ namespace Vision.Game
                 h.BeamGate = onGate;
                 h.BeamGateT = 0f;
             }
-            if (onGate >= 0)
+            if (onGate >= 0 && !DoorLocked[onGate])
             {
                 h.BeamGateT += dt;
                 // (Half a tick short, so a beam held on them from its first tick to its last does it.)
@@ -601,6 +605,12 @@ namespace Vision.Game
 
         // ---------------------------------------------------------------- the 0.50 cal
 
+        /// <summary>A player fired a gun (a P250, a shotgun, the 0.50 cal): any NPC that minds gunfire nearby hears it.</summary>
+        void Gunfire(SimPlayer p)
+        {
+            foreach (Npc n in Npcs) if (n.Alive) n.Gunfire(this, p);
+        }
+
         /// <summary>Sends a round away from a point along aim; by is the shooter (0 for an NPC, whose rounds take damage and spare other NPCs).</summary>
         public void SpawnBullet(Vector2 origin, float aim, int by, float damage = -1f)
         {
@@ -640,6 +650,7 @@ namespace Vision.Game
         {
             if (!p.Aiming) aim += RandRange(-1f, 1f) * Balance.Items.Sniper.HipSpreadDeg * Mathf.Deg2Rad;
             SpawnBullet(p.Pos + new Vector2(Mathf.Cos(aim), Mathf.Sin(aim)) * (p.RadiusD + R(2f)), aim, p.Id);
+            Gunfire(p);
         }
 
         void UpdateSnipes(float dt)

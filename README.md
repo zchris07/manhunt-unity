@@ -132,7 +132,7 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **Screen effects** (`ScreenOverlays`, `MatchPresenter`): the original's pictures and timings. The Soundcloud Burst
   scare (black, the picture covering the screen and shaking, 2.5 s with 0.6 s fades, and a random 2.6 s slice of the
   song), The Grapes of Wrath flash on Zach (one of four pictures, 0.8 s, shaking) and the Waz-slain flash, notes (an
-  old photo on torn, yellowed paper until clicked away), centre messages (STUNNED, You are down, THE GATE IS OPEN),
+  old photo, always black and white whatever colour its file is, on torn, yellowed paper until clicked away), centre messages (STUNNED, You are down, THE GATE IS OPEN),
   big announcements (JARVIS ONLINE), camera shakes, stun stars orbiting a stunned head, the vine boom (louder the
   nearer) and the Penjamin gas loop.
 - **Sound** (`AudioManager`): one-shots, a restartable clip, the gas loop and positional loops with the original's
@@ -291,7 +291,10 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the pins drop; the match judges each press. Unlocked, survivors open and close the gates freely. Zach never opens
   them: shut again once unlocked, he can only smash them in, with four full charged swings (eight hits: two for each
   charged swing, one for a light one), or burn them away with a whole charge of a Hemp Beam; locked, they don't give at all,
-  and nothing (the Hemp Beam, the 0.50 cal) breaks them. A fallen tree's torn-up root plate at its base is different: a solid wall that players, NPCs, thrown
+  and nothing (the Hemp Beam, the 0.50 cal) breaks them. Shut (locked or not), they stop any Hemp Beam dead like a wall,
+  Sexton's too, though the eye sees through their bars: nobody behind them is touched, and the beam burns into the
+  iron where it meets it, the bars glowing red, then orange, then white hot as it holds (a locked gate stays red), the
+  beam's light splashing out along them, a shower of white sparks, molten drops falling and thin smoke. A fallen tree's torn-up root plate at its base is different: a solid wall that players, NPCs, thrown
   items and shots all run into and nobody vaults. It takes up only where the disc meets the ground, a thin upright
   ellipse across the trunk's end (as thick as the plate and the dirt banked at its foot, as wide as the plate), and it
   always stands straight up, never tilted with a tree lying on a slope (a lean would turn its side into a ramp the
@@ -441,7 +444,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
 - **The K-pop orbital strike, K.P.O.S.** (`MatchSim.Orbital`, `GameHud.Tablet`, `MatchEffects.Orbital`): Daphne's
-  gift, used once, named **K.P.O.S.** in the inventory (testing mode's kit has it in place of the P250).
+  gift, named **K.P.O.S.** in the inventory (testing mode's kit has it in place of the P250). It isn't used up: after
+  each strike it stays in the inventory and recharges for **two minutes** (its slot dims and counts down m:ss; raising
+  it before then only says how long is left). If its holder is slain it drops where they fell, for anyone to take.
   - **The tablet.** Its icon and held prop are the Modern Warfare killstreak tablet. Left click with it in hand raises it
     to the face: it swings up from below and settles square, with the world going on round it. The tablet is painted to
     look real: a dark grey rugged body, black rubber corner bumpers with grip ridges, screws, hard keys, scuffs, and
@@ -450,29 +455,41 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
     line of light is drawn across its middle and opens top and bottom into the picture, a glow fading off it, the picture
     flickering a little and settling over about a second, with K-POP ORBITAL STRIKE and the boot line (K.P.O.S. //
     SATELLITE UPLINK // INITIALISING) over it, fading as it settles. Lowered, the picture folds back into the line.
-  - **Its screen** is the Tab map, red-tinted under a grid and scanlines, with the same fog of war (only what you've
-    explored shows), titled K-POP ORBITAL STRIKE // K.P.O.S. It opens zoomed in on you; the wheel zooms it about the
+  - **Its screen** is the Tab map, tinted a slight cool blue under a grid and scanlines, with the same fog of war (only
+    what you've explored shows), titled K-POP ORBITAL STRIKE // K.P.O.S., and it flickers with the title screen's noise
+    made 30% stronger (soft grain moving on every frame, still scanlines, a band of light rolling down). It opens zoomed in on you; the wheel zooms it about the
     pointer and dragging with the left button pans it, as on the full map (a drag never selects anything). Every playable
     character (Zach or a survivor, teammates too, never a ghost, and never yourself outside testing) standing in explored
     ground has a marker, where they are now; with nobody in explored ground there's nothing to select.
   - **Targeting.** Hovering a marker draws a lock box with bright corner brackets. A click (pressed and let go without
-    dragging) confirms it: the item is used up, the target is locked wherever they go from then, and a 3 s countdown and
-    start-up run on the screen (TARGET LOCKED, UPLINK ESTABLISHED, CALIBRATING EMITTER ARRAY, CHARGING, DISPATCH
-    AUTHORISED; DISPATCHING), then it lowers as the strike comes down. EXIT (top left), a click anywhere off the tablet,
+    dragging) confirms it: the target is locked wherever they go from then, and the screen plays the confirmation over
+    the 3 s countdown: a white flash and TARGET CONFIRMED slammed across it (then LOCKED: and their name), the tablet
+    shaking; readings typed out one after another, each sillier than the last, their numbers scrambling before they
+    settle (ORBITAL PLATFORM "BIAS-1" ONLINE, TARGET VIBE CHECK FAILED, AEGYO FLUX DENSITY 9,001 kAe, FANCHANT RESONANCE
+    104.7%, HYPE BOY COEFFICIENT MAXIMUM, COOKIE OVEN CORE TEMP 4,700 K ... LEGAL DEPARTMENT NOT NOTIFIED); CAPACITOR
+    CHARGE, FANDOM SYNC and BIAS LOCK bars charging (past 100%); a T-minus countdown; DEPLOYING..., then DEPLOYED // ENJOY
+    THE SHOW flashing. Then the tablet goes down, just before the beam lands. EXIT (top left), a click anywhere off the tablet,
     E, or taking another item in hand (clicking it on the inventory bar) lowers it smoothly before then, keeping the
     item. The full map (Tab) and the menus (Esc) draw over it while they're open. You can walk with it up but not
     sprint, and you can't move at all while it rises or lowers.
-  - **The strike.** A pink beam three times Zach's width comes straight down from the sky onto the target, through
-    anything solid, and follows them with a lag: whoever keeps moving can stay partly out of it but never gets clear.
-    It drops in, a wide glow round a hot pink body and a white-pink core with plasma threads twisting down it, and lights
-    everything round it. Where it meets the ground: a blinding hot spot, shockwave rings, sparks spraying and falling,
-    pink plasma, boiling vapour and embers, and a burn on whoever it's on. It leaves a charred trail, smoking for a while,
-    that stays for the match.
+  - **The strike.** A column of plasma three times Zach's width comes straight down from the sky onto the target,
+    through anything solid, and follows them with a lag: whoever keeps moving can stay partly out of it but never gets
+    clear. At its centre is a cylinder of pure white energy as wide as Zach himself, going pink further out to its soft
+    edges; pulsing rings race down round it to the ground, as the Hemp Beam's do; the air round it is ionised, arcs
+    crackling off the column and charged motes spiralling up round it; and it lights everything round it. Where it
+    meets the ground: a blinding white-hot spot in a pink bloom, shockwave rings, arcs crawling over the ground, sparks,
+    molten droplets, pink plasma, boiling vapour, embers and clods thrown out, and a burn on whoever it's on.
+    Everything that can be destroyed goes the instant it touches it: doors (not shutters), windows, pallets, the
+    graveyard's gates once unlocked (locked, nothing breaks them), and gas traps (they burst). The ground it touches
+    burns bright, white-hot to orange to dull red, flames licking off it, for a second; then it lies charred, smoking a
+    while, for the rest of the match.
   - **Damage.** Anyone it's on (players only, never an NPC) takes half the Hemp Beam's tick ten times a second (5 HP a
     second, about 44 HP in all), is slowed 20% and has every ability silenced (items, JARVIS, Zach's whole kit).
   - **Sound.** NewJeans' "OMG" plays the whole time, loud, heard 3000 units off. The strike lasts exactly as long as the
-    track (8.725 s), its last 1.5 s falling away by an inverse square. The track is the user's own local file
-    (`Resources/Audio/Fx/local_kpop_strike.mp3`, kept out of git); without it the strike is silent.
+    track (8.725 s), its last 1.5 s falling away by an inverse square. Under it, quieter than the music, the laser
+    itself (a reconstruction of Helldivers 2's orbital laser), started a second before the beam lands so that its
+    impact, a second into the file, lands with it. Both are the user's own local files
+    (`Resources/Audio/Fx/local_kpop_strike.mp3`, `local_orbital_laser.mp3`, kept out of git); without them it's silent.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
   and blink once armed (an armed one bursts too when a bullet, a pellet, a 0.50 cal round or a thrown bottle, book or
@@ -535,7 +552,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   a match clock under the compass.
 - **NPCs** (`Game/Npcs`, `NpcViews`, `GameHud.Npcs`): the original's townsfolk, each with their own look and rules.
   **Shane Jeans** wanders with a faint light; crowd him or keep your flashlight on him and his alert bar fills, then a
-  red "!" and he tails you as a beacon for Zach (to the sound of his footsteps) until Zach comes close, two bottles
+  red "!" and he tails you as a beacon for Zach (to the sound of his footsteps) until Zach comes close; a gun fired by a
+  survivor anywhere inside the radius where his alert builds (a P250, a shotgun, the 0.50 cal; in sight of him or not)
+  alerts him outright, two bottles
   or a shotgun blast shake him off, or he tires. **Jaden Nguyen** is alerted only by standing close to him (never by being
   seen or held in a beam), draws a pistol, hangs
   back and shoots until you have lost half your health; three survivor hits kill him and drop his pistol, and Zach
@@ -575,8 +594,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   0.50 cal round), and he explodes in the same bloody blast, taking half his killer's health. His killer sets off a clip
   from the couch for everyone near. Only Jaden Nguyen, Plasma.TTV, Njaaron and Shane Jeans are set off by his death,
   whoever killed him; no other NPC is touched by it in any way. Njaaron, Jaden and Plasma race after them from
-  wherever they are on the map with no time limit, each until he's dealt them a third of their health himself, or
-  they're down (by anything), or he's slain, not giving up for time, distance or anyone else attacking them (Zach shakes
+  wherever they are on the map with no time limit, each until he's dealt them half their health himself, or
+  they're down (by anything), or he's slain (and if Chacko's explosion itself downs his killer, all three are done with
+  them there and then), not giving up for time, distance or anyone else attacking them (Zach shakes
   Jaden off with his machete or a Soundcloud Burst); Shane runs after a survivor who killed him until he's stunned and
   driven off (two bottles, a shotgun blast or galaxy gas), tailing them even while they're down, but never after Zach:
   he's always Zach's ally. Every
@@ -792,8 +812,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   - **Detail:** some have a ringed knot, some a split running in from an end, a few a knot-hole, and the odd one has a
     piece broken out (the dark under the floor showing; more where it's rotten). Nail heads sit at the ends.
   - **Wear:** a floor long left. Grime lies over all of it, thicker in places. Across whole areas: moss where it's damp
-    (creeping out from the walls, in the splits and knots there too), dark speckled mould, water stains with a darker
-    tide-mark, and rot, darkened and greyed.
+    (creeping out from the walls; it dulls the wood rather than staining it green), dark speckled mould, water stains
+    with a darker tide-mark, and rot, darkened and greyed. The wood's colour is 30% less saturated all over.
 
   Bookshelves hold dull, faded books. Nothing solid ever stands in a doorway or in front of a window: the bed lies in a
   back corner along whichever wall keeps it clear of that wall's window, the table and chair sit short of the side
@@ -802,8 +822,9 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   an iron stove with its flue against the back wall, a shelf, a crate or a barrel in a corner, a rug under the table,
   papers, bottles and debris on the floor, sometimes a chair knocked over; torn, peeling striped wallpaper in some
   (strips gone or torn short, grimy along the floor), water and grime stains on the walls, a poster, a mirror or a clock,
-  cobwebs up in a corner, and in some, blood: a pool dragged across the floor with spatters round it, sometimes a smear
-  on a wall.
+  cobwebs up in a corner, and in some, blood: a dried pool soaked into the floor, dark red-brown and one even colour
+  with a soft irregular edge (never a fan of light and dark wedges), a smear dragged off one side and a few drops
+  flicked round it, sometimes a smear on a wall.
 - **The lake dock** is solid underfoot (`SandboxWorld.OnDock`; the ramp too, rising evenly): walk along its boards (they sound like wood); step off
   its side or end and you're straight down in the water at its depth, no fall; walk back to it from the water and
   you're snapped straight up onto its deck and walking on it again. Everyone else (players, NPCs, bodies) stands on it
@@ -926,10 +947,11 @@ building: a 16 x 16 grid of 2.25 m cells (the original: 10 x 10 of 3.6 m). The r
   posters, clocks, stains, cobwebs and dead plants (no air ducts, overhead pipe runs or vent grilles: from above they
   hid the windows, doorways and exits). Furniture keeps
   every doorway clear and covers under half of each room.
-- **Light**: only part of the building is lit, each light by something that belongs there: fluorescent
-  fittings in corridors and offices, bare bulbs in storage and workshops, desk lamps, the vending
-  machine's glow, the boiler's fire, server-rack lights, stage lights and green exit signs. 6-16 work;
-  the rest are dead fixtures.
+- **Light**: only part of the building is lit, each light by something that belongs there: ceiling lights in
+  corridors, offices, storage and workshops, desk lamps, the vending machine's glow, the boiler's fire, server-rack
+  lights, stage lights and green exit signs. 6-16 work; the rest are dead. No ceiling fitting is drawn (no fluorescent
+  on its rods, no bare bulb on its cord), here or in the cabins and Miga Sushi: the ceilings aren't drawn (the view
+  looks down into the rooms), so they'd dangle from nothing; the light alone remains.
 
 `SandboxWorld.Building.cs` builds it: cinder-block outer walls, painted inner walls with dark tops so the
 plan reads from above, tiled and concrete floors, hinged doors, windows (glass stops you, not your

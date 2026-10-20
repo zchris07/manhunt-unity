@@ -12,7 +12,9 @@ namespace Vision.UI
     /// into a single blinding point in the palm; then a layered beam, light green through and through (a bright pale green
     /// core, a green body, a wide soft glow, two energy threads twisting round it, shimmer flecks peeling off), runs to
     /// whatever stops it, and there it splashes: a hot spot, sparks spraying back off the surface and falling, embers,
-    /// curling smoke and chips of debris.
+    /// curling smoke and chips of debris. On a graveyard gate's iron bars (which stop it like a wall) it burns in: the
+    /// bars glowing red to white hot where it meets them as it holds, the beam splashing out along them, a shower of
+    /// white sparks, molten drops of iron falling and hissing, and smoke.
     /// </summary>
     public sealed partial class MatchEffects
     {
@@ -49,14 +51,16 @@ namespace Vision.UI
             bool charging = p.BeamT > Balance.Sexton.Defense.BeamTime;
             float k = charging ? 1f - (p.BeamT - Balance.Sexton.Defense.BeamTime) / Mathf.Max(0.01f, Balance.Hunter.Beam.Windup) : 1f;
             Vector3 palm = Palm(CharacterOf(p), out Vector3 hp) ? hp : Along(p.Pos, p.BeamAng, Balance.HunterRadius * 1.6f, 0f, 1.25f);
-            HempBeam(p.Id, p.Pos, p.BeamAng, p.BeamLen, charging, k, palm, p.BeamT);
+            // On a gate: how hot its bars are (red as it starts to bite, white hot as it's about to give; a locked one stays red).
+            float metal = p.BeamGate >= 0 ? Mathf.Clamp(p.BeamGateT / Balance.Sexton.Defense.BeamTime, 0.25f, 1f) : -1f;
+            HempBeam(p.Id, p.Pos, p.BeamAng, p.BeamLen, charging, k, palm, p.BeamT, metal);
         }
 
         /// <summary>
         /// Draws a Hemp Beam from <paramref name="palm"/>: charging (k 0-1) or firing along <paramref name="angle"/> for
         /// <paramref name="lenDesign"/> (design units from the body's centre; 0: all the way).
         /// </summary>
-        void HempBeam(int key, Vector2 from, float angle, float lenDesign, bool charging, float k, Vector3 palm, float seed)
+        void HempBeam(int key, Vector2 from, float angle, float lenDesign, bool charging, float k, Vector3 palm, float seed, float metal = -1f)
         {
             float now = Time.time;
             if (charging)
@@ -133,6 +137,7 @@ namespace Vision.UI
                 Fx.Emit(at, v, Random.Range(0.2f, 0.45f), Random.value < 0.3f ? BeamCore : BeamBody, Random.Range(0.025f, 0.05f) * s, 0f, 3f, true, false, 1f, false, false);
                 if (!blocked) continue;
                 Impact(end, dir, s);
+                if (metal >= 0f) GateBurn(end, dir, side, metal, s);
             }
             beamEmit[key] = acc;
 
@@ -142,7 +147,49 @@ namespace Vision.UI
                 Fx.Glow(end, 0.7f * s * flicker, new Color(0.66f, 1f, 0.6f, 0.65f), false, false);
                 Fx.Glow(end, 1.6f * s * flicker, new Color(0.4f, 1f, 0.45f, 0.35f), false, false);
                 Fx.Glow(end - dir * 0.1f * s, 0.35f * s, new Color(1f, 0.85f, 0.5f, 0.8f), false, false);
+                if (metal >= 0f)
+                {
+                    // The iron where it bites: red, orange, then white hot, the heat spreading along the bars either side,
+                    // and the beam's light splashed out across them.
+                    Color hot = metal < 0.5f ? Color.Lerp(new Color(0.85f, 0.18f, 0.05f, 0.75f), new Color(1f, 0.55f, 0.12f, 0.85f), metal * 2f)
+                        : Color.Lerp(new Color(1f, 0.55f, 0.12f, 0.85f), new Color(1f, 0.95f, 0.8f, 0.95f), (metal - 0.5f) * 2f);
+                    Fx.Glow(end, (0.35f + 0.35f * metal) * s * flicker, hot, false, false);
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        float off = i * 0.22f * s, fade = 1f - i / 4f;
+                        Color c = new Color(hot.r, hot.g * fade, hot.b * fade, hot.a * fade * 0.7f);
+                        Fx.Glow(end + side * off, (0.2f + 0.15f * metal) * s * fade, c, false, false);
+                        Fx.Glow(end - side * off, (0.2f + 0.15f * metal) * s * fade, c, false, false);
+                    }
+                    Fx.Glow(end + side * 0.3f * s, 0.5f * s * flicker, new Color(0.4f, 1f, 0.45f, 0.25f), false, false);
+                    Fx.Glow(end - side * 0.3f * s, 0.5f * s * flicker, new Color(0.4f, 1f, 0.45f, 0.25f), false, false);
+                }
             }
+        }
+
+        /// <summary>
+        /// The beam burning into a gate's iron bars (<paramref name="heat"/> 0-1, as hot as it's got): a shower of white
+        /// sparks off the bars and along them, molten drops falling and spitting where they land, and thin smoke.
+        /// </summary>
+        void GateBurn(Vector3 at, Vector3 dir, Vector3 side, float heat, float s)
+        {
+            Vector3 back = -dir;
+            // Sparks: bright, fast, many, sprayed back and out along the bars, falling.
+            for (int i = 0; i < 3; i++)
+            {
+                Vector3 v = (back * 0.7f + side * Random.Range(-1.2f, 1.2f) + Vector3.up * Random.Range(-0.1f, 0.7f) + Random.insideUnitSphere * 0.35f).normalized * Random.Range(4f, 10f) * s;
+                Color c = Color.Lerp(new Color(1f, 1f, 0.9f, 1f), new Color(1f, 0.7f, 0.3f, 1f), Random.value * 0.6f);
+                Fx.Emit(at + side * Random.Range(-0.08f, 0.08f) * s, v, Random.Range(0.2f, 0.5f), c, Random.Range(0.02f, 0.04f) * s, 9.8f * s, 1.4f, true, false, 1f, false, false);
+            }
+            // Molten iron dripping off the bars below the hot spot (more as it heats).
+            if (Random.value < 0.25f + 0.5f * heat)
+                Fx.Emit(at + Vector3.down * Random.Range(0.02f, 0.12f) * s + side * Random.Range(-0.12f, 0.12f) * s,
+                    (Vector3.down * Random.Range(0.2f, 0.8f) + back * Random.Range(0f, 0.3f)) * s, Random.Range(0.5f, 0.9f),
+                    Color.Lerp(new Color(1f, 0.45f, 0.08f, 1f), new Color(1f, 0.85f, 0.45f, 1f), heat), Random.Range(0.03f, 0.05f) * s, 9.8f * s, 0.2f, true, false, 1f, false, false);
+            // Thin smoke off the scorched iron.
+            if (Random.value < 0.12f)
+                Fx.Emit(at + back * 0.08f * s, (Vector3.up * Random.Range(0.5f, 0.9f) + back * 0.2f + Random.insideUnitSphere * 0.2f) * s,
+                    Random.Range(1f, 1.6f), new Color(0.3f, 0.3f, 0.3f, 0.28f), Random.Range(0.14f, 0.22f) * s, 0f, 1.2f, false, false, 3f, false, false, Vfx.Blend.Alpha);
         }
 
         /// <summary>A splash where the beam meets a surface: sparks spraying back and falling, embers, smoke, chips.</summary>

@@ -592,6 +592,7 @@ namespace Vision.Game
             p.Stats.Outcome = "eliminated";
             p.EndedTime = Time;
             p.Spectating = DefaultSpectateTarget(p.Id);
+            DropStrikeTablet(p);
             if (credit != null) credit.Stats.Eliminations++;
             Emit(null, new GameEvent { Kind = EventKind.Eliminated, A = p.Id, Text = why });
             Feed(why == "disconnected" ? $"{p.Name} disconnected" : why == "woods" ? $"{p.Name} wandered into the woods" : $"{p.Name} was sacrificed");

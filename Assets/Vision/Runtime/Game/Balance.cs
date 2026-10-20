@@ -199,7 +199,7 @@ namespace Vision.Game
             /// </summary>
             public static class Orbital
             {
-                public const float Countdown = 3f, Duration = 8.725f, TickRate = Hunter.Beam.TickRate;
+                public const float Countdown = 3f, Duration = 8.725f, TickRate = Hunter.Beam.TickRate, Cooldown = 120f;
                 public const float TickDamage = Hunter.Beam.TickDamage * 0.5f, ZachTickDamage = Hunter.Beam.ZachTickDamage * 0.5f;
                 /// <summary>The beam's radius (units): three times Zach's width across.</summary>
                 public const float Radius = HunterWidth * 3f * 0.5f;

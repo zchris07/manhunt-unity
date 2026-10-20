@@ -204,9 +204,10 @@ namespace Vision.Player
                 // A ghost merging with a body floats into it in its A pose, never walking.
                 bool merging = p.Ghost && p.Body != 0 && p.PossessT > 0f;
                 float mSim = Vision.UI.CorpseViews.PossessProgress(p.PossessT);
-                pup.MergeM = merging ? Mathf.Clamp(pup.MergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f) : 0f;
+                pup.MergeM = merging ? Vision.UI.CorpseViews.MergeOf(p.Body, Mathf.Clamp(pup.MergeM + dt / Balance.Ghost.PossessTime, mSim, mSim + 0.03f)) : 0f;
                 if (merging) vWorld = Vector3.zero;
                 pup.Animator.Drive(vWorld, new Vector2(Mathf.Cos(p.BodyFacing), Mathf.Sin(p.BodyFacing)));
+                pup.Animator.SquareToAim = merging;
                 MatchHost mh = MatchHost.For(world);
                 float up = world.transform.lossyScale.y / Mathf.Max(1e-4f, pup.Go.transform.lossyScale.y);
                 pup.Animator.Lift = merging ? Vision.UI.CorpseViews.PossessLift(pup.MergeM) * up

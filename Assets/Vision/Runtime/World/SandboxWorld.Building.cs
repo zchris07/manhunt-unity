@@ -314,13 +314,16 @@ namespace Vision.World
                 case BuildingPlan.LampKind.Fluorescent:
                 {
                     float yaw = Range(0f, 1f) < 0.5f ? 0f : 90f;
+                    // No fitting drawn (on its rods, or left dangling from its chain): the ceiling isn't, so it would hang
+                    // from nothing (the user's rule); the light is all that's left. (Its rolls and its model are still made
+                    // and thrown away, so the level's shared stream is drawn on as before.)
                     bool hanging = !lamp.Working && Range(0f, 1f) < 0.4f;
-                    Piece("Fixture", LowPolyModels.FluorescentHousing(rng, hanging), go.transform, Vector3.up * ceiling, yaw);
-                    if (!hanging) Piece("Tubes", LowPolyModels.FluorescentTubes(), go.transform, Vector3.up * ceiling, yaw, glow);
+                    Object.DestroyImmediate(LowPolyModels.FluorescentHousing(rng, hanging));
                     break;
                 }
                 case BuildingPlan.LampKind.Bulb:
-                    Piece("Bulb", LowPolyModels.HangingBulb(rng, 0.5f), go.transform, Vector3.up * ceiling, 0f, glow);
+                    // (No bulb dangling from the undrawn ceiling; its model is still made and thrown away for the stream.)
+                    Object.DestroyImmediate(LowPolyModels.HangingBulb(rng, 0.5f));
                     range = 8f;
                     intensity = 0.7f;
                     break;

@@ -299,6 +299,23 @@ namespace Vision.Tests
                     covered += Vector3.Cross(b2 - a, c - a).magnitude * 0.5f;
                 }
                 Assert.AreEqual(8.4f * 6f, covered, 8.4f * 6f * 0.035f + t.Missing * 0.06f, "the boards cover the floor, edge to edge");
+                // Little green: moss dulls the wood rather than staining it green, and the wood is 30% less saturated.
+                Color[] cols = m.colors;
+                int green = 0;
+                float satSum = 0f;
+                foreach (Color lin in cols)
+                {
+                    // (Stored linear: judged as authored, in sRGB.)
+                    Color c = lin.gamma;
+                    if (c.g > c.r + 0.02f) green++;
+                    Color.RGBToHSV(c, out _, out float cs, out _);
+                    satSum += cs;
+                }
+                float toneSat = 0f;
+                foreach (Color tc in LowPolyModels.PlankTones) { Color.RGBToHSV(tc, out _, out float ts, out _); toneSat += ts / LowPolyModels.PlankTones.Length; }
+                Debug.Log($"[Ruins] boards: mean saturation {satSum / cols.Length:0.000} (plank tones {toneSat:0.000}), green {green}/{cols.Length}");
+                Assert.Less(green, cols.Length * 0.02f, "hardly a green spot");
+                Assert.Less(satSum / cols.Length, toneSat * 0.8f, "the wood muted (30% less saturated, under its grime)");
                 all.Knots += t.Knots; all.Cracks += t.Cracks; all.Holes += t.Holes; all.Missing += t.Missing; all.Count += t.Count;
                 all.Rotten += t.Rotten; all.Mossy += t.Mossy; all.Moldy += t.Moldy; all.Stained += t.Stained;
                 Object.DestroyImmediate(m);

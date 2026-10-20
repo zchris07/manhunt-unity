@@ -11,7 +11,7 @@ namespace Vision.Game
     /// changes he turns back on his own. Items and the machete stun him; only the beast can be killed. Talk to him (either
     /// side) and he says "ggs" and hands you a golden pump: one to the survivors and one to Zach, no more; anyone after
     /// that is told "sorry, i'm all out bro". After anyone attacks Chacko he rages at them, from wherever he is, until he's
-    /// dealt them a third of their health (or they're down, or he's slain).
+    /// dealt them half their health (or they're down, or he's slain).
     /// </summary>
     public sealed class Plasma : Walker
     {
@@ -113,7 +113,7 @@ namespace Vision.Game
 
         public override void Provoke(MatchSim sim, SimPlayer by) => Attacked(by, 0f, 0);
 
-        /// <summary><paramref name="p"/> attacked Chacko: GAMER RAGE at them, wherever they are, until he's taken a third of their health.</summary>
+        /// <summary><paramref name="p"/> attacked Chacko: GAMER RAGE at them, wherever they are, until he's taken half their health.</summary>
         public override void Avenge(MatchSim sim, SimPlayer p)
         {
             if (!alive || p == null) return;
@@ -122,8 +122,14 @@ namespace Vision.Game
             if (Huntable(p)) Pursue(p);
         }
 
-        /// <summary>A grudge for Chacko is over once he's dealt the player a third of their health.</summary>
-        public const float GrudgeShare = 1f / 3f;
+        /// <summary>A grudge for Chacko is over once he's dealt the player half their health.</summary>
+        public const float GrudgeShare = 0.5f;
+
+        /// <summary>(As if he'd taken his half: the grudge ends where it would.)</summary>
+        public override void CallOffGrudge()
+        {
+            if (grudge != 0) grudgeDealt = GrudgeShare;
+        }
 
         void Pursue(SimPlayer p)
         {
@@ -209,7 +215,7 @@ namespace Vision.Game
             Sim.Feed($"{by.Name} slew Plasma.TTV. His golden pump is on the ground");
         }
 
-        /// <summary>He's taken his third out of Chacko's attacker: done with them.</summary>
+        /// <summary>He's taken his half out of Chacko's attacker: done with them.</summary>
         void EndGrudge(SimPlayer t)
         {
             grudge = 0;

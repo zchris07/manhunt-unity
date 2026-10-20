@@ -45,6 +45,12 @@ namespace Vision.Tests
             CollectionAssert.AreEqual(new[] { "local_kpop_strike" }, cue.Prefer, "the user's own track, local only");
             Assert.AreEqual(1.5f, cue.TailFade, 1e-6f, "its last 1.5 s falling away by an inverse square");
             Assert.AreEqual(3000f, cue.Radius, 1e-6f, "heard 3000 units off");
+            var laser = Audio.SoundBank.Cues["orbital_laser"];
+            CollectionAssert.AreEqual(new[] { "local_orbital_laser" }, laser.Prefer, "the laser under the music, local only");
+            Assert.Less(laser.Volume, cue.Volume, "quieter than the music");
+            Assert.AreEqual(120f, Balance.Items.Orbital.Cooldown, 1e-6f, "two minutes to recharge");
+            Assert.AreEqual(1.3f, GameHud.TabletNoise, 1e-6f, "the title screen's noise, 30% stronger, on the tablet");
+            Assert.Less(GameHud.ConfirmTime + GameHud.LowerTime, Balance.Items.Orbital.Countdown, "the tablet's down before the beam lands");
             Assert.AreEqual("K.P.O.S.", Items.Name(ItemType.OrbitalStrike, false));
             Assert.IsNotNull(UI.ItemIcons.For(ItemType.OrbitalStrike, false), "its icon");
             Assert.AreEqual(Characters.PropKind.RuggedTablet, Characters.PropModels.ForItem(ItemType.OrbitalStrike, false), "held as a rugged tablet");
@@ -75,7 +81,9 @@ namespace Vision.Tests
             rig.Sim.AddItem(me, ItemType.OrbitalStrike);
             Assert.IsFalse(rig.Sim.CallStrike(me.Id, me.Id + 1000), "nobody there");
             Assert.IsTrue(rig.Sim.CallStrike(me.Id, zach.Id));
-            Assert.Less(me.Inv.FirstSlotOf(ItemType.OrbitalStrike), 0, "used up on deployment");
+            Assert.GreaterOrEqual(me.Inv.FirstSlotOf(ItemType.OrbitalStrike), 0, "the tablet stays in their inventory");
+            Assert.AreEqual(120f, me.StrikeCd, 1e-4f, "recharging for two minutes");
+            Assert.IsFalse(rig.Sim.CallStrike(me.Id, mate.Id), "not again while it recharges");
             Assert.AreEqual(1, rig.Sim.Strikes.Count);
             float hp0 = zach.Hp;
             rig.Run(Secs(Balance.Items.Orbital.Countdown - 0.2f));
@@ -93,6 +101,43 @@ namespace Vision.Tests
             Assert.That(lost, Is.InRange(40f, 46f), "about 44 HP");
             Assert.AreEqual(0f, marc.HurtT, "never harms an NPC");
             Assert.IsTrue(marc.Alive);
+            // Recharged after two minutes: ready again.
+            rig.Run(Secs(Balance.Items.Orbital.Cooldown - Balance.Items.Orbital.Countdown - Balance.Items.Orbital.Duration + 0.5f));
+            Assert.AreEqual(0f, me.StrikeCd, 1e-6f);
+            Assert.IsTrue(rig.Sim.CallStrike(me.Id, zach.Id), "recharged");
+        }
+
+        [Test]
+        public void ItDestroysEverythingDestructibleItTouches_AtOnce_AndTheTabletDropsWhereItsHolderIsSlain()
+        {
+            var rig = new SimRig(2, 1, false, 1, m =>
+            {
+                m.Doors.Add(new SimMap.DoorDef { A = SimRig.U(-40f, 30f), B = SimRig.U(40f, 30f) });
+                m.Doors.Add(new SimMap.DoorDef { A = SimRig.U(-40f, -30f), B = SimRig.U(40f, -30f), Gate = true });
+                m.Doors.Add(new SimMap.DoorDef { A = SimRig.U(-40f, 10f), B = SimRig.U(40f, 10f), Shutter = true });
+                m.Windows.Add(new SimMap.WindowDef { A = SimRig.U(30f, -40f), B = SimRig.U(30f, 40f) });
+                m.Barricades.Add(new SimMap.BarricadeDef { A = SimRig.U(-30f, -40f), B = SimRig.U(-30f, 40f), Pos = SimRig.U(-30f, 0f) });
+                m.Doors.Add(new SimMap.DoorDef { A = SimRig.U(1500f, -40f), B = SimRig.U(1500f, 40f) });
+            });
+            SimPlayer zach = rig.P(1), me = rig.P(2), mate = rig.P(3);
+            rig.Place(zach, 0f, 0f);
+            rig.Place(me, -1500f, -1500f);
+            rig.Place(mate, 1500f, -1500f);
+            rig.Run(1);
+            rig.Sim.DoorLocked[1] = false;
+            rig.Sim.AddItem(me, ItemType.OrbitalStrike);
+            Assert.IsTrue(rig.Sim.CallStrike(me.Id, zach.Id));
+            rig.Run(Secs(Balance.Items.Orbital.Countdown + 0.1f));
+            Assert.IsTrue(rig.Sim.DoorBroken[0], "a door");
+            Assert.IsTrue(rig.Sim.DoorBroken[1], "an unlocked gate");
+            Assert.IsFalse(rig.Sim.DoorBroken[2], "never a shutter");
+            Assert.IsTrue(rig.Sim.WindowsBroken[0], "a window");
+            Assert.AreEqual(BarricadeState.Broken, rig.Sim.Barricades[0], "a pallet");
+            Assert.IsFalse(rig.Sim.DoorBroken[3], "nothing out of its reach");
+            // Slain: the tablet drops where they fall.
+            rig.Sim.Eliminate(me, "stake");
+            Assert.Less(me.Inv.FirstSlotOf(ItemType.OrbitalStrike), 0);
+            Assert.IsTrue(rig.Sim.Drops.Any(d => d.Item == ItemType.OrbitalStrike && Vector2.Distance(d.Pos, me.Pos) < 1f), "lying where they fell");
         }
 
         [Test]
@@ -127,7 +172,7 @@ namespace Vision.Tests
         [Test]
         public void TheStrike_IsSentOverTheWire_AndDaphnesTabletIsCalledByCommand()
         {
-            Assert.GreaterOrEqual(Wire.Version, 7, "a new wire");
+            Assert.GreaterOrEqual(Wire.Version, 8, "a new wire");
             Assert.IsTrue(SnapshotFrame.Lists.Any(l => l.name == "Strikes" && l.element == typeof(OrbitalStrike)));
             var rig = new SimRig(1);
             int i = System.Array.FindIndex(SnapshotFrame.Lists, l => l.name == "Strikes");

@@ -87,6 +87,7 @@ namespace Vision.UI
             foreach (var kv in views) if (!seen.Contains(kv.Key)) stale.Add(kv.Key);
             foreach (int id in stale)
             {
+                MergeProgress.Remove(id);
                 Kill(views[id].Pivot);
                 views.Remove(id);
             }
@@ -155,6 +156,15 @@ namespace Vision.UI
 
         static float Smooth(float a, float b, float x) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(a, b, x));
 
+        /// <summary>
+        /// How far (0-1) each body being taken is through its rise, as drawn this frame: the ghost merging with it reads the
+        /// same clock, so the two lift and settle exactly together.
+        /// </summary>
+        public static readonly Dictionary<int, float> MergeProgress = new Dictionary<int, float>();
+
+        /// <summary>The ghost's merge progress into body <paramref name="bodyId"/>: the body's own, as drawn, or <paramref name="fallback"/>.</summary>
+        public static float MergeOf(int bodyId, float fallback) => MergeProgress.TryGetValue(bodyId, out float m) ? m : fallback;
+
         /// <summary>How far through taking a body (0-1) a ghost is with <paramref name="possessLeft"/> s of it to go.</summary>
         public static float PossessProgress(float possessLeft) => Mathf.Clamp01(1f - possessLeft / Balance.Ghost.PossessTime);
 
@@ -181,6 +191,8 @@ namespace Vision.UI
             float simT = sim.Time - b.Since;
             v.T = Mathf.Clamp(v.T + dt, simT, simT + 0.05f);
             Pose(b.Ghost != 0, v.T, out float over, out float lift, out float glow, out bool shown);
+            if (b.Ghost != 0) MergeProgress[b.Id] = Mathf.Clamp01(v.T / Balance.Ghost.PossessTime);
+            else MergeProgress.Remove(b.Id);
             v.Over = over;
             v.Lift = lift;
             if (shown != v.Shown)

@@ -10,7 +10,7 @@ namespace Vision.Game
     /// half the health they had when he started. Any survivor item stuns him for a moment; three kill him and he drops his
     /// pistol. Zach's machete shoves and stuns him; six points of it kill him, and Zach gets a lunge charge and longer reach
     /// for good. Anyone who attacks him (or gasses him with Penjamin) sets him on them. After anyone attacks Chacko he goes
-    /// after them from wherever he is until he's shot a third of their health off them, or they're down, or he's slain, and
+    /// after them from wherever he is until he's shot half their health off them, or they're down, or he's slain, and
     /// nobody else draws him off meanwhile.
     /// </summary>
     public sealed class Jaden : Shane
@@ -77,15 +77,23 @@ namespace Vision.Game
 
         /// <summary>Only proximity alerts him: being seen, or held in a beam, never does.</summary>
         protected override bool AlertedByBeam => false;
+        /// <summary>(Gunfire doesn't alert him outright: only Shane, the user's rule.)</summary>
+        protected override bool AlertedByGunfire => false;
 
-        /// <summary>How much of Chacko's attacker's health he's shot off them so far (a third ends it).</summary>
+        /// <summary>How much of Chacko's attacker's health he's shot off them so far (half ends it).</summary>
         float grudgeDealt;
-        public const float GrudgeShare = 1f / 3f;
+        public const float GrudgeShare = 0.5f;
 
         public override void Avenge(MatchSim sim, SimPlayer p)
         {
             if (p != null && p.Id != Grudge) grudgeDealt = 0f;
             base.Avenge(sim, p);
+        }
+
+        /// <summary>(As if he'd taken his half: the grudge ends where it would.)</summary>
+        public override void CallOffGrudge()
+        {
+            if (Grudge != 0) grudgeDealt = GrudgeShare;
         }
 
         /// <summary>(Jaden goes after Zach too, if Zach killed Chacko; Shane never does.)</summary>
@@ -94,7 +102,7 @@ namespace Vision.Game
         /// <summary>(A Soundcloud Burst stuns him when he's aggressive, as before; it doesn't throw him off as it does Shane.)</summary>
         public override void BurstHit(MatchSim sim, SimPlayer by) { }
 
-        /// <summary>His grudge for Chacko lasts until he's dealt them a third of their health, or they're down (or out of the match).</summary>
+        /// <summary>His grudge for Chacko lasts until he's dealt them half their health, or they're down (or out of the match).</summary>
         protected override bool GrudgeOver(SimPlayer t) => t == null || grudgeDealt >= GrudgeShare - 1e-4f
             || (t.Role == Role.Hunter ? t.Health == Health.Eliminated || t.KnockT > 0f : t.Health != Health.Healthy && t.Health != Health.Wounded);
 
