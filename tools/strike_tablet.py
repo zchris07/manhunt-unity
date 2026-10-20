@@ -1,10 +1,10 @@
 """Paints the orbital strike's tablet as held up to the face (Assets/Vision/Resources/Overlays/strike_tablet.png, 1600x1100,
-the screen left clear for the game to draw its map into): a rugged military work tablet, photographic rather than flat.
-A thick body of dark grey rubberised polymer with a fine stipple and a soft sheen rolling over it, a raised bevel lit from
-above (bright along the top edge, falling into shadow at the bottom), moulded orange impact bumpers wrapping its four
-corners with grip ridges and their own highlights, recessed hex screws, a row of hard keys down the right side (lit
-function keys and a power key), a speaker grille and a camera lens along the top, a stencilled model number and caution
-label, scuffs and grime in the corners, the screen recessed behind a black glass border with a thin reflection across it.
+the screen left clear for the game to draw its map into): the K.P.O.S., a rugged military tablet as the Modern Warfare
+killstreak tablet looks, photographic rather than flat. A thick body of dark grey rubberised polymer with a fine stipple
+and a soft sheen rolling over it, a raised bevel lit from above (bright along the top edge, falling into shadow at the
+bottom), black moulded rubber impact bumpers wrapping its four corners with grip ridges and a faint sheen of their own, recessed hex screws, a row of hard keys down the right side (lit
+function keys and a power key), a speaker grille and a camera lens along the top, a stencilled model number and a small
+dark warning plate, scuffs and grime in the corners, the screen recessed behind a black glass border with a thin reflection across it.
 Run: python tools/strike_tablet.py (numpy and Pillow)."""
 import os
 
@@ -53,7 +53,7 @@ def main():
     sheen = np.exp(-((xx * 0.55 + yy - 520) / 380.0) ** 2) * 0.22
     top_light = 1.12 - 0.32 * (yy / H)
     lit = top_light + sheen + stipple + blotch * 0.12
-    body = shade((46, 48, 52), lit)
+    body = shade((52, 54, 57), lit)
     canvas[..., :3] = body
     canvas[..., 3] = body_mask * 255
 
@@ -81,14 +81,14 @@ def main():
     img = Image.fromarray(canvas.astype(np.uint8), 'RGBA')
     d = ImageDraw.Draw(img)
 
-    # Orange impact bumpers wrapping the corners, with grip ridges and a highlight.
+    # Black rubber impact bumpers wrapping the corners, with grip ridges and a faint sheen.
     for cx, cy, fx, fy in ((20, 20, 1, 1), (W - 20, 20, -1, 1), (20, H - 20, 1, -1), (W - 20, H - 20, -1, -1)):
         bw, bh = 230, 210
         x0, x1 = sorted((cx, cx + fx * bw))
         y0, y1 = sorted((cy, cy + fy * bh))
         bump = Image.new('RGBA', (W, H), (0, 0, 0, 0))
         bd = ImageDraw.Draw(bump)
-        bd.rounded_rectangle((x0, y0, x1, y1), radius=105, fill=(196, 92, 28, 255))
+        bd.rounded_rectangle((x0, y0, x1, y1), radius=105, fill=(26, 27, 30, 255))
         # Cut back to an L round the corner.
         ix0, ix1 = sorted((cx + fx * 90, cx + fx * bw + fx * 10))
         iy0, iy1 = sorted((cy + fy * 90, cy + fy * bh + fy * 10))
@@ -96,7 +96,7 @@ def main():
         arr = np.asarray(bump, np.float32)
         a = arr[..., 3:4] / 255.0
         litb = (1.15 - 0.4 * (yy / H) + noise(60, 2) * 0.12 - 0.06)[..., None]
-        rubber = np.clip(np.array([196, 92, 28], np.float32) * litb, 0, 255)
+        rubber = np.clip(np.array([27, 28, 31], np.float32) * litb, 0, 255)
         base = np.asarray(img, np.float32)
         base[..., :3] = base[..., :3] * (1 - a) + rubber * a
         base[..., 3:4] = np.maximum(base[..., 3:4], arr[..., 3:4])
@@ -105,8 +105,8 @@ def main():
         # Grip ridges and the moulded highlight.
         for k in range(5):
             o = 30 + k * 26
-            d.line([(cx + fx * o, cy + fy * 18), (cx + fx * 18, cy + fy * o)], fill=(150, 66, 18, 255), width=6)
-            d.line([(cx + fx * (o + 4), cy + fy * 20), (cx + fx * 20, cy + fy * (o + 4))], fill=(236, 140, 70, 160), width=2)
+            d.line([(cx + fx * o, cy + fy * 18), (cx + fx * 18, cy + fy * o)], fill=(12, 12, 14, 255), width=6)
+            d.line([(cx + fx * (o + 4), cy + fy * 20), (cx + fx * 20, cy + fy * (o + 4))], fill=(78, 81, 86, 150), width=2)
 
     # Recessed hex screws.
     for sx, sy in ((150, 90), (W - 150, 90), (150, H - 90), (W - 150, H - 90), (W // 2 - 360, 70), (W // 2 + 360, 70)):
@@ -135,9 +135,9 @@ def main():
         small = ImageFont.truetype('arial.ttf', 20)
     except OSError:
         font = small = ImageFont.load_default()
-    d.text((300, H - 112), 'DSC-R7  ORBITAL UPLINK', font=font, fill=(150, 152, 156, 230))
-    d.rectangle((W - 560, H - 118, W - 330, H - 78), fill=(210, 170, 40, 255))
-    d.text((W - 548, H - 112), '! HIGH ENERGY', font=small, fill=(30, 26, 18, 255))
+    d.text((300, H - 112), 'K.P.O.S.  KP-7 ORBITAL UPLINK', font=font, fill=(150, 152, 156, 230))
+    d.rectangle((W - 560, H - 118, W - 330, H - 78), fill=(30, 31, 34, 255), outline=(96, 99, 104, 255), width=2)
+    d.text((W - 548, H - 112), '! HIGH ENERGY', font=small, fill=(196, 198, 200, 255))
     # Scuffs and grime gathered in the corners and along the bottom.
     grime = noise(140, 3)
     corner = np.maximum(np.exp(-(((xx - 0) ** 2 + (yy - H) ** 2) / 240000.0)), np.exp(-(((xx - W) ** 2 + (yy - H) ** 2) / 240000.0)))

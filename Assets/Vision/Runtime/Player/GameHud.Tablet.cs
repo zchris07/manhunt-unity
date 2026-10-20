@@ -9,15 +9,17 @@ using Vision.World;
 namespace Vision.Player
 {
     /// <summary>
-    /// The orbital strike's tablet (Daphne's gift): left click with it in hand raises it to the face like a Modern
-    /// Warfare killstreak tablet (swinging up from below, settling square), the world going on round it. Its screen is the
-    /// Tab map, red-tinted, with the same fog (only what this player has explored shows) and the wheel zooming it about the
-    /// pointer; a marker on every playable character standing in explored ground, where they are now. Hovering one draws
-    /// a lock box round it (bright corner brackets, its name); clicking confirms the target: the item's used up, and a
-    /// countdown and start-up sequence run on the screen (target locked, uplink, calibrating, charging, dispatch) while the
-    /// target stays locked wherever they go; the strike comes down and the tablet lowers. The Exit button (top left) or E
-    /// lowers it before then, keeping the item. Walking is allowed with it up, sprinting isn't, and nothing moves while it
-    /// rises or lowers.
+    /// The K.P.O.S. (K-pop orbital strike) tablet, Daphne's gift: left click with it in hand raises it to the face like a
+    /// Modern Warfare killstreak tablet (swinging up from below, settling square), the world going on round it, and its
+    /// screen powers on each time (a line of light opening into the picture, a flicker settling, the boot text). Its screen
+    /// is the Tab map, red-tinted, with the same fog (only what this player has explored shows), the wheel zooming it about
+    /// the pointer and a drag panning it; a marker on every playable character standing in explored ground, where they are
+    /// now. Hovering one draws a lock box round it (bright corner brackets, its name); a click (pressed and let go without
+    /// dragging) confirms the target: the item's used up, and a countdown and start-up sequence run on the screen (target
+    /// locked, uplink, calibrating, charging, dispatch) while the target stays locked wherever they go; the strike comes
+    /// down and the tablet lowers. Exit (top left), a click anywhere off the tablet, E, or taking another item in hand
+    /// lowers it before then, keeping the item. The full map and the menus draw over it. Walking is allowed with it up,
+    /// sprinting isn't, and nothing moves while it rises or lowers.
     /// </summary>
     public sealed partial class GameHud
     {
@@ -33,7 +35,17 @@ namespace Vision.Player
         public const float HoverRadius = 28f, ScreenW = 1128f, ScreenH = 740f, TabletW = 1480f, TabletH = 1017.5f;
         public const float TabletMaxZoom = 4f;
 
-        RectTransform tabletRoot, tabletBody, tabletScreen, tabletMap, tabletMarks, tabletReticle, tabletLock;
+        RectTransform tabletRoot, tabletBody, tabletScreen, tabletContentRect, tabletMap, tabletMarks, tabletReticle, tabletLock, tabletExit;
+        RectTransform tabletPower, tabletPowerLine;
+        Image tabletPowerLineImg, tabletPowerGlow;
+        Text tabletBootTitle, tabletBootLine;
+        /// <summary>The screen's power-on: seconds since it was raised, and how long it takes to come on and settle.</summary>
+        float powerT;
+        public const float PowerOnTime = 1.15f;
+        /// <summary>How far (pixels) the pointer can move with the button down before it's a drag (panning) and not a click.</summary>
+        public const float DragThreshold = 7f;
+        bool tabletPressing, tabletDragging, pressOnExit, pressOffTablet;
+        Vector2 pressAt, lastPointer;
         RawImage tabletArt, tabletFog;
         Text tabletTitle, tabletTimer, tabletStatus, tabletDispatch, tabletLockName;
         Image tabletDispatchBg;
@@ -52,15 +64,15 @@ namespace Vision.Player
         public float TabletZoom => tabletZoom;
 
         /// <summary>
-        /// Who the tablet can lock on: every playable character (Zach or a survivor, teammates too, never yourself or a
-        /// ghost) standing in ground this player has explored.
+        /// Who the tablet can lock on: every playable character (Zach or a survivor, teammates too, never a ghost, and
+        /// never yourself outside testing) standing in ground this player has explored.
         /// </summary>
         public static List<SimPlayer> StrikeTargets(MatchSim sim, FogOfWar fog, SimPlayer me)
         {
             var list = new List<SimPlayer>();
             if (sim == null || me == null) return list;
             foreach (SimPlayer q in sim.Order)
-                if (q.Id != me.Id && MatchSim.Strikeable(q) && (fog == null || fog.Seen(q.Pos))) list.Add(q);
+                if ((q.Id != me.Id || sim.TestMode) && MatchSim.Strikeable(q) && (fog == null || fog.Seen(q.Pos))) list.Add(q);
             return list;
         }
 
@@ -109,29 +121,31 @@ namespace Vision.Player
             tabletRoot = UiKit.Fill("Orbital Strike Tablet", root);
             tabletRoot.SetAsLastSibling();
             tabletBody = UiKit.Node("Tablet", tabletRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(TabletW, TabletH));
-            // The screen (its contents clipped to it) under the frame.
+            // The screen (its contents clipped to it) under the frame: an opaque black glass backing, the picture on it
+            // fading and flickering in as it powers on.
             tabletScreen = UiKit.Node("Screen", tabletBody, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ScreenW, ScreenH));
-            UiKit.Box(tabletScreen, new Color(0.05f, 0.01f, 0.01f, 1f));
+            UiKit.Box(tabletScreen, new Color(0.012f, 0.008f, 0.008f, 1f));
             // (A stencil mask on the screen's own backing: the zoomed map is clipped to the screen.)
             tabletScreen.gameObject.AddComponent<Mask>().showMaskGraphic = true;
-            tabletContent = tabletScreen.gameObject.AddComponent<CanvasGroup>();
-            tabletMap = UiKit.Node("Map", tabletScreen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ScreenH, ScreenH));
+            RectTransform content = tabletContentRect = UiKit.Fill("Content", tabletScreen);
+            tabletContent = content.gameObject.AddComponent<CanvasGroup>();
+            tabletMap = UiKit.Node("Map", content, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ScreenH, ScreenH));
             tabletArt = UiKit.Fill("Art", tabletMap).gameObject.AddComponent<RawImage>();
             tabletArt.color = new Color(1f, 0.38f, 0.34f, 1f);
             tabletFog = UiKit.Fill("Fog", tabletMap).gameObject.AddComponent<RawImage>();
             // The tint, a grid, scanlines.
-            UiKit.Box(UiKit.Fill("Tint", tabletScreen), new Color(1f, 0.08f, 0.06f, 0.12f));
-            var grid = UiKit.Fill("Grid", tabletScreen).gameObject.AddComponent<RawImage>();
+            UiKit.Box(UiKit.Fill("Tint", content), new Color(1f, 0.08f, 0.06f, 0.12f));
+            var grid = UiKit.Fill("Grid", content).gameObject.AddComponent<RawImage>();
             grid.texture = Lines(true);
             grid.uvRect = new Rect(0f, 0f, ScreenW / 64f / 2f, ScreenH / 64f / 2f);
             grid.color = new Color(1f, 0.3f, 0.25f, 0.5f);
-            var scan = UiKit.Fill("Scan", tabletScreen).gameObject.AddComponent<RawImage>();
+            var scan = UiKit.Fill("Scan", content).gameObject.AddComponent<RawImage>();
             scan.texture = Lines(false);
             scan.uvRect = new Rect(0f, 0f, 1f, ScreenH / 64f);
             scan.color = new Color(0f, 0f, 0f, 0.35f);
-            tabletMarks = UiKit.Fill("Marks", tabletScreen);
+            tabletMarks = UiKit.Fill("Marks", content);
             // The lock box: corner brackets and a name plate.
-            tabletLock = UiKit.Node("Lock", tabletScreen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(70f, 70f));
+            tabletLock = UiKit.Node("Lock", content, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(70f, 70f));
             foreach (Vector2 c in new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f) })
             {
                 UiKit.Box(UiKit.Node("Bracket", tabletLock, c, c, Vector2.zero, new Vector2(20f, 4f)), new Color(1f, 0.92f, 0.9f, 1f));
@@ -140,29 +154,36 @@ namespace Vision.Player
             tabletLockName = kit.Label(UiKit.Node("Name", tabletLock, new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0f, -6f), new Vector2(320f, 26f)), "", 18, TextAnchor.UpperCenter, new Color(1f, 0.92f, 0.9f, 1f));
             tabletLockName.horizontalOverflow = HorizontalWrapMode.Overflow;
             // The reticle: a ring and a crosshair.
-            tabletReticle = UiKit.Node("Reticle", tabletScreen, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(96f, 96f));
+            tabletReticle = UiKit.Node("Reticle", content, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(96f, 96f));
             var ring = UiKit.Fill("Ring", tabletReticle).gameObject.AddComponent<RawImage>();
             ring.texture = StrikeRing();
             ring.color = new Color(1f, 0.32f, 0.28f, 0.9f);
             foreach (var (pos, size) in new[] { (new Vector2(-38f, 0f), new Vector2(26f, 3f)), (new Vector2(38f, 0f), new Vector2(26f, 3f)), (new Vector2(0f, -38f), new Vector2(3f, 26f)), (new Vector2(0f, 38f), new Vector2(3f, 26f)) })
                 UiKit.Box(UiKit.Node("Cross", tabletReticle, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), pos, size), new Color(1f, 0.32f, 0.28f, 0.9f));
             // Along the top: Exit (top left), the title, the timer; along the bottom: the status and DISPATCH.
-            RectTransform exit = UiKit.Node("Exit", tabletScreen, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -14f), new Vector2(120f, 40f));
+            RectTransform exit = tabletExit = UiKit.Node("Exit", content, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(14f, -14f), new Vector2(120f, 40f));
             UiKit.Box(exit, new Color(0.25f, 0.03f, 0.03f, 0.9f));
             var exitText = kit.Label(UiKit.Fill("Label", exit), "◄ EXIT", 20, TextAnchor.MiddleCenter, new Color(1f, 0.85f, 0.82f, 1f));
             exitText.raycastTarget = false;
-            exit.gameObject.AddComponent<Button>().onClick.AddListener(LowerTablet);
-            tabletTitle = kit.Label(UiKit.Node("Title", tabletScreen, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(150f, -18f), new Vector2(620f, 32f)),
-                "ORBITAL STRIKE  //  K-POP UPLINK", 22, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.78f, 1f));
-            tabletTimer = kit.Label(UiKit.Node("Timer", tabletScreen, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-18f, -14f), new Vector2(320f, 40f)),
+            tabletTitle = kit.Label(UiKit.Node("Title", content, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(150f, -18f), new Vector2(620f, 32f)),
+                "K-POP ORBITAL STRIKE  //  K.P.O.S.", 22, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.78f, 1f));
+            tabletTimer = kit.Label(UiKit.Node("Timer", content, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(-18f, -14f), new Vector2(320f, 40f)),
                 "STANDBY", 30, TextAnchor.MiddleRight, new Color(1f, 0.85f, 0.8f, 1f));
-            tabletStatus = kit.Label(UiKit.Node("Status", tabletScreen, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(18f, 16f), new Vector2(620f, 140f)),
+            tabletStatus = kit.Label(UiKit.Node("Status", content, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(18f, 16f), new Vector2(620f, 140f)),
                 "", 17, TextAnchor.LowerLeft, new Color(1f, 0.72f, 0.66f, 1f));
-            RectTransform dispatch = UiKit.Node("Dispatch", tabletScreen, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-18f, 16f), new Vector2(240f, 56f));
+            RectTransform dispatch = UiKit.Node("Dispatch", content, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-18f, 16f), new Vector2(240f, 56f));
             tabletDispatchBg = UiKit.Box(dispatch, new Color(0.3f, 0.04f, 0.04f, 0.85f));
             tabletDispatch = kit.Label(UiKit.Fill("Label", dispatch), "DISPATCH", 26, TextAnchor.MiddleCenter, new Color(1f, 0.6f, 0.55f, 1f));
-            foreach (Graphic g in tabletScreen.GetComponentsInChildren<Graphic>(true))
-                if (g.gameObject != exit.gameObject) g.raycastTarget = false;
+            // The power-on over the picture: a glow, the line of light opening into it, the boot text.
+            tabletPower = UiKit.Fill("Power", tabletScreen);
+            tabletPowerGlow = UiKit.Box(UiKit.Fill("Glow", tabletPower), new Color(1f, 0.55f, 0.6f, 0f));
+            tabletPowerLine = UiKit.Node("Line", tabletPower, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(ScreenW, 4f));
+            tabletPowerLineImg = UiKit.Box(tabletPowerLine, new Color(1f, 0.93f, 0.95f, 1f));
+            tabletBootTitle = kit.Label(UiKit.Node("Boot", tabletPower, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 24f), new Vector2(900f, 60f)),
+                "K-POP ORBITAL STRIKE", 46, TextAnchor.MiddleCenter, new Color(1f, 0.86f, 0.9f, 1f));
+            tabletBootLine = kit.Label(UiKit.Node("Boot Line", tabletPower, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -26f), new Vector2(900f, 30f)),
+                "K.P.O.S.  //  SATELLITE UPLINK  //  INITIALISING", 18, TextAnchor.MiddleCenter, new Color(1f, 0.6f, 0.62f, 1f));
+            foreach (Graphic g in tabletScreen.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
             // The tablet itself over all of it (its screen window clear).
             var frame = UiKit.Fill("Frame", tabletBody).gameObject.AddComponent<RawImage>();
             frame.texture = Resources.Load<Texture2D>("Overlays/strike_tablet");
@@ -184,6 +205,8 @@ namespace Vision.Player
             tabletZoom = TabletOpenZoom;
             tabletPan = Vector2.zero;
             tabletCentre = true;
+            powerT = 0f;
+            tabletPressing = tabletDragging = false;
             tabletRoot.gameObject.SetActive(true);
         }
 
@@ -193,6 +216,7 @@ namespace Vision.Player
             RaiseTablet();
             Tablet = TabletState.Open;
             tabletT = RaiseTime;
+            powerT = PowerOnTime;
         }
 
         /// <summary>Lowers the tablet (Exit, E, or once the strike's come down).</summary>
@@ -213,6 +237,43 @@ namespace Vision.Player
             return true;
         }
 
+        static float Smooth(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
+
+        /// <summary>
+        /// The screen powering on as it comes up (each time it's raised): black glass, then a line of light drawn across
+        /// its middle, opening top and bottom into the picture as a glow fades off it, the picture flickering a little and
+        /// settling, the boot text (K-POP ORBITAL STRIKE) showing over it and fading. Lowered, the picture folds back into
+        /// the line and goes out.
+        /// </summary>
+        void AnimatePower()
+        {
+            float t = powerT;
+            float across = Smooth((t - 0.12f) / 0.14f), open = Smooth((t - 0.26f) / 0.2f);
+            if (Tablet == TabletState.Lowering)
+            {
+                float k = Smooth(tabletT / (LowerTime * 0.6f));
+                across = 1f - Smooth((k - 0.55f) / 0.45f);
+                open = Mathf.Min(open, 1f - k);
+            }
+            // The picture: squeezed into the line, opening out, a flicker settling as it warms up.
+            float settle = Mathf.Clamp01(1f - (t - 0.46f) / (PowerOnTime - 0.46f));
+            float flicker = Tablet == TabletState.Lowering ? 0f : settle * (0.28f * Mathf.PerlinNoise(t * 16f, 0.37f) + 0.12f * Mathf.Sin(t * 47f) * Mathf.Sin(t * 11f));
+            tabletContent.alpha = Mathf.Clamp01(open * (1f - Mathf.Max(0f, flicker)));
+            tabletContentRect.localScale = new Vector3(Mathf.Lerp(0.96f, 1f, open), Mathf.Max(0.004f, open), 1f);
+            bool on = t < PowerOnTime || Tablet == TabletState.Lowering;
+            tabletPower.gameObject.SetActive(on);
+            if (!on) return;
+            // The line of light: drawn across, then opening (and fading) into the picture.
+            tabletPowerLine.localScale = new Vector3(Mathf.Max(0.001f, across), 1f, 1f);
+            tabletPowerLine.sizeDelta = new Vector2(ScreenW, Mathf.Lerp(4f, ScreenH, open));
+            tabletPowerLineImg.color = new Color(1f, 0.93f, 0.95f, across * (1f - open) * (1f - open));
+            tabletPowerGlow.color = new Color(1f, 0.55f, 0.6f, 0.35f * open * Smooth(1f - (t - 0.46f) / 0.4f));
+            // The boot text over the warming picture, fading as it settles.
+            float boot = Tablet == TabletState.Lowering ? 0f : open * Smooth((PowerOnTime - 0.05f - t) / 0.3f);
+            tabletBootTitle.color = new Color(1f, 0.86f, 0.9f, boot);
+            tabletBootLine.color = new Color(1f, 0.6f, 0.62f, boot * (0.75f + 0.25f * Mathf.Sin(t * 30f)));
+        }
+
         static float EaseOutBack(float t) { t = Mathf.Clamp01(t) - 1f; return 1f + t * t * (2.2f * t + 1.2f); }
 
         /// <summary>Each frame: raising or lowering it, and while it's up, the map, the markers, the lock and the clicks.</summary>
@@ -231,7 +292,12 @@ namespace Vision.Player
                     RaiseTablet();
                 return;
             }
+            // The full map (Tab) and the menus (Esc) draw over it: hidden while they're open, its clicks set aside.
+            bool covered = FullMapOpen || MenuOpen;
+            if (tabletRoot.gameObject.activeSelf == covered) tabletRoot.gameObject.SetActive(!covered);
+            if (covered) { tabletPressing = tabletDragging = false; return; }
             tabletT += dt;
+            if (Tablet != TabletState.Lowering) powerT += dt;
             float e;
             if (Tablet == TabletState.Raising)
             {
@@ -245,6 +311,7 @@ namespace Vision.Player
                 if (tabletT >= LowerTime)
                 {
                     Tablet = TabletState.Closed;
+                    tabletPressing = tabletDragging = false;
                     tabletRoot.gameObject.SetActive(false);
                     return;
                 }
@@ -254,18 +321,41 @@ namespace Vision.Player
             tabletBody.anchoredPosition = new Vector2(Mathf.Lerp(180f, 0f, e), Mathf.Lerp(-1150f, TabletLift, e));
             tabletBody.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-11f, 0f, e));
             tabletBody.localScale = Vector3.one * TabletScale * Mathf.Lerp(0.86f, 1f, e);
-            tabletContent.alpha = Tablet == TabletState.Raising ? Mathf.Clamp01((tabletT / RaiseTime - 0.55f) / 0.45f) * (Random.value < 0.15f ? 0.6f : 1f) : 1f;
+            AnimatePower();
             if (me == null || map == null || map.Fog == null) return;
-            // Down, or the tablet gone from their hands before it was used: lowered.
-            bool hasItem = me.Inv.FirstSlotOf(ItemType.OrbitalStrike) >= 0;
-            if (Tablet == TabletState.Open && (!me.CanAct || (lockedTarget == 0 && !hasItem))) LowerTablet();
+            // Down, the tablet gone from their hands before it was used, or another item taken in hand: lowered.
+            Inventory.Slot inHand = player != null ? me.Inv.SlotAt(player.SelectedSlot) : null;
+            bool holding = inHand != null && !inHand.Empty && inHand.item == ItemType.OrbitalStrike;
+            if (Tablet == TabletState.Open && (!me.CanAct || (lockedTarget == 0 && !holding))) LowerTablet();
             if (Tablet == TabletState.Open && kb != null && kb.eKey.wasPressedThisFrame) LowerTablet();
 
-            // The map, as the Tab map: north turned with the view, the wheel zooming it about the pointer.
+            // The map, as the Tab map: north turned with the view, the wheel zooming it about the pointer, a drag panning it.
             tabletArt.texture = map.ArtTexture;
             tabletFog.texture = map.Fog.Texture;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(tabletScreen, mouse != null ? mouse.position.ReadValue() : Vector2.zero, null, out Vector2 pointer);
+            Vector2 mp = mouse != null ? mouse.position.ReadValue() : Vector2.zero;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(tabletScreen, mp, null, out Vector2 pointer);
             bool inside = Mathf.Abs(pointer.x) < ScreenW * 0.5f && Mathf.Abs(pointer.y) < ScreenH * 0.5f;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(tabletBody, mp, null, out Vector2 onBody);
+            // (The tablet's own outline, inside the drop shadow round its painted edge.)
+            bool onTablet = Mathf.Abs(onBody.x) < TabletW * 0.5f - 24f && Mathf.Abs(onBody.y) < TabletH * 0.5f - 24f;
+            bool onExit = RectTransformUtility.RectangleContainsScreenPoint(tabletExit, mp, null);
+            bool open = Tablet == TabletState.Open && mouse != null;
+            if (open && mouse.leftButton.wasPressedThisFrame)
+            {
+                tabletPressing = true;
+                tabletDragging = false;
+                pressAt = mp;
+                lastPointer = pointer;
+                pressOnExit = onExit;
+                pressOffTablet = !onTablet;
+            }
+            if (open && tabletPressing && mouse.leftButton.isPressed)
+            {
+                // Held and moved on the screen: a drag, panning the map, never a click on a target.
+                if (!tabletDragging && !pressOnExit && !pressOffTablet && (mp - pressAt).magnitude > DragThreshold * Mathf.Max(1f, Screen.height / 1080f)) tabletDragging = true;
+                if (tabletDragging) tabletPan += pointer - lastPointer;
+                lastPointer = pointer;
+            }
             float wheel = mouse != null ? mouse.scroll.ReadValue().y : 0f;
             if (inside && Mathf.Abs(wheel) > 0.01f && Tablet == TabletState.Open)
             {
@@ -309,7 +399,8 @@ namespace Vision.Player
             for (int i = 0; i < tabletMarkers.Count; i++)
             {
                 var (node, dot, name) = tabletMarkers[i];
-                bool used = i <= targets.Count;
+                // (In testing you're a target yourself: your own marker then, not a second one.)
+                bool used = i < targets.Count || (i == targets.Count && !targets.Contains(me));
                 node.gameObject.SetActive(used);
                 if (!used) continue;
                 if (i == targets.Count)
@@ -326,10 +417,10 @@ namespace Vision.Player
                 node.anchoredPosition = at;
                 node.sizeDelta = new Vector2(16f, 16f);
                 bool zach = q.Role == Role.Hunter;
-                dot.color = zach ? new Color(1f, 0.15f, 0.12f, 1f) : new Color(1f, 0.75f, 0.7f, 1f);
-                name.text = zach ? "ZACH" : q.Name.ToUpperInvariant();
+                dot.color = q.Id == me.Id ? Color.white : zach ? new Color(1f, 0.15f, 0.12f, 1f) : new Color(1f, 0.75f, 0.7f, 1f);
+                name.text = q.Id == me.Id ? "YOU" : zach ? "ZACH" : q.Name.ToUpperInvariant();
                 float d = (at - pointer).magnitude;
-                if (inside && lockedTarget == 0 && d < best) { best = d; hoveredTarget = q.Id; }
+                if (inside && !tabletDragging && lockedTarget == 0 && d < best) { best = d; hoveredTarget = q.Id; }
             }
 
             // The lock box: round what's hovered, then round the locked target, tightening as it locks.
@@ -341,15 +432,25 @@ namespace Vision.Player
                 tabletLock.anchoredPosition = OnScreen(bq.Pos);
                 float pulse = lockedTarget != 0 ? 1f + 0.08f * Mathf.Sin(Time.unscaledTime * 14f) : 1.15f;
                 tabletLock.sizeDelta = Vector2.one * 64f * pulse;
-                tabletLockName.text = (lockedTarget != 0 ? "LOCKED  " : "TARGET  ") + (bq.Role == Role.Hunter ? "ZACH" : bq.Name.ToUpperInvariant());
+                tabletLockName.text = (lockedTarget != 0 ? "LOCKED  " : "TARGET  ") + (bq.Id == me.Id ? "YOU" : bq.Role == Role.Hunter ? "ZACH" : bq.Name.ToUpperInvariant());
             }
-            tabletReticle.gameObject.SetActive(inside && lockedTarget == 0);
+            tabletReticle.gameObject.SetActive(inside && lockedTarget == 0 && !tabletDragging);
             tabletReticle.anchoredPosition = pointer;
             tabletReticle.localRotation = Quaternion.Euler(0f, 0f, Time.unscaledTime * 30f);
 
-            // A click on a target confirms it.
-            if (Tablet == TabletState.Open && lockedTarget == 0 && hoveredTarget != 0 && mouse != null && mouse.leftButton.wasPressedThisFrame)
-                ConfirmStrike(hoveredTarget);
+            // Let go without having dragged: a click. On Exit, or off the tablet altogether, it's lowered; on a target, it's
+            // confirmed.
+            if (open && tabletPressing && mouse.leftButton.wasReleasedThisFrame)
+            {
+                bool drag = tabletDragging;
+                tabletPressing = tabletDragging = false;
+                if (!drag)
+                {
+                    if (pressOnExit && onExit) LowerTablet();
+                    else if (pressOffTablet && !onTablet) LowerTablet();
+                    else if (!pressOnExit && !pressOffTablet && inside && lockedTarget == 0 && hoveredTarget != 0) ConfirmStrike(hoveredTarget);
+                }
+            }
 
             // The timer, the start-up sequence and DISPATCH.
             OrbitalStrike strike = null;
@@ -358,7 +459,7 @@ namespace Vision.Player
             if (lockedTarget == 0)
             {
                 tabletTimer.text = targets.Count > 0 ? "STANDBY" : "NO TARGETS";
-                tabletStatus.text = targets.Count > 0 ? "SELECT A TARGET IN EXPLORED GROUND\n<color=#ff8a80>WHEEL: ZOOM   E: EXIT</color>" : "NO TARGETS IN EXPLORED GROUND";
+                tabletStatus.text = targets.Count > 0 ? "SELECT A TARGET IN EXPLORED GROUND\n<color=#ff8a80>WHEEL: ZOOM   DRAG: PAN   E: EXIT</color>" : "NO TARGETS IN EXPLORED GROUND";
                 tabletDispatch.text = "DISPATCH";
                 tabletDispatchBg.color = hoveredTarget != 0 ? new Color(0.75f, 0.1f, 0.1f, 0.95f) : new Color(0.3f, 0.04f, 0.04f, 0.85f);
                 return;
@@ -367,7 +468,7 @@ namespace Vision.Player
             float left = strike != null && !strike.Firing ? strike.Countdown : Mathf.Max(0f, Balance.Items.Orbital.Countdown - since);
             bool firing = strike != null && strike.Firing;
             tabletTimer.text = firing ? "STRIKE INBOUND" : $"00:{left:00.0}";
-            string name2 = locked != null ? (locked.Role == Role.Hunter ? "ZACH" : locked.Name.ToUpperInvariant()) : "TARGET";
+            string name2 = locked != null ? (locked.Id == me.Id ? "YOU" : locked.Role == Role.Hunter ? "ZACH" : locked.Name.ToUpperInvariant()) : "TARGET";
             var lines = new System.Text.StringBuilder();
             lines.Append($"TARGET LOCKED: {name2}");
             if (since > 0.4f) lines.Append("\nUPLINK ESTABLISHED // SAT-7");

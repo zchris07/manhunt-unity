@@ -608,7 +608,7 @@ namespace Vision.Game
             Speak("Here. Take this, you'll need it.");
             // An orbital strike (once each), in place of the P250 she gave at first.
             Sim.AddItem(p, ItemType.OrbitalStrike);
-            Sim.Tell(p, "Got an orbital strike: left click to raise the tablet");
+            Sim.Tell(p, "Got a K.P.O.S. (K-pop orbital strike): left click to raise the tablet");
         }
 
         void Attacked(SimPlayer by)

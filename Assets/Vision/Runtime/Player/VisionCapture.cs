@@ -743,6 +743,10 @@ namespace Vision.Player
                         if (meJ.Inv.FirstSlotOf(ItemType.OrbitalStrike) < 0) meJ.Inv.Add(ItemType.OrbitalStrike);
                         player.SelectedSlot = meJ.Inv.FirstSlotOf(ItemType.OrbitalStrike);
                         float o0 = cameraRig.orthographicSize;
+                        // Raised, its screen powering on: the picture opening out of the line, the boot text over it.
+                        gameHud.RaiseTablet();
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot("198_strike_power_on");
                         gameHud.TabletUpNow();
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot("199_strike_tablet");

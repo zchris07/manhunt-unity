@@ -45,7 +45,7 @@ namespace Vision.Tests
             CollectionAssert.AreEqual(new[] { "local_kpop_strike" }, cue.Prefer, "the user's own track, local only");
             Assert.AreEqual(1.5f, cue.TailFade, 1e-6f, "its last 1.5 s falling away by an inverse square");
             Assert.AreEqual(3000f, cue.Radius, 1e-6f, "heard 3000 units off");
-            Assert.AreEqual("Orbital strike", Items.Name(ItemType.OrbitalStrike, false));
+            Assert.AreEqual("K.P.O.S.", Items.Name(ItemType.OrbitalStrike, false));
             Assert.IsNotNull(UI.ItemIcons.For(ItemType.OrbitalStrike, false), "its icon");
             Assert.AreEqual(Characters.PropKind.RuggedTablet, Characters.PropModels.ForItem(ItemType.OrbitalStrike, false), "held as a rugged tablet");
             Assert.IsNotNull(Resources.Load<Texture2D>("Overlays/strike_tablet"), "the tablet as it's held up");
@@ -155,6 +155,34 @@ namespace Vision.Tests
             mate.Ghost = true;
             CollectionAssert.AreEquivalent(new[] { zach }, GameHud.StrikeTargets(rig.Sim, fog, me), "never a ghost");
             Object.DestroyImmediate(fog.Texture);
+        }
+
+        [Test]
+        public void InTesting_YouCanStrikeYourself_FromTheTabletOrTheEffectsPanel()
+        {
+            var rig = new SimRig(1, testMode: true);
+            SimPlayer me = rig.P(2);
+            rig.Run(1);
+            var fog = new FogOfWar(90f, 64);
+            fog.RevealAll();
+            CollectionAssert.Contains(GameHud.StrikeTargets(rig.Sim, fog, me), me, "yourself, in testing");
+            Object.DestroyImmediate(fog.Texture);
+            Assert.IsTrue(MatchSim.TestFxButtons.Any(b => b.fx == TestFx.Strike && b.label == "K.P.O.S. on yourself"), "in the testing effects panel");
+            int had = me.Inv.FirstSlotOf(ItemType.OrbitalStrike);
+            rig.Sim.PlayTestFx(me.Id, TestFx.Strike);
+            Assert.AreEqual(1, rig.Sim.Strikes.Count);
+            Assert.AreEqual(me.Id, rig.Sim.Strikes[0].Target);
+            Assert.AreEqual(had, me.Inv.FirstSlotOf(ItemType.OrbitalStrike), "the panel uses no tablet up");
+            float hp0 = me.Hp;
+            rig.Run(Secs(Balance.Items.Orbital.Countdown + 1.5f));
+            Assert.Less(me.Hp, hp0, "it comes down on you");
+            Assert.Greater(me.SilencedT, 0f);
+            // Off testing, never yourself.
+            var real = new SimRig(1);
+            var fog2 = new FogOfWar(90f, 64);
+            fog2.RevealAll();
+            CollectionAssert.DoesNotContain(GameHud.StrikeTargets(real.Sim, fog2, real.P(2)), real.P(2));
+            Object.DestroyImmediate(fog2.Texture);
         }
     }
 }

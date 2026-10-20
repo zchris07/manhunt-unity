@@ -287,9 +287,9 @@ namespace Vision.Characters
                     break;
                 case PropKind.RuggedTablet:
                 {
-                    // The orbital strike's tablet: a rugged work tablet, a thick rubberised dark body with orange bumpers at
-                    // its corners, a grip strap's buttons down one side, its screen glowing the red map.
-                    Color body = H(0x232528), bumper = H(0xd2691e), screen = H(0x8c1c1c);
+                    // The K.P.O.S. tablet, as the Modern Warfare killstreak tablet: a thick dark grey rugged body with black
+                    // rubber bumpers at its corners, a grip strap's buttons down one side, its screen glowing the red map.
+                    Color body = H(0x232528), bumper = H(0x141517), screen = H(0x8c1c1c);
                     b.Box(new Vector3(0f, 0.09f, 0.04f), new Vector3(0.011f, 0.115f, 0.085f), body);
                     foreach (float y in new[] { 0.09f - 0.1f, 0.09f + 0.1f })
                         foreach (float z in new[] { 0.04f - 0.07f, 0.04f + 0.07f })

@@ -120,8 +120,12 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
 - **The look** (`Vision.UI.UiKit`): the original's interface theme, bone text on near-black, Oswald for headings and
   buttons, Special Elite for typewritten labels, IBM Plex Mono for body text, red accents, square corners, thin
   borders, registration marks on cards, film grain and scanlines on the title screen.
+  - **The title screen's CRT look** is faint and fluid: soft, filtered film grain that moves on every frame (it shimmers
+    rather than stepping), still scanlines one every 3 px, and a faint band of light rolling slowly down the screen
+    every 11 s. It lies over the backdrop and the pines only: the title, the blurb and the lobby card (and everything
+    in it) sit above the noise, clean.
 - **Title screen** (`GameHud.Menus`), the original's landing page: the red-outlined kicker, MANHUNT with its red and
-  cyan fringe and a faint 6 s flicker (toned down, with lighter grain and scanlines), the blurb, dark pines along the bottom, and the card: your name (2-16 letters or
+  cyan fringe and a faint 6 s flicker (toned down), the blurb, dark pines along the bottom, and the card: your name (2-16 letters or
   numbers, remembered), **Create lobby**, a room code field (`IP:port`) with **Join**, the dashed **Testing mode**
   button, and How to play, Look settings and Quit (see *Online play*).
 - **How to play**: the original's controls tables for survivors, Zach and both.
@@ -144,7 +148,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   your role (a list that scrolls inside the panel, with the wheel or its bar). Testing mode adds the original's **TEST
   EFFECTS** panel (left): every stun and flash played on yourself
   (being shot by a 0.50 cal among them: thrown back, slowed, the sprint locked out; and **Pissed on**: a jar's splash,
-  the piss in the eyes and, on Zach, its extra damage and yellow, stacking with any already on him),
+  the piss in the eyes and, on Zach, its extra damage and yellow, stacking with any already on him; and **K.P.O.S. on
+  yourself**: the K-pop orbital strike called down on you, countdown, beam and all, using no tablet up),
   Respawn NPCs, and **dummies**: inert survivors and Zachs spawned in front of you to down, carry, stake, cut down,
   revive, heal, shoot or stun.
 - **Other players** (`PlayerPuppets`): dummies (and, online, the other players) are drawn where the match has them,
@@ -435,21 +440,28 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
   the mini shield as Fortnite's little flask of blue liquid, the P250, the 0.50 cal, the jar, JARVIS's tablet, the Hemp
   Battery and the leaf; the lunge, Burst, Penjamin and 50 Nic (blank in the original) get icons in the same style. A
   survivor's JARVIS and Hemp Beam sit beside the inventory as in the original.
-- **The K-pop orbital strike** (`MatchSim.Orbital`, `GameHud.Tablet`, `MatchEffects.Orbital`): Daphne's gift, used once
-  (testing mode's kit has it in place of the P250).
-  - **The tablet.** Its icon and held prop are a rugged work tablet. Left click with it in hand raises it to the face like
-    a Modern Warfare killstreak tablet: it swings up from below and settles square, with the world going on round it. The
-    tablet is painted to look real: dark rubberised body, orange corner bumpers, screws, hard keys, scuffs
-    (`tools/strike_tablet.py`).
+- **The K-pop orbital strike, K.P.O.S.** (`MatchSim.Orbital`, `GameHud.Tablet`, `MatchEffects.Orbital`): Daphne's
+  gift, used once, named **K.P.O.S.** in the inventory (testing mode's kit has it in place of the P250).
+  - **The tablet.** Its icon and held prop are the Modern Warfare killstreak tablet. Left click with it in hand raises it
+    to the face: it swings up from below and settles square, with the world going on round it. The tablet is painted to
+    look real: a dark grey rugged body, black rubber corner bumpers with grip ridges, screws, hard keys, scuffs, and
+    K.P.O.S. stencilled under the screen (`tools/strike_tablet.py`).
+  - **Powering on.** Every time it comes up the screen starts black (opaque glass: nothing shows through it), then a
+    line of light is drawn across its middle and opens top and bottom into the picture, a glow fading off it, the picture
+    flickering a little and settling over about a second, with K-POP ORBITAL STRIKE and the boot line (K.P.O.S. //
+    SATELLITE UPLINK // INITIALISING) over it, fading as it settles. Lowered, the picture folds back into the line.
   - **Its screen** is the Tab map, red-tinted under a grid and scanlines, with the same fog of war (only what you've
-    explored shows). It opens zoomed in on you, and the wheel zooms it about the pointer. Every playable character (Zach
-    or a survivor, teammates too, never yourself or a ghost) standing in explored ground has a marker, where they are
-    now; with nobody in explored ground there's nothing to select.
-  - **Targeting.** Hovering a marker draws a lock box with bright corner brackets. Clicking confirms it: the item is used
-    up, the target is locked wherever they go from then, and a 3 s countdown and start-up run on the screen (TARGET
-    LOCKED, UPLINK ESTABLISHED, CALIBRATING EMITTER ARRAY, CHARGING, DISPATCH AUTHORISED; DISPATCHING), then it lowers
-    as the strike comes down. EXIT (top left) or E lowers it smoothly before then, keeping the item. You can walk with it
-    up but not sprint, and you can't move at all while it rises or lowers.
+    explored shows), titled K-POP ORBITAL STRIKE // K.P.O.S. It opens zoomed in on you; the wheel zooms it about the
+    pointer and dragging with the left button pans it, as on the full map (a drag never selects anything). Every playable
+    character (Zach or a survivor, teammates too, never a ghost, and never yourself outside testing) standing in explored
+    ground has a marker, where they are now; with nobody in explored ground there's nothing to select.
+  - **Targeting.** Hovering a marker draws a lock box with bright corner brackets. A click (pressed and let go without
+    dragging) confirms it: the item is used up, the target is locked wherever they go from then, and a 3 s countdown and
+    start-up run on the screen (TARGET LOCKED, UPLINK ESTABLISHED, CALIBRATING EMITTER ARRAY, CHARGING, DISPATCH
+    AUTHORISED; DISPATCHING), then it lowers as the strike comes down. EXIT (top left), a click anywhere off the tablet,
+    E, or taking another item in hand (clicking it on the inventory bar) lowers it smoothly before then, keeping the
+    item. The full map (Tab) and the menus (Esc) draw over it while they're open. You can walk with it up but not
+    sprint, and you can't move at all while it rises or lowers.
   - **The strike.** A pink beam three times Zach's width comes straight down from the sky onto the target, through
     anything solid, and follows them with a lag: whoever keeps moving can stay partly out of it but never gets clear.
     It drops in, a wide glow round a hot pink body and a white-pink core with plasma threads twisting down it, and lights

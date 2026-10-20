@@ -49,11 +49,17 @@ namespace Vision.Game
             int slot = p.Inv.FirstSlotOf(ItemType.OrbitalStrike);
             if (slot < 0) return false;
             Consume(p, slot);
+            LaunchStrike(p, q);
+            return true;
+        }
+
+        /// <summary>Starts a strike's countdown on <paramref name="q"/>, called by <paramref name="p"/> (yourself, in testing).</summary>
+        void LaunchStrike(SimPlayer p, SimPlayer q)
+        {
             var s = new OrbitalStrike { Id = AllocEntityId(), Owner = p.Id, Target = q.Id, Pos = q.Pos, Countdown = Balance.Items.Orbital.Countdown };
             Strikes.Add(s);
             Emit(null, new GameEvent { Kind = EventKind.Talk, A = p.Id, B = q.Id, Text = "strike_call", Pos = q.Pos });
-            Feed($"{p.Name} called an orbital strike on {q.Name}");
-            return true;
+            Feed(p == q ? $"{p.Name} called a K-pop orbital strike on themselves" : $"{p.Name} called a K-pop orbital strike on {q.Name}");
         }
 
         void UpdateStrikes(float dt)

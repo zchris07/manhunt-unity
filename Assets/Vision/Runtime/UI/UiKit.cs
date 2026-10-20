@@ -494,6 +494,47 @@ namespace Vision.UI
             t.Apply();
             return t;
         });
+
+        /// <summary>Soft film grain alone (no scanlines), faint and filtered so it shimmers rather than jumps when it moves on every frame.</summary>
+        public static Texture2D SoftGrain() => Cached("soft grain", () =>
+        {
+            const int n = 256;
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear };
+            var rng = new System.Random(5);
+            for (int y = 0; y < n; y++)
+                for (int x = 0; x < n; x++)
+                {
+                    float noise = (float)rng.NextDouble();
+                    t.SetPixel(x, y, noise > 0.5f ? new Color(0.82f, 0.8f, 0.72f, (noise - 0.5f) * 0.045f) : new Color(0f, 0f, 0f, (0.5f - noise) * 0.04f));
+                }
+            t.Apply();
+            return t;
+        });
+
+        /// <summary>Faint CRT scanlines: a dark line every 3 px, tiled.</summary>
+        public static Texture2D Scanlines() => Cached("scanlines", () =>
+        {
+            var t = new Texture2D(1, 3, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Point };
+            t.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.045f));
+            t.SetPixel(0, 1, Color.clear);
+            t.SetPixel(0, 2, Color.clear);
+            t.Apply();
+            return t;
+        });
+
+        /// <summary>A soft horizontal band of light (bright in the middle, clear at top and bottom): a CRT's slow roll.</summary>
+        public static Texture2D RollBand() => Cached("roll band", () =>
+        {
+            const int n = 64;
+            var t = new Texture2D(1, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            for (int y = 0; y < n; y++)
+            {
+                float v = Mathf.Sin(Mathf.PI * (y + 0.5f) / n);
+                t.SetPixel(0, y, new Color(0.85f, 0.83f, 0.76f, v * v * 0.022f));
+            }
+            t.Apply();
+            return t;
+        });
     }
 
     /// <summary>Spreads a single line of legacy text out by a share of its font size (CSS letter-spacing).</summary>

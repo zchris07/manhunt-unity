@@ -54,7 +54,7 @@ namespace Vision.Player
             // whose amount is its charges left, kept when it's dropped and picked up again.
             ItemType.HempBeam => new ItemInfo("Hemp Beam", Hex(0x6adf6a), true, MapCount(ItemType.HempBeam)),
             // Daphne's gift: a rugged tablet that calls down the K-pop orbital strike, once.
-            ItemType.OrbitalStrike => new ItemInfo("Orbital strike", Hex(0xff5cb4), false, MapCount(ItemType.OrbitalStrike)),
+            ItemType.OrbitalStrike => new ItemInfo("K.P.O.S.", Hex(0xff5cb4), false, MapCount(ItemType.OrbitalStrike)),
             _ => new ItemInfo("Jar of piss", Hex(0xe6c820), false, MapCount(ItemType.Piss)),
         };
 

@@ -4,7 +4,7 @@ using Vision.Player;
 namespace Vision.Game
 {
     /// <summary>The testing-mode effects panel: each button plays a stun or flash on yourself (the original's testFx.ts).</summary>
-    public enum TestFx : byte { Scare, Book, Waz, Stun, Blast, Gas, Down, Vape, Sniper, Piss }
+    public enum TestFx : byte { Scare, Book, Waz, Stun, Blast, Gas, Down, Vape, Sniper, Piss, Strike }
 
     public sealed partial class MatchSim
     {
@@ -20,6 +20,7 @@ namespace Vision.Game
             (TestFx.Vape, "Penjamin gas"),
             (TestFx.Sniper, "Shot by a 0.50 cal"),
             (TestFx.Piss, "Pissed on"),
+            (TestFx.Strike, "K.P.O.S. on yourself"),
         };
 
         /// <summary>Puts the NPCs back where they started (testing). The NPC framework sets it.</summary>
@@ -94,6 +95,10 @@ namespace Vision.Game
                     // (stacking with any already on him) and the yellow.
                     Noise(p.Pos, 900f, "piss");
                     SoakInPiss(p);
+                    break;
+                case TestFx.Strike:
+                    // The K-pop orbital strike called down on yourself (no tablet used up): the countdown, then the beam.
+                    LaunchStrike(p, p);
                     break;
                 case TestFx.Sniper:
                 {

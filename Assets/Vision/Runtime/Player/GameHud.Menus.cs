@@ -37,9 +37,9 @@ namespace Vision.Player
         Slider paceSlider, masterSlider, sfxSlider, ambienceSlider;
         GameObject survivorTable, hunterTable;
         InputField nameField, roomField;
-        RawImage grain;
+        RawImage grain, scanlines;
+        RectTransform roll;
         bool played;
-        float grainStep;
 
         // ---------------------------------------------------------------- the title screen
 
@@ -113,10 +113,22 @@ namespace Vision.Player
             }, 15);
             kit.Button(links, "Quit", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(130f, 0f), new Vector2(60f, 24f), UiKit.ButtonStyle.Link, Application.Quit, 15);
 
-            // Grain and scanlines over the screen.
+            // Grain, scanlines and a slow CRT roll over the backdrop, under the title and the card (which sit above the noise).
             grain = UiKit.Fill("Grain", screen).gameObject.AddComponent<RawImage>();
-            grain.texture = UiKit.Grain();
+            grain.texture = UiKit.SoftGrain();
             grain.raycastTarget = false;
+            var lines = UiKit.Fill("Scanlines", screen).gameObject.AddComponent<RawImage>();
+            lines.texture = UiKit.Scanlines();
+            lines.raycastTarget = false;
+            scanlines = lines;
+            roll = Node("Roll", screen, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(0f, 260f));
+            var band = roll.gameObject.AddComponent<RawImage>();
+            band.texture = UiKit.RollBand();
+            band.raycastTarget = false;
+            int under = grid.GetSiblingIndex();
+            roll.SetSiblingIndex(under);
+            lines.transform.SetSiblingIndex(under);
+            grain.transform.SetSiblingIndex(under);
 
             mainMenu = screen.gameObject;
             mainMenu.SetActive(false);
@@ -468,13 +480,13 @@ namespace Vision.Player
             float alpha = c >= 0.94f && c < 0.95f ? 0.88f : c >= 0.97f && c < 0.98f ? 0.93f : 1f;
             title.color = UiKit.A(UiKit.Bone, alpha);
             title.rectTransform.anchoredPosition = new Vector2(-4f, -86f);
-            // The grain moves on gently, about three times a second.
-            if (t >= grainStep)
-            {
-                grainStep = t + 0.33f;
-                Rect r = root.rect;
-                grain.uvRect = new Rect(Random.value, Random.value, r.width / 192f, r.height / 192f);
-            }
+            // The grain moves on every frame, faint and soft, so it shimmers like film rather than stepping; the scanlines
+            // hold still at one per 3 px and a faint band of light rolls slowly down the screen.
+            Rect r = root.rect;
+            grain.uvRect = new Rect(Random.value, Random.value, r.width / 384f, r.height / 384f);
+            scanlines.uvRect = new Rect(0f, 0f, 1f, r.height / 3f);
+            float roll01 = Mathf.Repeat(t / 11f, 1f);
+            roll.anchoredPosition = new Vector2(0f, Mathf.Lerp(260f, -r.height, roll01));
         }
 
         void RefreshMenus()
