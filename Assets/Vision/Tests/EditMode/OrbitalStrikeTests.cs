@@ -47,7 +47,8 @@ namespace Vision.Tests
             Assert.AreEqual(3000f, cue.Radius, 1e-6f, "heard 3000 units off");
             var laser = Audio.SoundBank.Cues["orbital_laser"];
             CollectionAssert.AreEqual(new[] { "local_orbital_laser" }, laser.Prefer, "the laser under the music, local only");
-            Assert.Less(laser.Volume, cue.Volume, "quieter than the music");
+            Assert.AreEqual(0.8f, cue.Volume, 1e-6f, "the song 20% softer than at first");
+            Assert.AreEqual(cue.Volume, laser.Volume, 1e-6f, "the laser just as loud as the song");
             Assert.AreEqual(1.86f, UI.MatchEffects.LaserImpactAt, 1e-6f, "its impact, 1.86 s in, lands with the beam");
             Assert.Less(UI.MatchEffects.LaserImpactAt, Balance.Items.Orbital.Countdown, "its start-up all heard, inside the countdown");
             Assert.AreEqual(UI.MatchEffects.LaserImpactAt + Balance.Items.Orbital.Duration, laser.MaxLength, 1e-4f, "no longer than the laser lasts");

@@ -485,8 +485,8 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
     while, for the rest of the match.
   - **Damage.** Anyone it's on (players only, never an NPC) takes half the Hemp Beam's tick ten times a second (5 HP a
     second, about 44 HP in all), is slowed 20% and has every ability silenced (items, JARVIS, Zach's whole kit).
-  - **Sound.** NewJeans' "OMG" plays the whole time, loud, heard 3000 units off. The strike lasts exactly as long as the
-    track (8.725 s), its last 1.5 s falling away by an inverse square. Under it, quieter than the music, the laser
+  - **Sound.** NewJeans' "OMG" plays the whole time (at 80%: 20% softer than at first), heard 3000 units off. The strike lasts exactly as long as the
+    track (8.725 s), its last 1.5 s falling away by an inverse square. Alongside it, just as loud and playing with it the whole way (each on its own voice), the laser
     itself, started 1.86 s before the beam lands: its start-up plays through the countdown as the laser initialises,
     and its impact, 1.86 s into the file, lands with the beam. It lasts no longer than the beam does (stopped as it
     ends), its last 1.5 s falling away by an inverse square. Both are the user's own local files
