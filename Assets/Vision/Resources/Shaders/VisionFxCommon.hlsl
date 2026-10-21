@@ -4,6 +4,7 @@
 #define VISION_FX_COMMON
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 
 TEXTURE2D(_VisionMask);
 SAMPLER(sampler_VisionMask);
@@ -12,7 +13,34 @@ float _VisionEntityThreshold;
 
 CBUFFER_START(UnityPerMaterial)
     half4 _Tint;
+    // Soft particles: 0 (drawn depth-tested), a sprite fades out as it nears what's behind it; 1 (drawn over the
+    // ground), it fades out only once it's that far behind the ground, so no hill ever cuts it off in a hard line.
+    float _SoftOver;
 CBUFFER_END
+
+// How far (world units) a soft sprite fades over as it meets the scene (Lorach 2007, "Soft Particles").
+#define FX_SOFT_DEPTH 0.8
+
+// The scene's eye depth under a pixel (the pitched orthographic camera's, or a perspective one's).
+float FxSceneEye(float2 pixel)
+{
+    float raw = SampleSceneDepth(pixel / _ScaledScreenParams.xy);
+    if (unity_OrthoParams.w > 0.5)
+    {
+        #if UNITY_REVERSED_Z
+        raw = 1.0 - raw;
+        #endif
+        return lerp(_ProjectionParams.y, _ProjectionParams.z, raw);
+    }
+    return LinearEyeDepth(raw, _ZBufferParams);
+}
+
+// A point's eye depth: its distance along the camera's view direction.
+float FxEye(float3 positionWS)
+{
+    float3 fwd = -UNITY_MATRIX_V[2].xyz;
+    return dot(positionWS - _WorldSpaceCameraPos, fwd);
+}
 
 struct Attributes
 {
@@ -107,6 +135,9 @@ half4 FxLaser(Varyings i)
 
 half4 FxFrag(Varyings i) : SV_Target
 {
+    // uv.x 10 on: the same shapes as soft particles (10 added to their uv.x), faded against the scene's depth.
+    bool soft = i.uv.x > 9.5;
+    if (soft) i.uv.x -= 10.0;
     // uv.x 8-9: a laser sight.
     if (i.uv.x > 7.5) return FxLaser(i);
     half4 c = i.color;
@@ -130,6 +161,7 @@ half4 FxFrag(Varyings i) : SV_Target
         float2 d = i.uv - float2(2.5, 0.5);
         c.a *= saturate(1.0 - length(d) * 2.0);
     }
+    if (soft) c.a *= saturate((FxSceneEye(i.positionCS.xy) - FxEye(i.positionWS)) / FX_SOFT_DEPTH + _SoftOver);
     #if defined(_VISION_MASKED)
     float2 uv = (i.positionWS.xz - _VisionMaskRect.xy) * _VisionMaskRect.zw;
     float inside = step(0.0, uv.x) * step(0.0, uv.y) * step(uv.x, 1.0) * step(uv.y, 1.0);

@@ -9,6 +9,7 @@ Shader "Vision/FxOverGround"
     Properties
     {
         _Tint ("Tint", Color) = (1, 1, 1, 1)
+        _SoftOver ("Soft particles: fade only behind the ground (drawn over it)", Float) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src Blend", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst Blend", Float) = 1
     }

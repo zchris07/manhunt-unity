@@ -81,14 +81,14 @@ namespace Vision.Audio
             // Plasma.TTV going into his gamer rage, from where he stands (a local file).
             // The K-pop orbital strike: NewJeans' OMG (a local file the user supplies; silent without it), loud, heard 3000
             // units off; the strike lasts exactly as long as it, its last 1.5 s falling away by an inverse square.
-            ["orbital_strike"] = new Cue { Prefer = new[] { "local_kpop_strike" }, Files = new string[0], Volume = 0.8f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
+            ["orbital_strike"] = new Cue { Prefer = new[] { "local_kpop_strike" }, Files = new string[0], Volume = 0.8f * 0.4f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
                 Radius = Vision.Game.Balance.Items.Orbital.HearRadius, TailFade = 1.5f, Warm = true },
-            // The laser itself alongside the music (a local file the user supplies; silent without it), just as loud as the
-            // track (each on its own voice, so neither ever cuts the other off):
-            // started 1.86 s before the beam lands, so its start-up plays through the countdown and its impact (1.86 s into
-            // the file) lands with the beam; it lasts no longer than the beam does, its last 1.5 s falling away by an
-            // inverse square to end with it.
-            ["orbital_laser"] = new Cue { Prefer = new[] { "local_orbital_laser" }, Files = new string[0], Volume = 0.8f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
+            // The laser itself alongside the music (a local file the user supplies; silent without it), 60% louder than it
+            // was (past full volume: a second copy of it in step carries the rest), each on its own voice so neither ever
+            // cuts the other off: started 1.86 s before the beam lands, so its start-up plays through the countdown and its
+            // impact (1.86 s into the file) lands with the beam; when the track starts its end is set to the track's, so the
+            // two fall away together (its last 1.5 s by an inverse square) and stop on the same frame.
+            ["orbital_laser"] = new Cue { Prefer = new[] { "local_orbital_laser" }, Files = new string[0], Volume = 0.8f * 1.6f, PitchJitter = 0f, VolumeJitter = 0f, Near = 700f,
                 Radius = Vision.Game.Balance.Items.Orbital.HearRadius, Warm = true, TailFade = 1.5f,
                 MaxLength = Vision.Game.Balance.Items.Orbital.LaserImpactAt + Vision.Game.Balance.Items.Orbital.Duration },
             // A strike locked on: the tablet's confirm beep, at the target.

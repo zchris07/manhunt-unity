@@ -767,6 +767,28 @@ namespace Vision.Player
                         cameraRig.orthographicSize = o0;
                         player.SelectedSlot = -1;
                         host.ClearDummies();
+                        // The beam on a steep slope rising toward the camera (where it once cut off in a straight line) and on
+                        // flat ground: the start-up line, then the beam burning, a dummy Zach under it.
+                        foreach (bool steep in new[] { true, false })
+                        {
+                            Vector2 spot = StrikeSpot(world, L.Spawn, steep, out float deg);
+                            SimPlayer zd = host.SpawnDummy(Role.Hunter);
+                            host.Sim.Teleport(zd.Id, spot);
+                            yield return Stage(player, V(spot + new Vector2(3.2f, -0.6f)), Vector2.left, wanderer, away);
+                            yield return Wait(3);
+                            host.Sim.PlayTestFx(zd.Id, TestFx.Strike);
+                            string tag = steep ? "slope" : "flat";
+                            Debug.Log($"[Vision] strike on {tag} ground: {deg:0} degrees at {spot}");
+                            yield return new WaitForSeconds(Balance.Items.Orbital.Countdown - 0.35f);
+                            yield return Shot($"199e_strike_{tag}_startup");
+                            yield return new WaitForSeconds(0.35f + 1.4f);
+                            yield return Shot($"199f_strike_{tag}");
+                            yield return new WaitForSeconds(0.9f);
+                            yield return Shot($"199g_strike_{tag}_later");
+                            yield return new WaitForSeconds(Balance.Items.Orbital.Duration - 2.3f + 1.2f);
+                            yield return Shot($"199h_strike_{tag}_after");
+                            host.ClearDummies();
+                        }
                     }
                 }
                 // The view turned 45 degrees at the building (its doors and windows on every side show), an office door up
@@ -2379,6 +2401,30 @@ namespace Vision.Player
         }
 
         /// <summary>How far apart (cm) the merging ghost's bones are from the rising body's (captures: they should coincide).</summary>
+        /// <summary>
+        /// Open ground near <paramref name="near"/> for a strike: the steepest slope rising toward the camera (the ground higher
+        /// on the camera's side, south), or the flattest; its slope in degrees.
+        /// </summary>
+        static Vector2 StrikeSpot(SandboxWorld world, Vector2 near, bool steep, out float degrees)
+        {
+            TerrainField t = world.Terrain;
+            Vector2 best = near;
+            float bestScore = float.NegativeInfinity;
+            degrees = 0f;
+            for (float x = -45f; x <= 45f; x += 1.5f)
+                for (float y = -45f; y <= 45f; y += 1.5f)
+                {
+                    Vector2 p = near + new Vector2(x, y);
+                    if (world.Layout.Building.Contains(p) || t.Height(p.x, p.y) < t.LakeLevel + 0.3f) continue;
+                    float dx = (t.Height(p.x + 0.6f, p.y) - t.Height(p.x - 0.6f, p.y)) / 1.2f;
+                    float dz = (t.Height(p.x, p.y + 0.6f) - t.Height(p.x, p.y - 0.6f)) / 1.2f;
+                    float g = Mathf.Sqrt(dx * dx + dz * dz);
+                    float score = steep ? -dz : -g;
+                    if (score > bestScore) { bestScore = score; best = p; degrees = Mathf.Atan(g) * Mathf.Rad2Deg; }
+                }
+            return best;
+        }
+
         static void LogMerge(string at, Body b, PlayerController player, SandboxWorld world)
         {
             GameObject pivot = GameObject.Find("Body: " + b.Name);

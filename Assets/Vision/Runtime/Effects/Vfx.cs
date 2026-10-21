@@ -32,6 +32,10 @@ namespace Vision.Effects
             public bool Streak, Glow;
             /// <summary>Grows to this many times its size over its life (smoke).</summary>
             public float Grow;
+            /// <summary>Faded against the scene's depth where it meets it (soft particles, Lorach 2007).</summary>
+            public bool Soft;
+            /// <summary>Carried along a curl-noise flow this fast (world units a second; vapour curling as it rises).</summary>
+            public float Curl;
         }
 
         struct Ring
@@ -49,7 +53,7 @@ namespace Vision.Effects
             public readonly List<Vector3> RibbonPts = new List<Vector3>();
             public readonly List<Color> RibbonCols = new List<Color>();
             public readonly List<(int start, int count, float width, bool soft)> Ribbons = new List<(int, int, float, bool)>();
-            public readonly List<(Vector3 pos, float size, Color color, bool glow)> Dots = new List<(Vector3, float, Color, bool)>();
+            public readonly List<(Vector3 pos, float size, Color color, bool glow, bool soft)> Dots = new List<(Vector3, float, Color, bool, bool)>();
             // Laser sights queued this frame (their points in RibbonPts, one colour each).
             public readonly List<(int start, int count, float width, Color color, float seed)> Lasers = new List<(int, int, float, Color, float)>();
             /// <summary>Drawn by the over-ground camera: its ribbons face the camera.</summary>
@@ -145,6 +149,8 @@ namespace Vision.Effects
             var m = new Material(s) { name = $"Fx {blend} over ground", hideFlags = HideFlags.HideAndDontSave };
             m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             m.SetFloat("_DstBlend", blend == Blend.Additive ? (float)UnityEngine.Rendering.BlendMode.One : (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            // (Soft sprites drawn over the ground fade only once they're behind it.)
+            m.SetFloat("_SoftOver", 1f);
             m.renderQueue = 3000 + (blend == Blend.Additive ? 10 : 0);
             return m;
         }
@@ -202,10 +208,11 @@ namespace Vision.Effects
         /// ember, a smoke puff that swells as it rises (<paramref name="grow"/>), a chip of debris.
         /// </summary>
         public void Emit(Vector3 at, Vector3 velocity, float life, Color color, float size, float gravity = 0f, float drag = 1f, bool streak = false,
-            bool glow = false, float grow = 1f, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool over = false)
+            bool glow = false, float grow = 1f, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool over = false, bool soft = false, float curl = 0f)
         {
             Batch b = Get(masked, senses, blend, over);
-            b.Particles.Add(new Particle { Pos = at, Vel = velocity, Color = color, Size = size, Life = life, Drag = drag, Gravity = gravity, Streak = streak, Glow = glow, Grow = grow });
+            b.Particles.Add(new Particle { Pos = at, Vel = velocity, Color = color, Size = size, Life = life, Drag = drag, Gravity = gravity, Streak = streak, Glow = glow, Grow = grow,
+                Soft = soft, Curl = curl });
             if (b.Particles.Count > 3000) b.Particles.RemoveRange(0, b.Particles.Count - 3000);
         }
 
@@ -233,13 +240,36 @@ namespace Vision.Effects
         /// <summary>A soft dot for this frame only (call each frame while it shows).</summary>
         public void Dot(Vector3 at, float size, Color color, bool masked = true, bool senses = false, Blend blend = Blend.Additive, bool over = false)
         {
-            Get(masked, senses, blend, over).Dots.Add((at, size, color, false));
+            Get(masked, senses, blend, over).Dots.Add((at, size, color, false, false));
         }
 
         /// <summary>A soft glow for this frame only: bright in the middle, falling off smoothly (an orb, a flare, a hot spot).</summary>
-        public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive, bool over = false)
+        public void Glow(Vector3 at, float size, Color color, bool masked = false, bool senses = true, Blend blend = Blend.Additive, bool over = false, bool soft = false)
         {
-            Get(masked, senses, blend, over).Dots.Add((at, size, color, true));
+            Get(masked, senses, blend, over).Dots.Add((at, size, color, true, soft));
+        }
+
+        /// <summary>
+        /// A triangle for this frame with a colour at each corner, drawn over the ground (terrain-draped glows, burns and
+        /// rings are built of these, their corners set on the ground's surface).
+        /// </summary>
+        public void TriOver(Vector3 a, Vector3 b, Vector3 c, Color ca, Color cb, Color cc, Blend blend = Blend.Additive)
+        {
+            Batch bt = Get(false, false, blend, true);
+            bt.TriV.Add(a); bt.TriV.Add(b); bt.TriV.Add(c);
+            bt.TriC.Add(ca); bt.TriC.Add(cb); bt.TriC.Add(cc);
+        }
+
+        /// <summary>
+        /// A divergence-free flow (curl of a smooth vector potential: Bridson, Hourihan and Nordenstam 2007, "Curl-Noise for
+        /// Procedural Fluid Flow"), unit strength, varying over about <paramref name="scale"/> world units and slowly in time.
+        /// </summary>
+        public static Vector3 CurlFlow(Vector3 p, float t, float scale = 0.8f)
+        {
+            float k = 1f / Mathf.Max(0.05f, scale);
+            float kx = 1.3f * k, ky = 0.9f * k, kz = 1.1f * k;
+            float a = Mathf.Cos(ky * p.y + kz * p.z + t), b = Mathf.Cos(kz * p.z + kx * p.x + 1.3f * t), c = Mathf.Cos(kx * p.x + ky * p.y + 0.7f * t);
+            return new Vector3(ky * c - kz * b, kz * a - kx * c, kx * b - ky * a) / (kx + ky + kz);
         }
 
         /// <summary>
@@ -364,6 +394,7 @@ namespace Vision.Effects
                     p.Vel *= Mathf.Exp(-p.Drag * dt);
                     p.Vel.y -= p.Gravity * dt;
                     p.Pos += p.Vel * dt;
+                    if (p.Curl > 0f) p.Pos += CurlFlow(p.Pos, Time.time * 0.6f) * (p.Curl * dt);
                     b.Particles[i] = p;
                     float k = p.Age / p.Life;
                     Color c = p.Color;
@@ -374,9 +405,9 @@ namespace Vision.Effects
                         // A spark: stretched along its motion on screen, a short glowing streak.
                         Vector3 v = p.Vel * 0.035f;
                         Vector3 side = Vector3.Cross(v, cam != null ? cam.transform.forward : Vector3.up).normalized * size * 0.5f;
-                        StreakQuad(b, p.Pos, v, side, c);
+                        StreakQuad(b, p.Pos, v, side, c, p.Soft);
                     }
-                    else Quad(b, p.Pos, right * size, up * size, c, p.Glow);
+                    else Quad(b, p.Pos, right * size, up * size, c, p.Glow, p.Soft);
                 }
                 for (int i = b.Rings.Count - 1; i >= 0; i--)
                 {
@@ -397,7 +428,7 @@ namespace Vision.Effects
                 b.Lasers.Clear();
                 b.RibbonPts.Clear();
                 b.RibbonCols.Clear();
-                foreach (var (pos, size, color, glow) in b.Dots) Quad(b, pos, right * size, up * size, color, glow);
+                foreach (var (pos, size, color, glow, soft) in b.Dots) Quad(b, pos, right * size, up * size, color, glow, soft);
                 b.Dots.Clear();
                 for (int i = 0; i < b.TriV.Count; i++)
                 {
@@ -424,13 +455,13 @@ namespace Vision.Effects
             }
         }
 
-        static void Quad(Batch b, Vector3 c, Vector3 r, Vector3 u, Color col, bool glow = false)
+        static void Quad(Batch b, Vector3 c, Vector3 r, Vector3 u, Color col, bool glow = false, bool soft = false)
         {
             int i = b.V.Count;
             b.V.Add(c - r - u); b.V.Add(c + r - u); b.V.Add(c + r + u); b.V.Add(c - r + u);
             for (int k = 0; k < 4; k++) b.C.Add(col);
-            // uv.x 2-3 marks a soft round dot in the shader, 6-7 a glow.
-            float x0 = glow ? 6f : 2f;
+            // uv.x 2-3 marks a soft round dot in the shader, 6-7 a glow (10 more: faded against the scene's depth).
+            float x0 = (glow ? 6f : 2f) + (soft ? 10f : 0f);
             b.U.Add(new Vector2(x0, 0f)); b.U.Add(new Vector2(x0 + 1f, 0f)); b.U.Add(new Vector2(x0 + 1f, 1f)); b.U.Add(new Vector2(x0, 1f));
             b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 1); b.T.Add(i); b.T.Add(i + 3); b.T.Add(i + 2);
         }
@@ -475,14 +506,15 @@ namespace Vision.Effects
         public static bool SkipSmoke;
 
         /// <summary>A streak from p back along -v, soft across (the soft-ribbon shading), bright at the head.</summary>
-        static void StreakQuad(Batch b, Vector3 p, Vector3 v, Vector3 side, Color col)
+        static void StreakQuad(Batch b, Vector3 p, Vector3 v, Vector3 side, Color col, bool soft = false)
         {
+            float x = soft ? 14f : 4f;
             int i = b.V.Count;
             Color tail = col;
             tail.a *= 0.15f;
             b.V.Add(p - v - side); b.V.Add(p - v + side); b.V.Add(p + side); b.V.Add(p - side);
             b.C.Add(tail); b.C.Add(tail); b.C.Add(col); b.C.Add(col);
-            b.U.Add(new Vector2(4f, 0f)); b.U.Add(new Vector2(4f, 1f)); b.U.Add(new Vector2(4f, 1f)); b.U.Add(new Vector2(4f, 0f));
+            b.U.Add(new Vector2(x, 0f)); b.U.Add(new Vector2(x, 1f)); b.U.Add(new Vector2(x, 1f)); b.U.Add(new Vector2(x, 0f));
             b.T.Add(i); b.T.Add(i + 1); b.T.Add(i + 2); b.T.Add(i); b.T.Add(i + 2); b.T.Add(i + 3);
         }
 

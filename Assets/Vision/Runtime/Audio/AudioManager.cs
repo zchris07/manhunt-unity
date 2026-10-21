@@ -188,6 +188,8 @@ namespace Vision.Audio
         sealed class Tracked
         {
             public AudioSource Source;
+            /// <summary>A second copy of it in step with the first, carrying whatever's louder than one source can play (a cue over full volume).</summary>
+            public AudioSource Boost;
             public Vector2? At;
             public float Volume, Near, Radius, Started, Start, End;
             public SoundBank.Cue Cue;
@@ -263,9 +265,27 @@ namespace Vision.Audio
             float end = Mathf.Max(start + 0.05f, clip.length - Mathf.Max(0f, cue.CutEnd));
             if (cue.MaxLength > 0f) end = Mathf.Max(start + 0.05f, Mathf.Min(end, start + cue.MaxLength));
             var tr = new Tracked { Source = s, At = at, Volume = volume, Near = near, Radius = radius, Started = Time.unscaledTime, Start = start, End = end, Cue = cue };
+            // Louder than one source can play: a second copy started with it, sample for sample, takes the rest.
+            if (volume > 1f)
+            {
+                AudioSource b = NewSource("Tracked Boost");
+                b.clip = clip;
+                b.loop = false;
+                b.pitch = pitch;
+                b.time = start;
+                b.priority = s.priority;
+                tr.Boost = b;
+            }
             tracked.Add(tr);
             UpdateTracked(tr);
-            s.Play();
+            if (tr.Boost != null)
+            {
+                // (Scheduled together on the audio clock, so the two stay sample-locked.)
+                double when = AudioSettings.dspTime + 0.05;
+                s.PlayScheduled(when);
+                tr.Boost.PlayScheduled(when);
+            }
+            else s.Play();
             Played++;
             return true;
         }
@@ -284,10 +304,52 @@ namespace Vision.Audio
             float t = tr.Source.isPlaying ? tr.Source.time - tr.Start : Time.unscaledTime - tr.Started;
             // A cut end comes down over its last 60 ms rather than clicking off.
             float cut = tr.Cue.Shortened ? Mathf.Clamp01((tr.End - tr.Start - t) / 0.06f) : 1f;
-            return Mathf.Clamp01(tr.Volume * gain * Envelope(tr.Cue, t, tr.End - tr.Start) * cut);
+            // (Up to 2: past full volume, the boost source plays the rest.)
+            return Mathf.Clamp(tr.Volume * gain * Envelope(tr.Cue, t, tr.End - tr.Start) * cut, 0f, 2f);
         }
 
-        void UpdateTracked(Tracked tr) => tr.Source.volume = TrackedGain(tr) * SfxGain;
+        void UpdateTracked(Tracked tr)
+        {
+            float g = TrackedGain(tr);
+            tr.Source.volume = Mathf.Min(1f, g) * SfxGain;
+            if (tr.Boost != null)
+            {
+                tr.Boost.volume = Mathf.Clamp01(g - 1f) * SfxGain;
+                tr.Boost.panStereo = tr.Source.panStereo;
+            }
+        }
+
+        /// <summary>
+        /// Ends the latest playing <paramref name="cue"/> exactly as the latest <paramref name="to"/> ends (its end, and so its
+        /// tail fade, moved to match): the laser's sound and the strike's track, which starts later, cut off together.
+        /// </summary>
+        public void AlignEnd(string cue, string to)
+        {
+            if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue a) || !SoundBank.Cues.TryGetValue(to, out SoundBank.Cue b)) return;
+            Tracked ta = null, tb = null;
+            foreach (Tracked tr in tracked)
+            {
+                if (tr.Cue == a) ta = tr;
+                if (tr.Cue == b) tb = tr;
+            }
+            if (ta == null || tb == null || ta.Source == null || tb.Source == null || ta.Source.clip == null) return;
+            float leftB = tb.End - Mathf.Max(tb.Start, tb.Source.time);
+            float at = Mathf.Max(ta.Start, ta.Source.time);
+            ta.End = Mathf.Clamp(at + leftB, ta.Start + 0.05f, ta.Source.clip.length);
+        }
+
+        /// <summary>When the latest playing <paramref name="cue"/> stops, s into its file, and how far it's got (tests).</summary>
+        public bool TrackedTimes(string cue, out float position, out float end)
+        {
+            position = end = 0f;
+            if (!SoundBank.Cues.TryGetValue(cue, out SoundBank.Cue c)) return false;
+            Tracked found = null;
+            foreach (Tracked tr in tracked) if (tr.Cue == c) found = tr;
+            if (found == null || found.Source == null) return false;
+            position = found.Source.time;
+            end = found.End;
+            return true;
+        }
 
         /// <summary>Tracked sounds still playing (tests).</summary>
         public int TrackedCount => tracked.Count;
@@ -488,12 +550,17 @@ namespace Vision.Audio
             {
                 Tracked tr = tracked[i];
                 // Cut short: stopped at its end, before the file's.
-                if (tr.Source != null && tr.Source.isPlaying && tr.Cue != null && tr.Cue.Shortened && tr.Source.time >= tr.End) tr.Source.Stop();
+                if (tr.Source != null && tr.Source.isPlaying && tr.Cue != null && tr.Cue.Shortened && tr.Source.time >= tr.End)
+                {
+                    tr.Source.Stop();
+                    if (tr.Boost != null) tr.Boost.Stop();
+                }
                 // (Gone once it's stopped playing: a moment's grace to start, longer while its file is still loading.)
                 bool loading = tr.Source != null && tr.Source.clip != null && tr.Source.clip.loadState == AudioDataLoadState.Loading;
                 if (tr.Source == null || (!tr.Source.isPlaying && now - tr.Started > (loading ? 5f : 0.2f)))
                 {
                     if (tr.Source != null) Destroy(tr.Source.gameObject);
+                    if (tr.Boost != null) Destroy(tr.Boost.gameObject);
                     tracked.RemoveAt(i);
                     continue;
                 }

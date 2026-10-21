@@ -47,8 +47,9 @@ namespace Vision.Tests
             Assert.AreEqual(3000f, cue.Radius, 1e-6f, "heard 3000 units off");
             var laser = Audio.SoundBank.Cues["orbital_laser"];
             CollectionAssert.AreEqual(new[] { "local_orbital_laser" }, laser.Prefer, "the laser under the music, local only");
-            Assert.AreEqual(0.8f, cue.Volume, 1e-6f, "the song 20% softer than at first");
-            Assert.AreEqual(cue.Volume, laser.Volume, 1e-6f, "the laser just as loud as the song");
+            Assert.AreEqual(0.8f * 0.4f, cue.Volume, 1e-6f, "the song 20% softer than at first, then 60% softer again");
+            Assert.AreEqual(0.8f * 1.6f, laser.Volume, 1e-6f, "the laser 60% louder than it was (past full volume)");
+            Assert.AreEqual(cue.TailFade, laser.TailFade, 1e-6f, "falling away together");
             Assert.AreEqual(1.86f, UI.MatchEffects.LaserImpactAt, 1e-6f, "its impact, 1.86 s in, lands with the beam");
             Assert.Less(UI.MatchEffects.LaserImpactAt, Balance.Items.Orbital.Countdown, "its start-up all heard, inside the countdown");
             Assert.AreEqual(UI.MatchEffects.LaserImpactAt + Balance.Items.Orbital.Duration, laser.MaxLength, 1e-4f, "no longer than the laser lasts");
@@ -61,6 +62,29 @@ namespace Vision.Tests
             Assert.IsNotNull(UI.ItemIcons.For(ItemType.OrbitalStrike, false), "its icon");
             Assert.AreEqual(Characters.PropKind.RuggedTablet, Characters.PropModels.ForItem(ItemType.OrbitalStrike, false), "held as a rugged tablet");
             Assert.IsNotNull(Resources.Load<Texture2D>("Overlays/strike_tablet"), "the tablet as it's held up");
+        }
+
+        [Test]
+        public void TheVapoursFlow_IsDivergenceFree_AndTheCoreIsZachsWidth()
+        {
+            // Curl noise (Bridson et al. 2007): the curl of a potential has no divergence, so the vapour swirls without
+            // bunching up or thinning out. Checked numerically at a spread of points and times.
+            const float e = 1e-3f;
+            var rng = new System.Random(3);
+            for (int i = 0; i < 50; i++)
+            {
+                var p = new Vector3((float)rng.NextDouble() * 20f - 10f, (float)rng.NextDouble() * 6f, (float)rng.NextDouble() * 20f - 10f);
+                float t = (float)rng.NextDouble() * 30f;
+                float div = (Effects.Vfx.CurlFlow(p + Vector3.right * e, t).x - Effects.Vfx.CurlFlow(p - Vector3.right * e, t).x
+                    + Effects.Vfx.CurlFlow(p + Vector3.up * e, t).y - Effects.Vfx.CurlFlow(p - Vector3.up * e, t).y
+                    + Effects.Vfx.CurlFlow(p + Vector3.forward * e, t).z - Effects.Vfx.CurlFlow(p - Vector3.forward * e, t).z) / (2f * e);
+                Assert.AreEqual(0f, div, 0.02f, $"divergence-free at {p}");
+                Assert.Greater(Effects.Vfx.CurlFlow(p, t).magnitude, 0f);
+            }
+            float core = UI.MatchEffects.CoreRadius * 2f;
+            Assert.That(core, Is.InRange(0.3f, 0.45f), "the white core as wide as Zach's figure as drawn");
+            Assert.Less(core, Scale.D(Balance.Items.Orbital.Radius) * 2f, "inside the beam's reach");
+            Assert.Less(UI.MatchEffects.StartupLine, Balance.Items.Orbital.Countdown, "the start-up line within the countdown");
         }
 
         [Test]

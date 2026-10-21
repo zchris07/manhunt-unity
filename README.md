@@ -472,24 +472,36 @@ M, V, Esc and F1-F5 read the keyboard directly and are not part of the actions a
     E, or taking another item in hand (clicking it on the inventory bar) lowers it smoothly before then, keeping the
     item. The full map (Tab) and the menus (Esc) draw over it while they're open. You can walk with it up but not
     sprint, and you can't move at all while it rises or lowers.
-  - **The strike.** A column of plasma three times Zach's width comes straight down from the sky onto the target,
-    through anything solid, and follows them with a lag: whoever keeps moving can stay partly out of it but never gets
-    clear. At its centre is a cylinder of pure white energy as wide as Zach himself, going pink further out to its soft
-    edges; pulsing rings race down round it to the ground, as the Hemp Beam's do; the air round it is ionised, arcs
-    crackling off the column and charged motes spiralling up round it; and it lights everything round it. Where it
-    meets the ground: a blinding white-hot spot in a pink bloom, shockwave rings, arcs crawling over the ground, sparks,
-    molten droplets, pink plasma, boiling vapour, embers and clods thrown out, and a burn on whoever it's on.
-    Everything that can be destroyed goes the instant it touches it: doors (not shutters), windows, pallets, the
-    graveyard's gates once unlocked (locked, nothing breaks them), and gas traps (they burst). The ground it touches
-    burns bright, white-hot to orange to dull red, flames licking off it, for a second; then it lies charred, smoking a
-    while, for the rest of the match.
+  - **The strike.** Modelled on an engraving laser burning into a surface (the user's reference clip), only far bigger.
+    A column of plasma three times Zach's width comes straight down from the sky onto the target, through anything
+    solid, and follows them with a lag: whoever keeps moving can stay partly out of it but never gets clear.
+    - **Start-up.** For the countdown's last second a hair-thin white line drops from the sky onto the spot; as the beam
+      lands it swells to full width in 0.15 s, and as it ends it narrows back to a line over 0.6 s.
+    - **The beam** (`Vision/StrikeBeam`). At its centre, a real solid cylinder of pure white plasma as wide as Zach:
+      opaque, so it hides whatever's behind it, with HDR emission caught by a bloom that's switched on only while a strike
+      burns, and plasma streaming down inside it. Round it, a tight ionised corona fading to pink at its outer edge: its
+      brightness follows Beer-Lambert absorption along the view ray's path through the sheath, and animated noise tears
+      and flickers its edge. Pulsing rings race down round it and spread out over the ground, as the Hemp Beam's do;
+      streaks of light race up it; arcs crackle off it (midpoint-displaced, after Reed and Wyvill 1994).
+    - **Where it meets the ground.** A molten white contact patch in a pink bloom, a dome of light over it, shockwaves
+      spreading out, arcs crawling over the ground, a dense low spray of white-hot streaks, molten droplets, specks of
+      debris and grey vapour curling up (advected through a curl-noise flow, after Bridson, Hourihan and Nordenstam
+      2007), still rising for 3 s after the beam's gone. It lights the ground and the player round it strongly.
+    - **Following the terrain.** All of it is drawn after the darkness, so it's never dimmed. Everything that touches
+      the ground is draped over the terrain's own surface vertex by vertex: the contact patch, the bloom, the rings, the
+      shockwaves and the burns. The glows that remain are soft particles, faded against the scene's depth (after Lorach
+      2007), so a slope never cuts any of it off in a straight line.
+    - **What it destroys.** Everything that can be destroyed goes the instant it touches it: doors (not shutters),
+      windows, pallets, the graveyard's gates once unlocked (locked, nothing breaks them), and gas traps (they burst).
+    - **Its trail.** The ground it touches burns bright, white-hot to orange to dull red, flames licking off it, for a
+      second; then it lies charred, smoking a while, for the rest of the match.
   - **Damage.** Anyone it's on (players only, never an NPC) takes half the Hemp Beam's tick ten times a second (5 HP a
     second, about 44 HP in all), is slowed 20% and has every ability silenced (items, JARVIS, Zach's whole kit).
-  - **Sound.** NewJeans' "OMG" plays the whole time (at 80%: 20% softer than at first), heard 3000 units off. The strike lasts exactly as long as the
-    track (8.725 s), its last 1.5 s falling away by an inverse square. Alongside it, just as loud and playing with it the whole way (each on its own voice), the laser
+  - **Sound.** NewJeans' "OMG" plays the whole time (at 32%: 20% softer than at first, then 60% softer again), heard 3000 units off. The strike lasts exactly as long as the
+    track (8.725 s), its last 1.5 s falling away by an inverse square. Alongside it, louder (at 128%: 60% louder than it was; past full volume a second copy of it, in step, carries the rest) and playing with it the whole way (each on its own voice), the laser
     itself, started 1.86 s before the beam lands: its start-up plays through the countdown as the laser initialises,
-    and its impact, 1.86 s into the file, lands with the beam. It lasts no longer than the beam does (stopped as it
-    ends), its last 1.5 s falling away by an inverse square. Both are the user's own local files
+    and its impact, 1.86 s into the file, lands with the beam. When the track starts, the laser's end is set to the track's,
+    so the two fall away together over their last 1.5 s by an inverse square and stop on the same frame. Both are the user's own local files
     (`Resources/Audio/Fx/local_kpop_strike.mp3`, `local_orbital_laser.mp3`, kept out of git); without them it's silent.
 - **Items in play** (`ItemViews`): thrown bottles, books and jars spin through the air; a gas trap is planted by
   holding the left mouse button the whole two seconds (let go before it's down and it starts over); gas traps sit on the ground
